@@ -1,6 +1,7 @@
 --[[ Carpenter - AutoRepair ]]
 local _, ns = ...
 local f = CreateFrame("Frame")
+local L = ns and ns.L or {}
 
 -- Grey + prefix, warm muted red‑orange text for repair (loss)
 local Colors = ns and ns.Private and ns.Private.Colors
@@ -20,7 +21,7 @@ f:SetScript("OnEvent", function(self, event)
                 local M = Carpenter.MerchantState
                 M.autoRepaired = true
                 M.autoRepairAmount = -repairCost
-                Carpenter:AddChatMessage((ColorPlus .. "-|r ") .. ColorRepair .. "Gear repaired: " .. Carpenter:FormatMoney(repairCost) .. "|r")
+                Carpenter:AddChatMessage((ColorPlus .. "-|r ") .. ColorRepair .. (L.GEAR_REPAIRED or "Gear repaired") .. ": " .. Carpenter:FormatMoney(repairCost) .. "|r")
             end
         end)
     end

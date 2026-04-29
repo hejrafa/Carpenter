@@ -1,27 +1,14 @@
 --[[ Carpenter - Sleek Options UI Configuration ]]
 local addonName = ...
+local L = Carpenter and Carpenter.L or {}
 local ADDON_IMAGE_PATH = "Interface\\AddOns\\" .. (addonName or "Carpenter") .. "\\Images\\"
 local COVER_FADE_MASK_PATH = ADDON_IMAGE_PATH .. "CoverFadeMask"
 local frame = CreateFrame("Frame", "CarpenterOptionsPanel", UIParent)
-frame.name = "Carpenter"
-
--- Version check: TBC uses interface 20505, Vanilla uses 11508
-local _, _, _, interfaceVersion = GetBuildInfo()
-local isTBC = interfaceVersion >= 20000
-
--- Feature availability map: maps config key to whether it's available in current version
--- TBC-only features: menuTransparencyEnabled, smallerExpBarEnabled
--- All other features are available in both Vanilla and TBC
-local function IsFeatureAvailable(configKey)
-    if configKey == "menuTransparencyEnabled" or configKey == "smallerExpBarEnabled" then
-        return isTBC
-    end
-    return true -- All other features available in both versions
-end
+frame.name = L.ADDON_NAME or "Carpenter"
 
 local category
 if Settings and Settings.RegisterCanvasLayoutCategory then
-    category = Settings.RegisterCanvasLayoutCategory(frame, "Carpenter")
+    category = Settings.RegisterCanvasLayoutCategory(frame, L.ADDON_NAME or "Carpenter")
     Settings.RegisterAddOnCategory(category)
 else
     InterfaceOptions_AddCategory(frame)
@@ -40,12 +27,12 @@ end
 -- =========================
 local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
 title:SetPoint("TOPLEFT", 16, -15)
-title:SetText("Carpenter")
+title:SetText(L.ADDON_NAME or "Carpenter")
 
 local reloadBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
 reloadBtn:SetSize(90, 22)
 reloadBtn:SetPoint("TOPRIGHT", -30, -15)
-reloadBtn:SetText("Reload UI")
+reloadBtn:SetText(L.RELOAD_UI or "Reload UI")
 reloadBtn:SetScript("OnClick", function() ReloadUI() end)
 reloadBtn:Disable()
 
@@ -130,7 +117,7 @@ if sidebar.CreateMaskTexture and sideImage.AddMaskTexture then
 end
 
 -- Sidebar: only the default (nothing hovered) text is centered; hovered options are top-to-bottom, left-aligned.
-local SIDE_PLACEHOLDER = LightGrey .. "Hover over an option to the left to see its description and settings."
+local SIDE_PLACEHOLDER = LightGrey .. (L.SIDEBAR_PLACEHOLDER or "Hover over an option to the left to see its description and settings.")
 local sideDesc = sidebar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 sideDesc:SetSize(200, 0)
 sideDesc:SetPoint("CENTER", sidebar, "CENTER", 0, 0)
@@ -144,7 +131,7 @@ sideDesc:SetText(SIDE_PLACEHOLDER)
 local sideReloadHint = sidebar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 sideReloadHint:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", -20, SIDE_GAP)
 sideReloadHint:SetJustifyH("RIGHT")
-sideReloadHint:SetText(LightGrey .. "Requires UI reload|r")
+sideReloadHint:SetText(LightGrey .. (L.REQUIRES_RELOAD or "Requires UI reload") .. "|r")
 sideReloadHint:SetWordWrap(true)
 sideReloadHint:SetWidth(200)
 sideReloadHint:Hide()
@@ -257,7 +244,7 @@ local function ShowCarrotSlots()
     if not _G["CP_CarrotSlotLabel"] then
         local l = sideContent:CreateFontString("CP_CarrotSlotLabel", "OVERLAY", "GameFontHighlight")
         l:SetPoint("TOPLEFT", 0, 0)
-        l:SetText("Equip to Slot:")
+        l:SetText(L.EQUIP_TO_SLOT or "Equip to Slot:")
         l:SetTextColor(0.67, 0.67, 0.67, 1)
         local function CreateSlotBtn(slot, name)
             local btn = CreateFrame("CheckButton", "CP_CarrotSlot_" .. slot, sideContent, "UIRadioButtonTemplate")
@@ -273,8 +260,8 @@ local function ShowCarrotSlots()
                 UpdateReloadButton()
             end)
         end
-        CreateSlotBtn(13, "Trinket 13 (Top)")
-        CreateSlotBtn(14, "Trinket 14 (Bottom)")
+        CreateSlotBtn(13, L.TRINKET_TOP or "Trinket 13 (Top)")
+        CreateSlotBtn(14, L.TRINKET_BOTTOM or "Trinket 14 (Bottom)")
     end
     _G["CP_CarrotSlotLabel"]:Show()
     _G["CP_CarrotSlot_13"]:Show()
@@ -293,7 +280,7 @@ local function ShowMacroPreviews()
         "Interface\\Icons\\Inv_Potion_51", Mana = "Interface\\Icons\\Inv_Potion_76", Band =
         "Interface\\Icons\\Inv_Misc_Bandage_08" }
         local order = { "Food", "Water", "Pot", "Mana", "Band" }
-        local labels = { Food = "Food", Water = "Water", Pot = "Health", Mana = "Mana", Band = "Bandage" }
+        local labels = { Food = L.FOOD or "Food", Water = L.WATER or "Water", Pot = L.HEALTH or "Health", Mana = L.MANA or "Mana", Band = L.BANDAGE or "Bandage" }
         local iconSize, spacing = 26, 12
         local totalWidth = (#order * iconSize) + ((#order - 1) * spacing)
         local startX = -(totalWidth / 2) + (iconSize / 2)
@@ -339,11 +326,11 @@ local function ShowFilterOptions()
     sideContent:Show()
     if not _G["CP_Filter_GuildRecruit"] then
         local opts = {
-            { key = "filterGuildRecruitEnabled", name = "CP_Filter_GuildRecruit", label = "Guild recruitment" },
-            { key = "filterTradeBotsEnabled", name = "CP_Filter_TradeBots", label = "Bot spam" },
-            { key = "filterGamblingEnabled", name = "CP_Filter_Gambling", label = "Gambling" },
-            { key = "filterDuplicatesEnabled", name = "CP_Filter_Duplicates", label = "Duplicates" },
-            { key = "filterRestedXPEnabled", name = "CP_Filter_RestedXP", label = "RestedXP level-up spam" },
+            { key = "filterGuildRecruitEnabled", name = "CP_Filter_GuildRecruit", label = L.FILTER_GUILD_RECRUITMENT or "Guild recruitment" },
+            { key = "filterTradeBotsEnabled", name = "CP_Filter_TradeBots", label = L.FILTER_BOT_SPAM or "Bot spam" },
+            { key = "filterGamblingEnabled", name = "CP_Filter_Gambling", label = L.FILTER_GAMBLING or "Gambling" },
+            { key = "filterDuplicatesEnabled", name = "CP_Filter_Duplicates", label = L.FILTER_DUPLICATES or "Duplicates" },
+            { key = "filterRestedXPEnabled", name = "CP_Filter_RestedXP", label = L.FILTER_RESTEDXP or "RestedXP level-up spam" },
         }
         for i, opt in ipairs(opts) do
             local cb = CreateFrame("CheckButton", opt.name, sideContent, "InterfaceOptionsCheckButtonTemplate")
@@ -481,32 +468,32 @@ end
 
 local OPTION_SECTIONS = {
     {
-        title = "Action Bars",
+        title = L.SECTION_ACTION_BARS or "Action Bars",
         options = {
             {
                 key = "hideMacroNamesEnabled",
-                label = "Hide Macro Names",
+                label = L.OPTION_HIDE_MACRO_NAMES or "Hide Macro Names",
                 description = LightGrey .. "Your action bars don't need to be a wall of text.\n\n" ..
                     "Hides " .. LighterCream .. "macro names" .. LightGrey .. " so your bars are clean and focused. Icons speak louder than words.",
                 image = ADDON_IMAGE_PATH .. "macrotext.png",
             },
             {
                 key = "hideKeybindsEnabled",
-                label = "Hide Keybind Text",
+                label = L.OPTION_HIDE_KEYBINDS or "Hide Keybind Text",
                 description = LightGrey .. "You already know your keybinds. Why is the game still showing them?\n\n" ..
                     "Hides " .. LighterCream .. "hotkey labels" .. LightGrey .. " so you see icons, not text. Clean bars for players who know what they're doing.",
                 image = ADDON_IMAGE_PATH .. "keybind.png",
             },
             {
                 key = "actionBarFaderEnabled",
-                label = "Fade Extra Action Bars",
+                label = L.OPTION_ACTION_BAR_FADER or "Fade Extra Action Bars",
                 description = LightGrey .. "Bars 7 and 8 are always there, even when you don't need them.\n\n" ..
                     "Hides bars " .. LighterCream .. "7 and 8" .. LightGrey .. " until you hover. They fade back when you need them - out of sight, ready when called.",
                 image = ADDON_IMAGE_PATH .. "actionbar.png",
             },
             {
                 key = "actionBarRangeEnabled",
-                label = "Out of Range Tint",
+                label = L.OPTION_ACTION_BAR_RANGE or "Out of Range Tint",
                 description = LightGrey .. "Knowing exactly when an ability is in range shouldn't require guessing.\n\n" ..
                     "Tints all " .. LighterCream .. "range-checked abilities" .. LightGrey .. " on your action bars with a subtle dark overlay whenever your current target is out of range, then restores Blizzard's normal look when you step back into range.",
                 image = ADDON_IMAGE_PATH .. "range.png",
@@ -514,7 +501,7 @@ local OPTION_SECTIONS = {
             },
             {
                 key = "hideStanceBarEnabled",
-                label = "Hide Stance Bar",
+                label = L.OPTION_HIDE_STANCE_BAR or "Hide Stance Bar",
                 description = LightGrey .. "The stance bar takes up space you could use for something better.\n\n" ..
                     "Hides the " .. LighterCream .. "Stance Bar" .. LightGrey .. " (" .. LighterCream .. "Druid forms" .. LightGrey .. ", " .. LighterCream .. "Warrior stances" .. LightGrey .. ", " .. LighterCream .. "Rogue stealth" .. LightGrey .. "). Out of sight, still accessible when you need it.",
                 image = ADDON_IMAGE_PATH .. "stance.png",
@@ -522,32 +509,32 @@ local OPTION_SECTIONS = {
         },
     },
     {
-        title = "Interface",
+        title = L.SECTION_INTERFACE or "Interface",
         options = {
             {
                 key = "menuTransparencyEnabled",
-                label = "Fade Micro Menu & Bags",
+                label = L.OPTION_MENU_TRANSPARENCY or "Fade Micro Menu & Bags",
                 description = LightGrey .. "Why are the micro-menu and bags always visible? You know where they are.\n\n" ..
                     "Hides the " .. LighterCream .. "Micro-Menu" .. LightGrey .. " and " .. LighterCream .. "Bags" .. LightGrey .. " until you hover. Or just open your bags - they'll show up. Clean UI until you need them.",
                 image = ADDON_IMAGE_PATH .. "micromenu.png",
             },
             {
                 key = "smallerExpBarEnabled",
-                label = "Resize Exp & Rep Bars",
+                label = L.OPTION_SMALLER_EXP_BAR or "Resize Exp & Rep Bars",
                 description = LightGrey .. "Those exp and rep bars are way too big. They don't need to dominate your screen.\n\n" ..
                     "Resizes the " .. LighterCream .. "Experience" .. LightGrey .. " and " .. LighterCream .. "Reputation" .. LightGrey .. " bars to 65% and makes them transparent. Less clutter, more game.",
                 image = ADDON_IMAGE_PATH .. "repbar.png",
             },
             {
                 key = "minimapClutterEnabled",
-                label = "Remove Minimap Clutter",
+                label = L.OPTION_MINIMAP_CLUTTER or "Remove Minimap Clutter",
                 description = LightGrey .. "Your minimap is doing way too much. Zoom buttons, a glowing sun/moon, and a big zone label all fighting for your attention.\n\n" ..
                     "Hides the minimap " .. LighterCream .. "zoom buttons" .. LightGrey .. ", the " .. LighterCream .. "day/night icon" .. LightGrey .. ", and the " .. LighterCream .. "zone text bar" .. LightGrey .. ". A clean, quiet minimap that still does its job without shouting.",
                 image = ADDON_IMAGE_PATH .. "minimapclutter.png",
             },
             {
                 key = "enhanceTooltipEnabled",
-                label = "Enhanced Tooltip",
+                label = L.OPTION_ENHANCE_TOOLTIP or "Enhanced Tooltip",
                 description = LightGrey .. "Default unit tooltips waste space and bury the information you actually care about.\n\n" ..
                     "Rebuilds the " .. LighterCream .. "unit tooltip" .. LightGrey .. ": hides the bulky " .. LighterCream .. "health bar" .. LightGrey .. ", recolors " .. LighterCream .. "name and level lines" .. LightGrey .. ", and shows who your target is focusing. Clean, readable tooltips that tell you what matters.",
                 image = ADDON_IMAGE_PATH .. "tooltip.png",
@@ -555,38 +542,38 @@ local OPTION_SECTIONS = {
         },
     },
     {
-        title = "Unit Frames",
+        title = L.SECTION_UNIT_FRAMES or "Unit Frames",
         options = {
             {
                 key = "classHealthColorsEnabled",
-                label = "Class Colored Health",
+                label = L.OPTION_CLASS_HEALTH_COLORS or "Class Colored Health",
                 description = LightGrey .. "Everything is green. Your health, your party's health, everything. Boring.\n\n" ..
                     "Replaces green health bars with your " .. LighterCream .. "class color" .. LightGrey .. " on player, target, and party frames. Consistent colors throughout your UI - finally, some personality.",
                 image = ADDON_IMAGE_PATH .. "classhealthbar.png",
             },
             {
                 key = "threatIndicatorEnabled",
-                label = "Threat Percentage",
+                label = L.OPTION_THREAT_INDICATOR or "Threat Percentage",
                 description = LightGrey .. "Playing threat roulette in raids is not a strategy.\n\n" ..
                     "Shows your " .. LighterCream .. "threat percentage" .. LightGrey .. " on the target frame. Know exactly when to ease off or go all out. No more guessing.",
                 image = ADDON_IMAGE_PATH .. "threat.png",
             },
             {
                 key = "unitFrameDebuffsEnabled",
-                label = "Debuffs",
+                label = L.OPTION_DEBUFFS or "Debuffs",
                 description = LightGrey .. "Important debuffs blend into the noise. You shouldn't have to hunt for them.\n\n" ..
                     "Highlights " .. LighterCream .. "CC" .. LightGrey .. " (" .. LighterCream .. "Stuns" .. LightGrey .. ", " .. LighterCream .. "Poly" .. LightGrey .. ", etc.) on player and target unit frames. Never miss a crowd control effect again.",
                 image = ADDON_IMAGE_PATH .. "unitdebuff.png",
             },
             {
                 key = "unitFrameClassIconEnabled",
-                label = "Class Icon Portrait",
+                label = L.OPTION_CLASS_ICON_PORTRAIT or "Class Icon Portrait",
                 description = LightGrey .. "Replace the player, target, and focus frame " .. LighterCream .. "portrait" .. LightGrey .. " with the unit's " .. LighterCream .. "class icon" .. LightGrey .. " (same circular mask). When Debuffs is enabled, CC still replaces the portrait as usual.",
                 image = ADDON_IMAGE_PATH .. "classicon.png",
             },
             {
                 key = "hideUnitFrameCombatTextEnabled",
-                label = "Hide Unit Frame Combat Text",
+                label = L.OPTION_HIDE_UNIT_FRAME_COMBAT_TEXT or "Hide Unit Frame Combat Text",
                 description = LightGrey .. "Floating combat text near your player and pet frames can get in the way.\n\n" ..
                     "Hides " .. LighterCream .. "damage" .. LightGrey .. ", " .. LighterCream .. "healing" .. LightGrey .. ", " .. LighterCream .. "dodge" .. LightGrey .. ", " .. LighterCream .. "miss" .. LightGrey .. ", " .. LighterCream .. "parry" .. LightGrey .. ", periodic numbers, and combat state messages on the player and pet portrait frames. Cleaner unit frames, less visual noise.",
                 image = ADDON_IMAGE_PATH .. "unitnumbers.png",
@@ -599,39 +586,39 @@ local OPTION_SECTIONS = {
         },
     },
     {
-        title = "Nameplates",
+        title = L.SECTION_NAMEPLATES or "Nameplates",
         options = {
             {
                 key = "debuffTrackerEnabled",
-                label = "Debuffs",
+                label = L.OPTION_DEBUFFS or "Debuffs",
                 description = LightGrey .. "What's affecting that enemy? Who knows. The game isn't telling you.\n\n" ..
                     "Shows " .. LighterCream .. "CC" .. LightGrey .. " (" .. LighterCream .. "Stuns" .. LightGrey .. ", " .. LighterCream .. "Poly" .. LightGrey .. ", etc.) above enemy nameplates. See what's affecting your targets at a glance.",
                 image = ADDON_IMAGE_PATH .. "nameplatedebuff.png",
             },
             {
                 key = "nameplateComboEnabled",
-                label = "Combo Points",
+                label = L.OPTION_COMBO_POINTS or "Combo Points",
                 description = LightGrey .. "Your eyes darting between your combo points and your target mid-fight. There's a better way.\n\n" ..
                     "Displays your " .. LighterCream .. "Combo Points" .. LightGrey .. " on the target's nameplate. Perfect for rogues and druids tracking finishers. Keep your eyes where they matter.",
                 image = ADDON_IMAGE_PATH .. "nameplatecombo.png",
             },
             {
                 key = "nameplateCastNamesEnabled",
-                label = "Cast Bar",
+                label = L.OPTION_CAST_BAR or "Cast Bar",
                 description = LightGrey .. "That enemy is casting something. What is it? How long do you have?\n\n" ..
                     "Adds a full " .. LighterCream .. "cast bar" .. LightGrey .. " below enemy nameplates — " .. LighterCream .. "spell icon" .. LightGrey .. ", " .. LighterCream .. "spell name" .. LightGrey .. ", " .. LighterCream .. "progress bar" .. LightGrey .. ", and " .. LighterCream .. "spark glow" .. LightGrey .. ". Color-coded: " .. LighterCream .. "gold" .. LightGrey .. " for casts, " .. LighterCream .. "green" .. LightGrey .. " for channels, " .. LighterCream .. "red" .. LightGrey .. " on interrupt. Identical to the unit frame cast bar.",
                 image = ADDON_IMAGE_PATH .. "spellname.png",
             },
             {
                 key = "nameplateClassHealthEnabled",
-                label = "Class Colored Health",
+                label = L.OPTION_CLASS_HEALTH_COLORS or "Class Colored Health",
                 description = LightGrey .. "Every enemy health bar is the same flat green. In chaotic fights, nothing stands out.\n\n" ..
                     "Colors enemy player nameplate health bars with their " .. LighterCream .. "class color" .. LightGrey .. ". Instantly spot healers, melee, and priority targets just by the bar color.",
                 image = ADDON_IMAGE_PATH .. "classhealthnameplate.png",
             },
             {
                 key = "raidTargetIconAlignedEnabled",
-                label = "Raid Target Icon Aligned",
+                label = L.OPTION_RAID_TARGET_ICON_ALIGNED or "Raid Target Icon Aligned",
                 description = LightGrey .. "With nameplates on, the raid target icons (skull, star, etc.) float too high above the bar.\n\n" ..
                     "Moves the " .. LighterCream .. "raid target icon" .. LightGrey .. " down so it sits on the same level as the nameplate. Cleaner and easier to read.",
                 image = ADDON_IMAGE_PATH .. "raidtarget.png",
@@ -639,25 +626,25 @@ local OPTION_SECTIONS = {
         },
     },
     {
-        title = "Chat",
+        title = L.SECTION_CHAT or "Chat",
         options = {
             {
                 key = "chatFilterEnabled",
-                label = "Filter",
+                label = L.OPTION_CHAT_FILTER or "Filter",
                 description = LightGrey .. "Your chat is a spam dumpster. Guild recruitment, bots, gambling - it never stops.",
                 sideLogic = ShowFilterOptions,
                 image = ADDON_IMAGE_PATH .. "chatfilter.png",
             },
             {
                 key = "chatCleanerEnabled",
-                label = "Cleaner",
+                label = L.OPTION_CHAT_CLEANER or "Cleaner",
                 description = LightGrey .. "System messages look like they were designed in 2004. Because they were.\n\n" ..
                     "Restyles " .. LighterCream .. "system and loot messages" .. LightGrey .. " in chat (" .. LighterCream .. "exp" .. LightGrey .. ", " .. LighterCream .. "rep" .. LightGrey .. ", " .. LighterCream .. "money" .. LightGrey .. ", " .. LighterCream .. "learned" .. LightGrey .. ", etc.). Clean, readable notifications that don't hurt your eyes.",
                 image = ADDON_IMAGE_PATH .. "chatcleaner.png",
             },
             {
                 key = "hideChatButtonsEnabled",
-                label = "Hide Chat Buttons",
+                label = L.OPTION_HIDE_CHAT_BUTTONS or "Hide Chat Buttons",
                 description = LightGrey .. "Those chat buttons? You've clicked them maybe twice. Ever.\n\n" ..
                     "Hides the default " .. LighterCream .. "chat buttons" .. LightGrey .. " like " .. LighterCream .. "Social" .. LightGrey .. ", " .. LighterCream .. "Chat Channels" .. LightGrey .. ", and " .. LighterCream .. "Voice" .. LightGrey .. ". They reappear when you hover - out of the way until you need them.",
                 image = ADDON_IMAGE_PATH .. "chatbuttons.png",
@@ -665,11 +652,11 @@ local OPTION_SECTIONS = {
         },
     },
     {
-        title = "Automations",
+        title = L.SECTION_AUTOMATIONS or "Automations",
         options = {
             {
                 key = "autoCarrotEnabled",
-                label = "Mount Speed Trinket",
+                label = L.OPTION_MOUNT_SPEED_TRINKET or "Mount Speed Trinket",
                 description = LightGrey .. "Swapping trinkets every mount and dismount gets old fast.\n\n" ..
                     "Equips a mount speed trinket in your chosen slot when you mount: " .. LighterCream .. "Riding Crop" .. LightGrey .. " (10%) if you have it, otherwise " .. LighterCream .. "Carrot on a Stick" .. LightGrey .. " (3%). Swaps back automatically when you dismount.",
                 sideLogic = ShowCarrotSlots,
@@ -677,7 +664,7 @@ local OPTION_SECTIONS = {
             },
             {
                 key = "smartMacrosEnabled",
-                label = "Consumable Macros",
+                label = L.OPTION_CONSUMABLE_MACROS or "Consumable Macros",
                 description = LightGrey .. "Digging through your bags for the right consumable mid-combat is not ideal.\n\n" ..
                     "Creates macros that use your " .. LighterCream .. "best consumable" .. LightGrey .. " (" .. LighterCream .. "food" .. LightGrey .. ", " .. LighterCream .. "water" .. LightGrey .. ", " .. LighterCream .. "pot" .. LightGrey .. ", " .. LighterCream .. "bandage" .. LightGrey .. "). Drag them onto your action bars and go. Always uses the best you have.",
                 sideLogic = ShowMacroPreviews,
@@ -685,14 +672,14 @@ local OPTION_SECTIONS = {
             },
             {
                 key = "autoTrackQuestsEnabled",
-                label = "Auto Track Quests",
+                label = L.OPTION_AUTO_TRACK_QUESTS or "Auto Track Quests",
                 description = LightGrey .. "Picking up a quest and then opening the log just to track it is needless friction.\n\n" ..
                     "Automatically adds " .. LighterCream .. "newly accepted quests" .. LightGrey .. " to the objective tracker so your next task is already visible.",
                 requiresReload = false,
             },
             {
                 key = "autoSellGreys",
-                label = "Auto Sell Junk",
+                label = L.OPTION_AUTO_SELL_JUNK or "Auto Sell Junk",
                 description = LightGrey .. "Selling grey items one by one is busywork, not gameplay.\n\n" ..
                     "Sells " .. LighterCream .. "grey-quality items" .. LightGrey .. " to the vendor when you open a merchant. Hold " .. LighterCream .. "Shift" .. LightGrey .. " to skip - you're in control. More time playing, less time managing inventory.",
                 sideLogic = ShowSellJunkOptions,
@@ -700,7 +687,7 @@ local OPTION_SECTIONS = {
             },
             {
                 key = "autoRepair",
-                label = "Auto Repair",
+                label = L.OPTION_AUTO_REPAIR or "Auto Repair",
                 description = LightGrey .. "You forgot to repair again. Now your gear is broken mid-raid. Naturally.\n\n" ..
                     "Repairs your " .. LighterCream .. "gear" .. LightGrey .. " with your gold when you talk to a repair vendor. Hold " .. LighterCream .. "Shift" .. LightGrey .. " to skip - save that gold for something else. Never worry about broken gear again.",
                 image = ADDON_IMAGE_PATH .. "repair.png",
@@ -708,18 +695,18 @@ local OPTION_SECTIONS = {
         },
     },
     {
-        title = "Text",
+        title = L.SECTION_TEXT or "Text",
         options = {
             {
                 key = "enchantWarningEnabled",
-                label = "Poison Warning",
+                label = L.OPTION_POISON_WARNING or "Poison Warning",
                 description = LightGrey .. "Your weapon buff expired five minutes ago. You had no idea.\n\n" ..
                     "Shows an alert when your " .. LighterCream .. "weapon buff" .. LightGrey .. " (" .. LighterCream .. "poison" .. LightGrey .. ", " .. LighterCream .. "stone" .. LightGrey .. ") is about to expire. Never get caught unbuffed again. Stay sharp.",
                 image = ADDON_IMAGE_PATH .. "warning.png",
             },
             {
                 key = "hideErrorMessagesEnabled",
-                label = "Hide Error Messages",
+                label = L.OPTION_HIDE_ERROR_MESSAGES or "Hide Error Messages",
                 description = LightGrey .. "Red error text in the middle of your screen yelling \"Out of range\" or \"Not enough energy\" every few seconds isn't helping.\n\n" ..
                     "Silences common " .. LighterCream .. "ability error messages" .. LightGrey .. " like " .. LighterCream .. "Out of range" .. LightGrey .. ", " .. LighterCream .. "Not enough energy" .. LightGrey .. ", and more, while leaving important errors alone. Quieter combat, same control.",
                 image = ADDON_IMAGE_PATH .. "error.png",
@@ -727,11 +714,11 @@ local OPTION_SECTIONS = {
         },
     },
     {
-        title = "Immersion",
+        title = L.SECTION_IMMERSION or "Immersion",
         options = {
             {
                 key = "actionCamEnabled",
-                label = "Action Cam",
+                label = L.OPTION_ACTION_CAM or "Action Cam",
                 description = LightGrey .. "Your character deserves a proper close-up.\n\n" ..
                     "Shifts the camera over your shoulder for a " .. LighterCream .. "cinematic" .. LightGrey .. " view - like you're right there in the action instead of floating behind. The camera tilts and follows more naturally when you move and fly. Turn it on, run around, and see the world from a fresh angle.",
                 image = ADDON_IMAGE_PATH .. "actioncam.png",
@@ -749,7 +736,7 @@ for sectionIndex, section in ipairs(OPTION_SECTIONS) do
     CreateHeader(section.title)
 
     for _, option in ipairs(section.options) do
-        if IsFeatureAvailable(option.key) then
+        if Carpenter:IsFeatureAvailable(option.key) then
             CreateCheckbox(
                 option.key,
                 option.label,
@@ -763,13 +750,22 @@ for sectionIndex, section in ipairs(OPTION_SECTIONS) do
     end
 end
 
+if Carpenter.Client and Carpenter.Client.isRetail then
+    local label = content:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    label:SetPoint("TOPLEFT", 10, yPos)
+    label:SetText(LightGrey .. (L.NO_RETAIL_OPTIONS or "Retail support is wired up, but no Retail options are enabled yet."))
+    label:SetWidth(420)
+    label:SetWordWrap(true)
+    yPos = yPos - 40
+end
+
 -- =========================
 -- Footer
 -- =========================
 yPos = yPos - 48
 local footerCredit = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 footerCredit:SetPoint("TOPLEFT", 10, yPos)
-footerCredit:SetText(LightGrey .. "Created by Rafa - " .. "|cff00aaffhejrafa.com|r")
+footerCredit:SetText(LightGrey .. (L.CREATED_BY or "Created by Rafa") .. " - " .. "|cff00aaffhejrafa.com|r")
 
 local footerVersion = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 footerVersion:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, yPos)

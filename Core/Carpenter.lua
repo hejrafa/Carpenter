@@ -6,6 +6,8 @@ ns.Private = ns.Private or {}
 
 CarpenterDB = CarpenterDB or {}
 
+local L = ns.L or Carpenter.L or {}
+
 local defaults = {
     -- Action Bars
     hideMacroNamesEnabled = false,
@@ -124,14 +126,13 @@ function Carpenter_InitializeSettings()
     end
 end
 
--- Slash Command Handler
 SLASH_CARPENTER1 = "/carpenter"
 SLASH_CARPENTER2 = "/cp"
-SlashCmdList["CARPENTER"] = function(msg)
+SlashCmdList["CARPENTER"] = function()
     if type(Carpenter_OpenConfig) == "function" then
         Carpenter_OpenConfig()
     else
-        print("|cffff0000Carpenter:|r Config UI not loaded.")
+        print("|cffff0000Carpenter:|r " .. (L.CONFIG_NOT_LOADED or "Config UI not loaded."))
     end
 end
 

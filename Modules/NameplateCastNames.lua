@@ -10,6 +10,8 @@ local GAP   = 6     -- px between nameplate bottom and our widget
 local activeCasts = {}
 
 -- Single OnUpdate driver for smooth bar progress across all nameplates
+local _, ns = ...
+local L = ns and ns.L or {}
 local driver = CreateFrame("Frame")
 driver:Hide()
 driver:SetScript("OnUpdate", function()
@@ -87,7 +89,7 @@ local function UpdateCast(plate, unit)
     if name then
         ShowBar(plate, name, icon, startTimeMS, endTimeMS, isChannel)
     else
-        if plate.CP_CastText and plate.CP_CastText:GetText() == "Interrupted" then return end
+        if plate.CP_CastText and plate.CP_CastText:GetText() == (L.INTERRUPTED or "Interrupted") then return end
         HideBar(plate)
     end
 end
@@ -279,7 +281,7 @@ frame:SetScript("OnEvent", function(self, event, unit)
         if plate and CarpenterDB and CarpenterDB.nameplateCastNamesEnabled then
             if not plate.CP_Widget then SetupPlate(plate, unit) end
             if plate.CP_Widget then
-                plate.CP_CastText:SetText("Interrupted")
+                plate.CP_CastText:SetText(L.INTERRUPTED or "Interrupted")
                 plate.CP_Bar:SetValue(1)
                 -- Red color — same as the unit frame castbar on interrupt
                 local ref = TargetFrameSpellBar
@@ -292,7 +294,7 @@ frame:SetScript("OnEvent", function(self, event, unit)
                 activeCasts[plate] = nil
                 C_Timer.After(1.1, function()
                     if plate and plate.CP_CastText
-                    and plate.CP_CastText:GetText() == "Interrupted" then
+                    and plate.CP_CastText:GetText() == (L.INTERRUPTED or "Interrupted") then
                         HideBar(plate)
                     end
                 end)

@@ -65,7 +65,14 @@ Type `/carpenter` or `/cp` in-game to open the settings panel. Every feature is 
 
 ## Compatibility
 
+- Retail / Mainline (12.0.x) - shell support only; gameplay options are disabled until validated
 - WoW Classic Anniversary / Vanilla (1.15.x)
 - WoW Classic TBC (2.5.x)
 
 Some features (Micro Menu fade, Exp/Rep bar resize) are TBC-only.
+
+## Project Structure
+
+- `Core/` - shared bootstrap and client compatibility checks
+- `Localization/` - English defaults plus locale-specific overrides
+- `Modules/` - feature modules loaded by the Classic Era and TBC TOCs

@@ -4,6 +4,8 @@ Carpenter is a modular quality-of-life addon for WoW Classic. It cleans up noisy
 
 Every feature is optional and disabled by default. Open `/carpenter` or `/cp`, turn on the pieces you want, and leave the rest alone.
 
+Carpenter ships dedicated TOCs for Retail/Mainline, Classic Era, and TBC. Retail currently loads only the shared shell and settings panel so future Retail work has a safe place to land.
+
 ## Features
 
 ### Action Bars

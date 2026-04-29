@@ -1,6 +1,7 @@
 --[[ Carpenter - AutoSellGreys ]]
 local _, ns = ...
 local f = CreateFrame("Frame")
+local L = ns and ns.L or {}
 
 -- Grey + prefix, grey text for junk (poor quality)
 local Colors   = ns and ns.Private and ns.Private.Colors
@@ -62,9 +63,9 @@ local function SellGreyItems()
         M.autoSoldJunk = true
         M.autoSoldAmount = totalValue
         if totalValue > 0 then
-            Carpenter:AddChatMessage((ColorPlus .. "+|r ") .. ColorJunk .. "Sold junk items: " .. Carpenter:FormatMoney(totalValue) .. "|r")
+            Carpenter:AddChatMessage((ColorPlus .. "+|r ") .. ColorJunk .. (L.SOLD_JUNK_ITEMS or "Sold junk items") .. ": " .. Carpenter:FormatMoney(totalValue) .. "|r")
         else
-            Carpenter:AddChatMessage((ColorPlus .. "+|r ") .. ColorJunk .. "Sold junk items|r")
+            Carpenter:AddChatMessage((ColorPlus .. "+|r ") .. ColorJunk .. (L.SOLD_JUNK_ITEMS or "Sold junk items") .. "|r")
         end
     end
 end

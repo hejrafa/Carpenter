@@ -1,13 +1,20 @@
 ## Interface: 20505
 ## Title: Carpenter
+## Title-deDE: Carpenter
 ## Notes: |cff666666By Rafael Polutta|r|n|nExperience the game how it was meant to be, plus some minor improvements.|n|nUI tweaks and quality-of-life options for WoW Classic.
+## Notes-deDE: |cff666666Von Rafael Polutta|r|n|nErlebe das Spiel, wie es gedacht war, plus ein paar kleine Verbesserungen.|n|nUI-Anpassungen und Komfortoptionen fur WoW Classic.
 ## SavedVariables: CarpenterDB
 ## Version: 1.4.0
 ## Author: Rafael Polutta
 ## IconTexture: Interface\AddOns\Carpenter\Carpenter_Logo
 
-# Core & Settings
-Carpenter.lua
+# Core
+Core\Compatibility.lua
+Localization\enUS.lua
+Localization\deDE.lua
+Core\Carpenter.lua
+
+# Settings & Data
 config.lua
 SpellData.lua
 
