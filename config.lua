@@ -684,6 +684,13 @@ local OPTION_SECTIONS = {
                 image = ADDON_IMAGE_PATH .. "macro.png",
             },
             {
+                key = "autoTrackQuestsEnabled",
+                label = "Auto Track Quests",
+                description = LightGrey .. "Picking up a quest and then opening the log just to track it is needless friction.\n\n" ..
+                    "Automatically adds " .. LighterCream .. "newly accepted quests" .. LightGrey .. " to the objective tracker so your next task is already visible.",
+                requiresReload = false,
+            },
+            {
                 key = "autoSellGreys",
                 label = "Auto Sell Junk",
                 description = LightGrey .. "Selling grey items one by one is busywork, not gameplay.\n\n" ..

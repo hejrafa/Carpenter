@@ -41,6 +41,7 @@ The default UI is cluttered and missing information. Carpenter fixes it.
 ### Automations
 - **Mount Speed Trinket** — Auto-equips Riding Crop or Carrot on a Stick when mounting
 - **Consumable Macros** — Creates smart macros that always use your best food, water, potions, and bandages
+- **Auto Track Quests** — Adds newly accepted quests to the objective tracker
 - **Auto Sell Junk** — Sells grey items at vendors (hold Shift to skip)
 - **Auto Repair** — Repairs gear at vendors (hold Shift to skip)
 

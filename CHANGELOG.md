@@ -8,3 +8,4 @@
 - Tuned nameplate combo point size and spacing.
 - Added the cover fade mask treatment to settings preview images.
 - Let positional ability errors like "Must be behind your target" show again.
+- Added Auto Track Quests for newly accepted quests.

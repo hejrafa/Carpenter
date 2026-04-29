@@ -61,6 +61,37 @@ local KNOWN_WATER_IDS = {
     [18300] = true, [22018] = true, [28399] = true, [29395] = true, [30703] = true, [32453] = true, [33444] = true,
 }
 
+local KNOWN_CONJURED_FOOD_IDS = {
+    [1113] = true, [1114] = true, [1487] = true, [8075] = true, [8076] = true, [22895] = true, [22019] = true,
+    [34062] = true,
+}
+
+local KNOWN_CONJURED_WATER_IDS = {
+    [5350] = true, [8077] = true, [8078] = true, [8079] = true, [10841] = true, [18300] = true, [22018] = true,
+    [28399] = true, [30703] = true, [33312] = true,
+}
+
+local KNOWN_HEALTH_IDS = {
+    [118] = true, [858] = true, [929] = true, [1710] = true, [3928] = true, [13446] = true, [22829] = true,
+    [32947] = true, [43569] = true,
+}
+
+local KNOWN_MANA_IDS = {
+    [2455] = true, [3385] = true, [3827] = true, [6149] = true, [13443] = true, [22832] = true, [32948] = true,
+    [43570] = true,
+}
+
+local KNOWN_HEALTHSTONE_IDS = {
+    [5509] = true, [5510] = true, [5511] = true, [5512] = true, [9421] = true, [19004] = true, [19005] = true,
+    [19006] = true, [19007] = true, [19008] = true, [19009] = true, [19010] = true, [19011] = true, [19012] = true,
+    [19013] = true, [22103] = true, [22104] = true, [22105] = true, [22106] = true, [22107] = true, [22108] = true,
+}
+
+local KNOWN_BANDAGE_IDS = {
+    [1251] = true, [2581] = true, [3530] = true, [3531] = true, [6450] = true, [6451] = true, [8544] = true,
+    [8545] = true, [14529] = true, [14530] = true, [21990] = true, [21991] = true, [34721] = true, [34722] = true,
+}
+
 local scanTooltip = CreateFrame("GameTooltip", "CP_SmartMacroScanTooltip", nil, "GameTooltipTemplate")
 scanTooltip:SetOwner(WorldFrame, "ANCHOR_NONE")
 
@@ -153,11 +184,32 @@ local function GetSpellText(item)
     return spellName and spellName:lower() or ""
 end
 
+local function IsPotionItem(item)
+    local name = item.name and item.name:lower() or ""
+    local subType = item.itemSubType:lower()
+
+    return item.subClassID == 1 or subType:find("potion", 1, true) or name:find("potion", 1, true)
+end
+
+local function IsBandageItem(item, tooltip)
+    local name = item.name and item.name:lower() or ""
+    local subType = item.itemSubType:lower()
+
+    return (item.itemID and KNOWN_BANDAGE_IDS[item.itemID]) or
+        item.subClassID == 7 or
+        subType:find("bandage", 1, true) or
+        name:find("bandage", 1, true) or
+        tooltip:find("bandage", 1, true)
+end
+
+local IsWater
+
 local function IsFood(item, tooltip, spellText)
     local name = item.name and item.name:lower() or ""
     local itemType = item.itemType:lower()
     local itemSubType = item.itemSubType:lower()
 
+    if IsPotionItem(item) or IsBandageItem(item, tooltip) or IsWater(item, tooltip, spellText) then return false end
     if item.itemID and KNOWN_FOOD_IDS[item.itemID] then return true end
     if spellText:find("food", 1, true) then return true end
     if tooltip:find("must remain seated while eating", 1, true) then return true end
@@ -169,10 +221,11 @@ local function IsFood(item, tooltip, spellText)
     return false
 end
 
-local function IsWater(item, tooltip, spellText)
+IsWater = function(item, tooltip, spellText)
     local name = item.name and item.name:lower() or ""
     local itemSubType = item.itemSubType:lower()
 
+    if IsPotionItem(item) or IsBandageItem(item, tooltip) or (item.itemID and KNOWN_FOOD_IDS[item.itemID]) then return false end
     if item.itemID and KNOWN_WATER_IDS[item.itemID] then return true end
     if spellText:find("drink", 1, true) then return true end
     if tooltip:find("must remain seated while drinking", 1, true) then return true end
@@ -183,38 +236,58 @@ local function IsWater(item, tooltip, spellText)
     return false
 end
 
-local function IsHealthConsumable(item, tooltip)
-    local subType = item.itemSubType:lower()
-    return tooltip:find("healthstone", 1, true) or
-        ((item.subClassID == 1 or subType:find("potion", 1, true)) and tooltip:find("health", 1, true))
+local function IsHealthConsumable(item, tooltip, spellText)
+    local name = item.name and item.name:lower() or ""
+
+    if item.itemID and (KNOWN_HEALTH_IDS[item.itemID] or KNOWN_HEALTHSTONE_IDS[item.itemID]) then return true end
+    if name:find("healthstone", 1, true) or tooltip:find("healthstone", 1, true) then return true end
+    if not IsPotionItem(item) then return false end
+    if name:find("healing potion", 1, true) or name:find("health potion", 1, true) then return true end
+    if spellText:find("healing potion", 1, true) or spellText:find("restore health", 1, true) or spellText:find("heal", 1, true) then return true end
+    if (tooltip:find("restores %d+ health") or tooltip:find("restores %d+ to %d+ health") or tooltip:find("heals %d+")) and not tooltip:find("mana", 1, true) then return true end
+
+    return tooltip:find("health", 1, true) ~= nil
 end
 
-local function IsManaConsumable(item, tooltip)
-    local subType = item.itemSubType:lower()
-    return (item.subClassID == 1 or subType:find("potion", 1, true)) and tooltip:find("mana", 1, true)
+local function IsManaConsumable(item, tooltip, spellText)
+    local name = item.name and item.name:lower() or ""
+
+    if item.itemID and KNOWN_MANA_IDS[item.itemID] then return true end
+    if name:find("mana potion", 1, true) then return true end
+    if not IsPotionItem(item) then return false end
+    if spellText:find("mana potion", 1, true) or spellText:find("restore mana", 1, true) then return true end
+    if tooltip:find("restores %d+ mana") or tooltip:find("restores %d+ to %d+ mana") then return true end
+
+    return tooltip:find("mana", 1, true) ~= nil
 end
 
 local function IsBandage(item, tooltip)
-    local subType = item.itemSubType:lower()
-    return item.subClassID == 7 or subType:find("bandage", 1, true) or tooltip:find("bandage", 1, true)
+    return IsBandageItem(item, tooltip)
 end
 
 local function ScoreItem(item, tooltip, spellText, category)
     local score = item.itemLevel or 0
     local name = item.name and item.name:lower() or ""
 
-    local restores = tooltip:match("restores%s+(%d+)")
+    local restores = tooltip:match("restores%s+%d+%s+to%s+(%d+)") or tooltip:match("restores%s+(%d+)")
     if restores then
         score = score + tonumber(restores)
     end
 
-    if name:find("conjured", 1, true) or tooltip:find("conjured", 1, true) then
+    local isConjured = name:find("conjured", 1, true) or tooltip:find("conjured", 1, true)
+    if isConjured then
         score = score + 100000
+    end
+
+    if category == "Food" and item.itemID and KNOWN_CONJURED_FOOD_IDS[item.itemID] then
+        score = score + 150000
+    elseif category == "Water" and item.itemID and KNOWN_CONJURED_WATER_IDS[item.itemID] then
+        score = score + 150000
     end
 
     if category == "Food" and (tooltip:find("well fed", 1, true) or tooltip:find("%+%d+")) then
         score = score - 5000
-    elseif category == "Pot" and tooltip:find("healthstone", 1, true) then
+    elseif category == "Pot" and (tooltip:find("healthstone", 1, true) or (item.itemID and KNOWN_HEALTHSTONE_IDS[item.itemID])) then
         score = score + 200000
     end
 
@@ -241,9 +314,9 @@ local function MatchesCategory(item, tooltip, spellText, category)
     elseif category == "Water" then
         return IsWater(item, tooltip, spellText)
     elseif category == "Pot" then
-        return IsHealthConsumable(item, tooltip)
+        return IsHealthConsumable(item, tooltip, spellText)
     elseif category == "Mana" then
-        return IsManaConsumable(item, tooltip)
+        return IsManaConsumable(item, tooltip, spellText)
     elseif category == "Band" then
         return IsBandage(item, tooltip)
     end

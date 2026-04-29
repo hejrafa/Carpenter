@@ -43,6 +43,7 @@ local defaults = {
     autoCarrotEnabled = false,
     autoCarrotSlot = 14,
     smartMacrosEnabled = false,
+    autoTrackQuestsEnabled = false,
     autoSellGreys = false,
     autoRepair = false,
     -- Text

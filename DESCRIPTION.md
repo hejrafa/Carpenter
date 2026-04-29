@@ -47,6 +47,7 @@ Every feature is optional and disabled by default. Open `/carpenter` or `/cp`, t
 
 - **Mount Speed Trinket** - Equip Riding Crop or Carrot on a Stick when mounting.
 - **Consumable Macros** - Create macros that track your best food, water, health potion, mana potion, and bandage.
+- **Auto Track Quests** - Add newly accepted quests to the objective tracker.
 - **Auto Sell Junk** - Sell grey items at vendors. Hold Shift to skip.
 - **Auto Repair** - Repair gear at vendors. Hold Shift to skip.
 
