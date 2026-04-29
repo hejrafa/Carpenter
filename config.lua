@@ -1,6 +1,7 @@
 --[[ Carpenter - Sleek Options UI Configuration ]]
 local addonName = ...
 local ADDON_IMAGE_PATH = "Interface\\AddOns\\" .. (addonName or "Carpenter") .. "\\Images\\"
+local COVER_FADE_MASK_PATH = ADDON_IMAGE_PATH .. "CoverFadeMask"
 local frame = CreateFrame("Frame", "CarpenterOptionsPanel", UIParent)
 frame.name = "Carpenter"
 
@@ -120,6 +121,13 @@ local sideImage = sidebar:CreateTexture(nil, "ARTWORK")
 sideImage:SetSize(200, 200)
 sideImage:SetPoint("TOP", sidebar, "TOP", 0, -SIDE_GAP)
 sideImage:Hide()
+
+if sidebar.CreateMaskTexture and sideImage.AddMaskTexture then
+    local sideImageMask = sidebar:CreateMaskTexture()
+    sideImageMask:SetTexture(COVER_FADE_MASK_PATH)
+    sideImageMask:SetAllPoints(sideImage)
+    sideImage:AddMaskTexture(sideImageMask)
+end
 
 -- Sidebar: only the default (nothing hovered) text is centered; hovered options are top-to-bottom, left-aligned.
 local SIDE_PLACEHOLDER = LightGrey .. "Hover over an option to the left to see its description and settings."

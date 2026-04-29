@@ -39,7 +39,6 @@ local HIDE_PHRASES = {
     "can't do that while fleeing",
     "you can't do that right now",
     "item is still being rolled",
-    "must be behind your target",
     "must have a dagger equipped",
     "must have a melee weapon equipped",
     "must be in stealth",

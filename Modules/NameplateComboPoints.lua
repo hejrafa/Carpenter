@@ -29,9 +29,9 @@ local function ensureResourceFrame()
     resourceFrame:Hide()
     resourceFrame:SetScale(1.0)
 
-    -- Base 7x8 (1px narrower than 8 to avoid stretched look)
-    local texW, texH = 7, 8
-    local padding = 3
+    -- Base 9x10 keeps the sockets compact while making them easier to read.
+    local texW, texH = 9, 10
+    local padding = 2
     local totalWidth = (texW * 5) + (padding * 4)
     resourceFrame:SetSize(totalWidth, texH)
 
@@ -51,7 +51,7 @@ local function ensureResourceFrame()
 
         -- 2. Create the Active Dot (The "Red" texture on top)
         local active = resourceFrame:CreateTexture(nil, "OVERLAY")
-        active:SetSize(6, 12)
+        active:SetSize(8, 14)
         active:SetTexture(COMBO_TEXTURE)
         -- Clean circular crop
         active:SetTexCoord(0.395, 0.655, 0, 1)
@@ -127,7 +127,7 @@ local function update()
 
     -- Anchor logic:
     -- Moved from -10 to -8 to shift the entire group slightly to the right relative to the nameplate center.
-    resourceFrame:SetPoint("CENTER", plate, "BOTTOM", -8, 0)
+    resourceFrame:SetPoint("CENTER", plate, "BOTTOM", -8, 1)
 
     setComboVisual(cp)
 end

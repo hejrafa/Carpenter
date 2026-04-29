@@ -788,6 +788,43 @@ local function ChatFilterImpl(self, event, msg, author, ...)
         return false, ColorWhite .. "The battle has ended|r", author, ...
     end
 
+    -- 2.3 Level-up reward messages. These can arrive as SYSTEM or combat XP messages.
+    if event == "CHAT_MSG_SYSTEM" or event == "CHAT_MSG_COMBAT_XP_GAIN" then
+        local levelColor = GetClassColorForName(UnitName("player") or "")
+        local levelNum = plainSys:match("[Rr]eached level (%d+)") or plainSys:match("[Rr]each level (%d+)") or
+            plainSys:match("level (%d+)%s*[!%.]?%s*$")
+        if levelNum and plainLower:find("level") and (plainLower:find("reached") or plainLower:find("reach") or plainLower:find("congratulations")) then
+            return false, levelColor .. "Reached Level " .. levelNum .. "|r", author, ...
+        end
+
+        local hitAmount = plainSys:match("[Gg]ained%s+(%d+)%s+hit point") or
+            plainSys:match("[Hh]ave%s+gained%s+(%d+)%s+hit point")
+        if hitAmount and plainLower:find("hit point") then
+            local n = tonumber(hitAmount) or 0
+            local word = (n == 1) and "Hit Point" or "Hit Points"
+            return false, ColorWhite .. "Gained: |r" .. levelColor .. hitAmount .. " " .. word .. "|r", author, ...
+        end
+
+        local talentAmount = plainSys:match("[Gg]ained%s+(%d+)%s+talent point") or
+            plainSys:match("[Hh]ave%s+gained%s+(%d+)%s+talent point")
+        if talentAmount and plainLower:find("talent point") then
+            local n = tonumber(talentAmount) or 0
+            local word = (n == 1) and "Talent Point" or "Talent Points"
+            return false, ColorWhite .. "Gained: |r" .. levelColor .. talentAmount .. " " .. word .. "|r", author, ...
+        end
+
+        if plainSys:match("[Yy]our%s+%w+%s+increases b[yv]%s+%d+") then
+            local stats = {}
+            for statName, statBy in plainSys:gmatch("[Yy]our%s+(%w+)%s+increases b[yv]%s+(%d+)") do
+                statName = statName:sub(1, 1):upper() .. statName:sub(2):lower()
+                stats[#stats + 1] = statName .. " by " .. statBy
+            end
+            if #stats > 0 then
+                return false, ColorWhite .. "Increases: |r" .. levelColor .. table.concat(stats, ", ") .. "|r", author, ...
+            end
+        end
+    end
+
     -- 2.5. Quest Acceptance & Completion (check early, before other patterns)
     -- Only process quest messages from SYSTEM events (your own quests)
     if event == "CHAT_MSG_SYSTEM" then
@@ -837,31 +874,6 @@ local function ChatFilterImpl(self, event, msg, author, ...)
         else
             -- Goldpaw-style: style boring yellow system messages (left group, joined, AFK, DND, etc.)
             local plainMsg = msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
-
-            -- Level-up messages: shortened, player class color
-            local levelColor = GetClassColorForName(UnitName("player") or "")
-            local levelNum = plainMsg:match("[Rr]eached level (%d+)") or plainMsg:match("[Rr]each level (%d+)") or
-                            plainMsg:match("level (%d+)%s*[!%.]?%s*$")
-            if levelNum and plainMsg:lower():find("level") and (plainMsg:lower():find("reached") or plainMsg:lower():find("reach") or plainMsg:lower():find("congratulations")) then
-                return false, levelColor .. "Reached Level " .. levelNum .. "|r", author, ...
-            end
-            local hitAmount = plainMsg:match("[Gg]ained%s+(%d+)%s+hit point")
-            if hitAmount and plainMsg:lower():find("hit point") then
-                local n = tonumber(hitAmount) or 0
-                local word = (n == 1) and "Hit Point" or "Hit Points"
-                return false, ColorWhite .. "Gained: |r" .. levelColor .. hitAmount .. " " .. word .. "|r", author, ...
-            end
-            local talentAmount = plainMsg:match("[Gg]ained%s+(%d+)%s+talent point")
-            if talentAmount and plainMsg:lower():find("talent point") then
-                local n = tonumber(talentAmount) or 0
-                local word = (n == 1) and "Talent Point" or "Talent Points"
-                return false, ColorWhite .. "Gained: |r" .. levelColor .. talentAmount .. " " .. word .. "|r", author, ...
-            end
-            local statName, statBy = plainMsg:match("[Yy]our%s+(%w+)%s+increases by%s+(%d+)")
-            if statName and statBy then
-                statName = statName:sub(1, 1):upper() .. statName:sub(2):lower()
-                return false, ColorWhite .. "Increases: |r" .. levelColor .. statName .. " by " .. statBy .. "|r", author, ...
-            end
 
             -- Self messages: "You are no longer Away.", "You are now Away.", DND equivalents
             if _G.CLEARED_AFK and plainMsg == _G.CLEARED_AFK then
@@ -1161,10 +1173,12 @@ local function ChatFilterImpl(self, event, msg, author, ...)
 
     -- 2a. Reputation Gains (numeric)
     local faction, amount = msg:match("Your reputation with (.-) has increased by (%d+)")
+    if not faction then faction, amount = msg:match("Your (.-) reputation has increased by (%d+)") end
     if not faction then faction, amount = msg:match("Reputation with (.-) increased by (%d+)") end
     if not faction then amount, faction = msg:match("(%d+) reputation with (.-) gained") end
 
     if faction and amount then
+        faction = CleanPunctuation(StripBrackets(faction))
         return false, SpaceBeforeX(prefixPlus .. ColorWhite .. amount .. " Reputation: |r" .. ColorBluePurple .. faction .. "|r"),
             author, ...
     end
