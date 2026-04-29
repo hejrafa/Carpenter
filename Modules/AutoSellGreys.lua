@@ -1,4 +1,4 @@
---[[ ClassicPlus - AutoSellGreys ]]
+--[[ Carpenter - AutoSellGreys ]]
 local _, ns = ...
 local f = CreateFrame("Frame")
 
@@ -6,41 +6,11 @@ local f = CreateFrame("Frame")
 local Colors   = ns and ns.Private and ns.Private.Colors
 local ColorPlus = Colors and Colors.gray and Colors.gray.colorCode or "|cffc8c8c8"
 local ColorJunk = Colors and Colors.quality and Colors.quality[0] and Colors.quality[0].colorCode or "|cff9d9d9d"
-local ColorWhite = Colors and Colors.white and Colors.white.colorCode or "|cffffffff"
-
-local GoldIcon   = "|TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:0|t"
-local silverIcon = "|TInterface\\MoneyFrame\\UI-SilverIcon:12:12:2:0|t"
-local copperIcon = "|TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:0|t"
-
-local function FormatMoney(amount)
-    local amountColor = ColorWhite
-    local gold   = floor(amount / 10000)
-    local silver = floor((amount % 10000) / 100)
-    local copper = amount % 100
-    local str = ""
-    if gold > 0 then
-        str = str .. amountColor .. gold .. "|r " .. GoldIcon .. " "
-    end
-    if silver > 0 or gold > 0 then
-        str = str .. amountColor .. silver .. "|r " .. silverIcon .. " "
-    end
-    str = str .. amountColor .. copper .. "|r " .. copperIcon
-    return str
-end
-
-local function AddChatMessage(msg)
-    local frame = DEFAULT_CHAT_FRAME
-    if frame and frame.AddMessage then
-        frame:AddMessage(msg, 1, 1, 1)
-    else
-        print(msg)
-    end
-end
 
 f:RegisterEvent("MERCHANT_SHOW")
 
 local function SellGreyItems()
-    if _G["ClassicPlusDB"] and _G["ClassicPlusDB"].autoSellGreys == false then return end
+    if not Carpenter:IsEnabled("autoSellGreys") then return end
     
     -- Don't sell if Shift is held
     if IsShiftKeyDown() then return end
@@ -88,14 +58,13 @@ local function SellGreyItems()
     if totalSold > 0 then
         -- Mark that this merchant session auto-sold junk so ChatCleaner
         -- can suppress its net summary when the only change was junk sold.
-        if not _G["ClassicPlus_MerchantState"] then _G["ClassicPlus_MerchantState"] = {} end
-        local M = _G["ClassicPlus_MerchantState"]
+        local M = Carpenter.MerchantState
         M.autoSoldJunk = true
         M.autoSoldAmount = totalValue
         if totalValue > 0 then
-            AddChatMessage((ColorPlus .. "+|r ") .. ColorJunk .. "Sold junk items: " .. FormatMoney(totalValue) .. "|r")
+            Carpenter:AddChatMessage((ColorPlus .. "+|r ") .. ColorJunk .. "Sold junk items: " .. Carpenter:FormatMoney(totalValue) .. "|r")
         else
-            AddChatMessage((ColorPlus .. "+|r ") .. ColorJunk .. "Sold junk items|r")
+            Carpenter:AddChatMessage((ColorPlus .. "+|r ") .. ColorJunk .. "Sold junk items|r")
         end
     end
 end
@@ -104,6 +73,6 @@ f:SetScript("OnEvent", function(self, event)
     if event == "MERCHANT_SHOW" then
         -- Defer so ChatCleaner's MERCHANT_SHOW runs first and clears flags;
         -- then we set merchantAutoSoldJunk/Amount for MERCHANT_CLOSED suppression.
-        C_Timer.After(0, SellGreyItems)
+        Carpenter:After(0, SellGreyItems)
     end
 end)

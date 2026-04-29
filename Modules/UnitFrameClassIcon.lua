@@ -1,11 +1,11 @@
---[[ ClassicPlus - UnitFrameClassIcon ]]
+--[[ Carpenter - UnitFrameClassIcon ]]
 -- Replaces the player, target, and focus unit frame portrait (avatar) with the unit's class icon.
 -- Uses the same circular mask as the default portrait. Works with DebuffTracker: when a debuff
 -- is shown, DebuffTracker hides the portrait (our class icon) and shows its icon; when no debuff,
 -- the portrait (class icon) is visible again.
 
 local function IsEnabled()
-    return ClassicPlusDB and ClassicPlusDB.unitFrameClassIconEnabled
+    return CarpenterDB and CarpenterDB.unitFrameClassIconEnabled
 end
 
 -- Class icon texture: same as default unit frame class icons (circular).

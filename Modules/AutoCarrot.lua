@@ -1,4 +1,4 @@
---[[ ClassicPlus - Mount Speed Trinket ]]
+--[[ Carpenter - Mount Speed Trinket ]]
 -- Automatically equips a mount speed trinket (Riding Crop 10% or Carrot on a Stick 3%) when mounting; prefers Crop if both in bags.
 
 -- Item IDs, ordered by priority (best first): Riding Crop 10%, Carrot on a Stick 3%
@@ -12,11 +12,11 @@ local lastSwapTime = 0
 local pendingSwapBack = false
 
 local function IsEnabled()
-    return ClassicPlusDB and ClassicPlusDB.autoCarrotEnabled
+    return CarpenterDB and CarpenterDB.autoCarrotEnabled
 end
 
 local function GetTargetSlot()
-    return (ClassicPlusDB and ClassicPlusDB.autoCarrotSlot) or 13
+    return (CarpenterDB and CarpenterDB.autoCarrotSlot) or 13
 end
 
 local function IsMountSpeedTrinket(itemID)

@@ -1,4 +1,4 @@
---[[ ClassicPlus - Hide Chat Buttons ]]
+--[[ Carpenter - Hide Chat Buttons ]]
 -- Reduces opacity of chat buttons to 0% (hidden) and reveals them on hover
 -- with a smooth transition, just like the micromenu.
 
@@ -10,9 +10,9 @@ local FADE_SPEED = 0.05    -- Adjust for faster/slower fading
 -- Config
 -- =========================
 local function IsEnabled()
-    if not ClassicPlusDB then return true end
-    if ClassicPlusDB.hideChatButtonsEnabled == nil then return true end
-    return ClassicPlusDB.hideChatButtonsEnabled
+    if not CarpenterDB then return true end
+    if CarpenterDB.hideChatButtonsEnabled == nil then return true end
+    return CarpenterDB.hideChatButtonsEnabled
 end
 
 -- =========================
@@ -105,7 +105,7 @@ local function ApplyTransparency(alpha)
 end
 
 -- Create an invisible "hitbox" frame to detect mouse hover for the chat buttons area
-local hoverFrame = CreateFrame("Frame", "ClassicPlusChatButtonHoverFrame", UIParent)
+local hoverFrame = CreateFrame("Frame", "CarpenterChatButtonHoverFrame", UIParent)
 hoverFrame:SetPoint("BOTTOMLEFT", ChatFrame1, "TOPLEFT", 0, 5)
 hoverFrame:SetPoint("TOPRIGHT", ChatFrame1, "TOPRIGHT", 0, 35)
 hoverFrame:SetFrameStrata("TOOLTIP")

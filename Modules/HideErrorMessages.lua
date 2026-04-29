@@ -1,4 +1,4 @@
---[[ ClassicPlus - HideErrorMessages ]]
+--[[ Carpenter - HideErrorMessages ]]
 -- When enabled, hides only the error messages in the hide list (and their sound).
 -- Add phrases here as you find ones you want to suppress.
 
@@ -60,7 +60,7 @@ local function ShouldHideError(message)
     for _, phrase in ipairs(ALWAYS_HIDE) do
         if lower:find(phrase:lower(), 1, true) then return true end
     end
-    if not ClassicPlusDB or not ClassicPlusDB.hideErrorMessagesEnabled then return false end
+    if not CarpenterDB or not CarpenterDB.hideErrorMessagesEnabled then return false end
     for _, phrase in ipairs(HIDE_PHRASES) do
         if lower:find(phrase:lower(), 1, true) then
             return true

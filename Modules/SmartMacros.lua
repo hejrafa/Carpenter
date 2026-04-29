@@ -1,4 +1,4 @@
---[[ ClassicPlus - SmartMacros ]]
+--[[ Carpenter - SmartMacros ]]
 -- Resolves C_Container API differences and macro update handling across WoW versions.
 
 local addonName, ns = ...
@@ -10,11 +10,11 @@ local GetItemID = (C_Container and C_Container.GetContainerItemID) or _G.GetCont
 local GetItemInfo = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo
 
 local ITEMS = {
-    Food = { name = "ClassicFood", btnName = "CP_Food_Btn" },
-    Water = { name = "ClassicWater", btnName = "CP_Water_Btn" },
-    Pot = { name = "ClassicHP", btnName = "CP_Pot_Btn" },
-    Mana = { name = "ClassicMana", btnName = "CP_Mana_Btn" },
-    Band = { name = "ClassicBand", btnName = "CP_Band_Btn" }
+    Food = { name = "CarpenterFood", btnName = "CP_Food_Btn" },
+    Water = { name = "CarpenterWater", btnName = "CP_Water_Btn" },
+    Pot = { name = "CarpenterHP", btnName = "CP_Pot_Btn" },
+    Mana = { name = "CarpenterMana", btnName = "CP_Mana_Btn" },
+    Band = { name = "CarpenterBand", btnName = "CP_Band_Btn" }
 }
 
 -- Scanning Tooltip

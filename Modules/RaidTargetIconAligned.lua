@@ -1,10 +1,10 @@
---[[ ClassicPlus - Raid Target Icon Aligned ]]
+--[[ Carpenter - Raid Target Icon Aligned ]]
 -- When nameplates are enabled, the default raid target icons float too high.
 -- This module re-anchors them: vertically centered on the nameplate bar, to the left of it.
 
 local function isEnabled()
-    if not ClassicPlusDB then return false end
-    return ClassicPlusDB.raidTargetIconAlignedEnabled == true
+    if not CarpenterDB then return false end
+    return CarpenterDB.raidTargetIconAlignedEnabled == true
 end
 
 -- Find the raid target frame/texture on a nameplate (structure can vary by client)

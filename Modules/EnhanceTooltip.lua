@@ -1,10 +1,10 @@
---[[ ClassicPlus - Enhance Tooltip ]]
+--[[ Carpenter - Enhance Tooltip ]]
 -- When enabled: hides the health bar, recolors name/info lines, shows unit target.
 
 local function IsEnabled()
-    if not ClassicPlusDB then return false end
-    if ClassicPlusDB.enhanceTooltipEnabled == nil then return false end
-    return ClassicPlusDB.enhanceTooltipEnabled
+    if not CarpenterDB then return false end
+    if CarpenterDB.enhanceTooltipEnabled == nil then return false end
+    return CarpenterDB.enhanceTooltipEnabled
 end
 
 local function HideTooltipHealthBar(tooltip)
@@ -280,7 +280,7 @@ frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:SetScript("OnEvent", function(_, event, addonName)
     if event == "ADDON_LOADED" then
-        if addonName == "ClassicPlus" then
+        if addonName == "Carpenter" then
             InstallHooks()
         end
         return

@@ -1,10 +1,10 @@
---[[ ClassicPlus - Hide Unit Frame Combat Text ]]
+--[[ Carpenter - Hide Unit Frame Combat Text ]]
 -- When enabled, hides only the numbers on the player and pet portrait (damage, healing, dodge,
 -- miss, parry, etc.). Floating combat text on the world/target is unchanged.
 -- Uses the same approach as Leatrix Plus: hook Blizzard's HitIndicator frames.
 
 local function shouldHide()
-    return ClassicPlusDB and ClassicPlusDB.hideUnitFrameCombatTextEnabled
+    return CarpenterDB and CarpenterDB.hideUnitFrameCombatTextEnabled
 end
 
 -- Hook Blizzard's portrait hit indicators (player/pet frame only; no global FCT change)
@@ -63,5 +63,5 @@ f:SetScript("OnEvent", function(_, event, addonName)
 end)
 
 -- Expose for config live toggle (no reload)
-ClassicPlus_ApplyUnitFrameCombatText = Apply
-ClassicPlus_RestoreUnitFrameCombatText = Restore
+Carpenter_ApplyUnitFrameCombatText = Apply
+Carpenter_RestoreUnitFrameCombatText = Restore

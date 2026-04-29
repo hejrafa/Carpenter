@@ -1,4 +1,4 @@
---[[ ClassicPlus - ChatFilter ]]
+--[[ Carpenter - ChatFilter ]]
 -- Filters spam (gambling, bots, recruitment) and duplicate messages.
 local f = CreateFrame("Frame")
 
@@ -12,7 +12,7 @@ local THROTTLE_TIME = 45
 -- =========================
 
 local function IsGlobalDuplicate(msg)
-    if not ClassicPlusDB.filterDuplicatesEnabled then return false end
+    if not CarpenterDB.filterDuplicatesEnabled then return false end
     -- Normalize: remove spaces and lowercase
     local cleanMsg = msg:gsub("%s+", ""):lower()
 
@@ -57,14 +57,14 @@ local SpamPatterns = {
 
 local function ChatSpamFilter(self, event, msg, author, ...)
     -- 1. Main toggle check for the Filter module
-    if not ClassicPlusDB.chatFilterEnabled then return false, msg, author, ... end
+    if not CarpenterDB.chatFilterEnabled then return false, msg, author, ... end
 
     -- 2. RestedXP level-up spam (Say, Yell, Party, Raid, General) - when option is on
     local isRestedXPEvent = (event == "CHAT_MSG_SAY" or event == "CHAT_MSG_YELL" or
         event == "CHAT_MSG_PARTY" or event == "CHAT_MSG_PARTY_LEADER" or
         event == "CHAT_MSG_RAID" or event == "CHAT_MSG_RAID_LEADER" or
         (event == "CHAT_MSG_CHANNEL" and select(7, ...) == "General"))
-    if isRestedXPEvent and ClassicPlusDB.filterRestedXPEnabled then
+    if isRestedXPEvent and CarpenterDB.filterRestedXPEnabled then
         local plainMsg = msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("|T.-|t", "")
         local lower = plainMsg:lower()
         for _, p in ipairs(RestedXPPatterns) do
@@ -97,26 +97,26 @@ local function ChatSpamFilter(self, event, msg, author, ...)
     local playerName = UnitName and UnitName("player") or nil
 
     -- 4. Toggleable Category Filters
-    if ClassicPlusDB.filterGamblingEnabled then
+    if CarpenterDB.filterGamblingEnabled then
         for _, p in ipairs(SpamPatterns.Gambling) do
             if cleanMsg:find(p) then return true end
         end
     end
 
-    if ClassicPlusDB.filterGuildRecruitEnabled then
+    if CarpenterDB.filterGuildRecruitEnabled then
         for _, p in ipairs(SpamPatterns.GuildRecruitment) do
             if cleanMsg:find(p) then return true end
         end
     end
 
-    if ClassicPlusDB.filterTradeBotsEnabled then
+    if CarpenterDB.filterTradeBotsEnabled then
         for _, p in ipairs(SpamPatterns.TradeBots) do
             if cleanMsg:find(p) then return true end
         end
     end
 
     -- 5. Duplicate Detection & Throttling
-    if ClassicPlusDB.filterDuplicatesEnabled then
+    if CarpenterDB.filterDuplicatesEnabled then
         -- Never apply duplicate/throttle logic to the player's own messages
         local isPlayer =
             playerName and

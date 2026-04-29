@@ -1,10 +1,10 @@
---[[ ClassicPlus - ActionBarRange ]]
+--[[ Carpenter - ActionBarRange ]]
 -- Uses Blizzard's own range checks to slightly dim action buttons when
 -- they are out of range (too close or too far), matching the default
 -- "not usable" look and working with macros.
 
 local function IsEnabled()
-    return ClassicPlusDB and ClassicPlusDB.actionBarRangeEnabled
+    return CarpenterDB and CarpenterDB.actionBarRangeEnabled
 end
 
 local function GetButtonIcon(button)
@@ -19,7 +19,7 @@ local function RestoreDefaultColor(button)
     local icon = GetButtonIcon(button)
     if not icon then return end
     icon:SetVertexColor(1, 1, 1)
-    button._ClassicPlus_RangeDimmed = false
+    button._Carpenter_RangeDimmed = false
 end
 
 local function ApplyRangeState(button, outOfRange)
@@ -27,7 +27,7 @@ local function ApplyRangeState(button, outOfRange)
 
     -- If the feature is disabled, always restore Blizzard's default.
     if not IsEnabled() then
-        if button._ClassicPlus_RangeDimmed then
+        if button._Carpenter_RangeDimmed then
             RestoreDefaultColor(button)
         end
         return
@@ -39,10 +39,10 @@ local function ApplyRangeState(button, outOfRange)
     if outOfRange then
         -- Slight dark tint, similar to Blizzard's "not usable".
         icon:SetVertexColor(0.4, 0.4, 0.4)
-        button._ClassicPlus_RangeDimmed = true
+        button._Carpenter_RangeDimmed = true
     else
         -- Let Blizzard handle other states; we just clear our override.
-        if button._ClassicPlus_RangeDimmed then
+        if button._Carpenter_RangeDimmed then
             RestoreDefaultColor(button)
         end
     end
@@ -92,7 +92,7 @@ local function HookRangeUpdates()
 
             -- Only touch buttons while the feature is enabled or if we need
             -- to clean up a previous override.
-            if IsEnabled() or self._ClassicPlus_RangeDimmed then
+            if IsEnabled() or self._Carpenter_RangeDimmed then
                 ApplyRangeState(self, outOfRange)
             end
         end)
@@ -113,7 +113,7 @@ local function HookRangeUpdates()
                 end
             end
 
-            if IsEnabled() or self._ClassicPlus_RangeDimmed then
+            if IsEnabled() or self._Carpenter_RangeDimmed then
                 ApplyRangeState(self, outOfRange)
             end
         end)

@@ -1,4 +1,4 @@
---[[ ClassicPlus - ActionCam ]]
+--[[ Carpenter - ActionCam ]]
 -- One option: on = Camera Over Shoulder (+1) + Vertical Pitch (screenshot defaults). Off = reset cvars.
 -- Nudges the camera out a little when you mount; on dismount zooms back in to where you were.
 
@@ -13,7 +13,7 @@ suppressCameraWarning()
 local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
 f:SetScript("OnEvent", function(_, _, addonName)
-    if addonName == "ClassicPlus" then
+    if addonName == "Carpenter" then
         suppressCameraWarning()
     end
 end)
@@ -38,7 +38,7 @@ local lastMounted = nil   -- last mount state we actually acted on (so we only a
 local zoomInProgress = false  -- prevent overlapping zoom sequences
 
 local function UpdateCameraZoom()
-    if not ClassicPlusDB or not ClassicPlusDB.actionCamEnabled then
+    if not CarpenterDB or not CarpenterDB.actionCamEnabled then
         return
     end
     if zoomInProgress then
@@ -91,11 +91,11 @@ local function ResetCameraCVarsToDefaults()
 end
 
 local function UpdateCameraSettings()
-    if not ClassicPlusDB then
+    if not CarpenterDB then
         return
     end
 
-    if ClassicPlusDB.actionCamEnabled then
+    if CarpenterDB.actionCamEnabled then
         -- Camera Over Shoulder Offset
         SetCVar("test_cameraOverShoulder", OVER_SHOULDER_OFFSET)
         SetCVar("cameraSmoothingStyle", 0) -- required for offset
@@ -122,15 +122,15 @@ frame:RegisterUnitEvent("UNIT_MODEL_CHANGED", "player")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 frame:SetScript("OnEvent", function(self, event, addon, unit)
-    if event == "ADDON_LOADED" and addon == "ClassicPlus" then
+    if event == "ADDON_LOADED" and addon == "Carpenter" then
         -- Reset CVars immediately if Action Cam is disabled (before Blizzard checks them)
-        if not ClassicPlusDB or not ClassicPlusDB.actionCamEnabled then
+        if not CarpenterDB or not CarpenterDB.actionCamEnabled then
             ResetCameraCVarsToDefaults()
         end
         C_Timer.After(0.1, UpdateCameraSettings)
     elseif event == "PLAYER_ENTERING_WORLD" then
         -- Also reset on entering world if disabled (in case CVars were set by another addon)
-        if not ClassicPlusDB or not ClassicPlusDB.actionCamEnabled then
+        if not CarpenterDB or not CarpenterDB.actionCamEnabled then
             ResetCameraCVarsToDefaults()
         end
         UpdateCameraSettings()
@@ -139,7 +139,7 @@ frame:SetScript("OnEvent", function(self, event, addon, unit)
             (event == "UNIT_MODEL_CHANGED" and unit == "player") or
             (event == "UNIT_AURA" and unit == "player")) then
         -- Mount/aura changed; delay so IsMounted() is up to date
-        if ClassicPlusDB and ClassicPlusDB.actionCamEnabled then
+        if CarpenterDB and CarpenterDB.actionCamEnabled then
             C_Timer.After(0.25, UpdateCameraZoom)
         end
     end
@@ -149,11 +149,11 @@ end)
 local watchFrame = CreateFrame("Frame")
 watchFrame:RegisterEvent("ADDON_LOADED")
 watchFrame:SetScript("OnEvent", function(self, event, addon)
-    if addon == "ClassicPlus" then
+    if addon == "Carpenter" then
         local last = nil
         C_Timer.NewTicker(0.2, function()
-            if ClassicPlusDB and last ~= ClassicPlusDB.actionCamEnabled then
-                last = ClassicPlusDB.actionCamEnabled
+            if CarpenterDB and last ~= CarpenterDB.actionCamEnabled then
+                last = CarpenterDB.actionCamEnabled
                 UpdateCameraSettings()
             end
         end)
@@ -165,10 +165,10 @@ end)
 local mountCheckFrame = CreateFrame("Frame")
 mountCheckFrame:RegisterEvent("ADDON_LOADED")
 mountCheckFrame:SetScript("OnEvent", function(self, event, addon)
-    if addon == "ClassicPlus" then
+    if addon == "Carpenter" then
         local lastMounted = nil
         C_Timer.NewTicker(0.5, function()
-            if ClassicPlusDB and ClassicPlusDB.actionCamEnabled then
+            if CarpenterDB and CarpenterDB.actionCamEnabled then
                 local isMounted = IsMounted()
                 if lastMounted ~= isMounted then
                     lastMounted = isMounted

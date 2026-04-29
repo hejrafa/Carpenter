@@ -1,9 +1,9 @@
---[[ ClassicPlus - Spell Database ]]
+--[[ Carpenter - Spell Database ]]
 -- Spell IDs and types for auras (buffs/debuffs), used by DebuffTracker and other modules.
 
 local addonName = ...
-ClassicPlusSpellData = ClassicPlusSpellData or {}
-local addon = ClassicPlusSpellData
+CarpenterSpellData = CarpenterSpellData or {}
+local addon = CarpenterSpellData
 
 local BUFF_DEFENSIVE = "buffs_defensive"
 local BUFF_OFFENSIVE = "buffs_offensive"

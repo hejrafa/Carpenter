@@ -1,4 +1,4 @@
---[[ ClassicPlus - NameplateCastNames ]]
+--[[ Carpenter - NameplateCastNames ]]
 -- Clones TargetFrameSpellBar (+ icon) and anchors it below each enemy nameplate.
 -- The game's built-in nameplate castbar is suppressed via CVar + per-plate HookScript.
 
@@ -68,7 +68,7 @@ end
 
 local function UpdateCast(plate, unit)
     if not plate or not plate.CP_Widget then return end
-    if not ClassicPlusDB or not ClassicPlusDB.nameplateCastNamesEnabled then
+    if not CarpenterDB or not CarpenterDB.nameplateCastNamesEnabled then
         HideBar(plate)
         return
     end
@@ -104,11 +104,11 @@ local function SetupPlate(plate, unit)
     -- game tries to show it again, while respecting our feature toggle.
     if castBar then
         castBar:HookScript("OnShow", function(self)
-            if ClassicPlusDB and ClassicPlusDB.nameplateCastNamesEnabled then
+            if CarpenterDB and CarpenterDB.nameplateCastNamesEnabled then
                 self:Hide()
             end
         end)
-        if ClassicPlusDB and ClassicPlusDB.nameplateCastNamesEnabled then
+        if CarpenterDB and CarpenterDB.nameplateCastNamesEnabled then
             castBar:Hide()
         end
     end
@@ -250,7 +250,7 @@ frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 frame:SetScript("OnEvent", function(self, event, unit)
     if event == "PLAYER_ENTERING_WORLD" then
-        if ClassicPlusDB and ClassicPlusDB.nameplateCastNamesEnabled then
+        if CarpenterDB and CarpenterDB.nameplateCastNamesEnabled then
             pcall(SetCVar, "nameplateShowEnemyCastBars", "0")
         end
         for _, plate in pairs(C_NamePlate.GetNamePlates()) do
@@ -276,7 +276,7 @@ frame:SetScript("OnEvent", function(self, event, unit)
                 end
             end
         end
-        if plate and ClassicPlusDB and ClassicPlusDB.nameplateCastNamesEnabled then
+        if plate and CarpenterDB and CarpenterDB.nameplateCastNamesEnabled then
             if not plate.CP_Widget then SetupPlate(plate, unit) end
             if plate.CP_Widget then
                 plate.CP_CastText:SetText("Interrupted")
@@ -307,7 +307,7 @@ end)
 
 -- Safety ticker
 C_Timer.NewTicker(0.5, function()
-    if not ClassicPlusDB or not ClassicPlusDB.nameplateCastNamesEnabled then return end
+    if not CarpenterDB or not CarpenterDB.nameplateCastNamesEnabled then return end
     for _, plate in pairs(C_NamePlate.GetNamePlates()) do
         local unit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
         if unit then

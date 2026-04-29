@@ -1,4 +1,4 @@
---[[ ClassicPlus - MenuTransparency ]]
+--[[ Carpenter - MenuTransparency ]]
 -- Reduces opacity of the Game Menu and Bag interface buttons to 0% (hidden)
 -- and reveals them on hover with a smooth transition.
 
@@ -10,9 +10,7 @@ local FADE_SPEED = 0.05    -- Adjust for faster/slower fading
 -- Config
 -- =========================
 local function IsEnabled()
-    if not ClassicPlusDB then return true end
-    if ClassicPlusDB.menuTransparencyEnabled == nil then return true end
-    return ClassicPlusDB.menuTransparencyEnabled
+    return Carpenter and Carpenter:IsEnabled("menuTransparencyEnabled")
 end
 
 -- =========================
@@ -69,8 +67,10 @@ local microHoverCount = 0
 -- Function to handle hover enter/exit for individual buttons
 local function SetupButtonHover(button, group)
     if not button then return end
+    if button._Carpenter_MenuTransparencyHooked then return end
+    button._Carpenter_MenuTransparencyHooked = true
     
-    button:SetScript("OnEnter", function()
+    button:HookScript("OnEnter", function()
         if group == "bag" then
             bagHoverCount = bagHoverCount + 1
         else
@@ -78,7 +78,7 @@ local function SetupButtonHover(button, group)
         end
     end)
     
-    button:SetScript("OnLeave", function()
+    button:HookScript("OnLeave", function()
         if group == "bag" then
             bagHoverCount = math.max(0, bagHoverCount - 1)
         else
@@ -163,4 +163,3 @@ frame:SetScript("OnEvent", function()
         ApplyTransparency(currentAlpha)
     end)
 end)
-

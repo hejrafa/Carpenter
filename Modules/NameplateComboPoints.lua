@@ -1,4 +1,4 @@
---[[ ClassicPlus - NameplateComboPoints ]]
+--[[ Carpenter - NameplateComboPoints ]]
 -- Shows Rogue TargetFrame-style combo points under CURRENT TARGET's nameplate.
 
 local addonFrame = CreateFrame("Frame")
@@ -15,9 +15,7 @@ local COMBO_TEXTURE = "Interface\\ComboFrame\\ComboPoint"
 -- Configuration
 -- =========================================================
 local function isEnabled()
-    if not ClassicPlusDB then return true end
-    if ClassicPlusDB.nameplateComboEnabled == nil then return true end
-    return ClassicPlusDB.nameplateComboEnabled
+    return Carpenter and Carpenter:IsEnabled("nameplateComboEnabled")
 end
 
 -- =========================================================
@@ -27,7 +25,7 @@ local function ensureResourceFrame()
     if resourceFrame then return end
 
     -- Create the main container
-    resourceFrame = CreateFrame("Frame", "ClassicPlusComboFrame", UIParent)
+    resourceFrame = CreateFrame("Frame", "CarpenterComboFrame", UIParent)
     resourceFrame:Hide()
     resourceFrame:SetScale(1.0)
 
@@ -147,11 +145,11 @@ addonFrame:SetScript("OnEvent", function(self, event, ...)
     update()
 end)
 
--- High frequency follow for smooth placement and animation transitions
+-- Periodic follow for nameplate movement between events.
 local elapsed = 0
 addonFrame:SetScript("OnUpdate", function(_, delta)
     elapsed = elapsed + delta
-    if elapsed >= 0.01 then
+    if elapsed >= 0.05 then
         update()
         elapsed = 0
     end

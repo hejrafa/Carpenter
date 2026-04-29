@@ -1,4 +1,4 @@
---[[ ClassicPlus - ClassHealthColors ]]
+--[[ Carpenter - ClassHealthColors ]]
 -- Colors unit frame health bars (Target, Focus, Party, etc.) and enemy player
 -- nameplate health bars based on their class.
 
@@ -7,11 +7,11 @@
 -- =========================
 
 local function IsUnitFrameEnabled()
-    return ClassicPlusDB and ClassicPlusDB.classHealthColorsEnabled
+    return Carpenter and Carpenter:IsEnabled("classHealthColorsEnabled")
 end
 
 local function IsNameplateEnabled()
-    return ClassicPlusDB and ClassicPlusDB.nameplateClassHealthEnabled
+    return Carpenter and Carpenter:IsEnabled("nameplateClassHealthEnabled")
 end
 
 -- Apply class color to a given health bar; returns true if applied.
@@ -102,13 +102,13 @@ local function ColorNameplateForUnit(plate, unit)
     -- doesn't keep the player's color. Otherwise leave the bar alone so Blizzard controls
     -- reaction/tapped (grey) etc.
     if not UnitIsPlayer(unit) then
-        local wasClassColored = bar._ClassicPlus_IsClassColored
-        bar._ClassicPlus_IsClassColored = false
-        bar._ClassicPlus_ClassColor = nil
+        local wasClassColored = bar._Carpenter_IsClassColored
+        bar._Carpenter_IsClassColored = false
+        bar._Carpenter_ClassColor = nil
         if wasClassColored then
             local r, g, b = UnitSelectionColor(unit)
             if r and g and b then
-                (bar._ClassicPlus_OrigSetStatusBarColor or bar.SetStatusBarColor)(bar, r, g, b)
+                (bar._Carpenter_OrigSetStatusBarColor or bar.SetStatusBarColor)(bar, r, g, b)
             end
         end
         return
@@ -117,27 +117,27 @@ local function ColorNameplateForUnit(plate, unit)
     -- Ensure we have a per-bar hook so Blizzard threat / damage coloring
     -- can't briefly override our desired class color (which shows up as
     -- a red flicker on heal ticks).
-    if not bar._ClassicPlus_NameplateHooked then
-        bar._ClassicPlus_NameplateHooked = true
-        bar._ClassicPlus_OrigSetStatusBarColor = bar.SetStatusBarColor
+    if not bar._Carpenter_NameplateHooked then
+        bar._Carpenter_NameplateHooked = true
+        bar._Carpenter_OrigSetStatusBarColor = bar.SetStatusBarColor
 
         bar.SetStatusBarColor = function(self, r, g, b, ...)
             -- If class-colored nameplates are enabled AND this bar has a
             -- stored class color, always enforce that color instead of any
             -- temporary red threat / damage flashes.
-            if IsNameplateEnabled() and self._ClassicPlus_IsClassColored and self._ClassicPlus_ClassColor then
-                local c = self._ClassicPlus_ClassColor
-                return self._ClassicPlus_OrigSetStatusBarColor(self, c.r, c.g, c.b, ...)
+            if IsNameplateEnabled() and self._Carpenter_IsClassColored and self._Carpenter_ClassColor then
+                local c = self._Carpenter_ClassColor
+                return self._Carpenter_OrigSetStatusBarColor(self, c.r, c.g, c.b, ...)
             end
 
             -- Fallback to Blizzard's original behavior
-            return self._ClassicPlus_OrigSetStatusBarColor(self, r, g, b, ...)
+            return self._Carpenter_OrigSetStatusBarColor(self, r, g, b, ...)
         end
     end
 
     -- Reset flags; they'll be re-set if we successfully apply a class color.
-    bar._ClassicPlus_IsClassColored = false
-    bar._ClassicPlus_ClassColor = nil
+    bar._Carpenter_IsClassColored = false
+    bar._Carpenter_ClassColor = nil
 
     if not IsNameplateEnabled() then
         -- When disabled, fall back to Blizzard's selection coloring
@@ -154,8 +154,8 @@ local function ColorNameplateForUnit(plate, unit)
         local _, class = UnitClass(unit)
         local color = class and RAID_CLASS_COLORS[class]
         if color then
-            bar._ClassicPlus_IsClassColored = true
-            bar._ClassicPlus_ClassColor = color
+            bar._Carpenter_IsClassColored = true
+            bar._Carpenter_ClassColor = color
         end
         return
     end
@@ -192,12 +192,12 @@ nameplateDriver:SetScript("OnEvent", function(self, event, unit)
     end
 end)
 
--- High-frequency refresh so Blizzard's threat coloring can't visibly override our class colors.
+-- Periodic refresh so Blizzard's threat coloring does not stick over class colors.
 local elapsed = 0
 nameplateDriver:SetScript("OnUpdate", function(self, delta)
     if not IsNameplateEnabled() then return end
     elapsed = elapsed + delta
-    if elapsed >= 0.05 then -- ~20 times per second
+    if elapsed >= 0.1 then
         RefreshAllNameplates()
         elapsed = 0
     end

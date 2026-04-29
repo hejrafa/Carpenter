@@ -1,13 +1,11 @@
---[[ ClassicPlus - MinimapClutter ]]
+--[[ Carpenter - MinimapClutter ]]
 -- Hides minimap zoom buttons, day/night icon, and zone text/border for a cleaner minimap.
 
 -- =========================
 -- Config
 -- =========================
 local function IsEnabled()
-    if not ClassicPlusDB then return true end
-    if ClassicPlusDB.minimapClutterEnabled == nil then return true end
-    return ClassicPlusDB.minimapClutterEnabled
+    return Carpenter and Carpenter:IsEnabled("minimapClutterEnabled")
 end
 
 -- =========================
@@ -33,7 +31,7 @@ local function HideMinimapFrame(frame)
 
     if not frame.IsCPMinimapHooked then
         hooksecurefunc(frame, "Show", function(self)
-            if ClassicPlusDB and ClassicPlusDB.minimapClutterEnabled then
+            if CarpenterDB and CarpenterDB.minimapClutterEnabled then
                 self:Hide()
                 self:SetAlpha(0)
             end
@@ -150,7 +148,7 @@ local CP_FaderFrame = CreateFrame("Frame")
 local FADE_SPEED = 6 -- higher = snappier fade
 
 CP_FaderFrame:SetScript("OnUpdate", function(self, elapsed)
-    if not ClassicPlusDB or not ClassicPlusDB.minimapClutterEnabled then return end
+    if not CarpenterDB or not CarpenterDB.minimapClutterEnabled then return end
     if not CP_AddonButtons or #CP_AddonButtons == 0 then return end
 
     local changed = false
@@ -244,4 +242,3 @@ end)
 -- Re-enforce shortly after login/zone to catch any late layout changes.
 C_Timer.After(1, ApplyMinimapClutter)
 C_Timer.After(5, ApplyMinimapClutter)
-

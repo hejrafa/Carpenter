@@ -1,13 +1,13 @@
 ## Interface: 20505
-## Title: Classic|cffffffffPlus|r
+## Title: Carpenter
 ## Notes: |cff666666By Rafael Polutta|r|n|nExperience the game how it was meant to be, plus some minor improvements.|n|nUI tweaks and quality-of-life options for WoW Classic.
-## SavedVariables: ClassicPlusDB
-## Version: 1.3.4
+## SavedVariables: CarpenterDB
+## Version: 1.4.0
 ## Author: Rafael Polutta
-## IconTexture: Interface\AddOns\ClassicPlus\ClassicPlus_Logo
+## IconTexture: Interface\AddOns\Carpenter\Carpenter_Logo
 
 # Core & Settings
-ClassicPlus.lua
+Carpenter.lua
 config.lua
 SpellData.lua
 

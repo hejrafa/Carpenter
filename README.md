@@ -1,8 +1,8 @@
-# ClassicPlus
+# Carpenter
 
 UI tweaks and quality-of-life improvements for WoW Classic. Turn on what you need, leave the rest off.
 
-The default UI is cluttered and missing information. ClassicPlus fixes it.
+The default UI is cluttered and missing information. Carpenter fixes it.
 
 ## Features
 
@@ -53,16 +53,14 @@ The default UI is cluttered and missing information. ClassicPlus fixes it.
 
 ## Installation
 
-**CurseForge (recommended):** [curseforge.com/wow/addons/classicplus](https://www.curseforge.com/wow/addons/classicplus)
-
-**Manual:** Download or clone this repo into your AddOns folder:
+Download or clone this repo into your AddOns folder:
 ```
-World of Warcraft/_anniversary_/Interface/AddOns/ClassicPlus
+World of Warcraft/_anniversary_/Interface/AddOns/Carpenter
 ```
 
 ## Configuration
 
-Type `/cp` in-game to open the settings panel. Every feature is off by default — toggle what you want and reload your UI.
+Type `/carpenter` or `/cp` in-game to open the settings panel. Every feature is off by default — toggle what you want and reload your UI.
 
 ## Compatibility
 

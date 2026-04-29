@@ -1,8 +1,8 @@
---[[ ClassicPlus - ChatCleaner ]]
+--[[ Carpenter - ChatCleaner ]]
 local _, ns = ...
 local f = CreateFrame("Frame")
 
--- Shared ClassicPlus color palette
+-- Shared Carpenter color palette
 local Colors = ns and ns.Private and ns.Private.Colors
 
 -- Muted tones: light grey chrome; soft off-whites and subtle tints so chat isn’t flat or harsh
@@ -515,10 +515,10 @@ end
 
 -- =========================
 -- Merchant: track open/closed; suppress per-message gold and show net change when closed (+ from selling, − from buying/repair)
--- Shared state with AutoSellGreys/AutoRepair (global so it works regardless of ns).
+-- Shared state with AutoSellGreys/AutoRepair.
 -- =========================
-if not _G["ClassicPlus_MerchantState"] then _G["ClassicPlus_MerchantState"] = {} end
-local MerchantState = _G["ClassicPlus_MerchantState"]
+local MerchantState = Carpenter and Carpenter.MerchantState or _G["Carpenter_MerchantState"] or {}
+_G["Carpenter_MerchantState"] = MerchantState
 
 local merchantFrame = CreateFrame("Frame")
 local merchantMoneyAtOpen = 0
@@ -635,7 +635,7 @@ local lastRepairAmount, lastRepairTime = nil, 0
 local REPAIR_DEDUP_SEC = 2
 
 local function ChatFilterImpl(self, event, msg, author, ...)
-    if ClassicPlusDB and not ClassicPlusDB.chatCleanerEnabled then
+    if CarpenterDB and not CarpenterDB.chatCleanerEnabled then
         return false, msg, author, ...
     end
 
@@ -1986,7 +1986,7 @@ local function HookChatFrameAddMessage(frame)
         local origMsg = msg
         local args = { ... }
         local ok = pcall(function()
-            if not (ClassicPlusDB and ClassicPlusDB.chatCleanerEnabled) then
+            if not (CarpenterDB and CarpenterDB.chatCleanerEnabled) then
                 orig(self, msg, unpack(args))
                 return
             end
@@ -2137,7 +2137,7 @@ loader:RegisterEvent("VARIABLES_LOADED")
 loader:SetScript("OnEvent", function(self, event)
     RegisterChatFilters()
     -- Only clean the chat edit box textures when Chat Cleaner is enabled
-    if ClassicPlusDB and ClassicPlusDB.chatCleanerEnabled then
+    if CarpenterDB and CarpenterDB.chatCleanerEnabled then
         CleanEditBox()
     end
 

@@ -1,4 +1,4 @@
---[[ ClassicPlus - EnchantWarning ]]
+--[[ Carpenter - EnchantWarning ]]
 -- Warns before weapon enchantments expire.
 
 local checkFrame = CreateFrame("Frame")
@@ -12,7 +12,7 @@ local INITIAL_DELAY = 5 -- Seconds to wait after loading screen
 local delayTimer = 0
 
 -- Create a hidden tooltip to scan enchant names
-local scanTooltip = CreateFrame("GameTooltip", "ClassicPlusScanTooltip", nil, "GameTooltipTemplate")
+local scanTooltip = CreateFrame("GameTooltip", "CarpenterScanTooltip", nil, "GameTooltipTemplate")
 scanTooltip:SetOwner(WorldFrame, "ANCHOR_NONE")
 
 local function GetEnchantName(slot)
@@ -24,7 +24,7 @@ local function GetEnchantName(slot)
 
     -- Look through all tooltip lines for green text that contains a time remaining pattern
     for i = 1, scanTooltip:NumLines() do
-        local line = _G["ClassicPlusScanTooltipTextLeft" .. i]
+        local line = _G["CarpenterScanTooltipTextLeft" .. i]
         if line then
             local text = line:GetText()
             if text then
@@ -49,7 +49,7 @@ end
 
 local function CheckEnchantments()
     -- Don't check if disabled
-    if not ClassicPlusDB or not ClassicPlusDB.enchantWarningEnabled then
+    if not CarpenterDB or not CarpenterDB.enchantWarningEnabled then
         return
     end
 

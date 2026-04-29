@@ -1,4 +1,4 @@
---[[ ClassicPlus - ActionBarFader ]]
+--[[ Carpenter - ActionBarFader ]]
 -- Makes specific side/extra action bars visible on hover if enabled.
 -- Targeted at modern Extra Action Bars (6-8) using internal frame names
 
@@ -7,7 +7,7 @@ local ALPHA_VISIBLE = 1.0
 local FADE_DURATION = 0.3
 
 local function IsEnabled()
-    return ClassicPlusDB and ClassicPlusDB.actionBarFaderEnabled
+    return CarpenterDB and CarpenterDB.actionBarFaderEnabled
 end
 
 -- List of bars to apply the effect to (only 7 and 8)
@@ -25,18 +25,22 @@ local function SetupFader(barName)
     local bar = _G[barName]
     if not bar then return end
 
-    -- Handle the parent bar frame
-    bar:HookScript("OnEnter", function(self)
-        if not IsEnabled() then return end
-        FadeFrame(self, ALPHA_VISIBLE)
-    end)
+    if not bar._Carpenter_FaderHooked then
+        -- Handle the parent bar frame
+        bar:HookScript("OnEnter", function(self)
+            if not IsEnabled() then return end
+            FadeFrame(self, ALPHA_VISIBLE)
+        end)
 
-    bar:HookScript("OnLeave", function(self)
-        if not IsEnabled() then return end
-        if not MouseIsOver(self) then
-            FadeFrame(self, ALPHA_HIDDEN)
-        end
-    end)
+        bar:HookScript("OnLeave", function(self)
+            if not IsEnabled() then return end
+            if not MouseIsOver(self) then
+                FadeFrame(self, ALPHA_HIDDEN)
+            end
+        end)
+
+        bar._Carpenter_FaderHooked = true
+    end
 
     -- Initial state on load or toggle
     if IsEnabled() then
@@ -59,7 +63,7 @@ frame:SetScript("OnEvent", function(self, event)
         -- Buttons are named: MultiBar5Button1..12, etc.
         for i = 1, 12 do
             local btn = _G[barName .. "Button" .. i]
-            if btn then
+            if btn and not btn._Carpenter_FaderHooked then
                 btn:HookScript("OnEnter", function()
                     if IsEnabled() then FadeFrame(_G[barName], ALPHA_VISIBLE) end
                 end)
@@ -68,6 +72,7 @@ frame:SetScript("OnEvent", function(self, event)
                         FadeFrame(_G[barName], ALPHA_HIDDEN)
                     end
                 end)
+                btn._Carpenter_FaderHooked = true
             end
         end
     end

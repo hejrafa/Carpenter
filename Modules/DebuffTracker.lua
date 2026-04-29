@@ -1,4 +1,4 @@
---[[ ClassicPlus - DebuffTracker ]]
+--[[ Carpenter - DebuffTracker ]]
 -- Displays important debuffs/CC on Nameplates and replaces Target/Party Portraits.
 
 local addonName, ns = ...
@@ -66,12 +66,12 @@ end
 
 -- Check settings for Nameplates
 local function IsNameplateEnabled()
-    return ClassicPlusDB and ClassicPlusDB.debuffTrackerEnabled
+    return CarpenterDB and CarpenterDB.debuffTrackerEnabled
 end
 
 -- Check settings for Unit Frames (Portraits)
 local function IsUnitFrameEnabled()
-    return ClassicPlusDB and ClassicPlusDB.unitFrameDebuffsEnabled
+    return CarpenterDB and CarpenterDB.unitFrameDebuffsEnabled
 end
 
 -- =========================================================
@@ -204,11 +204,11 @@ local function UpdateUnitPortraitDebuff(unit)
         if not name then break end
 
         local isImportant = IMPORTANT_DEBUFFS[name]
-        if not isImportant and spellId and ClassicPlusSpellData and ClassicPlusSpellData.IsImportantDebuff then
-            isImportant = ClassicPlusSpellData.IsImportantDebuff(spellId)
+        if not isImportant and spellId and CarpenterSpellData and CarpenterSpellData.IsImportantDebuff then
+            isImportant = CarpenterSpellData.IsImportantDebuff(spellId)
         end
         -- Unit frames: hide slows (Crippling Poison, Hamstring, etc.); nameplates still show them
-        local rootId = (spellId and ClassicPlusSpellData and ClassicPlusSpellData.GetRootSpellId) and ClassicPlusSpellData.GetRootSpellId(spellId) or spellId
+        local rootId = (spellId and CarpenterSpellData and CarpenterSpellData.GetRootSpellId) and CarpenterSpellData.GetRootSpellId(spellId) or spellId
         local hiddenOnUnitFrame = rootId and DEBUFFS_HIDDEN_ON_UNIT_FRAME[rootId]
         if isImportant and not hiddenOnUnitFrame then
             local remaining = (expirationTime or 0) - GetTime()
@@ -293,8 +293,8 @@ local function OnNameplateUpdate(self)
         local name, icon, _, debuffType, duration, expirationTime, _, _, _, spellId = UnitDebuff(self.unit, i)
         if not name then break end
         local isImportant = IMPORTANT_DEBUFFS[name]
-        if not isImportant and spellId and ClassicPlusSpellData and ClassicPlusSpellData.IsImportantDebuff then
-            isImportant = ClassicPlusSpellData.IsImportantDebuff(spellId)
+        if not isImportant and spellId and CarpenterSpellData and CarpenterSpellData.IsImportantDebuff then
+            isImportant = CarpenterSpellData.IsImportantDebuff(spellId)
         end
         if isImportant then
             table.insert(activeDebuffs, {

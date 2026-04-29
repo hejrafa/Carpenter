@@ -1,4 +1,4 @@
---[[ ClassicPlus - SmallerExpBar ]]
+--[[ Carpenter - SmallerExpBar ]]
 -- Scales the visible XP/Rep tracking bars to 65% and sets opacity to 60%.
 
 local SCALE = 0.65 -- 0.5 is often too small, 0.65 is a sweet spot, adjust as needed
@@ -8,9 +8,9 @@ local OPACITY = 0.6 -- Set bars to 60% opacity
 -- Config
 -- =========================
 local function IsEnabled()
-    if not ClassicPlusDB then return true end
-    if ClassicPlusDB.smallerExpBarEnabled == nil then return true end
-    return ClassicPlusDB.smallerExpBarEnabled
+    if not CarpenterDB then return true end
+    if CarpenterDB.smallerExpBarEnabled == nil then return true end
+    return CarpenterDB.smallerExpBarEnabled
 end
 
 -- =========================
