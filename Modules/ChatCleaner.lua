@@ -377,6 +377,37 @@ local function GetItemLinkFromMessage(text)
     return text:match("(|Hitem:[^|]+|h%[[^%]]*%]|h)") or text:match("(|Hitem:[^|]+|h[^|]*|h)")
 end
 
+local function ShouldSkipGenericReceive(text)
+    if not text or type(text) ~= "string" then return true end
+
+    local lower = text:lower()
+    return lower:find("currency:") or
+        lower:find(" reputation") or
+        lower:find("experience") or
+        lower:find(" honor") or
+        lower:find(" gold") or
+        lower:find(" silver") or
+        lower:find(" copper") or
+        lower:find("your share") or
+        lower:find(" share")
+end
+
+local function FormatReceivedDisplay(rawDisplay, sourceMessage)
+    if not rawDisplay or rawDisplay == "" then return nil end
+
+    local itemLink = GetItemLinkFromMessage(sourceMessage or rawDisplay)
+    local display = itemLink and GetItemLinkWithQualityColor(itemLink) or CleanPunctuation(StripBrackets(rawDisplay))
+    display = display:gsub("^%s+", ""):gsub("%s+$", "")
+    display = display:gsub("^an?%s+item:%s*", "")
+    display = display:gsub("^item:%s*", "")
+    display = display:gsub("^loot:%s*", "")
+    display = SpaceBeforeX(display)
+    display = FormatItemCountSuffix(display)
+
+    if display == "" then return nil end
+    return display
+end
+
 -- Build a Lua pattern from a Blizzard format string (Goldpaw-style: %s -> (.+), %d -> (%d+))
 local function MakeLootPattern(fmt)
     if not fmt or type(fmt) ~= "string" then return nil end
@@ -635,7 +666,7 @@ local lastRepairAmount, lastRepairTime = nil, 0
 local REPAIR_DEDUP_SEC = 2
 
 local function ChatFilterImpl(self, event, msg, author, ...)
-    if CarpenterDB and not CarpenterDB.chatCleanerEnabled then
+    if not (Carpenter and Carpenter:IsEnabled("chatCleanerEnabled")) then
         return false, msg, author, ...
     end
 
@@ -1174,7 +1205,8 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     -- 2a. Reputation Gains (numeric)
     local faction, amount = msg:match("Your reputation with (.-) has increased by (%d+)")
     if not faction then faction, amount = msg:match("Your (.-) reputation has increased by (%d+)") end
-    if not faction then faction, amount = msg:match("Reputation with (.-) increased by (%d+)") end
+    if not faction then faction, amount = msg:match("Your Warband's reputation with (.-) increased by (%d+)") end
+    if not faction then faction, amount = msg:match("Reputation with (.-) increased by (%d+)%.?") end
     if not faction then amount, faction = msg:match("(%d+) reputation with (.-) gained") end
 
     if faction and amount then
@@ -1220,6 +1252,10 @@ local function ChatFilterImpl(self, event, msg, author, ...)
             bgType = "Arena"
         end
         return false, SpaceBeforeX(prefixPlus .. ColorWhite .. "Joined the queue: |r" .. ColorQueue .. bgType .. "|r"), author, ...
+    end
+
+    if msg:match("^You are now saved to this instance%.?$") then
+        return false, SpaceBeforeX(prefixPlus .. ColorWhite .. "Saved to instance|r"), author, ...
     end
     
 
@@ -1351,6 +1387,21 @@ local function ChatFilterImpl(self, event, msg, author, ...)
         end
     end
 
+    -- 5a. Retail currency gains: "You receive currency: Voidlight Marl x207"
+    if (event == "CHAT_MSG_SYSTEM" or event == "CHAT_MSG_CURRENCY") and type(msg) == "string" then
+        local clean = msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("[%[%]]", "")
+        local currency, currencyAmount = clean:match("^You receive currency:%s*(.-)%s+x(%d+)%s*%.?$")
+        if not currency then
+            currency, currencyAmount = clean:match("^You receive currency:%s*(.-)%s+(%d+)%s*%.?$")
+        end
+        if currency and currencyAmount then
+            currency = CleanPunctuation(currency:gsub("^%s+", ""):gsub("%s+$", ""))
+            if currency ~= "" then
+                return false, SpaceBeforeX(prefixPlus .. ColorWhite .. currencyAmount .. " |r" .. ColorCyan .. currency .. "|r"), author, ...
+            end
+        end
+    end
+
     -- 4b. Suppress duplicate "items have been repaired" when we already showed repair cost as "- amount"
     if msg:lower():find("repaired") and msg:lower():find("item") and lastRepairAmount and (GetTime() - lastRepairTime) < REPAIR_DEDUP_SEC then
         return true
@@ -1358,6 +1409,17 @@ local function ChatFilterImpl(self, event, msg, author, ...)
 
     -- 5. Money (Gains show +, losses show -; Merchant is handled by direct tracking above)
     if (event == "CHAT_MSG_MONEY" or event == "CHAT_MSG_SYSTEM") then
+        local compactGold, compactSilver, compactCopper = msg:match("^You gained:%s*(%d+)%D+(%d+)%D+(%d+)%s*%.?$")
+        if compactGold and compactSilver and compactCopper then
+            local total = (tonumber(compactGold) or 0) * 10000 + (tonumber(compactSilver) or 0) * 100 + (tonumber(compactCopper) or 0)
+            if total > 0 then
+                if merchantFrame.isOpen or mailTracker.isOpen then
+                    return true
+                end
+                return false, SpaceBeforeX(prefixPlus .. FormatMoney(total)), author, ...
+            end
+        end
+
         local gold = tonumber(msg:match("(%d+) Gold") or msg:match("(%d+) gold")) or 0
         local silver = tonumber(msg:match("(%d+) Silver") or msg:match("(%d+) silver")) or 0
         local copper = tonumber(msg:match("(%d+) Copper") or msg:match("(%d+) copper")) or 0
@@ -1469,12 +1531,34 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     -- 6. Item Looting 
     -- Self loot and created items
     local item = msg:match("You receive loot: (.+)") or msg:match("You create: (.+)") or
-        msg:match("You receive item: (.+)")
+        msg:match("You receive item: (.+)") or msg:match("You receive items: (.+)") or
+        msg:match("You received item: (.+)") or msg:match("You received items: (.+)")
     if item then
-        local display = CleanPunctuation(StripBrackets(item))
-        display = SpaceBeforeX(display)
-        display = FormatItemCountSuffix(display)
-        return false, prefixPlus .. display, author, ...
+        local display = FormatReceivedDisplay(item, msg)
+        if display then
+            return false, prefixPlus .. display, author, ...
+        end
+    end
+
+    -- 6a. Generic receive messages not covered by Blizzard's loot globals:
+    -- "You receive: Item", "You received Item x5", "You receive an item: Item", etc.
+    if (event == "CHAT_MSG_SYSTEM" or event == "CHAT_MSG_LOOT" or event == "CHAT_MSG_CURRENCY") and type(msg) == "string" then
+        local receivePayload =
+            msg:match("^[Yy]ou receive:%s*(.+)$") or
+            msg:match("^[Yy]ou received:%s*(.+)$") or
+            msg:match("^[Yy]ou receive an? item:%s*(.+)$") or
+            msg:match("^[Yy]ou received an? item:%s*(.+)$") or
+            msg:match("^[Yy]ou receive an?%s+(.+)$") or
+            msg:match("^[Yy]ou received an?%s+(.+)$") or
+            msg:match("^[Yy]ou receive%s+(.+)$") or
+            msg:match("^[Yy]ou received%s+(.+)$")
+
+        if receivePayload and not ShouldSkipGenericReceive(msg) then
+            local display = FormatReceivedDisplay(receivePayload, msg)
+            if display then
+                return false, prefixPlus .. display, author, ...
+            end
+        end
     end
 
     -- Other player receives loot/creates: style as "Name: Item (2)" (runs for LOOT, PARTY, RAID, YELL so group loot is styled regardless of channel)
@@ -2000,7 +2084,7 @@ local function HookChatFrameAddMessage(frame)
         local origMsg = msg
         local args = { ... }
         local ok = pcall(function()
-            if not (CarpenterDB and CarpenterDB.chatCleanerEnabled) then
+            if not (Carpenter and Carpenter:IsEnabled("chatCleanerEnabled")) then
                 orig(self, msg, unpack(args))
                 return
             end
@@ -2151,7 +2235,7 @@ loader:RegisterEvent("VARIABLES_LOADED")
 loader:SetScript("OnEvent", function(self, event)
     RegisterChatFilters()
     -- Only clean the chat edit box textures when Chat Cleaner is enabled
-    if CarpenterDB and CarpenterDB.chatCleanerEnabled then
+    if Carpenter and Carpenter:IsEnabled("chatCleanerEnabled") then
         CleanEditBox()
     end
 

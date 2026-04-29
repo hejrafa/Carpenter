@@ -579,8 +579,144 @@ local OPTION_SECTIONS = {
                 image = ADDON_IMAGE_PATH .. "unitnumbers.png",
                 requiresReload = false,
                 onToggle = function()
-                    if Carpenter_ApplyUnitFrameCombatText then Carpenter_ApplyUnitFrameCombatText() end
-                    if Carpenter_RestoreUnitFrameCombatText then Carpenter_RestoreUnitFrameCombatText() end
+                    if Carpenter:IsEnabled("hideUnitFrameCombatTextEnabled") then
+                        if Carpenter_ApplyUnitFrameCombatText then Carpenter_ApplyUnitFrameCombatText() end
+                    else
+                        if Carpenter_RestoreUnitFrameCombatText then Carpenter_RestoreUnitFrameCombatText() end
+                    end
+                end,
+            },
+            {
+                key = "hideUnitFramePvPIconEnabled",
+                label = L.OPTION_HIDE_PVP_ICON or "Hide PvP Icon",
+                description = LightGrey .. "PvP badges on the unit frames can be more clutter than signal.\n\n" ..
+                    "Hides the " .. LighterCream .. "PvP icon" .. LightGrey .. " on Retail player, target, and focus frames.",
+                image = ADDON_IMAGE_PATH .. "classhealthbar.png",
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
+                end,
+            },
+            {
+                key = "hideUnitFramePowerBarEnabled",
+                label = L.OPTION_HIDE_POWER_BAR or "Hide Combo/Power Bar",
+                description = LightGrey .. "Retail adds class resource widgets around the unit frame area that can duplicate information shown elsewhere.\n\n" ..
+                    "Hides " .. LighterCream .. "class resource widgets" .. LightGrey .. " such as combo points, runes, holy power, soul shards, arcane charges, essence, and the personal resource bar.",
+                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
+                end,
+            },
+            {
+                key = "hideBossFramesEnabled",
+                label = L.OPTION_HIDE_BOSS_FRAMES or "Hide Boss Frames",
+                description = LightGrey .. "Boss frames can duplicate information you already track elsewhere.\n\n" ..
+                    "Fades Retail " .. LighterCream .. "boss unit frames" .. LightGrey .. " and disables their mouse interaction.",
+                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
+                end,
+            },
+            {
+                key = "hideRestAnimationEnabled",
+                label = L.OPTION_HIDE_REST_ANIMATION or "Hide Zzz Rest Animation",
+                description = LightGrey .. "Hides the player frame " .. LighterCream .. "resting animation" .. LightGrey .. " and related rest visuals.",
+                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
+                end,
+            },
+            {
+                key = "hideCombatIconEnabled",
+                label = L.OPTION_HIDE_COMBAT_ICON or "Hide Combat Icon",
+                description = LightGrey .. "Hides the player frame " .. LighterCream .. "combat sword icon" .. LightGrey .. ".",
+                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
+                end,
+            },
+            {
+                key = "hideHealthLossFxEnabled",
+                label = L.OPTION_HIDE_HEALTH_LOSS_FX or "Hide Health Loss FX",
+                description = LightGrey .. "Hides the animated Retail " .. LighterCream .. "health loss overlay" .. LightGrey .. " on player, target, focus, and party frames.",
+                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
+                end,
+            },
+            {
+                key = "hideGroupIndicatorEnabled",
+                label = L.OPTION_HIDE_GROUP_INDICATOR or "Hide Group Indicator",
+                description = LightGrey .. "Hides the player frame " .. LighterCream .. "group number indicator" .. LightGrey .. ".",
+                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
+                end,
+            },
+            {
+                key = "hideRoleIconEnabled",
+                label = L.OPTION_HIDE_ROLE_ICON or "Hide Role Icon",
+                description = LightGrey .. "Hides the player frame " .. LighterCream .. "role icon" .. LightGrey .. ".",
+                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
+                end,
+            },
+            {
+                key = "hidePvPTimerEnabled",
+                label = L.OPTION_HIDE_PVP_TIMER or "Hide PvP Timer",
+                description = LightGrey .. "Hides the player frame " .. LighterCream .. "PvP countdown timer" .. LightGrey .. ".",
+                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
+                end,
+            },
+            {
+                key = "hideRealmIndicatorEnabled",
+                label = L.OPTION_HIDE_REALM_INDICATOR or "Hide Realm Indicator",
+                description = LightGrey .. "Hides the Retail " .. LighterCream .. "(*)" .. LightGrey .. " realm marker on unit frame and nameplate names.",
+                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
+                end,
+            },
+            {
+                key = "hidePlayerCornerIconEnabled",
+                label = L.OPTION_HIDE_PLAYER_CORNER_ICON or "Hide Player Corner Icon",
+                description = LightGrey .. "Hides the small Retail " .. LighterCream .. "corner embellishment" .. LightGrey .. " on the player portrait.",
+                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
+                end,
+            },
+            {
+                key = "hidePartyFrameTitleEnabled",
+                label = L.OPTION_HIDE_PARTY_FRAME_TITLE or "Hide Party Text",
+                description = LightGrey .. "Hides the " .. LighterCream .. "Party" .. LightGrey .. " label above raid-style party frames.",
+                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
+                end,
+            },
+            {
+                key = "hideTargetReputationColorEnabled",
+                label = L.OPTION_HIDE_TARGET_REPUTATION_COLOR or "Hide Target Reputation Color",
+                description = LightGrey .. "Hides the colored Retail " .. LighterCream .. "reputation strip" .. LightGrey .. " on the target frame.",
+                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
                 end,
             },
         },
@@ -728,35 +864,39 @@ local OPTION_SECTIONS = {
     },
 }
 
-for sectionIndex, section in ipairs(OPTION_SECTIONS) do
-    if sectionIndex > 1 then
-        yPos = yPos - 24
-    end
+local visibleSectionCount = 0
 
-    CreateHeader(section.title)
-
+for _, section in ipairs(OPTION_SECTIONS) do
+    local hasAvailableOptions = false
     for _, option in ipairs(section.options) do
         if Carpenter:IsFeatureAvailable(option.key) then
-            CreateCheckbox(
-                option.key,
-                option.label,
-                option.description,
-                option.sideLogic,
-                option.image,
-                option.requiresReload,
-                option.onToggle
-            )
+            hasAvailableOptions = true
+            break
         end
     end
-end
 
-if Carpenter.Client and Carpenter.Client.isRetail then
-    local label = content:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    label:SetPoint("TOPLEFT", 10, yPos)
-    label:SetText(LightGrey .. (L.NO_RETAIL_OPTIONS or "Retail support is wired up, but no Retail options are enabled yet."))
-    label:SetWidth(420)
-    label:SetWordWrap(true)
-    yPos = yPos - 40
+    if hasAvailableOptions then
+        visibleSectionCount = visibleSectionCount + 1
+        if visibleSectionCount > 1 then
+            yPos = yPos - 24
+        end
+
+        CreateHeader(section.title)
+
+        for _, option in ipairs(section.options) do
+            if Carpenter:IsFeatureAvailable(option.key) then
+                CreateCheckbox(
+                    option.key,
+                    option.label,
+                    option.description,
+                    option.sideLogic,
+                    option.image,
+                    option.requiresReload,
+                    option.onToggle
+                )
+            end
+        end
+    end
 end
 
 -- =========================

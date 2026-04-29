@@ -26,6 +26,19 @@ local defaults = {
     unitFrameDebuffsEnabled = false,
     unitFrameClassIconEnabled = false,
     hideUnitFrameCombatTextEnabled = false,
+    hideUnitFramePvPIconEnabled = false,
+    hideUnitFramePowerBarEnabled = false,
+    hideBossFramesEnabled = false,
+    hideRestAnimationEnabled = false,
+    hideCombatIconEnabled = false,
+    hideHealthLossFxEnabled = false,
+    hideGroupIndicatorEnabled = false,
+    hideRoleIconEnabled = false,
+    hidePvPTimerEnabled = false,
+    hideRealmIndicatorEnabled = false,
+    hidePlayerCornerIconEnabled = false,
+    hidePartyFrameTitleEnabled = false,
+    hideTargetReputationColorEnabled = false,
     -- Nameplates
     debuffTrackerEnabled = false,
     nameplateComboEnabled = false,
@@ -69,6 +82,9 @@ ns.Private.Colors = ns.Private.Colors or {
 }
 
 function Carpenter:IsEnabled(key, defaultWhenUnset)
+    if Carpenter.IsFeatureAvailable and not Carpenter:IsFeatureAvailable(key) then
+        return false
+    end
     if not CarpenterDB then
         return defaultWhenUnset == true
     end

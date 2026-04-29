@@ -59,7 +59,7 @@ local function ShouldHideError(message)
     for _, phrase in ipairs(ALWAYS_HIDE) do
         if lower:find(phrase:lower(), 1, true) then return true end
     end
-    if not CarpenterDB or not CarpenterDB.hideErrorMessagesEnabled then return false end
+    if not (Carpenter and Carpenter:IsEnabled("hideErrorMessagesEnabled")) then return false end
     for _, phrase in ipairs(HIDE_PHRASES) do
         if lower:find(phrase:lower(), 1, true) then
             return true

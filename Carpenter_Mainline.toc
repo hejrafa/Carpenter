@@ -16,3 +16,32 @@ Core\Carpenter.lua
 
 # Settings
 config.lua
+Modules\AddonCompartment.lua
+SpellData.lua
+
+# Action Bars
+Modules\HideUIElements.lua
+
+# Interface
+Modules\MenuTransparency.lua
+Modules\EnhanceTooltip.lua
+
+# Unit Frames
+Modules\ClassHealthColors.lua
+Modules\HideUnitFrameCombatText.lua
+Modules\RetailUnitFrameCleaner.lua
+
+# Chat
+Modules\ChatCleaner.lua
+Modules\HideChatButtons.lua
+
+# Automations
+Modules\SmartMacros.lua
+Modules\AutoSellGreys.lua
+Modules\AutoRepair.lua
+
+# Text
+Modules\HideErrorMessages.lua
+
+# Immersion
+Modules\ActionCam.lua

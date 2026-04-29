@@ -14,17 +14,58 @@ local function IsNameplateEnabled()
     return Carpenter and Carpenter:IsEnabled("nameplateClassHealthEnabled")
 end
 
+local function GetClassColor(unit)
+    if not unit or not UnitExists(unit) or not UnitIsPlayer(unit) then return nil end
+    local _, class = UnitClass(unit)
+    return class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+end
+
 -- Apply class color to a given health bar; returns true if applied.
 local function ApplyClassColor(bar, unit)
-    if not unit or not bar or not UnitExists(unit) then return false end
-    if not UnitIsPlayer(unit) then return false end
-
-    local _, class = UnitClass(unit)
-    local color = class and RAID_CLASS_COLORS[class]
+    if not bar then return false end
+    local color = GetClassColor(unit)
     if not color then return false end
 
+    if bar.SetStatusBarDesaturated then
+        bar:SetStatusBarDesaturated(true)
+    end
     bar:SetStatusBarColor(color.r, color.g, color.b)
     return true
+end
+
+local function HookUnitFrameHealthBar(bar, unit)
+    if not bar or bar._CarpenterUnitFrameClassColorHooked or not bar.SetStatusBarColor then return end
+    bar._CarpenterUnitFrameClassColorHooked = true
+    bar._CarpenterUnitFrameUnit = unit
+
+    hooksecurefunc(bar, "SetStatusBarColor", function(self)
+        if self._CarpenterRecoloring or not IsUnitFrameEnabled() then return end
+        self._CarpenterRecoloring = true
+        ApplyClassColor(self, self._CarpenterUnitFrameUnit)
+        self._CarpenterRecoloring = false
+    end)
+end
+
+local function GetUnitFrameHealthBar(unit)
+    if unit == "target" then
+        return (TargetFrame and TargetFrame.TargetFrameContent and TargetFrame.TargetFrameContent.TargetFrameContentMain
+                and TargetFrame.TargetFrameContent.TargetFrameContentMain.HealthBarsContainer
+                and TargetFrame.TargetFrameContent.TargetFrameContentMain.HealthBarsContainer.HealthBar)
+            or TargetFrameHealthBar
+            or (TargetFrame and TargetFrame.TargetFrameContent and TargetFrame.TargetFrameContent.TargetFrameContentMain and TargetFrame.TargetFrameContent.TargetFrameContentMain.HealthBar)
+    elseif unit == "focus" then
+        return (FocusFrame and FocusFrame.TargetFrameContent and FocusFrame.TargetFrameContent.TargetFrameContentMain
+                and FocusFrame.TargetFrameContent.TargetFrameContentMain.HealthBarsContainer
+                and FocusFrame.TargetFrameContent.TargetFrameContentMain.HealthBarsContainer.HealthBar)
+            or FocusFrameHealthBar
+            or (FocusFrame and FocusFrame.TargetFrameContent and FocusFrame.TargetFrameContent.TargetFrameContentMain and FocusFrame.TargetFrameContent.TargetFrameContentMain.HealthBar)
+    elseif unit == "player" then
+        return (PlayerFrame and PlayerFrame.PlayerFrameContent and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain
+                and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain.HealthBarsContainer
+                and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain.HealthBarsContainer.HealthBar)
+            or PlayerFrameHealthBar
+            or (PlayerFrame and PlayerFrame.PlayerFrameContent and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain.HealthBar)
+    end
 end
 
 -- =========================
@@ -32,54 +73,65 @@ end
 -- =========================
 local function UpdateHealthBarColor(bar, unit)
     if not IsUnitFrameEnabled() then return end
+    HookUnitFrameHealthBar(bar, unit)
     ApplyClassColor(bar, unit)
 end
 
--- Hook into the Blizzard function that manages Health Bar coloring
--- This handles Target, Focus, and standard Party frames
-hooksecurefunc("UnitFrameHealthBar_Update", function(self)
-    UpdateHealthBarColor(self, self.unit)
-end)
+local function RefreshUnitFrameColors()
+    UpdateHealthBarColor(GetUnitFrameHealthBar("player"), "player")
+    UpdateHealthBarColor(GetUnitFrameHealthBar("target"), "target")
+    UpdateHealthBarColor(GetUnitFrameHealthBar("focus"), "focus")
 
-hooksecurefunc("HealthBar_OnValueChanged", function(self)
-    UpdateHealthBarColor(self, self.unit)
-end)
+    for i = 1, 4 do
+        local partyMember = PartyFrame and PartyFrame["MemberFrame" .. i]
+        local partyBar = (partyMember and partyMember.HealthBarContainer and partyMember.HealthBarContainer.HealthBar)
+            or _G["PartyMemberFrame" .. i .. "HealthBar"]
+        if partyBar then
+            UpdateHealthBarColor(partyBar, "party" .. i)
+        end
+    end
+end
 
 -- Event listener for unit changes to force update immediately
 local unitFrameDriver = CreateFrame("Frame")
 unitFrameDriver:RegisterEvent("PLAYER_TARGET_CHANGED")
 unitFrameDriver:RegisterEvent("PLAYER_FOCUS_CHANGED")
 unitFrameDriver:RegisterEvent("UNIT_HEALTH")
+unitFrameDriver:RegisterEvent("UNIT_FACTION")
 unitFrameDriver:RegisterEvent("GROUP_ROSTER_UPDATE") -- Added for party changes
 unitFrameDriver:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 unitFrameDriver:SetScript("OnEvent", function(self, event, unit)
     if event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_ENTERING_WORLD" then
-        UpdateHealthBarColor(TargetFrameHealthBar, "target")
-    elseif event == "PLAYER_FOCUS_CHANGED" and FocusFrameHealthBar then
-        UpdateHealthBarColor(FocusFrameHealthBar, "focus")
-    elseif event == "UNIT_HEALTH" then
+        RefreshUnitFrameColors()
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0.1, RefreshUnitFrameColors)
+        end
+    elseif event == "PLAYER_FOCUS_CHANGED" then
+        RefreshUnitFrameColors()
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0.1, RefreshUnitFrameColors)
+        end
+    elseif event == "UNIT_HEALTH" or event == "UNIT_FACTION" then
         if unit == "target" then
-            UpdateHealthBarColor(TargetFrameHealthBar, "target")
-        elseif unit == "focus" and FocusFrameHealthBar then
-            UpdateHealthBarColor(FocusFrameHealthBar, "focus")
-        elseif unit:find("party") then
+            UpdateHealthBarColor(GetUnitFrameHealthBar("target"), "target")
+        elseif unit == "focus" then
+            UpdateHealthBarColor(GetUnitFrameHealthBar("focus"), "focus")
+        elseif unit == "player" then
+            UpdateHealthBarColor(GetUnitFrameHealthBar("player"), "player")
+        elseif unit and unit:find("party") then
             -- Handle party1, party2, etc.
             for i = 1, 4 do
-                local partyBar = _G["PartyMemberFrame" .. i .. "HealthBar"]
+                local partyMember = PartyFrame and PartyFrame["MemberFrame" .. i]
+                local partyBar = (partyMember and partyMember.HealthBarContainer and partyMember.HealthBarContainer.HealthBar)
+                    or _G["PartyMemberFrame" .. i .. "HealthBar"]
                 if partyBar and unit == "party" .. i then
                     UpdateHealthBarColor(partyBar, unit)
                 end
             end
         end
     elseif event == "GROUP_ROSTER_UPDATE" then
-        -- Refresh all party frames when someone joins/leaves
-        for i = 1, 4 do
-            local partyBar = _G["PartyMemberFrame" .. i .. "HealthBar"]
-            if partyBar then
-                UpdateHealthBarColor(partyBar, "party" .. i)
-            end
-        end
+        RefreshUnitFrameColors()
     end
 end)
 

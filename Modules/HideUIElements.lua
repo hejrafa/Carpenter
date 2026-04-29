@@ -9,8 +9,20 @@ f:RegisterEvent("PLAYER_REGEN_ENABLED")
 
 local STANCE_BAR_FRAMES = { "StanceBar", "StanceBarFrame", "ShapeshiftBarFrame" }
 
+local function IsStanceBarEnabled()
+    return Carpenter and Carpenter:IsEnabled("hideStanceBarEnabled")
+end
+
+local function IsKeybindsEnabled()
+    return Carpenter and Carpenter:IsEnabled("hideKeybindsEnabled")
+end
+
+local function IsMacroNamesEnabled()
+    return Carpenter and Carpenter:IsEnabled("hideMacroNamesEnabled")
+end
+
 local function ApplyStanceBarHide()
-    if not CarpenterDB or not CarpenterDB.hideStanceBarEnabled then return end
+    if not IsStanceBarEnabled() then return end
     if InCombatLockdown() then return end
 
     if not CP_HiddenParent then
@@ -27,12 +39,12 @@ local function ApplyStanceBarHide()
 
             if not frame.IsCPHooked then
                 hooksecurefunc(frame, "SetShown", function(self, shown)
-                    if shown and CarpenterDB and CarpenterDB.hideStanceBarEnabled and not InCombatLockdown() then
+                    if shown and IsStanceBarEnabled() and not InCombatLockdown() then
                         self:Hide()
                     end
                 end)
                 hooksecurefunc(frame, "Show", function(self)
-                    if CarpenterDB and CarpenterDB.hideStanceBarEnabled and not InCombatLockdown() then
+                    if IsStanceBarEnabled() and not InCombatLockdown() then
                         self:Hide()
                     end
                 end)
@@ -43,10 +55,10 @@ local function ApplyStanceBarHide()
 end
 
 local function RestoreStanceBar()
-    if CarpenterDB and CarpenterDB.hideStanceBarEnabled then return end
+    if IsStanceBarEnabled() then return end
     if InCombatLockdown() then return end
     -- Don't force-show stance bars for classes with no stances (mage, etc.)
-    if GetNumShapeshiftForms() == 0 then return end
+    if GetNumShapeshiftForms and GetNumShapeshiftForms() == 0 then return end
 
     for _, name in ipairs(STANCE_BAR_FRAMES) do
         local frame = _G[name]
@@ -62,7 +74,7 @@ local function UpdateActionBars()
     if not CarpenterDB then return end
 
     -- 1. STANCE BAR LOGIC (combat-safe: no protected frame changes during combat)
-    if CarpenterDB.hideStanceBarEnabled then
+    if IsStanceBarEnabled() then
         ApplyStanceBarHide()
     else
         RestoreStanceBar()
@@ -88,11 +100,11 @@ local function UpdateActionBars()
 
                 -- Handle Keybinds (HotKey)
                 if hotkey then
-                    if CarpenterDB.hideKeybindsEnabled then
+                    if IsKeybindsEnabled() then
                         hotkey:SetAlpha(0)
                         if not hotkey.IsCPHooked then
                             hooksecurefunc(hotkey, "Show", function(self)
-                                if CarpenterDB.hideKeybindsEnabled then self:SetAlpha(0) end
+                                if IsKeybindsEnabled() then self:SetAlpha(0) end
                             end)
                             hotkey.IsCPHooked = true
                         end
@@ -103,11 +115,11 @@ local function UpdateActionBars()
 
                 -- Handle Macro Names (Name)
                 if name then
-                    if CarpenterDB.hideMacroNamesEnabled then
+                    if IsMacroNamesEnabled() then
                         name:SetAlpha(0)
                         if not name.IsCPHooked then
                             hooksecurefunc(name, "Show", function(self)
-                                if CarpenterDB.hideMacroNamesEnabled then self:SetAlpha(0) end
+                                if IsMacroNamesEnabled() then self:SetAlpha(0) end
                             end)
                             name.IsCPHooked = true
                         end

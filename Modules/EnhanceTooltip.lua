@@ -2,18 +2,72 @@
 -- When enabled: hides the health bar, recolors name/info lines, shows unit target.
 
 local function IsEnabled()
-    if not CarpenterDB then return false end
-    if CarpenterDB.enhanceTooltipEnabled == nil then return false end
-    return CarpenterDB.enhanceTooltipEnabled
+    return Carpenter and Carpenter:IsEnabled("enhanceTooltipEnabled")
+end
+
+local function HideStatusBar(bar)
+    if not bar or bar._CarpenterHiding then return end
+
+    bar._CarpenterHiding = true
+    if bar.SetAlpha then
+        bar:SetAlpha(0)
+    end
+    if bar.Hide then
+        bar:Hide()
+    end
+
+    local texture = bar.GetStatusBarTexture and bar:GetStatusBarTexture()
+    if texture and texture.SetAlpha then
+        texture:SetAlpha(0)
+    end
+    bar._CarpenterHiding = nil
+end
+
+local function HookStatusBar(bar)
+    if not bar or bar._CarpenterTooltipStatusBarHooked then return end
+
+    if bar.Show then
+        hooksecurefunc(bar, "Show", function(self)
+            if IsEnabled() then
+                HideStatusBar(self)
+            end
+        end)
+    end
+    if bar.SetAlpha then
+        hooksecurefunc(bar, "SetAlpha", function(self)
+            if IsEnabled() then
+                HideStatusBar(self)
+            end
+        end)
+    end
+
+    bar._CarpenterTooltipStatusBarHooked = true
 end
 
 local function HideTooltipHealthBar(tooltip)
-    local bar = _G["GameTooltipStatusBar"] or (tooltip and tooltip.statusBar)
-    if bar then bar:Hide() end
+    local bars = {}
+    local function AddBar(bar)
+        if bar then
+            bars[#bars + 1] = bar
+        end
+    end
+
+    AddBar(_G["GameTooltipStatusBar"])
+    AddBar(tooltip and tooltip.StatusBar)
+    AddBar(tooltip and tooltip.statusBar)
+
+    for _, bar in ipairs(bars) do
+        HookStatusBar(bar)
+        HideStatusBar(bar)
+    end
+
     if tooltip then
-        for i = 1, tooltip:GetNumChildren() do
-            local child = select(i, tooltip:GetChildren())
-            if child and child:GetObjectType() == "StatusBar" then child:Hide() end
+        local children = { tooltip:GetChildren() }
+        for _, child in ipairs(children) do
+            if child and child.GetObjectType and child:GetObjectType() == "StatusBar" then
+                HookStatusBar(child)
+                HideStatusBar(child)
+            end
         end
     end
 end
@@ -21,6 +75,26 @@ end
 local LEVEL_STR = (type(LEVEL) == "string" and LEVEL) or "Level"
 local locale = GetLocale()
 local isRuRU = (locale == "ruRU")
+
+local function UsesProtectedTooltipStrings()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+end
+
+local function CanAccessValue(value)
+    if type(canaccessvalue) == "function" then
+        return canaccessvalue(value)
+    end
+    return true
+end
+
+local function CanAccessTooltipText()
+    if not UsesProtectedTooltipStrings() then return true end
+    local ok, text = pcall(function()
+        return GameTooltipTextLeft1 and GameTooltipTextLeft1:GetText()
+    end)
+    if not ok then return false end
+    return text ~= nil and CanAccessValue(text)
+end
 
 local function GetClassColorHex(unit)
     if not RAID_CLASS_COLORS or not UnitIsPlayer(unit) then return nil end
@@ -40,50 +114,37 @@ local function ApplyNameLine(tooltip, unit)
     local reaction = UnitReaction(unit, "player") or 0
     local dead = UnitIsDeadOrGhost(unit)
 
-    -- Player, or friendly (reaction > 4), or player-controlled
-    if tipIsPlayer or playerControl or reaction > 4 then
-        local nameColor
-        if tipIsPlayer then
-            nameColor = GetClassColorHex(unit) or "|cffffffff"
-        else
-            if UnitIsPVP(unit) then
-                nameColor = "|cff00ff00"
-            else
-                nameColor = "|cff00aaff"
-            end
-        end
-        local nameText = UnitPVPName(unit) or UnitName(unit)
-        if not nameText or nameText == "" then
-            nameText = left1:GetText() or ""
-        else
-            local fullName = GetUnitName(unit, true)
-            if fullName and fullName:find("-") then
-                local realm = fullName:match("-(.+)$")
-                if realm and realm ~= "" then nameText = nameText .. " - " .. realm end
-            end
-        end
-        if dead then nameColor = "|cff888888" end
-        if nameText ~= "" then
-            left1:SetText(nameColor .. nameText .. "|r")
-        end
+    if dead then
+        left1:SetTextColor(0.53, 0.53, 0.53)
         return
     end
 
-    if dead then
-        local existing = left1:GetText() or ""
-        left1:SetText("|cff888888" .. existing .. "|r")
+    -- Player, or friendly (reaction > 4), or player-controlled
+    if tipIsPlayer or playerControl or reaction > 4 then
+        if tipIsPlayer then
+            local _, classToken = UnitClass(unit)
+            local c = classToken and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classToken]
+            if c then
+                left1:SetTextColor(c.r, c.g, c.b)
+            else
+                left1:SetTextColor(1, 1, 1)
+            end
+        else
+            if UnitIsPVP(unit) then
+                left1:SetTextColor(0, 1, 0)
+            else
+                left1:SetTextColor(0, 0.67, 1)
+            end
+        end
         return
     end
 
     -- Hostile mob (not player, reaction < 4, not player control)
     if not tipIsPlayer and reaction < 4 and not playerControl then
-        local mobName = UnitName(unit) or left1:GetText() or ""
-        if mobName ~= "" then
-            if UnitIsTapDenied(unit) then
-                left1:SetText("|cff8888bb" .. mobName .. "|r")
-            else
-                left1:SetText("|cffff3333" .. mobName .. "|r")
-            end
+        if UnitIsTapDenied(unit) then
+            left1:SetTextColor(0.53, 0.53, 0.73)
+        else
+            left1:SetTextColor(1, 0.2, 0.2)
         end
     end
 end
@@ -193,36 +254,42 @@ local function TooltipAlreadyHasTargetLine()
 end
 
 local function ShowUnitTargetInTooltip(tooltip, unit)
-    if not unit or not UnitExists(unit) then return end
+    if not unit then return end
     local targetUnit = unit .. "target"
-    if not UnitExists(targetUnit) then return end
-
-    local name = UnitName(targetUnit)
-    if not name or name == "" then return end
 
     if TooltipAlreadyHasTargetLine() then return end
 
-    local displayText
-    if UnitIsUnit(targetUnit, "player") then
-        displayText = "|cffff4400" .. TARGET_YOU .. "|r"
-    elseif UnitIsPlayer(targetUnit) and RAID_CLASS_COLORS then
-        local _, classToken = UnitClass(targetUnit)
-        local color = classToken and RAID_CLASS_COLORS[classToken]
-        if color then
-            local hex = string.format("|cff%02x%02x%02x", color.r * 255, color.g * 255, color.b * 255)
-            displayText = hex .. name .. "|r"
+    local ok, line = pcall(function()
+        local name = UnitName(targetUnit)
+        if not CanAccessValue(name) then return nil end
+        if not name or name == "" then return nil end
+
+        local displayText
+        if UnitIsUnit(targetUnit, "player") then
+            displayText = "|cffff4400" .. TARGET_YOU .. "|r"
+        elseif UnitIsPlayer(targetUnit) and RAID_CLASS_COLORS then
+            local _, classToken = UnitClass(targetUnit)
+            local color = classToken and RAID_CLASS_COLORS[classToken]
+            if color then
+                local hex = string.format("|cff%02x%02x%02x", color.r * 255, color.g * 255, color.b * 255)
+                displayText = hex .. name .. "|r"
+            else
+                displayText = name
+            end
         else
             displayText = name
         end
-    else
-        displayText = name
-    end
 
-    GameTooltip:AddLine(TARGET_PREFIX .. displayText)
+        return TARGET_PREFIX .. displayText
+    end)
+
+    if ok and line then
+        tooltip:AddLine(line)
+    end
 end
 
 local function EnhanceUnitTooltip(tooltip, unit)
-    if not unit or not UnitExists(unit) then return end
+    if not unit then return end
     HideTooltipHealthBar(tooltip)
     ApplyNameLine(tooltip, unit)
     if UnitIsPlayer(unit) then
@@ -236,12 +303,13 @@ local function EnhanceUnitTooltip(tooltip, unit)
     ShowUnitTargetInTooltip(tooltip, unit)
 end
 
--- Match Leatrix Plus: single OnTooltipSetUnit hook; world hover uses "mouseover", else GetUnit.
+-- Match Leatrix Plus: world hover uses "mouseover", else GetUnit.
 -- WorldFrame:EnableMouseMotion(true) so world hover triggers unit tooltips.
 local function ShowTip(self)
     if not IsEnabled() then return end
     -- Only enhance the main GameTooltip (avoid affecting LibDBIcon and other tooltips)
     if self ~= GameTooltip then return end
+    if not CanAccessTooltipText() then return end
     -- Do not modify tooltip when it is showing an item (e.g. merchant); avoids comparison tooltip flicker
     if self.GetItem then
         local _, itemLink = self:GetItem()
@@ -254,9 +322,7 @@ local function ShowTip(self)
         -- Leatrix uses select(2, GameTooltip:GetUnit()); support both one and two return values
         unit = (self.GetUnit and select(2, self:GetUnit())) or (self.GetUnit and self:GetUnit())
     end
-    if not unit or not UnitExists(unit) then return end
-    -- Always hide the health bar under the tooltip (works for all units, including target/focus and out-of-range party/raid).
-    HideTooltipHealthBar(self)
+    if not unit then return end
     local reaction = UnitReaction(unit, "player")
     if not reaction then return end
     EnhanceUnitTooltip(self, unit)
@@ -269,7 +335,15 @@ local function InstallHooks()
         WorldFrame:EnableMouseMotion(true)
     end
     if not hooked then
-        GameTooltip:HookScript("OnTooltipSetUnit", ShowTip)
+        if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Unit then
+            TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip)
+                ShowTip(tooltip)
+            end)
+        elseif GameTooltip.HasScript and GameTooltip:HasScript("OnTooltipSetUnit") then
+            GameTooltip:HookScript("OnTooltipSetUnit", ShowTip)
+        else
+            GameTooltip:HookScript("OnShow", ShowTip)
+        end
         hooked = true
     end
 end

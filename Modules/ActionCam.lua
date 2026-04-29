@@ -24,6 +24,7 @@ local PITCH_ON_GROUND = 0.5
 local PITCH_FLYING = 0.75
 local DOWN_SCALE = 0.25
 local SMART_PIVOT_CUTOFF = 10
+local SPELL_OVERLAY_OFFSET_Y = -80
 
 -- Smooth zoom: small steps, only on real mount/dismount transitions (debounced).
 local MOUNT_ZOOM_STEPS = 10
@@ -36,9 +37,44 @@ local DISMOUNT_ZOOM_INTERVAL = MOUNT_ZOOM_INTERVAL
 
 local lastMounted = nil   -- last mount state we actually acted on (so we only act on transition)
 local zoomInProgress = false  -- prevent overlapping zoom sequences
+local spellOverlayHooked = false
+local HookSpellOverlay
+
+local function IsEnabled()
+    return Carpenter and Carpenter:IsEnabled("actionCamEnabled")
+end
+
+local function IsRetail()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+end
+
+local function UpdateSpellOverlayOffset()
+    if not IsRetail() or not SpellActivationOverlayFrame then return end
+
+    HookSpellOverlay()
+    SpellActivationOverlayFrame:ClearAllPoints()
+    if IsEnabled() then
+        SpellActivationOverlayFrame:SetPoint("CENTER", UIParent, "CENTER", 0, SPELL_OVERLAY_OFFSET_Y)
+    else
+        SpellActivationOverlayFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    end
+end
+
+HookSpellOverlay = function()
+    if spellOverlayHooked or not IsRetail() or not SpellActivationOverlayFrame then return end
+
+    SpellActivationOverlayFrame:HookScript("OnShow", function()
+        UpdateSpellOverlayOffset()
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0, UpdateSpellOverlayOffset)
+        end
+    end)
+
+    spellOverlayHooked = true
+end
 
 local function UpdateCameraZoom()
-    if not CarpenterDB or not CarpenterDB.actionCamEnabled then
+    if not IsEnabled() then
         return
     end
     if zoomInProgress then
@@ -91,11 +127,7 @@ local function ResetCameraCVarsToDefaults()
 end
 
 local function UpdateCameraSettings()
-    if not CarpenterDB then
-        return
-    end
-
-    if CarpenterDB.actionCamEnabled then
+    if IsEnabled() then
         -- Camera Over Shoulder Offset
         SetCVar("test_cameraOverShoulder", OVER_SHOULDER_OFFSET)
         SetCVar("cameraSmoothingStyle", 0) -- required for offset
@@ -109,8 +141,10 @@ local function UpdateCameraSettings()
         
         -- Update zoom based on mount status
         UpdateCameraZoom()
+        UpdateSpellOverlayOffset()
     else
         ResetCameraCVarsToDefaults()
+        UpdateSpellOverlayOffset()
     end
 end
 
@@ -124,22 +158,25 @@ frame:RegisterUnitEvent("UNIT_AURA", "player")
 frame:SetScript("OnEvent", function(self, event, addon, unit)
     if event == "ADDON_LOADED" and addon == "Carpenter" then
         -- Reset CVars immediately if Action Cam is disabled (before Blizzard checks them)
-        if not CarpenterDB or not CarpenterDB.actionCamEnabled then
+        if not IsEnabled() then
             ResetCameraCVarsToDefaults()
         end
         C_Timer.After(0.1, UpdateCameraSettings)
     elseif event == "PLAYER_ENTERING_WORLD" then
         -- Also reset on entering world if disabled (in case CVars were set by another addon)
-        if not CarpenterDB or not CarpenterDB.actionCamEnabled then
+        if not IsEnabled() then
             ResetCameraCVarsToDefaults()
         end
         UpdateCameraSettings()
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0.5, UpdateSpellOverlayOffset)
+        end
         self:UnregisterEvent("PLAYER_ENTERING_WORLD")
     elseif (event == "PLAYER_MOUNT_DISPLAY_CHANGED" or
             (event == "UNIT_MODEL_CHANGED" and unit == "player") or
             (event == "UNIT_AURA" and unit == "player")) then
         -- Mount/aura changed; delay so IsMounted() is up to date
-        if CarpenterDB and CarpenterDB.actionCamEnabled then
+        if IsEnabled() then
             C_Timer.After(0.25, UpdateCameraZoom)
         end
     end
@@ -152,9 +189,11 @@ watchFrame:SetScript("OnEvent", function(self, event, addon)
     if addon == "Carpenter" then
         local last = nil
         C_Timer.NewTicker(0.2, function()
-            if CarpenterDB and last ~= CarpenterDB.actionCamEnabled then
-                last = CarpenterDB.actionCamEnabled
+            local enabled = IsEnabled()
+            if last ~= enabled then
+                last = enabled
                 UpdateCameraSettings()
+                UpdateSpellOverlayOffset()
             end
         end)
         self:UnregisterEvent("ADDON_LOADED")
@@ -168,7 +207,7 @@ mountCheckFrame:SetScript("OnEvent", function(self, event, addon)
     if addon == "Carpenter" then
         local lastMounted = nil
         C_Timer.NewTicker(0.5, function()
-            if CarpenterDB and CarpenterDB.actionCamEnabled then
+            if IsEnabled() then
                 local isMounted = IsMounted()
                 if lastMounted ~= isMounted then
                     lastMounted = isMounted

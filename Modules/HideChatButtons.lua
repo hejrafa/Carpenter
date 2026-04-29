@@ -10,9 +10,7 @@ local FADE_SPEED = 0.05    -- Adjust for faster/slower fading
 -- Config
 -- =========================
 local function IsEnabled()
-    if not CarpenterDB then return true end
-    if CarpenterDB.hideChatButtonsEnabled == nil then return true end
-    return CarpenterDB.hideChatButtonsEnabled
+    return Carpenter and Carpenter:IsEnabled("hideChatButtonsEnabled")
 end
 
 -- =========================
@@ -22,17 +20,31 @@ end
 local currentAlpha = 0
 local targetAlpha = 0
 
+local function SetFrameAlpha(frame, alpha)
+    if not frame then return end
+
+    if frame.SetAlpha then
+        frame:SetAlpha(alpha)
+    end
+
+    if frame.GetRegions then
+        for _, region in ipairs({ frame:GetRegions() }) do
+            if region and region.SetAlpha then
+                region:SetAlpha(alpha)
+            end
+        end
+    end
+end
+
 local function SetGroupAlpha(group, alpha)
     for _, name in ipairs(group) do
-        local btn = _G[name]
-        if btn then
-            btn:SetAlpha(alpha)
-            -- Handle specific icon textures or flash textures if they exist
-            local icon = _G[name .. "IconTexture"]
-            if icon then icon:SetAlpha(alpha) end
-            local flash = _G[name .. "Flash"]
-            if flash then flash:SetAlpha(alpha) end
-        end
+        SetFrameAlpha(_G[name], alpha)
+    end
+end
+
+local function SetFramesAlpha(frames, alpha)
+    for _, frame in ipairs(frames) do
+        SetFrameAlpha(frame, alpha)
     end
 end
 
@@ -87,13 +99,27 @@ for _, group in ipairs({chatButtons, socialButtons, arrowButtons, minimizeButton
     end
 end
 
+local chatTabs = {}
+
+local function RefreshChatTabs()
+    chatTabs = {}
+    for i = 1, NUM_CHAT_WINDOWS or 10 do
+        local tab = _G["ChatFrame" .. i .. "Tab"]
+        if tab then
+            table.insert(chatTabs, tab)
+        end
+    end
+end
+
 local function ApplyTransparency(alpha)
     if not IsEnabled() then
         SetGroupAlpha(allChatButtons, 1.0)
+        SetFramesAlpha(chatTabs, 1.0)
         return
     end
 
     SetGroupAlpha(allChatButtons, alpha)
+    SetFramesAlpha(chatTabs, alpha)
     
     -- Try specific known button names to avoid dynamic search errors
     local additionalButtons = {
@@ -119,9 +145,19 @@ hoverFrame:SetScript("OnUpdate", function(self)
     
     -- Also check each button individually
     if not mouseOverButtons then
+        RefreshChatTabs()
         for _, buttonName in ipairs(allChatButtons) do
             local button = _G[buttonName]
             if button and MouseIsOver(button) then
+                mouseOverButtons = true
+                break
+            end
+        end
+    end
+
+    if not mouseOverButtons then
+        for _, tab in ipairs(chatTabs) do
+            if tab and MouseIsOver(tab) then
                 mouseOverButtons = true
                 break
             end
@@ -155,13 +191,16 @@ frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 frame:SetScript("OnEvent", function()
     currentAlpha = HIDDEN_OPACITY
+    RefreshChatTabs()
     ApplyTransparency(HIDDEN_OPACITY)
 
     -- Secondary enforcement after a small delay to catch lazy-loading buttons
     C_Timer.After(2, function()
+        RefreshChatTabs()
         ApplyTransparency(currentAlpha)
     end)
     C_Timer.After(5, function()
+        RefreshChatTabs()
         ApplyTransparency(currentAlpha)
     end)
 end)

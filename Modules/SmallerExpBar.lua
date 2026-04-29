@@ -8,9 +8,7 @@ local OPACITY = 0.6 -- Set bars to 60% opacity
 -- Config
 -- =========================
 local function IsEnabled()
-    if not CarpenterDB then return true end
-    if CarpenterDB.smallerExpBarEnabled == nil then return true end
-    return CarpenterDB.smallerExpBarEnabled
+    return Carpenter and Carpenter:IsEnabled("smallerExpBarEnabled")
 end
 
 -- =========================
