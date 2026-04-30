@@ -78,7 +78,7 @@ end
 
 local function SpaceBeforeX(s)
     if not s or type(s) ~= "string" then return s end
-    return s:gsub("([^%s])x(%d+)", "%1 x%2")
+    return s:gsub("(|r)x(%d+)", "%1 x%2"):gsub("([^%s])x(%d+)", "%1 x%2")
 end
 
 -- Return item link with quality color (Goldpaw-style: GetItemInfo colored link; fallback ITEM_QUALITY_COLORS)
@@ -627,6 +627,11 @@ local function IsMailFrameVisible()
 end
 
 mailTracker:SetScript("OnUpdate", function(self, elapsed)
+    if not (Carpenter and Carpenter:IsEnabled("chatCleanerEnabled")) then
+        self:Hide()
+        return
+    end
+
     self._t = (self._t or 0) + elapsed
     if self._t < 0.2 then return end
     self._t = 0
@@ -644,6 +649,7 @@ mailTracker:SetScript("OnUpdate", function(self, elapsed)
         mailTotalCollected = 0
     end
 end)
+mailTracker:Hide()
 
 mailTracker:SetScript("OnEvent", function(self, event)
     if event == "PLAYER_MONEY" and self.isOpen then
@@ -1203,11 +1209,15 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     end
 
     -- 2a. Reputation Gains (numeric)
-    local faction, amount = msg:match("Your reputation with (.-) has increased by (%d+)")
-    if not faction then faction, amount = msg:match("Your (.-) reputation has increased by (%d+)") end
-    if not faction then faction, amount = msg:match("Your Warband's reputation with (.-) increased by (%d+)") end
-    if not faction then faction, amount = msg:match("Reputation with (.-) increased by (%d+)%.?") end
-    if not faction then amount, faction = msg:match("(%d+) reputation with (.-) gained") end
+    local repMsg = msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("%[", ""):gsub("%]", "")
+    local faction, amount = repMsg:match("Your reputation with (.-) has increased by (%d+)")
+    if not faction then faction, amount = repMsg:match("Your (.-) reputation has increased by (%d+)") end
+    if not faction then faction, amount = repMsg:match("Your Warband's reputation with (.-) increased by (%d+)") end
+    if not faction then faction, amount = repMsg:match("Reputation with (.-) increased by (%d+)%.?") end
+    if not faction then amount, faction = repMsg:match("(%d+) reputation with (.-) gained") end
+    if not faction then
+        faction, amount = repMsg:match("^(.-)%s+judges your Warband more worthy%.?%s*(%d+)%s+reputation gained")
+    end
 
     if faction and amount then
         faction = CleanPunctuation(StripBrackets(faction))
@@ -1390,14 +1400,28 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     -- 5a. Retail currency gains: "You receive currency: Voidlight Marl x207"
     if (event == "CHAT_MSG_SYSTEM" or event == "CHAT_MSG_CURRENCY") and type(msg) == "string" then
         local clean = msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("[%[%]]", "")
-        local currency, currencyAmount = clean:match("^You receive currency:%s*(.-)%s+x(%d+)%s*%.?$")
+        local gainedCurrency, gainedCurrencyAmount = clean:match("^You gained:%s*(%d+)%D+(.+)%s*$")
+        if gainedCurrency and gainedCurrencyAmount then
+            gainedCurrencyAmount = CleanPunctuation(gainedCurrencyAmount:gsub("^%s+", ""):gsub("%s+$", ""))
+            if gainedCurrencyAmount ~= "" then
+                return false, SpaceBeforeX(prefixPlus .. ColorWhite .. gainedCurrency .. " |r" .. ColorCyan .. gainedCurrencyAmount .. "|r"), author, ...
+            end
+        end
+
+        local currency, currencyAmount = clean:match("You receive currency:%s*(.-)%s+x(%d+)%s*%.?$")
         if not currency then
-            currency, currencyAmount = clean:match("^You receive currency:%s*(.-)%s+(%d+)%s*%.?$")
+            currency, currencyAmount = clean:match("You receive currency:%s*(.-)%s+(%d+)%s*%.?$")
         end
         if currency and currencyAmount then
             currency = CleanPunctuation(currency:gsub("^%s+", ""):gsub("%s+$", ""))
             if currency ~= "" then
                 return false, SpaceBeforeX(prefixPlus .. ColorWhite .. currencyAmount .. " |r" .. ColorCyan .. currency .. "|r"), author, ...
+            end
+        elseif clean:find("You receive currency:", 1, true) then
+            currency = clean:match("You receive currency:%s*(.-)%s*%.?$")
+            currency = currency and CleanPunctuation(currency:gsub("^%s+", ""):gsub("%s+$", ""))
+            if currency and currency ~= "" then
+                return false, prefixPlus .. ColorCyan .. currency .. "|r", author, ...
             end
         end
     end
@@ -2049,7 +2073,15 @@ end
 -- MessageEventHandler to receive nil for trailing args and call strlen(nil) on CHAT_MSG_LOOT etc.
 -- Coerce any nil to "" so Blizzard code that does strlen(arg) never gets nil.
 local function ChatFilter(self, event, msg, author, ...)
-    local results = { pcall(ChatFilterImpl, self, event, msg, author, ...) }
+    local function RunFilter(...)
+        return pcall(ChatFilterImpl, ...)
+    end
+    local results
+    if Carpenter and Carpenter.Profile then
+        results = { Carpenter:Profile("ChatCleaner:Filter", RunFilter, self, event, msg, author, ...) }
+    else
+        results = { RunFilter(self, event, msg, author, ...) }
+    end
     local ok = results[1]
     if not ok then
         return false, (msg or ""), (author or ""), ...
@@ -2081,13 +2113,14 @@ local function HookChatFrameAddMessage(frame)
     local orig = frame.AddMessage
     if not orig then return end
     frame.AddMessage = function(self, msg, ...)
+        if not (Carpenter and Carpenter:IsEnabled("chatCleanerEnabled")) then
+            return orig(self, msg, ...)
+        end
+
         local origMsg = msg
         local args = { ... }
         local ok = pcall(function()
-            if not (Carpenter and Carpenter:IsEnabled("chatCleanerEnabled")) then
-                orig(self, msg, unpack(args))
-                return
-            end
+            local function ProcessMessage()
             msg = ApplyChannelStyling(tostring(msg))
             msg = RemoveLinkBrackets(msg)
             msg = ClassColorPlayerNames(msg)
@@ -2158,6 +2191,12 @@ local function HookChatFrameAddMessage(frame)
                 end
             end
             orig(self, msg, unpack(args))
+            end
+
+            if Carpenter and Carpenter.Profile then
+                return Carpenter:Profile("ChatCleaner:AddMessage", ProcessMessage)
+            end
+            return ProcessMessage()
         end)
         if not ok then
             orig(self, origMsg, unpack(args))
@@ -2233,20 +2272,19 @@ end
 local loader = CreateFrame("Frame")
 loader:RegisterEvent("VARIABLES_LOADED")
 loader:SetScript("OnEvent", function(self, event)
-    RegisterChatFilters()
-    -- Only clean the chat edit box textures when Chat Cleaner is enabled
     if Carpenter and Carpenter:IsEnabled("chatCleanerEnabled") then
+        RegisterChatFilters()
         CleanEditBox()
+        mailTracker:Show()
+
+        C_Timer.After(0, function()
+            for i = 1, NUM_CHAT_WINDOWS do
+                HookChatFrameAddMessage(_G["ChatFrame" .. i])
+            end
+        end)
     end
 
     -- Strip brackets from flags
     _G.CHAT_FLAG_AFK = "AFK "
     _G.CHAT_FLAG_DND = "DND "
-    
-    -- Hook chat frames to style honor and suppress duplicates (DEFAULT_CHAT_FRAME is ChatFrame1, already covered by the loop)
-    C_Timer.After(0, function()
-        for i = 1, NUM_CHAT_WINDOWS do
-            HookChatFrameAddMessage(_G["ChatFrame" .. i])
-        end
-    end)
 end)

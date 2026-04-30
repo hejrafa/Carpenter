@@ -10,6 +10,7 @@ local GetItemLink = (C_Container and C_Container.GetContainerItemLink) or _G.Get
 local GetBagItemInfo = (C_Container and C_Container.GetContainerItemInfo) or _G.GetContainerItemInfo
 local GetItemInfo = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo
 local GetItemSpell = (C_Item and C_Item.GetItemSpell) or _G.GetItemSpell
+local GetItemInfoInstant = (C_Item and C_Item.GetItemInfoInstant) or _G.GetItemInfoInstant
 
 local ITEMS = {
     Food = { name = "CarpenterFood", legacyName = "ClassicFood" },
@@ -17,6 +18,22 @@ local ITEMS = {
     Pot = { name = "CarpenterHP", legacyName = "ClassicHP" },
     Mana = { name = "CarpenterMana", legacyName = "ClassicMana" },
     Band = { name = "CarpenterBand", legacyName = "ClassicBand" },
+}
+
+local RETAIL_ITEMS = {
+    Food = ITEMS.Food,
+    Water = ITEMS.Water,
+    Pot = ITEMS.Pot,
+    Mana = ITEMS.Mana,
+}
+
+local INTERNAL_CATEGORIES = {
+    Healthstone = true,
+}
+
+local CLASS_HEAL_SPELLS = {
+    RECUPERATE = 1248165,
+    CRIMSON_VIAL = 185311,
 }
 
 local FOOD_NAME_HINTS = {
@@ -31,6 +48,15 @@ local FOOD_NAME_HINTS = {
 
 local WATER_NAME_HINTS = {
     "drink", "juice", "milk", "spring water", "water",
+}
+
+local TOOLTIP_KEYWORDS = {
+    use = { "use:", "benutzen:" },
+    health = { "health", "gesundheit" },
+    healthstone = { "healthstone", "gesundheitsstein" },
+    mana = { "mana" },
+    foodAndDrink = { "remain seated while", "sitzen bleiben" },
+    conjured = { "conjured item", "conjured", "mana bun", "mana strudel", "mana biscuit", "mana cake", "mana pie", "herbeigezauberter gegenstand", "herbeigezaubert" },
 }
 
 -- Hard fallback for common Classic/TBC foods in case item info or tooltip text is sparse.
@@ -95,8 +121,36 @@ local KNOWN_BANDAGE_IDS = {
 local scanTooltip = CreateFrame("GameTooltip", "CP_SmartMacroScanTooltip", nil, "GameTooltipTemplate")
 scanTooltip:SetOwner(WorldFrame, "ANCHOR_NONE")
 
+local CONSUMABLE_CLASS_ID = 0
+local POTION_SUBCLASS_ID = 1
+local FOOD_DRINK_SUBCLASS_ID = 5
+local BANDAGE_SUBCLASS_ID = 7
+local TRADESKILL_CLASS_ID = 7
+local COOKING_SUBCLASS_ID = 8
+local MISCELLANEOUS_CLASS_ID = 15
+local REAGENT_SUBCLASS_ID = 1
+
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("smartMacrosEnabled")
+end
+
+local function IsRetail()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+end
+
+local function GetActiveItems()
+    return IsRetail() and RETAIL_ITEMS or ITEMS
+end
+
+local function GetScanCategories()
+    local categories = {}
+    for category in pairs(GetActiveItems()) do
+        categories[category] = true
+    end
+    for category in pairs(INTERNAL_CATEGORIES) do
+        categories[category] = true
+    end
+    return categories
 end
 
 local function ContainsAny(text, hints)
@@ -141,6 +195,12 @@ local function GetSlotItem(bag, slot)
 
     local name, link, _, itemLevel, reqLevel, itemType, itemSubType, _, _, icon, _, classID, subClassID =
         GetItemInfo(itemLink or itemID or "")
+    if GetItemInfoInstant then
+        local _, _, _, _, instantIcon, instantClassID, instantSubClassID = GetItemInfoInstant(itemLink or itemID or "")
+        icon = icon or instantIcon
+        classID = classID or instantClassID
+        subClassID = subClassID or instantSubClassID
+    end
     name = name or GetNameFromLink(itemLink)
     link = link or itemLink
     icon = icon or texture
@@ -161,21 +221,64 @@ local function GetSlotItem(bag, slot)
     }
 end
 
-local function ReadTooltip(bag, slot)
+local function AddTooltipLine(result, line)
+    if not line or line == "" then return end
+    local text = line:lower()
+    result.text = result.text .. " " .. text
+    local hasUse = ContainsAny(text, TOOLTIP_KEYWORDS.use)
+    local hasRestore = ContainsAny(text, TOOLTIP_KEYWORDS.health) or ContainsAny(text, TOOLTIP_KEYWORDS.mana)
+    if hasUse then
+        result.awaitingUseText = true
+    end
+    if not result.useText and hasRestore and (hasUse or result.awaitingUseText) then
+        result.useText = text
+    end
+    if result.awaitingUseText and text ~= "" and not hasUse then
+        result.awaitingUseText = false
+    end
+    if not result.isFoodAndDrink and ContainsAny(text, TOOLTIP_KEYWORDS.foodAndDrink) then
+        result.isFoodAndDrink = true
+    end
+    if ContainsAny(text, TOOLTIP_KEYWORDS.conjured) then
+        result.isConjured = true
+    end
+end
+
+local function ReadTooltip(bag, slot, item)
+    local result = {
+        text = "",
+        useText = nil,
+        awaitingUseText = false,
+        isFoodAndDrink = false,
+        isConjured = false,
+    }
+
+    if item and item.link and C_TooltipInfo and C_TooltipInfo.GetHyperlink then
+        local tooltipData = C_TooltipInfo.GetHyperlink(item.link, nil, nil, true)
+        if tooltipData and tooltipData.lines then
+            for i = 2, #tooltipData.lines do
+                local line = tooltipData.lines[i]
+                if line and line.type == 0 then
+                    AddTooltipLine(result, line.leftText)
+                end
+            end
+            return result
+        end
+    end
+
     scanTooltip:ClearLines()
     scanTooltip:SetBagItem(bag, slot)
 
-    local text = ""
     for i = 1, scanTooltip:NumLines() do
         local left = _G["CP_SmartMacroScanTooltipTextLeft" .. i]
         local right = _G["CP_SmartMacroScanTooltipTextRight" .. i]
         local leftText = left and left:GetText()
         local rightText = right and right:GetText()
-        if leftText then text = text .. " " .. leftText:lower() end
-        if rightText then text = text .. " " .. rightText:lower() end
+        AddTooltipLine(result, leftText)
+        AddTooltipLine(result, rightText)
     end
 
-    return text
+    return result
 end
 
 local function GetSpellText(item)
@@ -184,36 +287,223 @@ local function GetSpellText(item)
     return spellName and spellName:lower() or ""
 end
 
+local function GetSpellName(spellID, fallback)
+    if C_Spell and C_Spell.GetSpellInfo then
+        local spellInfo = C_Spell.GetSpellInfo(spellID)
+        if type(spellInfo) == "table" and spellInfo.name then
+            return spellInfo.name
+        end
+    end
+    if _G.GetSpellInfo then
+        local name = _G.GetSpellInfo(spellID)
+        if name then return name end
+    end
+    return fallback
+end
+
+local function IsSpellKnown(spellID)
+    if C_SpellBook and C_SpellBook.IsSpellKnown then
+        return C_SpellBook.IsSpellKnown(spellID)
+    end
+    if _G.IsPlayerSpell then
+        return _G.IsPlayerSpell(spellID)
+    end
+    return false
+end
+
+local function IsConsumableItem(item)
+    if not item then return false end
+    if item.classID == CONSUMABLE_CLASS_ID then return true end
+    local itemType = item.itemType and item.itemType:lower() or ""
+    return itemType:find("consumable", 1, true) ~= nil
+end
+
+local function IsKnownConsumableID(itemID)
+    return itemID and (
+        KNOWN_FOOD_IDS[itemID]
+        or KNOWN_WATER_IDS[itemID]
+        or KNOWN_HEALTH_IDS[itemID]
+        or KNOWN_MANA_IDS[itemID]
+        or KNOWN_HEALTHSTONE_IDS[itemID]
+        or KNOWN_BANDAGE_IDS[itemID]
+    )
+end
+
+local function ItemNameContainsHealthstone(item)
+    local name = item and item.name and item.name:lower() or ""
+    return ContainsAny(name, TOOLTIP_KEYWORDS.healthstone)
+end
+
+local function IsPotentialSmartMacroItem(item)
+    if IsConsumableItem(item) or IsKnownConsumableID(item.itemID) then return true end
+    if ItemNameContainsHealthstone(item) then return true end
+    if item.classID == TRADESKILL_CLASS_ID and item.subClassID == COOKING_SUBCLASS_ID then return true end
+    if item.classID == MISCELLANEOUS_CLASS_ID and item.subClassID == REAGENT_SUBCLASS_ID then return true end
+    return false
+end
+
+local function IsFoodDrinkConsumable(item)
+    if not IsConsumableItem(item) then return false end
+    if item.subClassID == FOOD_DRINK_SUBCLASS_ID then return true end
+    local subType = item.itemSubType and item.itemSubType:lower() or ""
+    return subType:find("food", 1, true) ~= nil or subType:find("drink", 1, true) ~= nil
+end
+
+local function IsFoodDrinkItem(item, tooltipData)
+    if IsFoodDrinkConsumable(item) then return true end
+    if item.classID == TRADESKILL_CLASS_ID and item.subClassID == COOKING_SUBCLASS_ID then return true end
+    if item.classID == MISCELLANEOUS_CLASS_ID and item.subClassID == REAGENT_SUBCLASS_ID then return true end
+    return tooltipData and tooltipData.isFoodAndDrink == true
+end
+
+local function TooltipRestoresHealth(useText)
+    if not useText or useText == "" then return false end
+    return ContainsAny(useText, TOOLTIP_KEYWORDS.health)
+end
+
+local function TooltipRestoresMana(useText)
+    if not useText or useText == "" then return false end
+    return ContainsAny(useText, TOOLTIP_KEYWORDS.mana)
+end
+
+local function NormalizeTooltipNumber(value)
+    if not value or value == "" then return 0 end
+    value = value:gsub("%s+", "")
+
+    if value:find(",", 1, true) and value:find(".", 1, true) then
+        value = value:gsub(",", "")
+    elseif value:find(",", 1, true) then
+        local afterComma = value:match(",(%d+)$")
+        if afterComma and #afterComma == 3 then
+            value = value:gsub(",", "")
+        else
+            value = value:gsub(",", ".")
+        end
+    elseif value:find(".", 1, true) then
+        local afterDot = value:match("%.([%d]+)$")
+        if afterDot and #afterDot == 3 then
+            value = value:gsub("%.", "")
+        end
+    end
+
+    return tonumber(value) or 0
+end
+
+local function NormalizeRestoreValue(rawValue, percent, text, maxValue)
+    local value = NormalizeTooltipNumber(rawValue)
+    if (percent == "%" or text:find("%%", 1, true)) and maxValue and maxValue > 0 then
+        value = maxValue * value / 100
+    elseif text:find("million", 1, true) or text:find("millionen", 1, true) then
+        value = value * 1000000
+    end
+    return value
+end
+
+local function ExtractRestoreValue(useText, keywords, maxValue)
+    if not useText or useText == "" then return 0 end
+
+    local healthPos = math.huge
+    local manaPos = math.huge
+    for _, keyword in ipairs(TOOLTIP_KEYWORDS.health) do
+        local pos = useText:find(keyword, 1, true)
+        if pos and pos < healthPos then healthPos = pos end
+    end
+    for _, keyword in ipairs(TOOLTIP_KEYWORDS.mana) do
+        local pos = useText:find(keyword, 1, true)
+        if pos and pos < manaPos then manaPos = pos end
+    end
+
+    local firstValue, firstPercent = useText:match("([%d%,%.]+)%s*(%%?)")
+    if firstValue then
+        if keywords == TOOLTIP_KEYWORDS.health and healthPos < math.huge and (healthPos <= manaPos or manaPos == math.huge) then
+            return NormalizeRestoreValue(firstValue, firstPercent, useText, maxValue)
+        elseif keywords == TOOLTIP_KEYWORDS.mana and manaPos < math.huge and (manaPos <= healthPos or healthPos == math.huge) then
+            return NormalizeRestoreValue(firstValue, firstPercent, useText, maxValue)
+        end
+    end
+
+    local best = 0
+    for _, keyword in ipairs(keywords) do
+        local searchStart = 1
+        while true do
+            local foundStart = useText:find(keyword, searchStart, true)
+            if not foundStart then break end
+
+            local beforeKeyword = useText:sub(1, foundStart - 1)
+            local rawValue, percent = beforeKeyword:match("([%d%,%.]+)%s*(%%?)%D*$")
+            if rawValue then
+                local value = NormalizeRestoreValue(rawValue, percent, useText, maxValue)
+                if value > best then best = value end
+            end
+
+            searchStart = foundStart + #keyword
+        end
+    end
+
+    if best <= 0 then
+        local rawValue, percent = useText:match("([%d%,%.]+)%s*(%%?)")
+        if rawValue then
+            best = NormalizeRestoreValue(rawValue, percent, useText, maxValue)
+        end
+    end
+
+    return best
+end
+
+local function IsConjuredFoodOrWater(item, tooltipData, category)
+    if category == "Food" and item.itemID and KNOWN_CONJURED_FOOD_IDS[item.itemID] then return true end
+    if category == "Water" and item.itemID and KNOWN_CONJURED_WATER_IDS[item.itemID] then return true end
+
+    local name = item.name and item.name:lower() or ""
+    local tooltip = tooltipData and tooltipData.text or ""
+    local spellText = tooltipData and tooltipData.spellText or ""
+    return tooltipData and tooltipData.isConjured
+        or ContainsAny(name, TOOLTIP_KEYWORDS.conjured)
+        or ContainsAny(spellText, TOOLTIP_KEYWORDS.conjured)
+        or ContainsAny(tooltip, TOOLTIP_KEYWORDS.conjured)
+end
+
 local function IsPotionItem(item)
     local name = item.name and item.name:lower() or ""
     local subType = item.itemSubType:lower()
 
-    return item.subClassID == 1 or subType:find("potion", 1, true) or name:find("potion", 1, true)
+    return IsConsumableItem(item) and (item.subClassID == POTION_SUBCLASS_ID or subType:find("potion", 1, true) or name:find("potion", 1, true))
+end
+
+local function IsHealthstoneItem(item, tooltip)
+    local name = item.name and item.name:lower() or ""
+    return (item.itemID and KNOWN_HEALTHSTONE_IDS[item.itemID])
+        or ContainsAny(name, TOOLTIP_KEYWORDS.healthstone)
+        or ContainsAny(tooltip, TOOLTIP_KEYWORDS.healthstone)
 end
 
 local function IsBandageItem(item, tooltip)
     local name = item.name and item.name:lower() or ""
     local subType = item.itemSubType:lower()
 
-    return (item.itemID and KNOWN_BANDAGE_IDS[item.itemID]) or
-        item.subClassID == 7 or
-        subType:find("bandage", 1, true) or
-        name:find("bandage", 1, true) or
-        tooltip:find("bandage", 1, true)
+    if item.itemID and KNOWN_BANDAGE_IDS[item.itemID] then return true end
+    if not IsConsumableItem(item) then return false end
+    return item.subClassID == BANDAGE_SUBCLASS_ID
+        or subType:find("bandage", 1, true)
+        or name:find("bandage", 1, true)
+        or tooltip:find("bandage", 1, true)
 end
 
 local IsWater
 
-local function IsFood(item, tooltip, spellText)
+local function IsFood(item, tooltipData, spellText)
+    local tooltip = tooltipData.text
     local name = item.name and item.name:lower() or ""
     local itemType = item.itemType:lower()
     local itemSubType = item.itemSubType:lower()
 
-    if IsPotionItem(item) or IsBandageItem(item, tooltip) or IsWater(item, tooltip, spellText) then return false end
+    if IsPotionItem(item) or IsBandageItem(item, tooltip) then return false end
+    if not IsFoodDrinkItem(item, tooltipData) then return false end
+    if not TooltipRestoresHealth(tooltipData.useText) then return false end
     if item.itemID and KNOWN_FOOD_IDS[item.itemID] then return true end
     if spellText:find("food", 1, true) then return true end
     if tooltip:find("must remain seated while eating", 1, true) then return true end
-    if tooltip:find("restores %d+ health") and not tooltip:find("mana", 1, true) then return true end
+    if tooltip:find("eat", 1, true) then return true end
     if ContainsAny(name, FOOD_NAME_HINTS) and not ContainsAny(name, WATER_NAME_HINTS) then return true end
     if itemSubType:find("food", 1, true) and not itemSubType:find("drink", 1, true) then return true end
     if itemType:find("consumable", 1, true) and tooltip:find("eat", 1, true) then return true end
@@ -221,15 +511,17 @@ local function IsFood(item, tooltip, spellText)
     return false
 end
 
-IsWater = function(item, tooltip, spellText)
+IsWater = function(item, tooltipData, spellText)
+    local tooltip = tooltipData.text
     local name = item.name and item.name:lower() or ""
     local itemSubType = item.itemSubType:lower()
 
-    if IsPotionItem(item) or IsBandageItem(item, tooltip) or (item.itemID and KNOWN_FOOD_IDS[item.itemID]) then return false end
+    if IsPotionItem(item) or IsBandageItem(item, tooltip) then return false end
+    if not IsFoodDrinkItem(item, tooltipData) then return false end
+    if not TooltipRestoresMana(tooltipData.useText) then return false end
     if item.itemID and KNOWN_WATER_IDS[item.itemID] then return true end
     if spellText:find("drink", 1, true) then return true end
     if tooltip:find("must remain seated while drinking", 1, true) then return true end
-    if tooltip:find("restores %d+ mana") then return true end
     if ContainsAny(name, WATER_NAME_HINTS) then return true end
     if itemSubType:find("drink", 1, true) then return true end
 
@@ -239,8 +531,9 @@ end
 local function IsHealthConsumable(item, tooltip, spellText)
     local name = item.name and item.name:lower() or ""
 
-    if item.itemID and (KNOWN_HEALTH_IDS[item.itemID] or KNOWN_HEALTHSTONE_IDS[item.itemID]) then return true end
-    if name:find("healthstone", 1, true) or tooltip:find("healthstone", 1, true) then return true end
+    if IsHealthstoneItem(item, tooltip) then return false end
+    if item.itemID and KNOWN_HEALTH_IDS[item.itemID] then return true end
+    if not IsConsumableItem(item) then return false end
     if not IsPotionItem(item) then return false end
     if name:find("healing potion", 1, true) or name:find("health potion", 1, true) then return true end
     if spellText:find("healing potion", 1, true) or spellText:find("restore health", 1, true) or spellText:find("heal", 1, true) then return true end
@@ -253,6 +546,7 @@ local function IsManaConsumable(item, tooltip, spellText)
     local name = item.name and item.name:lower() or ""
 
     if item.itemID and KNOWN_MANA_IDS[item.itemID] then return true end
+    if not IsConsumableItem(item) then return false end
     if name:find("mana potion", 1, true) then return true end
     if not IsPotionItem(item) then return false end
     if spellText:find("mana potion", 1, true) or spellText:find("restore mana", 1, true) then return true end
@@ -265,13 +559,26 @@ local function IsBandage(item, tooltip)
     return IsBandageItem(item, tooltip)
 end
 
-local function ScoreItem(item, tooltip, spellText, category)
+local function ScoreItem(item, tooltipData, spellText, category)
+    local tooltip = tooltipData.text
     local score = item.itemLevel or 0
     local name = item.name and item.name:lower() or ""
 
-    local restores = tooltip:match("restores%s+%d+%s+to%s+(%d+)") or tooltip:match("restores%s+(%d+)")
-    if restores then
-        score = score + tonumber(restores)
+    if category == "Food" then
+        score = ExtractRestoreValue(tooltipData.useText, TOOLTIP_KEYWORDS.health, UnitHealthMax("player") or 0)
+        if IsConjuredFoodOrWater(item, tooltipData, category) then
+            score = score + 1000000000
+        end
+        return score
+    elseif category == "Water" then
+        score = ExtractRestoreValue(tooltipData.useText, TOOLTIP_KEYWORDS.mana, UnitPowerMax("player", Enum and Enum.PowerType and Enum.PowerType.Mana or 0) or 0)
+        if IsConjuredFoodOrWater(item, tooltipData, category) then
+            score = score + 1000000000
+        end
+        return score
+    elseif category == "Healthstone" then
+        score = ExtractRestoreValue(tooltipData.useText, TOOLTIP_KEYWORDS.health, UnitHealthMax("player") or 0)
+        return score > 0 and score or (item.itemLevel or 0)
     end
 
     local isConjured = name:find("conjured", 1, true) or tooltip:find("conjured", 1, true)
@@ -308,13 +615,16 @@ local function IsBetterItem(item, score, bestItem, bestScore)
     return GetStableItemKey(item) > GetStableItemKey(bestItem)
 end
 
-local function MatchesCategory(item, tooltip, spellText, category)
+local function MatchesCategory(item, tooltipData, spellText, category)
+    local tooltip = tooltipData.text
     if category == "Food" then
-        return IsFood(item, tooltip, spellText)
+        return IsFood(item, tooltipData, spellText)
     elseif category == "Water" then
-        return IsWater(item, tooltip, spellText)
+        return IsWater(item, tooltipData, spellText)
     elseif category == "Pot" then
         return IsHealthConsumable(item, tooltip, spellText)
+    elseif category == "Healthstone" then
+        return IsHealthstoneItem(item, tooltip)
     elseif category == "Mana" then
         return IsManaConsumable(item, tooltip, spellText)
     elseif category == "Band" then
@@ -323,31 +633,71 @@ local function MatchesCategory(item, tooltip, spellText, category)
     return false
 end
 
-local function GetBestItem(category)
-    local bestItem
-    local bestScore = -1
+local function GetBagFingerprint()
+    local parts = {}
+    for bag = 0, 4 do
+        local numSlots = GetNumSlots and GetNumSlots(bag) or 0
+        parts[#parts + 1] = bag .. ":" .. numSlots
+        for slot = 1, numSlots do
+            parts[#parts + 1] = GetItemID and (GetItemID(bag, slot) or 0) or 0
+        end
+    end
+    return table.concat(parts, ";")
+end
+
+local function GetBestItems(debugOutput)
+    local bestItems = {}
+    local bestScores = {}
     local playerLevel = UnitLevel("player") or 0
+    local needsItemInfoRetry = false
 
     for bag = 0, 4 do
         local numSlots = GetNumSlots and GetNumSlots(bag) or 0
         for slot = 1, numSlots do
             local item = GetSlotItem(bag, slot)
             if item and item.reqLevel <= playerLevel then
-                local tooltip = ReadTooltip(bag, slot)
-                local spellText = GetSpellText(item)
+                if not item.name then
+                    needsItemInfoRetry = true
+                end
 
-                if MatchesCategory(item, tooltip, spellText, category) then
-                    local score = ScoreItem(item, tooltip, spellText, category)
-                    if IsBetterItem(item, score, bestItem, bestScore) then
-                        bestScore = score
-                        bestItem = item
+                if IsPotentialSmartMacroItem(item) then
+                    local tooltipData = ReadTooltip(bag, slot, item)
+                    local spellText = GetSpellText(item)
+                    tooltipData.spellText = spellText
+
+                    for category in pairs(GetScanCategories()) do
+                        if MatchesCategory(item, tooltipData, spellText, category) then
+                            local score = ScoreItem(item, tooltipData, spellText, category)
+                            if debugOutput and (category == "Food" or category == "Water") then
+                                print(string.format(
+                                    "|cff00aaffCarpenter %s candidate:|r %s id=%s score=%s conjured=%s use=%s",
+                                    category,
+                                    item.name or "?",
+                                    tostring(item.itemID or "?"),
+                                    tostring(score),
+                                    tostring(IsConjuredFoodOrWater(item, tooltipData, category) and true or false),
+                                    tooltipData.useText or "?"
+                                ))
+                            end
+                            if IsBetterItem(item, score, bestItems[category], bestScores[category] or -1) then
+                                bestScores[category] = score
+                                bestItems[category] = item
+                            end
+                        end
                     end
                 end
             end
         end
     end
 
-    return bestItem
+    if debugOutput then
+        for _, category in ipairs({ "Food", "Water" }) do
+            local item = bestItems[category]
+            print(string.format("|cff00aaffCarpenter best %s:|r %s score=%s", category, item and item.name or "none", tostring(bestScores[category] or "none")))
+        end
+    end
+
+    return bestItems, needsItemInfoRetry
 end
 
 local function UpdateMacro(name, body, createIfMissing)
@@ -365,6 +715,39 @@ local function UpdateMacro(name, body, createIfMissing)
     end
 end
 
+local function DeleteMacroByName(name)
+    if not DeleteMacro then return end
+    local macroIndex = GetMacroIndexByName(name)
+    if macroIndex > 0 then
+        DeleteMacro(macroIndex)
+    end
+end
+
+local function BuildHealthMacroBody(potion, healthstone)
+    local lines = { "#showtooltip" }
+    local recuperate = GetSpellName(CLASS_HEAL_SPELLS.RECUPERATE, "Recuperate")
+    local crimsonVial = GetSpellName(CLASS_HEAL_SPELLS.CRIMSON_VIAL, "Crimson Vial")
+    local _, class = UnitClass("player")
+
+    if recuperate and (IsRetail() or IsSpellKnown(CLASS_HEAL_SPELLS.RECUPERATE)) then
+        lines[#lines + 1] = "/cast [nocombat] " .. recuperate
+    end
+
+    if class == "ROGUE" and crimsonVial and IsSpellKnown(CLASS_HEAL_SPELLS.CRIMSON_VIAL) then
+        lines[#lines + 1] = "/castsequence [@player,combat] reset=combat " .. crimsonVial
+    end
+
+    if healthstone and healthstone.name then
+        lines[#lines + 1] = "/use [@player,combat] " .. healthstone.name
+    end
+
+    if potion and potion.name then
+        lines[#lines + 1] = "/use [@player,combat] " .. potion.name
+    end
+
+    return table.concat(lines, "\n")
+end
+
 local function BuildMacroBody(item)
     if not item or not item.name then
         return "#showtooltip\n"
@@ -373,53 +756,112 @@ local function BuildMacroBody(item)
     return "#showtooltip " .. item.name .. "\n/use " .. item.name
 end
 
-local function ProcessUpdate()
+local lastBagFingerprint
+
+local function ProcessUpdate(forceRescan)
     if not IsEnabled() then return end
     if InCombatLockdown() then
         addonFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
         return
     end
 
-    for key, config in pairs(ITEMS) do
-        local best = GetBestItem(key)
-        local body = BuildMacroBody(best)
+    local bagFingerprint = GetBagFingerprint()
+    if not forceRescan and bagFingerprint == lastBagFingerprint then
+        return
+    end
+    lastBagFingerprint = bagFingerprint
+
+    local bestItems, needsItemInfoRetry = GetBestItems()
+    for key, config in pairs(GetActiveItems()) do
+        local best = bestItems[key]
+        local body = (key == "Pot")
+            and BuildHealthMacroBody(best, bestItems.Healthstone)
+            or BuildMacroBody(best)
 
         UpdateMacro(config.name, body, true)
         if config.legacyName then
             UpdateMacro(config.legacyName, body, false)
         end
     end
+
+    if IsRetail() then
+        DeleteMacroByName(ITEMS.Band.name)
+        DeleteMacroByName(ITEMS.Band.legacyName)
+    end
+
+    if needsItemInfoRetry then
+        addonFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+    else
+        addonFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
+    end
 end
 
 local isDirty = false
+local forceNextUpdate = false
+local updateScheduled = false
+local lastUpdateTime = 0
 
-addonFrame:RegisterEvent("BAG_UPDATE")
+local function RunScheduledUpdate()
+    updateScheduled = false
+    if not isDirty then return end
+    if not IsEnabled() then
+        isDirty = false
+        return
+    end
+    if InCombatLockdown() then
+        addonFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+        return
+    end
+
+    local now = GetTime and GetTime() or 0
+    if lastUpdateTime > 0 and now - lastUpdateTime < 2 then
+        updateScheduled = true
+        C_Timer.After(2 - (now - lastUpdateTime), RunScheduledUpdate)
+        return
+    end
+
+    isDirty = false
+    local forceRescan = forceNextUpdate
+    forceNextUpdate = false
+    lastUpdateTime = now
+    if Carpenter and Carpenter.Profile then
+        Carpenter:Profile("SmartMacros:ProcessUpdate", ProcessUpdate, forceRescan)
+    else
+        ProcessUpdate(forceRescan)
+    end
+end
+
+local function MarkDirty(delay, forceRescan)
+    if not IsEnabled() then return end
+    isDirty = true
+    forceNextUpdate = forceNextUpdate or forceRescan
+    if updateScheduled then return end
+    updateScheduled = true
+    C_Timer.After(delay or 0.75, RunScheduledUpdate)
+end
+
 addonFrame:RegisterEvent("BAG_UPDATE_DELAYED")
 addonFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-addonFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
-addonFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 
 addonFrame:SetScript("OnEvent", function(self, event, unit)
     if event == "PLAYER_REGEN_ENABLED" then
         self:UnregisterEvent(event)
-        isDirty = true
+        MarkDirty(0.25)
     elseif event == "PLAYER_ENTERING_WORLD" then
-        ProcessUpdate()
-    elseif event == "BAG_UPDATE_DELAYED" or event == "BAG_UPDATE" or event == "GET_ITEM_INFO_RECEIVED" then
-        isDirty = true
-    elseif event == "UNIT_SPELLCAST_SUCCEEDED" and unit == "player" then
-        isDirty = true
+        MarkDirty(1.5, true)
+    elseif event == "BAG_UPDATE_DELAYED" then
+        MarkDirty(1.0)
+    elseif event == "GET_ITEM_INFO_RECEIVED" then
+        self:UnregisterEvent(event)
+        MarkDirty(2.0, true)
     end
 end)
 
-addonFrame:SetScript("OnUpdate", function(_, elapsed)
-    if not isDirty then return end
-    if InCombatLockdown() then return end
-
-    isDirty = false
-    ProcessUpdate()
-end)
-
 ns.UpdateSmartMacros = function()
-    isDirty = true
+    MarkDirty(0.25, true)
+end
+
+SLASH_CARPENTERSMARTMACROS1 = "/cpmacros"
+SlashCmdList["CARPENTERSMARTMACROS"] = function()
+    GetBestItems(true)
 end

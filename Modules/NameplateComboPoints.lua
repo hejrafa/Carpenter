@@ -90,12 +90,14 @@ end
 local function update()
     if not isEnabled() then
         if resourceFrame then resourceFrame:Hide() end
+        addonFrame:Hide()
         return
     end
 
     -- 1. Check Target validity
     if not UnitExists("target") or UnitIsDead("target") or not UnitCanAttack("player", "target") then
         if resourceFrame then resourceFrame:Hide() end
+        addonFrame:Hide()
         return
     end
 
@@ -103,6 +105,7 @@ local function update()
     local plate = C_NamePlate.GetNamePlateForUnit("target")
     if not plate then
         if resourceFrame then resourceFrame:Hide() end
+        addonFrame:Hide()
         return
     end
 
@@ -130,6 +133,7 @@ local function update()
     resourceFrame:SetPoint("CENTER", plate, "BOTTOM", -8, 1)
 
     setComboVisual(cp)
+    addonFrame:Show()
 end
 
 -- =========================================================
@@ -154,3 +158,4 @@ addonFrame:SetScript("OnUpdate", function(_, delta)
         elapsed = 0
     end
 end)
+addonFrame:Hide()

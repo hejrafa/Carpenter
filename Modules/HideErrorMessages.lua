@@ -68,6 +68,13 @@ local function ShouldHideError(message)
     return false
 end
 
+local function ProfileShouldHideError(message)
+    if Carpenter and Carpenter.Profile then
+        return Carpenter:Profile("HideErrorMessages:ShouldHideError", ShouldHideError, message)
+    end
+    return ShouldHideError(message)
+end
+
 -- Note: We do NOT hook PlaySound to suppress the error "bonk". Replacing the global
 -- PlaySound taints the secure UI and blocks actions like Exit Game (addon gets blamed).
 
@@ -82,7 +89,7 @@ local function HookErrors()
         if event == "UI_ERROR_MESSAGE" then
             local errorType, message = ...
 
-            if ShouldHideError(message) then
+            if ProfileShouldHideError(message) then
                 return
             end
 

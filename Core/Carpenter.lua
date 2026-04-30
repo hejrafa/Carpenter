@@ -26,6 +26,7 @@ local defaults = {
     unitFrameDebuffsEnabled = false,
     unitFrameClassIconEnabled = false,
     hideUnitFrameCombatTextEnabled = false,
+    cleanUpUnitFramesEnabled = false,
     hideUnitFramePvPIconEnabled = false,
     hideUnitFramePowerBarEnabled = false,
     hideBossFramesEnabled = false,
@@ -135,6 +136,24 @@ function Carpenter:AddChatMessage(msg)
 end
 
 function Carpenter_InitializeSettings()
+    if CarpenterDB and CarpenterDB.cleanUpUnitFramesEnabled == nil then
+        local legacyCleanUpKeys = {
+            "hideUnitFramePvPIconEnabled",
+            "hideRestAnimationEnabled",
+            "hideHealthLossFxEnabled",
+            "hideRealmIndicatorEnabled",
+            "hidePlayerCornerIconEnabled",
+            "hidePartyFrameTitleEnabled",
+            "hideTargetReputationColorEnabled",
+        }
+        for _, key in ipairs(legacyCleanUpKeys) do
+            if CarpenterDB[key] == true then
+                CarpenterDB.cleanUpUnitFramesEnabled = true
+                break
+            end
+        end
+    end
+
     for key, value in pairs(defaults) do
         if CarpenterDB[key] == nil then
             CarpenterDB[key] = value
@@ -149,6 +168,86 @@ SlashCmdList["CARPENTER"] = function()
         Carpenter_OpenConfig()
     else
         print("|cffff0000Carpenter:|r " .. (L.CONFIG_NOT_LOADED or "Config UI not loaded."))
+    end
+end
+
+Carpenter.Perf = Carpenter.Perf or {
+    enabled = false,
+    data = {},
+    startedAt = nil,
+}
+
+function Carpenter:Profile(label, callback, ...)
+    if not self.Perf or not self.Perf.enabled or type(callback) ~= "function" or not debugprofilestop then
+        return callback(...)
+    end
+
+    local start = debugprofilestop()
+    local results = { callback(...) }
+    local elapsed = debugprofilestop() - start
+    local bucket = self.Perf.data[label]
+    if not bucket then
+        bucket = { calls = 0, total = 0, max = 0 }
+        self.Perf.data[label] = bucket
+    end
+    bucket.calls = bucket.calls + 1
+    bucket.total = bucket.total + elapsed
+    if elapsed > bucket.max then bucket.max = elapsed end
+    return unpack(results)
+end
+
+local function ResetPerf()
+    Carpenter.Perf.data = {}
+    Carpenter.Perf.startedAt = debugprofilestop and debugprofilestop() or nil
+end
+
+local function PrintPerf()
+    local rows = {}
+    for label, bucket in pairs(Carpenter.Perf.data or {}) do
+        rows[#rows + 1] = {
+            label = label,
+            calls = bucket.calls or 0,
+            total = bucket.total or 0,
+            max = bucket.max or 0,
+        }
+    end
+    table.sort(rows, function(a, b) return a.total > b.total end)
+
+    local window = Carpenter.Perf.startedAt and debugprofilestop and ((debugprofilestop() - Carpenter.Perf.startedAt) / 1000) or nil
+    print("|cff00aaffCarpenter perf|r " .. (Carpenter.Perf.enabled and "enabled" or "disabled"))
+    if window and window > 0 then
+        local total = 0
+        for _, bucket in pairs(Carpenter.Perf.data or {}) do
+            total = total + (bucket.total or 0)
+        end
+        print(string.format("Sample window: %.1fs, measured Carpenter CPU: %.2fms (%.4f%% of wall time)", window, total, (total / (window * 1000)) * 100))
+    end
+    if #rows == 0 then
+        print("No Carpenter samples yet.")
+        return
+    end
+    for i = 1, math.min(#rows, 12) do
+        local row = rows[i]
+        local avg = row.calls > 0 and (row.total / row.calls) or 0
+        print(string.format("%s: %.2fms total, %.2fms max, %.3fms avg, %d calls", row.label, row.total, row.max, avg, row.calls))
+    end
+end
+
+SLASH_CARPENTERPERF1 = "/cpperf"
+SlashCmdList["CARPENTERPERF"] = function(msg)
+    msg = (msg or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
+    if msg == "on" or msg == "start" then
+        Carpenter.Perf.enabled = true
+        ResetPerf()
+        print("|cff00aaffCarpenter perf enabled.|r Fly around, then run /cpperf.")
+    elseif msg == "off" or msg == "stop" then
+        Carpenter.Perf.enabled = false
+        PrintPerf()
+    elseif msg == "reset" then
+        ResetPerf()
+        print("|cff00aaffCarpenter perf reset.|r")
+    else
+        PrintPerf()
     end
 end
 

@@ -14,6 +14,11 @@ local _, ns = ...
 local L = ns and ns.L or {}
 local driver = CreateFrame("Frame")
 driver:Hide()
+
+local function IsEnabled()
+    return Carpenter and Carpenter:IsEnabled("nameplateCastNamesEnabled")
+end
+
 driver:SetScript("OnUpdate", function()
     local now = GetTime() * 1000
     local any = false
@@ -70,7 +75,7 @@ end
 
 local function UpdateCast(plate, unit)
     if not plate or not plate.CP_Widget then return end
-    if not CarpenterDB or not CarpenterDB.nameplateCastNamesEnabled then
+    if not IsEnabled() then
         HideBar(plate)
         return
     end
@@ -106,11 +111,11 @@ local function SetupPlate(plate, unit)
     -- game tries to show it again, while respecting our feature toggle.
     if castBar then
         castBar:HookScript("OnShow", function(self)
-            if CarpenterDB and CarpenterDB.nameplateCastNamesEnabled then
+            if IsEnabled() then
                 self:Hide()
             end
         end)
-        if CarpenterDB and CarpenterDB.nameplateCastNamesEnabled then
+        if IsEnabled() then
             castBar:Hide()
         end
     end
@@ -251,10 +256,16 @@ frame:RegisterEvent("UNIT_SPELLCAST_DELAYED")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 frame:SetScript("OnEvent", function(self, event, unit)
-    if event == "PLAYER_ENTERING_WORLD" then
-        if CarpenterDB and CarpenterDB.nameplateCastNamesEnabled then
-            pcall(SetCVar, "nameplateShowEnemyCastBars", "0")
+    if not IsEnabled() then
+        if event == "NAME_PLATE_UNIT_REMOVED" then
+            local plate = C_NamePlate.GetNamePlateForUnit(unit)
+            if plate then HideBar(plate) end
         end
+        return
+    end
+
+    if event == "PLAYER_ENTERING_WORLD" then
+        pcall(SetCVar, "nameplateShowEnemyCastBars", "0")
         for _, plate in pairs(C_NamePlate.GetNamePlates()) do
             local u = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
             if u then SetupPlate(plate, u) end
@@ -278,7 +289,7 @@ frame:SetScript("OnEvent", function(self, event, unit)
                 end
             end
         end
-        if plate and CarpenterDB and CarpenterDB.nameplateCastNamesEnabled then
+        if plate and IsEnabled() then
             if not plate.CP_Widget then SetupPlate(plate, unit) end
             if plate.CP_Widget then
                 plate.CP_CastText:SetText(L.INTERRUPTED or "Interrupted")
@@ -309,7 +320,7 @@ end)
 
 -- Safety ticker
 C_Timer.NewTicker(0.5, function()
-    if not CarpenterDB or not CarpenterDB.nameplateCastNamesEnabled then return end
+    if not IsEnabled() then return end
     for _, plate in pairs(C_NamePlate.GetNamePlates()) do
         local unit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
         if unit then

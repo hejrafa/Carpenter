@@ -12,7 +12,7 @@ local THROTTLE_TIME = 45
 -- =========================
 
 local function IsGlobalDuplicate(msg)
-    if not CarpenterDB.filterDuplicatesEnabled then return false end
+    if not CarpenterDB or not CarpenterDB.filterDuplicatesEnabled then return false end
     -- Normalize: remove spaces and lowercase
     local cleanMsg = msg:gsub("%s+", ""):lower()
 
@@ -57,7 +57,7 @@ local SpamPatterns = {
 
 local function ChatSpamFilter(self, event, msg, author, ...)
     -- 1. Main toggle check for the Filter module
-    if not CarpenterDB.chatFilterEnabled then return false, msg, author, ... end
+    if not (Carpenter and Carpenter:IsEnabled("chatFilterEnabled")) then return false, msg, author, ... end
 
     -- 2. RestedXP level-up spam (Say, Yell, Party, Raid, General) - when option is on
     local isRestedXPEvent = (event == "CHAT_MSG_SAY" or event == "CHAT_MSG_YELL" or

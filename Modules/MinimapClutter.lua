@@ -31,7 +31,7 @@ local function HideMinimapFrame(frame)
 
     if not frame.IsCPMinimapHooked then
         hooksecurefunc(frame, "Show", function(self)
-            if CarpenterDB and CarpenterDB.minimapClutterEnabled then
+            if IsEnabled() then
                 self:Hide()
                 self:SetAlpha(0)
             end
@@ -89,6 +89,7 @@ end
 
 -- Simple registry + fader for addon buttons we manage
 local CP_AddonButtons = {}
+local CP_FaderFrame
 
 local function RegisterAddonButton(btn)
     for _, b in ipairs(CP_AddonButtons) do
@@ -110,6 +111,7 @@ local function ApplyAddonButtonClutter(enabled)
                 end
 
                 RegisterAddonButton(child)
+                if CP_FaderFrame then CP_FaderFrame:Show() end
 
                 child.CP_CurrentAlpha = child.CP_CurrentAlpha or 0
                 child.CP_TargetAlpha = 0
@@ -118,6 +120,7 @@ local function ApplyAddonButtonClutter(enabled)
 
                 child:SetScript("OnEnter", function(self)
                     self.CP_TargetAlpha = 1
+                    if CP_FaderFrame then CP_FaderFrame:Show() end
                     if self.CP_OrigOnEnter then
                         self.CP_OrigOnEnter(self)
                     end
@@ -125,6 +128,7 @@ local function ApplyAddonButtonClutter(enabled)
 
                 child:SetScript("OnLeave", function(self)
                     self.CP_TargetAlpha = 0
+                    if CP_FaderFrame then CP_FaderFrame:Show() end
                     if self.CP_OrigOnLeave then
                         self.CP_OrigOnLeave(self)
                     end
@@ -144,12 +148,18 @@ local function ApplyAddonButtonClutter(enabled)
 end
 
 -- Smooth fader that lerps addon button alpha toward target over time
-local CP_FaderFrame = CreateFrame("Frame")
+CP_FaderFrame = CreateFrame("Frame")
 local FADE_SPEED = 6 -- higher = snappier fade
 
 CP_FaderFrame:SetScript("OnUpdate", function(self, elapsed)
-    if not CarpenterDB or not CarpenterDB.minimapClutterEnabled then return end
-    if not CP_AddonButtons or #CP_AddonButtons == 0 then return end
+    if not IsEnabled() then
+        self:Hide()
+        return
+    end
+    if not CP_AddonButtons or #CP_AddonButtons == 0 then
+        self:Hide()
+        return
+    end
 
     local changed = false
     for _, btn in ipairs(CP_AddonButtons) do
@@ -174,7 +184,7 @@ CP_FaderFrame:SetScript("OnUpdate", function(self, elapsed)
     end
 
     if not changed then
-        -- no-op; frame stays alive but cost is minimal
+        self:Hide()
     end
 end)
 
@@ -207,6 +217,7 @@ local function ApplyMinimapClutter()
         end
         -- Restore addon minimap buttons if we previously faded them.
         ApplyAddonButtonClutter(false)
+        CP_FaderFrame:Hide()
         return
     end
 
@@ -238,6 +249,7 @@ f:RegisterEvent("PLAYER_ENTERING_WORLD")
 f:SetScript("OnEvent", function()
     ApplyMinimapClutter()
 end)
+CP_FaderFrame:Hide()
 
 -- Re-enforce shortly after login/zone to catch any late layout changes.
 C_Timer.After(1, ApplyMinimapClutter)

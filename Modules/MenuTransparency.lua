@@ -6,6 +6,7 @@ local HIDDEN_OPACITY = 0
 local HOVER_OPACITY = 1
 local FADE_SPEED = 0.05    -- Adjust for faster/slower fading
 local HOVER_PADDING = 14
+local UPDATE_INTERVAL = 0.05
 
 -- =========================
 -- Config
@@ -162,8 +163,15 @@ end
 
 -- Logic to detect mouseover and handle smooth fading
 local updateFrame = CreateFrame("Frame")
-updateFrame:SetScript("OnUpdate", function(self)
-    if not IsEnabled() then return end
+updateFrame:SetScript("OnUpdate", function(self, elapsed)
+    if not IsEnabled() then
+        self:Hide()
+        return
+    end
+
+    self.elapsed = (self.elapsed or 0) + elapsed
+    if self.elapsed < UPDATE_INTERVAL then return end
+    self.elapsed = 0
 
     -- Check if any bag/menu is actually open
     local bagsOpen = false
@@ -208,14 +216,18 @@ frame:SetScript("OnEvent", function()
     currentAlpha = HIDDEN_OPACITY
     SetupButtonHoverScripts()
     ApplyTransparency(HIDDEN_OPACITY)
+    if IsEnabled() then updateFrame:Show() else updateFrame:Hide() end
 
     -- Secondary enforcement after a small delay to catch lazy-loading buttons (like Guild button)
     C_Timer.After(2, function()
         SetupButtonHoverScripts()
         ApplyTransparency(currentAlpha)
+        if IsEnabled() then updateFrame:Show() else updateFrame:Hide() end
     end)
     C_Timer.After(5, function()
         SetupButtonHoverScripts()
         ApplyTransparency(currentAlpha)
+        if IsEnabled() then updateFrame:Show() else updateFrame:Hide() end
     end)
 end)
+updateFrame:Hide()

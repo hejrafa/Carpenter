@@ -4,7 +4,7 @@
 -- "not usable" look and working with macros.
 
 local function IsEnabled()
-    return CarpenterDB and CarpenterDB.actionBarRangeEnabled
+    return Carpenter and Carpenter:IsEnabled("actionBarRangeEnabled")
 end
 
 local function GetButtonIcon(button)
@@ -129,4 +129,3 @@ frame:SetScript("OnEvent", function(self, event)
         HookRangeUpdates()
     end
 end)
-

@@ -6,7 +6,7 @@ local function IsRetail()
 end
 
 local function ShouldHidePvPIcon()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("hideUnitFramePvPIconEnabled")
+    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHidePowerBar()
@@ -18,7 +18,7 @@ local function ShouldHideBossFrames()
 end
 
 local function ShouldHideRestAnimation()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("hideRestAnimationEnabled")
+    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHideCombatIcon()
@@ -26,7 +26,7 @@ local function ShouldHideCombatIcon()
 end
 
 local function ShouldHideHealthLossFx()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("hideHealthLossFxEnabled")
+    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHideGroupIndicator()
@@ -42,19 +42,47 @@ local function ShouldHidePvPTimer()
 end
 
 local function ShouldHideRealmIndicator()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("hideRealmIndicatorEnabled")
+    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHidePlayerCornerIcon()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("hidePlayerCornerIconEnabled")
+    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHidePartyFrameTitle()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("hidePartyFrameTitleEnabled")
+    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHideTargetReputationColor()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("hideTargetReputationColorEnabled")
+    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
+end
+
+local lastFeatureState = {}
+
+local function ShouldRunCleaner()
+    if not IsRetail() then return false end
+    if ShouldHidePvPIcon()
+        or ShouldHidePowerBar()
+        or ShouldHideBossFrames()
+        or ShouldHideRestAnimation()
+        or ShouldHideCombatIcon()
+        or ShouldHideHealthLossFx()
+        or ShouldHideGroupIndicator()
+        or ShouldHideRoleIcon()
+        or ShouldHidePvPTimer()
+        or ShouldHideRealmIndicator()
+        or ShouldHidePlayerCornerIcon()
+        or ShouldHidePartyFrameTitle()
+        or ShouldHideTargetReputationColor()
+    then
+        return true
+    end
+
+    for _, wasEnabled in pairs(lastFeatureState) do
+        if wasEnabled then return true end
+    end
+
+    return false
 end
 
 local hiddenParent
@@ -116,6 +144,7 @@ end
 
 local function HideFrame(frame)
     if not frame or frame._CarpenterHiding then return end
+    if frame._CarpenterHiddenByCleaner then return end
     local isProtected = frame.IsProtected and frame:IsProtected()
     if isProtected and InCombatLockdown and InCombatLockdown() then return end
 
@@ -137,6 +166,7 @@ end
 
 local function RestoreFrame(frame)
     if not frame then return end
+    if not frame._CarpenterHiddenByCleaner and not frame._CarpenterOriginalParent then return end
     local isProtected = frame.IsProtected and frame:IsProtected()
     if isProtected and InCombatLockdown and InCombatLockdown() then return end
 
@@ -188,6 +218,7 @@ end
 
 local function HideFrameAlpha(frame)
     if not frame or frame._CarpenterAlphaHiding then return end
+    if frame._CarpenterAlphaHiddenByCleaner then return end
     local isProtected = frame.IsProtected and frame:IsProtected()
     if isProtected and InCombatLockdown and InCombatLockdown() then return end
 
@@ -210,6 +241,7 @@ end
 
 local function RestoreFrameAlpha(frame)
     if not frame then return end
+    if not frame._CarpenterAlphaHiddenByCleaner then return end
 
     if frame.SetAlpha then
         frame:SetAlpha(frame._CarpenterOriginalAlpha or 1)
@@ -514,34 +546,51 @@ local function ApplyRealmIndicator()
     end
 end
 
-local function ApplyPvPIcon()
-    if ShouldHidePvPIcon() then
-        for _, frame in ipairs(GetPvPIconFrames()) do
-            HideFrame(frame)
-            HookHide(frame, ShouldHidePvPIcon)
+local function ApplyRealmIndicatorForUnit(unit)
+    if not ShouldHideRealmIndicator() then return end
+
+    local strings = {}
+    if unit == "player" then
+        AddUnitFrameNameStrings(strings, PlayerFrame)
+        AddNameString(strings, PlayerName)
+    elseif unit == "target" then
+        AddUnitFrameNameStrings(strings, TargetFrame)
+        AddUnitFrameNameStrings(strings, TargetFrameToT)
+        AddNameString(strings, TargetFrameTextureFrameName)
+    elseif unit == "focus" then
+        AddUnitFrameNameStrings(strings, FocusFrame)
+        AddUnitFrameNameStrings(strings, FocusFrameToT)
+        AddNameString(strings, FocusFrameTextureFrameName)
+    elseif unit and unit:match("^party%d$") then
+        local index = unit:match("%d+")
+        AddNameString(strings, _G["CompactPartyFrameMember" .. index .. "Name"])
+    elseif unit and unit:match("^raid%d+$") then
+        local index = unit:match("%d+")
+        AddNameString(strings, _G["CompactRaidFrame" .. index .. "Name"])
+    end
+
+    if unit and C_NamePlate and C_NamePlate.GetNamePlateForUnit and not unit:match("^boss%d+$") then
+        local plate = C_NamePlate.GetNamePlateForUnit(unit)
+        if plate and plate.UnitFrame then
+            AddNameString(strings, plate.UnitFrame.name)
+            AddNameString(strings, plate.UnitFrame.Name)
+            AddNameString(strings, plate.UnitFrame.NameText)
         end
-    else
-        for _, frame in ipairs(GetPvPIconFrames()) do
-            RestoreFrame(frame)
-        end
+    end
+
+    for _, fontString in ipairs(strings) do
+        HookRealmFontString(fontString)
+        CleanRealmFontString(fontString)
     end
 end
 
-local function ApplyPowerBar()
-    if ShouldHidePowerBar() then
-        for _, frame in ipairs(GetPowerBarFrames()) do
-            HideFrame(frame)
-            HookHide(frame, ShouldHidePowerBar)
-        end
-    else
-        for _, frame in ipairs(GetPowerBarFrames()) do
-            RestoreFrame(frame)
-        end
+local function ApplyFrameFeature(featureKey, getFrames, predicate, alphaOnly)
+    local enabled = predicate()
+    if not enabled and not lastFeatureState[featureKey] then
+        return
     end
-end
 
-local function ApplyFrameList(getFrames, predicate, alphaOnly)
-    if predicate() then
+    if enabled then
         for _, frame in ipairs(getFrames()) do
             if alphaOnly then
                 HideFrameAlpha(frame)
@@ -560,23 +609,80 @@ local function ApplyFrameList(getFrames, predicate, alphaOnly)
             end
         end
     end
+
+    lastFeatureState[featureKey] = enabled
+end
+
+local function ApplyPvPIcon()
+    local enabled = ShouldHidePvPIcon()
+    if not enabled and not lastFeatureState.pvpIcon then
+        return
+    end
+
+    if enabled then
+        for _, frame in ipairs(GetPvPIconFrames()) do
+            HideFrame(frame)
+            HookHide(frame, ShouldHidePvPIcon)
+        end
+    else
+        for _, frame in ipairs(GetPvPIconFrames()) do
+            RestoreFrame(frame)
+        end
+    end
+
+    lastFeatureState.pvpIcon = enabled
+end
+
+local function ApplyPowerBar()
+    local enabled = ShouldHidePowerBar()
+    if not enabled and not lastFeatureState.powerBar then
+        return
+    end
+
+    if enabled then
+        for _, frame in ipairs(GetPowerBarFrames()) do
+            HideFrame(frame)
+            HookHide(frame, ShouldHidePowerBar)
+        end
+    else
+        for _, frame in ipairs(GetPowerBarFrames()) do
+            RestoreFrame(frame)
+        end
+    end
+
+    lastFeatureState.powerBar = enabled
+end
+
+local function ApplyRealmIndicatorFeature()
+    local enabled = ShouldHideRealmIndicator()
+    if not enabled and not lastFeatureState.realmIndicator then
+        return
+    end
+
+    if enabled then
+        ApplyRealmIndicator()
+    end
+
+    lastFeatureState.realmIndicator = enabled
 end
 
 local function Apply()
     if not IsRetail() then return end
+    if not ShouldRunCleaner() then return end
+
     ApplyPvPIcon()
     ApplyPowerBar()
-    ApplyFrameList(GetBossFrames, ShouldHideBossFrames, true)
-    ApplyFrameList(GetRestAnimationFrames, ShouldHideRestAnimation, false)
-    ApplyFrameList(GetCombatIconFrames, ShouldHideCombatIcon, false)
-    ApplyFrameList(GetHealthLossFxFrames, ShouldHideHealthLossFx, false)
-    ApplyFrameList(GetGroupIndicatorFrames, ShouldHideGroupIndicator, false)
-    ApplyFrameList(GetRoleIconFrames, ShouldHideRoleIcon, false)
-    ApplyFrameList(GetPvPTimerFrames, ShouldHidePvPTimer, false)
-    ApplyFrameList(GetPlayerCornerIconFrames, ShouldHidePlayerCornerIcon, false)
-    ApplyFrameList(GetPartyFrameTitleFrames, ShouldHidePartyFrameTitle, false)
-    ApplyFrameList(GetTargetReputationColorFrames, ShouldHideTargetReputationColor, false)
-    ApplyRealmIndicator()
+    ApplyFrameFeature("bossFrames", GetBossFrames, ShouldHideBossFrames, true)
+    ApplyFrameFeature("restAnimation", GetRestAnimationFrames, ShouldHideRestAnimation, false)
+    ApplyFrameFeature("combatIcon", GetCombatIconFrames, ShouldHideCombatIcon, false)
+    ApplyFrameFeature("healthLossFx", GetHealthLossFxFrames, ShouldHideHealthLossFx, false)
+    ApplyFrameFeature("groupIndicator", GetGroupIndicatorFrames, ShouldHideGroupIndicator, false)
+    ApplyFrameFeature("roleIcon", GetRoleIconFrames, ShouldHideRoleIcon, false)
+    ApplyFrameFeature("pvpTimer", GetPvPTimerFrames, ShouldHidePvPTimer, false)
+    ApplyFrameFeature("playerCornerIcon", GetPlayerCornerIconFrames, ShouldHidePlayerCornerIcon, false)
+    ApplyFrameFeature("partyFrameTitle", GetPartyFrameTitleFrames, ShouldHidePartyFrameTitle, false)
+    ApplyFrameFeature("targetReputationColor", GetTargetReputationColorFrames, ShouldHideTargetReputationColor, false)
+    ApplyRealmIndicatorFeature()
 end
 
 local frame = CreateFrame("Frame")
@@ -588,16 +694,45 @@ frame:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT")
 frame:RegisterEvent("PLAYER_FLAGS_CHANGED")
 frame:RegisterEvent("PLAYER_UPDATE_RESTING")
 frame:RegisterEvent("PLAYER_REGEN_DISABLED")
-frame:RegisterEvent("UNIT_POWER_UPDATE")
-frame:RegisterEvent("UNIT_DISPLAYPOWER")
 frame:RegisterEvent("UNIT_NAME_UPDATE")
 frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
 frame:RegisterEvent("PLAYER_REGEN_ENABLED")
-frame:SetScript("OnEvent", function()
-    Apply()
+local applyScheduled = false
+local function ScheduleApply()
+    if applyScheduled then return end
+    applyScheduled = true
     if C_Timer and C_Timer.After then
-        C_Timer.After(0.25, Apply)
+        C_Timer.After(0.05, function()
+            applyScheduled = false
+            Apply()
+        end)
+    else
+        applyScheduled = false
+        Apply()
     end
+end
+
+local function HandleEvent(_, event, unit)
+    if event == "UNIT_NAME_UPDATE" or event == "NAME_PLATE_UNIT_ADDED" then
+        ApplyRealmIndicatorForUnit(unit)
+        return
+    end
+
+    if not ShouldRunCleaner() then return end
+
+    ScheduleApply()
+end
+
+frame:SetScript("OnEvent", function(...)
+    if Carpenter and Carpenter.Profile then
+        return Carpenter:Profile("RetailUnitFrameCleaner:OnEvent", HandleEvent, ...)
+    end
+    return HandleEvent(...)
 end)
 
-Carpenter_ApplyRetailUnitFrameCleaner = Apply
+function Carpenter_ApplyRetailUnitFrameCleaner()
+    if Carpenter and Carpenter.Profile then
+        return Carpenter:Profile("RetailUnitFrameCleaner:Apply", Apply)
+    end
+    return Apply()
+end

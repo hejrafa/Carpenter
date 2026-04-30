@@ -227,13 +227,26 @@ local function HideAllSideContent()
         _G["CP_CarrotSlot_14"]:Hide()
     end
     if _G["CP_Preview_Food"] then
-        for _, n in ipairs({ "Food", "Water", "Pot", "Mana", "Band" }) do _G["CP_Preview_" .. n]:Hide() end
+        for _, n in ipairs({ "Food", "Water", "Pot", "Mana", "Band" }) do
+            if _G["CP_Preview_" .. n] then _G["CP_Preview_" .. n]:Hide() end
+        end
     end
     local filters = { "CP_Filter_GuildRecruit", "CP_Filter_TradeBots", "CP_Filter_Gambling", "CP_Filter_Duplicates", "CP_Filter_RestedXP" }
     for _, name in ipairs(filters) do
         if _G[name] then _G[name]:Hide() end
     end
     
+end
+
+local function IsRetailClient()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+end
+
+local function GetSmartMacroPreviewOrder()
+    if IsRetailClient() then
+        return { "Food", "Water", "Pot", "Mana" }
+    end
+    return { "Food", "Water", "Pot", "Mana", "Band" }
 end
 
 local function ShowCarrotSlots()
@@ -279,7 +292,7 @@ local function ShowMacroPreviews()
         local icons = { Food = "Interface\\Icons\\Inv_Misc_Food_15", Water = "Interface\\Icons\\Inv_Drink_07", Pot =
         "Interface\\Icons\\Inv_Potion_51", Mana = "Interface\\Icons\\Inv_Potion_76", Band =
         "Interface\\Icons\\Inv_Misc_Bandage_08" }
-        local order = { "Food", "Water", "Pot", "Mana", "Band" }
+        local order = GetSmartMacroPreviewOrder()
         local labels = { Food = L.FOOD or "Food", Water = L.WATER or "Water", Pot = L.HEALTH or "Health", Mana = L.MANA or "Mana", Band = L.BANDAGE or "Bandage" }
         local iconSize, spacing = 26, 12
         local totalWidth = (#order * iconSize) + ((#order - 1) * spacing)
@@ -309,7 +322,10 @@ local function ShowMacroPreviews()
         end
         for i, name in ipairs(order) do CreatePreview(name, labels[name], i) end
     end
-    for _, n in ipairs({ "Food", "Water", "Pot", "Mana", "Band" }) do _G["CP_Preview_" .. n]:Show() end
+    for _, n in ipairs({ "Food", "Water", "Pot", "Mana", "Band" }) do
+        if _G["CP_Preview_" .. n] then _G["CP_Preview_" .. n]:Hide() end
+    end
+    for _, n in ipairs(GetSmartMacroPreviewOrder()) do _G["CP_Preview_" .. n]:Show() end
 end
 
 local function ShowSellJunkOptions()
@@ -539,6 +555,17 @@ local OPTION_SECTIONS = {
                     "Rebuilds the " .. LighterCream .. "unit tooltip" .. LightGrey .. ": hides the bulky " .. LighterCream .. "health bar" .. LightGrey .. ", recolors " .. LighterCream .. "name and level lines" .. LightGrey .. ", and shows who your target is focusing. Clean, readable tooltips that tell you what matters.",
                 image = ADDON_IMAGE_PATH .. "tooltip.png",
             },
+            {
+                key = "hideBossFramesEnabled",
+                label = L.OPTION_HIDE_BOSS_FRAMES or "Hide Boss Frames",
+                description = LightGrey .. "Boss frames can duplicate information you already track elsewhere.\n\n" ..
+                    "Fades Retail " .. LighterCream .. "boss unit frames" .. LightGrey .. " and disables their mouse interaction.",
+                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
+                end,
+            },
         },
     },
     {
@@ -587,11 +614,11 @@ local OPTION_SECTIONS = {
                 end,
             },
             {
-                key = "hideUnitFramePvPIconEnabled",
-                label = L.OPTION_HIDE_PVP_ICON or "Hide PvP Icon",
-                description = LightGrey .. "PvP badges on the unit frames can be more clutter than signal.\n\n" ..
-                    "Hides the " .. LighterCream .. "PvP icon" .. LightGrey .. " on Retail player, target, and focus frames.",
-                image = ADDON_IMAGE_PATH .. "classhealthbar.png",
+                key = "cleanUpUnitFramesEnabled",
+                label = L.OPTION_CLEAN_UP_UNIT_FRAMES or "Clean Up Unit Frames",
+                description = LightGrey .. "Retail unit frames carry a lot of tiny decorative signals that can crowd the core health and name information.\n\n" ..
+                    "Hides " .. LighterCream .. "PvP icons" .. LightGrey .. ", the " .. LighterCream .. "Zzz rest animation" .. LightGrey .. ", " .. LighterCream .. "health loss FX" .. LightGrey .. ", the player " .. LighterCream .. "corner icon" .. LightGrey .. ", target " .. LighterCream .. "reputation color" .. LightGrey .. ", " .. LighterCream .. "party text" .. LightGrey .. ", and the " .. LighterCream .. "(*)" .. LightGrey .. " realm indicator.",
+                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
                 requiresReload = false,
                 onToggle = function()
                     if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
@@ -609,40 +636,9 @@ local OPTION_SECTIONS = {
                 end,
             },
             {
-                key = "hideBossFramesEnabled",
-                label = L.OPTION_HIDE_BOSS_FRAMES or "Hide Boss Frames",
-                description = LightGrey .. "Boss frames can duplicate information you already track elsewhere.\n\n" ..
-                    "Fades Retail " .. LighterCream .. "boss unit frames" .. LightGrey .. " and disables their mouse interaction.",
-                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
-                requiresReload = false,
-                onToggle = function()
-                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
-                end,
-            },
-            {
-                key = "hideRestAnimationEnabled",
-                label = L.OPTION_HIDE_REST_ANIMATION or "Hide Zzz Rest Animation",
-                description = LightGrey .. "Hides the player frame " .. LighterCream .. "resting animation" .. LightGrey .. " and related rest visuals.",
-                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
-                requiresReload = false,
-                onToggle = function()
-                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
-                end,
-            },
-            {
                 key = "hideCombatIconEnabled",
                 label = L.OPTION_HIDE_COMBAT_ICON or "Hide Combat Icon",
                 description = LightGrey .. "Hides the player frame " .. LighterCream .. "combat sword icon" .. LightGrey .. ".",
-                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
-                requiresReload = false,
-                onToggle = function()
-                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
-                end,
-            },
-            {
-                key = "hideHealthLossFxEnabled",
-                label = L.OPTION_HIDE_HEALTH_LOSS_FX or "Hide Health Loss FX",
-                description = LightGrey .. "Hides the animated Retail " .. LighterCream .. "health loss overlay" .. LightGrey .. " on player, target, focus, and party frames.",
                 image = ADDON_IMAGE_PATH .. "unitnumbers.png",
                 requiresReload = false,
                 onToggle = function()
@@ -673,46 +669,6 @@ local OPTION_SECTIONS = {
                 key = "hidePvPTimerEnabled",
                 label = L.OPTION_HIDE_PVP_TIMER or "Hide PvP Timer",
                 description = LightGrey .. "Hides the player frame " .. LighterCream .. "PvP countdown timer" .. LightGrey .. ".",
-                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
-                requiresReload = false,
-                onToggle = function()
-                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
-                end,
-            },
-            {
-                key = "hideRealmIndicatorEnabled",
-                label = L.OPTION_HIDE_REALM_INDICATOR or "Hide Realm Indicator",
-                description = LightGrey .. "Hides the Retail " .. LighterCream .. "(*)" .. LightGrey .. " realm marker on unit frame and nameplate names.",
-                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
-                requiresReload = false,
-                onToggle = function()
-                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
-                end,
-            },
-            {
-                key = "hidePlayerCornerIconEnabled",
-                label = L.OPTION_HIDE_PLAYER_CORNER_ICON or "Hide Player Corner Icon",
-                description = LightGrey .. "Hides the small Retail " .. LighterCream .. "corner embellishment" .. LightGrey .. " on the player portrait.",
-                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
-                requiresReload = false,
-                onToggle = function()
-                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
-                end,
-            },
-            {
-                key = "hidePartyFrameTitleEnabled",
-                label = L.OPTION_HIDE_PARTY_FRAME_TITLE or "Hide Party Text",
-                description = LightGrey .. "Hides the " .. LighterCream .. "Party" .. LightGrey .. " label above raid-style party frames.",
-                image = ADDON_IMAGE_PATH .. "unitnumbers.png",
-                requiresReload = false,
-                onToggle = function()
-                    if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
-                end,
-            },
-            {
-                key = "hideTargetReputationColorEnabled",
-                label = L.OPTION_HIDE_TARGET_REPUTATION_COLOR or "Hide Target Reputation Color",
-                description = LightGrey .. "Hides the colored Retail " .. LighterCream .. "reputation strip" .. LightGrey .. " on the target frame.",
                 image = ADDON_IMAGE_PATH .. "unitnumbers.png",
                 requiresReload = false,
                 onToggle = function()
@@ -856,9 +812,12 @@ local OPTION_SECTIONS = {
                 key = "actionCamEnabled",
                 label = L.OPTION_ACTION_CAM or "Action Cam",
                 description = LightGrey .. "Your character deserves a proper close-up.\n\n" ..
-                    "Shifts the camera over your shoulder for a " .. LighterCream .. "cinematic" .. LightGrey .. " view - like you're right there in the action instead of floating behind. The camera tilts and follows more naturally when you move and fly. Turn it on, run around, and see the world from a fresh angle.",
+                    "Shifts the camera over your shoulder for a " .. LighterCream .. "cinematic" .. LightGrey .. " view - like you're right there in the action instead of floating behind. Retail spell activation overlays move down to match the camera framing without enabling Blizzard's expensive flying pitch adjustment.",
                 image = ADDON_IMAGE_PATH .. "actioncam.png",
                 requiresReload = false,
+                onToggle = function()
+                    if Carpenter_ApplyActionCam then Carpenter_ApplyActionCam() end
+                end,
             },
         },
     },

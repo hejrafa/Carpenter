@@ -5,6 +5,7 @@
 local HIDDEN_OPACITY = 0
 local HOVER_OPACITY = 0.65 -- 65% transparent when visible as requested
 local FADE_SPEED = 0.05    -- Adjust for faster/slower fading
+local UPDATE_INTERVAL = 0.05
 
 -- =========================
 -- Config
@@ -137,8 +138,15 @@ hoverFrame:SetPoint("TOPRIGHT", ChatFrame1, "TOPRIGHT", 0, 35)
 hoverFrame:SetFrameStrata("TOOLTIP")
 
 -- Logic to detect mouseover and handle smooth fading
-hoverFrame:SetScript("OnUpdate", function(self)
-    if not IsEnabled() then return end
+hoverFrame:SetScript("OnUpdate", function(self, elapsed)
+    if not IsEnabled() then
+        self:Hide()
+        return
+    end
+
+    self.elapsed = (self.elapsed or 0) + elapsed
+    if self.elapsed < UPDATE_INTERVAL then return end
+    self.elapsed = 0
 
     -- Check if mouse is over the hover frame OR any of the buttons themselves
     local mouseOverButtons = MouseIsOver(self)
@@ -193,14 +201,18 @@ frame:SetScript("OnEvent", function()
     currentAlpha = HIDDEN_OPACITY
     RefreshChatTabs()
     ApplyTransparency(HIDDEN_OPACITY)
+    if IsEnabled() then hoverFrame:Show() else hoverFrame:Hide() end
 
     -- Secondary enforcement after a small delay to catch lazy-loading buttons
     C_Timer.After(2, function()
         RefreshChatTabs()
         ApplyTransparency(currentAlpha)
+        if IsEnabled() then hoverFrame:Show() else hoverFrame:Hide() end
     end)
     C_Timer.After(5, function()
         RefreshChatTabs()
         ApplyTransparency(currentAlpha)
+        if IsEnabled() then hoverFrame:Show() else hoverFrame:Hide() end
     end)
 end)
+hoverFrame:Hide()

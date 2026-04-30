@@ -1,5 +1,5 @@
 --[[ Carpenter - ActionCam ]]
--- One option: on = Camera Over Shoulder (+1) + Vertical Pitch (screenshot defaults). Off = reset cvars.
+-- One option: on = Camera Over Shoulder (+1). Off = reset camera cvars.
 -- Nudges the camera out a little when you mount; on dismount zooms back in to where you were.
 
 -- Suppress Blizzard's "experimental camera features" / "visual discomfort" popup and sound.
@@ -18,12 +18,9 @@ f:SetScript("OnEvent", function(_, _, addonName)
     end
 end)
 
--- Fixed values from screenshot: offset +1, vertical pitch 0.5 / 0.75 / 0.25 / 10
+-- Keep Action Cam performance-safe: over-shoulder framing without Blizzard's
+-- experimental dynamic pitch, which can be expensive while flying.
 local OVER_SHOULDER_OFFSET = 1
-local PITCH_ON_GROUND = 0.5
-local PITCH_FLYING = 0.75
-local DOWN_SCALE = 0.25
-local SMART_PIVOT_CUTOFF = 10
 local SPELL_OVERLAY_OFFSET_Y = -80
 
 -- Smooth zoom: small steps, only on real mount/dismount transitions (debounced).
@@ -37,8 +34,19 @@ local DISMOUNT_ZOOM_INTERVAL = MOUNT_ZOOM_INTERVAL
 
 local lastMounted = nil   -- last mount state we actually acted on (so we only act on transition)
 local zoomInProgress = false  -- prevent overlapping zoom sequences
+local zoomCheckScheduled = false
 local spellOverlayHooked = false
+local spellOverlayApplying = false
 local HookSpellOverlay
+local UpdateSpellOverlayOffset
+
+local function ScheduleSpellOverlayOffset(delay)
+    if C_Timer and C_Timer.After then
+        C_Timer.After(delay or 0, UpdateSpellOverlayOffset)
+    else
+        UpdateSpellOverlayOffset()
+    end
+end
 
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("actionCamEnabled")
@@ -48,16 +56,18 @@ local function IsRetail()
     return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
 end
 
-local function UpdateSpellOverlayOffset()
+UpdateSpellOverlayOffset = function()
     if not IsRetail() or not SpellActivationOverlayFrame then return end
 
     HookSpellOverlay()
+    spellOverlayApplying = true
     SpellActivationOverlayFrame:ClearAllPoints()
     if IsEnabled() then
         SpellActivationOverlayFrame:SetPoint("CENTER", UIParent, "CENTER", 0, SPELL_OVERLAY_OFFSET_Y)
     else
         SpellActivationOverlayFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     end
+    spellOverlayApplying = false
 end
 
 HookSpellOverlay = function()
@@ -70,10 +80,27 @@ HookSpellOverlay = function()
         end
     end)
 
+    hooksecurefunc(SpellActivationOverlayFrame, "SetPoint", function()
+        if spellOverlayApplying then return end
+        ScheduleSpellOverlayOffset(0)
+    end)
+
+    hooksecurefunc(SpellActivationOverlayFrame, "SetAllPoints", function()
+        if spellOverlayApplying then return end
+        ScheduleSpellOverlayOffset(0)
+    end)
+
+    if _G.SpellActivationOverlay_ShowOverlay then
+        hooksecurefunc("SpellActivationOverlay_ShowOverlay", function()
+            ScheduleSpellOverlayOffset(0)
+        end)
+    end
+
     spellOverlayHooked = true
 end
 
 local function UpdateCameraZoom()
+    zoomCheckScheduled = false
     if not IsEnabled() then
         return
     end
@@ -116,6 +143,12 @@ local function UpdateCameraZoom()
     end
 end
 
+local function ScheduleCameraZoomCheck(delay)
+    if zoomCheckScheduled then return end
+    zoomCheckScheduled = true
+    C_Timer.After(delay or 0.25, UpdateCameraZoom)
+end
+
 local function ResetCameraCVarsToDefaults()
     -- Reset all camera CVars to safe defaults so Blizzard doesn't show the warning
     SetCVar("test_cameraOverShoulder", 0)
@@ -132,12 +165,7 @@ local function UpdateCameraSettings()
         SetCVar("test_cameraOverShoulder", OVER_SHOULDER_OFFSET)
         SetCVar("cameraSmoothingStyle", 0) -- required for offset
 
-        -- Vertical Pitch (screenshot defaults)
-        SetCVar("test_cameraDynamicPitch", 1)
-        SetCVar("test_cameraDynamicPitchBaseFovPad", PITCH_ON_GROUND)
-        SetCVar("test_cameraDynamicPitchBaseFovPadFlying", PITCH_FLYING)
-        SetCVar("test_cameraDynamicPitchBaseFovPadDownScale", DOWN_SCALE)
-        SetCVar("test_cameraDynamicPitchSmartPivotCutoffDist", SMART_PIVOT_CUTOFF)
+        SetCVar("test_cameraDynamicPitch", 0)
         
         -- Update zoom based on mount status
         UpdateCameraZoom()
@@ -153,15 +181,18 @@ frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
 frame:RegisterUnitEvent("UNIT_MODEL_CHANGED", "player")
-frame:RegisterUnitEvent("UNIT_AURA", "player")
+frame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_SHOW")
 
-frame:SetScript("OnEvent", function(self, event, addon, unit)
+local function HandleActionCamEvent(self, event, addon, unit)
     if event == "ADDON_LOADED" and addon == "Carpenter" then
         -- Reset CVars immediately if Action Cam is disabled (before Blizzard checks them)
         if not IsEnabled() then
             ResetCameraCVarsToDefaults()
         end
         C_Timer.After(0.1, UpdateCameraSettings)
+    elseif event == "ADDON_LOADED" and addon == "Blizzard_SpellActivationOverlay" then
+        ScheduleSpellOverlayOffset(0)
+        ScheduleSpellOverlayOffset(0.1)
     elseif event == "PLAYER_ENTERING_WORLD" then
         -- Also reset on entering world if disabled (in case CVars were set by another addon)
         if not IsEnabled() then
@@ -170,51 +201,29 @@ frame:SetScript("OnEvent", function(self, event, addon, unit)
         UpdateCameraSettings()
         if C_Timer and C_Timer.After then
             C_Timer.After(0.5, UpdateSpellOverlayOffset)
+            C_Timer.After(2, UpdateSpellOverlayOffset)
+            C_Timer.After(5, UpdateSpellOverlayOffset)
         end
         self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+    elseif event == "SPELL_ACTIVATION_OVERLAY_SHOW" then
+        ScheduleSpellOverlayOffset(0)
+        ScheduleSpellOverlayOffset(0.05)
     elseif (event == "PLAYER_MOUNT_DISPLAY_CHANGED" or
-            (event == "UNIT_MODEL_CHANGED" and unit == "player") or
-            (event == "UNIT_AURA" and unit == "player")) then
+            (event == "UNIT_MODEL_CHANGED" and unit == "player")) then
         -- Mount/aura changed; delay so IsMounted() is up to date
         if IsEnabled() then
-            C_Timer.After(0.25, UpdateCameraZoom)
+            ScheduleCameraZoomCheck(0.25)
         end
     end
+end
+
+frame:SetScript("OnEvent", function(...)
+    if Carpenter and Carpenter.Profile then
+        return Carpenter:Profile("ActionCam:OnEvent", HandleActionCamEvent, ...)
+    end
+    return HandleActionCamEvent(...)
 end)
 
--- Re-apply when the option is toggled
-local watchFrame = CreateFrame("Frame")
-watchFrame:RegisterEvent("ADDON_LOADED")
-watchFrame:SetScript("OnEvent", function(self, event, addon)
-    if addon == "Carpenter" then
-        local last = nil
-        C_Timer.NewTicker(0.2, function()
-            local enabled = IsEnabled()
-            if last ~= enabled then
-                last = enabled
-                UpdateCameraSettings()
-                UpdateSpellOverlayOffset()
-            end
-        end)
-        self:UnregisterEvent("ADDON_LOADED")
-    end
-end)
-
--- Periodic check for mount status as a safety net (in case events are missed)
-local mountCheckFrame = CreateFrame("Frame")
-mountCheckFrame:RegisterEvent("ADDON_LOADED")
-mountCheckFrame:SetScript("OnEvent", function(self, event, addon)
-    if addon == "Carpenter" then
-        local lastMounted = nil
-        C_Timer.NewTicker(0.5, function()
-            if IsEnabled() then
-                local isMounted = IsMounted()
-                if lastMounted ~= isMounted then
-                    lastMounted = isMounted
-                    UpdateCameraZoom()
-                end
-            end
-        end)
-        self:UnregisterEvent("ADDON_LOADED")
-    end
-end)
+function Carpenter_ApplyActionCam()
+    UpdateCameraSettings()
+end

@@ -66,12 +66,12 @@ end
 
 -- Check settings for Nameplates
 local function IsNameplateEnabled()
-    return CarpenterDB and CarpenterDB.debuffTrackerEnabled
+    return Carpenter and Carpenter:IsEnabled("debuffTrackerEnabled")
 end
 
 -- Check settings for Unit Frames (Portraits)
 local function IsUnitFrameEnabled()
-    return CarpenterDB and CarpenterDB.unitFrameDebuffsEnabled
+    return Carpenter and Carpenter:IsEnabled("unitFrameDebuffsEnabled")
 end
 
 -- =========================================================
@@ -361,6 +361,8 @@ frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("GROUP_ROSTER_UPDATE")
 
 frame:SetScript("OnEvent", function(self, event, unit)
+    if not IsNameplateEnabled() and not IsUnitFrameEnabled() then return end
+
     if event == "NAME_PLATE_UNIT_ADDED" then
         local plate = C_NamePlate.GetNamePlateForUnit(unit)
         if plate and plate.UnitFrame then

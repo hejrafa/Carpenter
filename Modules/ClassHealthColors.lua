@@ -14,6 +14,10 @@ local function IsNameplateEnabled()
     return Carpenter and Carpenter:IsEnabled("nameplateClassHealthEnabled")
 end
 
+local function IsRetail()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+end
+
 local function GetClassColor(unit)
     if not unit or not UnitExists(unit) or not UnitIsPlayer(unit) then return nil end
     local _, class = UnitClass(unit)
@@ -35,14 +39,21 @@ end
 
 local function HookUnitFrameHealthBar(bar, unit)
     if not bar or bar._CarpenterUnitFrameClassColorHooked or not bar.SetStatusBarColor then return end
+    if IsRetail() then return end
     bar._CarpenterUnitFrameClassColorHooked = true
     bar._CarpenterUnitFrameUnit = unit
 
     hooksecurefunc(bar, "SetStatusBarColor", function(self)
-        if self._CarpenterRecoloring or not IsUnitFrameEnabled() then return end
-        self._CarpenterRecoloring = true
-        ApplyClassColor(self, self._CarpenterUnitFrameUnit)
-        self._CarpenterRecoloring = false
+        local function Recolor()
+            if self._CarpenterRecoloring or not IsUnitFrameEnabled() then return end
+            self._CarpenterRecoloring = true
+            ApplyClassColor(self, self._CarpenterUnitFrameUnit)
+            self._CarpenterRecoloring = false
+        end
+        if Carpenter and Carpenter.Profile then
+            return Carpenter:Profile("ClassHealthColors:SetStatusBarColorHook", Recolor)
+        end
+        return Recolor()
     end)
 end
 
@@ -96,12 +107,14 @@ end
 local unitFrameDriver = CreateFrame("Frame")
 unitFrameDriver:RegisterEvent("PLAYER_TARGET_CHANGED")
 unitFrameDriver:RegisterEvent("PLAYER_FOCUS_CHANGED")
-unitFrameDriver:RegisterEvent("UNIT_HEALTH")
-unitFrameDriver:RegisterEvent("UNIT_FACTION")
+unitFrameDriver:RegisterUnitEvent("UNIT_HEALTH", "player", "target", "focus", "party1", "party2", "party3", "party4")
+unitFrameDriver:RegisterUnitEvent("UNIT_FACTION", "player", "target", "focus", "party1", "party2", "party3", "party4")
 unitFrameDriver:RegisterEvent("GROUP_ROSTER_UPDATE") -- Added for party changes
 unitFrameDriver:RegisterEvent("PLAYER_ENTERING_WORLD")
 
-unitFrameDriver:SetScript("OnEvent", function(self, event, unit)
+local function HandleUnitFrameEvent(self, event, unit)
+    if not IsUnitFrameEnabled() then return end
+
     if event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_ENTERING_WORLD" then
         RefreshUnitFrameColors()
         if C_Timer and C_Timer.After then
@@ -133,6 +146,13 @@ unitFrameDriver:SetScript("OnEvent", function(self, event, unit)
     elseif event == "GROUP_ROSTER_UPDATE" then
         RefreshUnitFrameColors()
     end
+end
+
+unitFrameDriver:SetScript("OnEvent", function(...)
+    if Carpenter and Carpenter.Profile then
+        return Carpenter:Profile("ClassHealthColors:UnitFrames", HandleUnitFrameEvent, ...)
+    end
+    return HandleUnitFrameEvent(...)
 end)
 
 -- =========================
@@ -233,7 +253,13 @@ nameplateDriver:RegisterEvent("PLAYER_ENTERING_WORLD")
 nameplateDriver:RegisterEvent("GROUP_ROSTER_UPDATE")
 nameplateDriver:RegisterEvent("UNIT_FACTION")
 
-nameplateDriver:SetScript("OnEvent", function(self, event, unit)
+local function HandleNameplateEvent(self, event, unit)
+    if not IsNameplateEnabled() then
+        self:Hide()
+        return
+    end
+    self:Show()
+
     if event == "NAME_PLATE_UNIT_ADDED" and unit then
         local plate = C_NamePlate.GetNamePlateForUnit(unit)
         if plate then
@@ -242,15 +268,26 @@ nameplateDriver:SetScript("OnEvent", function(self, event, unit)
     else
         RefreshAllNameplates()
     end
+end
+
+nameplateDriver:SetScript("OnEvent", function(...)
+    if Carpenter and Carpenter.Profile then
+        return Carpenter:Profile("ClassHealthColors:Nameplates", HandleNameplateEvent, ...)
+    end
+    return HandleNameplateEvent(...)
 end)
 
 -- Periodic refresh so Blizzard's threat coloring does not stick over class colors.
 local elapsed = 0
 nameplateDriver:SetScript("OnUpdate", function(self, delta)
-    if not IsNameplateEnabled() then return end
+    if not IsNameplateEnabled() then
+        self:Hide()
+        return
+    end
     elapsed = elapsed + delta
     if elapsed >= 0.1 then
         RefreshAllNameplates()
         elapsed = 0
     end
 end)
+nameplateDriver:Hide()

@@ -10,9 +10,10 @@ local MOUNT_SPEED_PRIORITY = { RIDING_CROP_ID, CARROT_ID }
 local previousTrinketID = nil
 local lastSwapTime = 0
 local pendingSwapBack = false
+local swapScheduled = false
 
 local function IsEnabled()
-    return CarpenterDB and CarpenterDB.autoCarrotEnabled
+    return Carpenter and Carpenter:IsEnabled("autoCarrotEnabled")
 end
 
 local function GetTargetSlot()
@@ -144,6 +145,7 @@ local function FindFallbackTrinket()
 end
 
 local function SwapTrinket()
+    swapScheduled = false
     -- Check if enabled and if the player is alive/not a ghost
     if not IsEnabled() or UnitIsDeadOrGhost("player") then return end
 
@@ -210,17 +212,19 @@ local function SwapTrinket()
     end
 end
 
+local function ScheduleSwap(delay)
+    if swapScheduled then return end
+    swapScheduled = true
+    C_Timer.After(delay or 0.1, SwapTrinket)
+end
+
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:RegisterEvent("UPDATE_BONUS_ACTIONBAR")
-frame:RegisterEvent("UNIT_AURA")
 frame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
 frame:RegisterUnitEvent("UNIT_MODEL_CHANGED", "player")
 
 frame:SetScript("OnEvent", function(self, event, unit)
-    if (event == "UNIT_AURA" or event == "UNIT_MODEL_CHANGED") and unit ~= "player" then return end
-    SwapTrinket()
+    if event == "UNIT_MODEL_CHANGED" and unit ~= "player" then return end
+    ScheduleSwap(0.1)
 end)
-
--- Polling ticker as a safety net for cases where events might be missed (e.g., forced dismounts)
-C_Timer.NewTicker(1.0, SwapTrinket)

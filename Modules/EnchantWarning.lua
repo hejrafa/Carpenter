@@ -1,7 +1,6 @@
 --[[ Carpenter - EnchantWarning ]]
 -- Warns before weapon enchantments expire.
 
-local checkFrame = CreateFrame("Frame")
 local hasWarnedMH = false
 local hasWarnedOH = false
 local lastEnchantNameMH = nil
@@ -49,7 +48,7 @@ end
 
 local function CheckEnchantments()
     -- Don't check if disabled
-    if not CarpenterDB or not CarpenterDB.enchantWarningEnabled then
+    if not (Carpenter and Carpenter:IsEnabled("enchantWarningEnabled")) then
         return
     end
 
@@ -139,16 +138,11 @@ transitionFrame:SetScript("OnEvent", function()
     delayTimer = INITIAL_DELAY
 end)
 
--- Check every 1 second and handle delay timer
-checkFrame:SetScript("OnUpdate", function(self, elapsed)
-    -- Handle loading delay
+-- Check every 1 second; enchant warnings do not need per-frame updates.
+C_Timer.NewTicker(1, function()
     if delayTimer > 0 then
-        delayTimer = delayTimer - elapsed
+        delayTimer = delayTimer - 1
     end
 
-    self.timer = (self.timer or 0) + elapsed
-    if self.timer >= 1 then
-        CheckEnchantments()
-        self.timer = 0
-    end
+    CheckEnchantments()
 end)

@@ -5,7 +5,7 @@
 -- the portrait (class icon) is visible again.
 
 local function IsEnabled()
-    return CarpenterDB and CarpenterDB.unitFrameClassIconEnabled
+    return Carpenter and Carpenter:IsEnabled("unitFrameClassIconEnabled")
 end
 
 -- Class icon texture: same as default unit frame class icons (circular).

@@ -7,7 +7,7 @@ local ALPHA_VISIBLE = 1.0
 local FADE_DURATION = 0.3
 
 local function IsEnabled()
-    return CarpenterDB and CarpenterDB.actionBarFaderEnabled
+    return Carpenter and Carpenter:IsEnabled("actionBarFaderEnabled")
 end
 
 -- List of bars to apply the effect to (only 7 and 8)

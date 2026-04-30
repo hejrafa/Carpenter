@@ -74,6 +74,7 @@ local featureSupport = {
         enhanceTooltipEnabled = true,
         classHealthColorsEnabled = true,
         hideUnitFrameCombatTextEnabled = true,
+        cleanUpUnitFramesEnabled = true,
         hideUnitFramePvPIconEnabled = true,
         hideUnitFramePowerBarEnabled = true,
         hideBossFramesEnabled = true,
