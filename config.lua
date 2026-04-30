@@ -556,6 +556,17 @@ local OPTION_SECTIONS = {
                 image = ADDON_IMAGE_PATH .. "tooltip.png",
             },
             {
+                key = "scaleExtraAbilityEnabled",
+                label = L.OPTION_SCALE_EXTRA_ABILITY or "Scale Extra Ability",
+                description = LightGrey .. "Retail's extra ability buttons can land huge and outside the parts of Edit Mode you can actually tune.\n\n" ..
+                    "Scales the " .. LighterCream .. "Extra Action" .. LightGrey .. " and " .. LighterCream .. "Zone Ability" .. LightGrey .. " buttons to " .. LighterCream .. "80%" .. LightGrey .. ".",
+                image = ADDON_IMAGE_PATH .. "actionbar.png",
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_ApplyExtraAbilityScale then Carpenter_ApplyExtraAbilityScale() end
+                end,
+            },
+            {
                 key = "hideBossFramesEnabled",
                 label = L.OPTION_HIDE_BOSS_FRAMES or "Hide Boss Frames",
                 description = LightGrey .. "Boss frames can duplicate information you already track elsewhere.\n\n" ..

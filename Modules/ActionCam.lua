@@ -18,9 +18,18 @@ f:SetScript("OnEvent", function(_, _, addonName)
     end
 end)
 
+local function SetSpellOverlayPosition(x, y)
+    local overlay = SpellActivationOverlayFrame
+    if overlay then
+        overlay:ClearAllPoints()
+        overlay:SetPoint("CENTER", UIParent, "CENTER", x or 0, y or 0)
+    end
+end
+
 -- Keep Action Cam performance-safe: over-shoulder framing without Blizzard's
 -- experimental dynamic pitch, which can be expensive while flying.
 local OVER_SHOULDER_OFFSET = 1
+local SPELL_OVERLAY_OFFSET_X = -180
 local SPELL_OVERLAY_OFFSET_Y = -80
 
 -- Smooth zoom: small steps, only on real mount/dismount transitions (debounced).
@@ -61,11 +70,10 @@ UpdateSpellOverlayOffset = function()
 
     HookSpellOverlay()
     spellOverlayApplying = true
-    SpellActivationOverlayFrame:ClearAllPoints()
     if IsEnabled() then
-        SpellActivationOverlayFrame:SetPoint("CENTER", UIParent, "CENTER", 0, SPELL_OVERLAY_OFFSET_Y)
+        SetSpellOverlayPosition(SPELL_OVERLAY_OFFSET_X, SPELL_OVERLAY_OFFSET_Y)
     else
-        SpellActivationOverlayFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+        SetSpellOverlayPosition(0, 0)
     end
     spellOverlayApplying = false
 end
@@ -178,6 +186,7 @@ end
 
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("ADDON_LOADED")
+frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
 frame:RegisterUnitEvent("UNIT_MODEL_CHANGED", "player")
@@ -191,6 +200,10 @@ local function HandleActionCamEvent(self, event, addon, unit)
         end
         C_Timer.After(0.1, UpdateCameraSettings)
     elseif event == "ADDON_LOADED" and addon == "Blizzard_SpellActivationOverlay" then
+        ScheduleSpellOverlayOffset(0)
+        ScheduleSpellOverlayOffset(0.1)
+    elseif event == "PLAYER_LOGIN" then
+        UpdateCameraSettings()
         ScheduleSpellOverlayOffset(0)
         ScheduleSpellOverlayOffset(0.1)
     elseif event == "PLAYER_ENTERING_WORLD" then

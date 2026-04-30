@@ -72,6 +72,7 @@ local featureSupport = {
         hideStanceBarEnabled = true,
         menuTransparencyEnabled = true,
         enhanceTooltipEnabled = true,
+        scaleExtraAbilityEnabled = true,
         classHealthColorsEnabled = true,
         hideUnitFrameCombatTextEnabled = true,
         cleanUpUnitFramesEnabled = true,

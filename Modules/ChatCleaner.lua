@@ -58,6 +58,42 @@ local function FormatMoney(amount, amountColor)
     return str
 end
 
+local function ParseRetailMoneyGain(message)
+    if not message or type(message) ~= "string" then return nil end
+
+    local text = message
+        :gsub("|T.-UI%-GoldIcon.-|t", " gold")
+        :gsub("|T.-UI%-SilverIcon.-|t", " silver")
+        :gsub("|T.-UI%-CopperIcon.-|t", " copper")
+        :gsub("|c%x%x%x%x%x%x%x%x", "")
+        :gsub("|r", "")
+
+    local body = text:match("^You gained:%s*(.-)%s*%.?$")
+    if not body or body == "" then return nil end
+
+    local gold = tonumber(body:match("(%d+)%s*[Gg]old") or body:match("(%d+)%s*g")) or 0
+    local silver = tonumber(body:match("(%d+)%s*[Ss]ilver") or body:match("(%d+)%s*s")) or 0
+    local copper = tonumber(body:match("(%d+)%s*[Cc]opper") or body:match("(%d+)%s*c")) or 0
+
+    if gold > 0 or silver > 0 or copper > 0 then
+        return gold * 10000 + silver * 100 + copper
+    end
+
+    local numbers = {}
+    for value in body:gmatch("(%d+)") do
+        numbers[#numbers + 1] = tonumber(value) or 0
+    end
+    if #numbers == 3 then
+        return (numbers[1] * 10000) + (numbers[2] * 100) + numbers[3]
+    elseif #numbers == 2 then
+        return (numbers[1] * 100) + numbers[2]
+    elseif #numbers == 1 then
+        return numbers[1]
+    end
+
+    return nil
+end
+
 local LINK_OPEN  = "\255\255CP_L\255\255"
 local LINK_CLOSE = "\255\255CP_R\255\255"
 
@@ -1433,6 +1469,14 @@ local function ChatFilterImpl(self, event, msg, author, ...)
 
     -- 5. Money (Gains show +, losses show -; Merchant is handled by direct tracking above)
     if (event == "CHAT_MSG_MONEY" or event == "CHAT_MSG_SYSTEM") then
+        local retailGain = ParseRetailMoneyGain(msg)
+        if retailGain and retailGain > 0 then
+            if merchantFrame.isOpen or mailTracker.isOpen then
+                return true
+            end
+            return false, SpaceBeforeX(prefixPlus .. FormatMoney(retailGain)), author, ...
+        end
+
         local compactGold, compactSilver, compactCopper = msg:match("^You gained:%s*(%d+)%D+(%d+)%D+(%d+)%s*%.?$")
         if compactGold and compactSilver and compactCopper then
             local total = (tonumber(compactGold) or 0) * 10000 + (tonumber(compactSilver) or 0) * 100 + (tonumber(compactCopper) or 0)
