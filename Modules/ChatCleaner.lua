@@ -2226,6 +2226,10 @@ local function HookChatFrameAddMessage(frame)
             local plain = StripColorCodes(msg)
             local lowerPlain = plain:lower()
 
+            if ParseRetailMoneyGain(plain) then
+                return
+            end
+
             -- Fully suppress remaining "Changed Channel" lines
             if plain:find("^Changed Channel:") then
                 return
