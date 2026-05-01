@@ -37,6 +37,15 @@ local function ApplyClassColor(bar, unit)
     return true
 end
 
+local function RestoreDefaultHealthColor(bar, unit)
+    if not bar or not unit or not UnitExists(unit) or UnitIsPlayer(unit) then return end
+
+    local r, g, b = UnitSelectionColor(unit)
+    if r and g and b then
+        bar:SetStatusBarColor(r, g, b)
+    end
+end
+
 local function HookUnitFrameHealthBar(bar, unit)
     if not bar or bar._CarpenterUnitFrameClassColorHooked or not bar.SetStatusBarColor then return end
     if IsRetail() then return end
@@ -85,7 +94,9 @@ end
 local function UpdateHealthBarColor(bar, unit)
     if not IsUnitFrameEnabled() then return end
     HookUnitFrameHealthBar(bar, unit)
-    ApplyClassColor(bar, unit)
+    if not ApplyClassColor(bar, unit) then
+        RestoreDefaultHealthColor(bar, unit)
+    end
 end
 
 local function RefreshUnitFrameColors()
