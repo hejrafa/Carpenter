@@ -1522,20 +1522,14 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     if (event == "CHAT_MSG_MONEY" or event == "CHAT_MSG_SYSTEM") then
         local retailGain = ParseRetailMoneyGain(msg)
         if retailGain and retailGain > 0 then
-            if merchantFrame.isOpen or mailTracker.isOpen then
-                return true
-            end
-            return false, SpaceBeforeX(prefixPlus .. FormatMoney(retailGain)), author, ...
+            return true
         end
 
         local compactGold, compactSilver, compactCopper = msg:match("^You gained:%s*(%d+)%D+(%d+)%D+(%d+)%s*%.?$")
         if compactGold and compactSilver and compactCopper then
             local total = (tonumber(compactGold) or 0) * 10000 + (tonumber(compactSilver) or 0) * 100 + (tonumber(compactCopper) or 0)
             if total > 0 then
-                if merchantFrame.isOpen or mailTracker.isOpen then
-                    return true
-                end
-                return false, SpaceBeforeX(prefixPlus .. FormatMoney(total)), author, ...
+                return true
             end
         end
 
