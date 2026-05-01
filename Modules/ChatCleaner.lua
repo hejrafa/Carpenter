@@ -728,6 +728,76 @@ local HONOR_DEDUP_SEC = 5
 local lastRepairAmount, lastRepairTime = nil, 0
 local REPAIR_DEDUP_SEC = 2
 
+local function IsLevelUpRewardEvent(event)
+    return event == "CHAT_MSG_SYSTEM" or
+        event == "CHAT_MSG_COMBAT_XP_GAIN" or
+        event == "CHAT_MSG_COMBAT_MISC_INFO"
+end
+
+local function FormatLevelUpRewardMessage(plainText)
+    if not plainText or type(plainText) ~= "string" then return nil end
+
+    local plainLower = plainText:lower()
+    local levelColor = GetClassColorForName(UnitName("player") or "")
+    local levelNum = plainText:match("[Rr]eached%s+level%s+(%d+)") or plainText:match("[Rr]each%s+level%s+(%d+)") or
+        plainText:match("[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
+    if levelNum and plainLower:find("level") and (plainLower:find("reached") or plainLower:find("reach") or plainLower:find("congratulations")) then
+        return levelColor .. "Reached Level " .. levelNum .. "|r"
+    end
+
+    local hitAmount = plainText:match("[Yy]ou%s+have%s+gained%s+(%d+)%s+hit point") or
+        plainText:match("[Hh]ave%s+gained%s+(%d+)%s+hit point") or
+        plainText:match("[Gg]ained%s+(%d+)%s+hit point")
+    if hitAmount and plainLower:find("hit point") then
+        local n = tonumber(hitAmount) or 0
+        local word = (n == 1) and "Hit Point" or "Hit Points"
+        return ColorWhite .. "Gained: |r" .. levelColor .. hitAmount .. " " .. word .. "|r"
+    end
+
+    local talentAmount = plainText:match("[Yy]ou%s+have%s+gained%s+(%d+)%s+talent point") or
+        plainText:match("[Hh]ave%s+gained%s+(%d+)%s+talent point") or
+        plainText:match("[Gg]ained%s+(%d+)%s+talent point")
+    if talentAmount and plainLower:find("talent point") then
+        local n = tonumber(talentAmount) or 0
+        local word = (n == 1) and "Talent Point" or "Talent Points"
+        return ColorWhite .. "Gained: |r" .. levelColor .. talentAmount .. " " .. word .. "|r"
+    end
+
+    if plainText:match("[Yy]our%s+%w+%s+increases%s+by%s+%d+") then
+        local stats = {}
+        for statName, statBy in plainText:gmatch("[Yy]our%s+(%w+)%s+increases%s+by%s+(%d+)") do
+            statName = statName:sub(1, 1):upper() .. statName:sub(2):lower()
+            stats[#stats + 1] = statName .. " by " .. statBy
+        end
+        if #stats > 0 then
+            return ColorWhite .. "Increases: |r" .. levelColor .. table.concat(stats, ", ") .. "|r"
+        end
+    end
+
+    return nil
+end
+
+local originalLevelUpGlobals = nil
+
+local function ApplyLevelUpGlobalStringStyling()
+    if originalLevelUpGlobals then return end
+
+    originalLevelUpGlobals = {
+        LEVEL_UP = _G.LEVEL_UP,
+        LEVEL_UP_HEALTH = _G.LEVEL_UP_HEALTH,
+        LEVEL_UP_HEALTH_MANA = _G.LEVEL_UP_HEALTH_MANA,
+        LEVEL_UP_CHAR_POINTS = _G.LEVEL_UP_CHAR_POINTS,
+        LEVEL_UP_STAT = _G.LEVEL_UP_STAT,
+    }
+
+    local levelColor = GetClassColorForName(UnitName("player") or "")
+    _G.LEVEL_UP = levelColor .. "Reached Level %d|r"
+    _G.LEVEL_UP_HEALTH = ColorWhite .. "Gained: |r" .. levelColor .. "%d Hit Points|r"
+    _G.LEVEL_UP_HEALTH_MANA = ColorWhite .. "Gained: |r" .. levelColor .. "%d Hit Points, %d Mana|r"
+    _G.LEVEL_UP_CHAR_POINTS = ColorWhite .. "Gained: |r" .. levelColor .. "%d Talent Points|r"
+    _G.LEVEL_UP_STAT = ColorWhite .. "Increases: |r" .. levelColor .. "%s by %d|r"
+end
+
 local function ChatFilterImpl(self, event, msg, author, ...)
     if not (Carpenter and Carpenter:IsEnabled("chatCleanerEnabled")) then
         return false, msg, author, ...
@@ -882,40 +952,11 @@ local function ChatFilterImpl(self, event, msg, author, ...)
         return false, ColorWhite .. "The battle has ended|r", author, ...
     end
 
-    -- 2.3 Level-up reward messages. These can arrive as SYSTEM or combat XP messages.
-    if event == "CHAT_MSG_SYSTEM" or event == "CHAT_MSG_COMBAT_XP_GAIN" then
-        local levelColor = GetClassColorForName(UnitName("player") or "")
-        local levelNum = plainSys:match("[Rr]eached level (%d+)") or plainSys:match("[Rr]each level (%d+)") or
-            plainSys:match("level (%d+)%s*[!%.]?%s*$")
-        if levelNum and plainLower:find("level") and (plainLower:find("reached") or plainLower:find("reach") or plainLower:find("congratulations")) then
-            return false, levelColor .. "Reached Level " .. levelNum .. "|r", author, ...
-        end
-
-        local hitAmount = plainSys:match("[Gg]ained%s+(%d+)%s+hit point") or
-            plainSys:match("[Hh]ave%s+gained%s+(%d+)%s+hit point")
-        if hitAmount and plainLower:find("hit point") then
-            local n = tonumber(hitAmount) or 0
-            local word = (n == 1) and "Hit Point" or "Hit Points"
-            return false, ColorWhite .. "Gained: |r" .. levelColor .. hitAmount .. " " .. word .. "|r", author, ...
-        end
-
-        local talentAmount = plainSys:match("[Gg]ained%s+(%d+)%s+talent point") or
-            plainSys:match("[Hh]ave%s+gained%s+(%d+)%s+talent point")
-        if talentAmount and plainLower:find("talent point") then
-            local n = tonumber(talentAmount) or 0
-            local word = (n == 1) and "Talent Point" or "Talent Points"
-            return false, ColorWhite .. "Gained: |r" .. levelColor .. talentAmount .. " " .. word .. "|r", author, ...
-        end
-
-        if plainSys:match("[Yy]our%s+%w+%s+increases b[yv]%s+%d+") then
-            local stats = {}
-            for statName, statBy in plainSys:gmatch("[Yy]our%s+(%w+)%s+increases b[yv]%s+(%d+)") do
-                statName = statName:sub(1, 1):upper() .. statName:sub(2):lower()
-                stats[#stats + 1] = statName .. " by " .. statBy
-            end
-            if #stats > 0 then
-                return false, ColorWhite .. "Increases: |r" .. levelColor .. table.concat(stats, ", ") .. "|r", author, ...
-            end
+    -- 2.3 Level-up reward messages. These can arrive as SYSTEM, combat XP, or Vanilla combat misc messages.
+    if IsLevelUpRewardEvent(event) then
+        local styledLevelReward = FormatLevelUpRewardMessage(plainSys)
+        if styledLevelReward then
+            return false, styledLevelReward, author, ...
         end
     end
 
@@ -1633,8 +1674,8 @@ local function ChatFilterImpl(self, event, msg, author, ...)
             ...
     end
 
-    -- Skill Learned: "You have gained the Khaz Algar Cooking skill."
-    local gainedSkill = msg:match("You have gained the (.-) skill%.?")
+    -- Skill Learned: "You have gained the Subtlety skill."
+    local gainedSkill = plainSys:match("[Yy]ou have gained the (.-) skill[%.,!]?%s*$")
     if gainedSkill then
         local display = CleanPunctuation(StripBrackets(gainedSkill))
         return false,
@@ -2226,6 +2267,11 @@ local function HookChatFrameAddMessage(frame)
             local plain = StripColorCodes(msg)
             local lowerPlain = plain:lower()
 
+            local styledLevelReward = FormatLevelUpRewardMessage(plain)
+            if styledLevelReward then
+                return orig(self, styledLevelReward, unpack(args))
+            end
+
             if ParseRetailMoneyGain(plain) then
                 return
             end
@@ -2314,6 +2360,7 @@ local function RegisterChatFilters()
     local chatEvents = {
         -- Combat/Log Events
         "CHAT_MSG_COMBAT_XP_GAIN",
+        "CHAT_MSG_COMBAT_MISC_INFO",
         "CHAT_MSG_COMBAT_HONOR_GAIN",
         "CHAT_MSG_COMBAT_FACTION_CHANGE",
         "CHAT_MSG_MONEY",
@@ -2374,16 +2421,17 @@ end
 local loader = CreateFrame("Frame")
 loader:RegisterEvent("VARIABLES_LOADED")
 loader:SetScript("OnEvent", function(self, event)
+    C_Timer.After(0, function()
+        for i = 1, NUM_CHAT_WINDOWS do
+            HookChatFrameAddMessage(_G["ChatFrame" .. i])
+        end
+    end)
+
     if Carpenter and Carpenter:IsEnabled("chatCleanerEnabled") then
+        ApplyLevelUpGlobalStringStyling()
         RegisterChatFilters()
         CleanEditBox()
         mailTracker:Show()
-
-        C_Timer.After(0, function()
-            for i = 1, NUM_CHAT_WINDOWS do
-                HookChatFrameAddMessage(_G["ChatFrame" .. i])
-            end
-        end)
     end
 
     -- Strip brackets from flags
