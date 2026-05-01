@@ -1457,51 +1457,58 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     -- 5a. Retail currency gains: "You receive currency: Voidlight Marl x207"
     if (event == "CHAT_MSG_SYSTEM" or event == "CHAT_MSG_CURRENCY") and type(msg) == "string" then
         local clean = msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("[%[%]]", "")
-        local gainedAmount, gainedCurrency = clean:match("^You gained:%s*(.-)%s+x(%d+)%s*%.?$")
-        if not gainedAmount then
-            gainedAmount, gainedCurrency = clean:match("^You gained:%s*x?(%d+)%s*(%D.+)%s*%.?$")
-            if gainedAmount and gainedCurrency then
-                local formatted = FormatCurrencyGain(gainedAmount, gainedCurrency)
+        local moneyGain = ParseRetailMoneyGain(clean)
+        if moneyGain and moneyGain > 0 then
+            if event == "CHAT_MSG_CURRENCY" then
+                return false, SpaceBeforeX(prefixPlus .. FormatMoney(moneyGain)), author, ...
+            end
+        else
+            local gainedAmount, gainedCurrency = clean:match("^You gained:%s*(.-)%s+x(%d+)%s*%.?$")
+            if not gainedAmount then
+                gainedAmount, gainedCurrency = clean:match("^You gained:%s*x?(%d+)%s*(%D.+)%s*%.?$")
+                if gainedAmount and gainedCurrency then
+                    local formatted = FormatCurrencyGain(gainedAmount, gainedCurrency)
+                    if formatted then
+                        return false, formatted, author, ...
+                    end
+                end
+            else
+                local formatted = FormatCurrencyGain(gainedCurrency, gainedAmount)
                 if formatted then
                     return false, formatted, author, ...
                 end
             end
-        else
-            local formatted = FormatCurrencyGain(gainedCurrency, gainedAmount)
-            if formatted then
-                return false, formatted, author, ...
-            end
-        end
 
-        local currency, currencyAmount = clean:match("You receive currency:%s*(.-)%s+x(%d+)%s*%.?$")
-        if not currency then
-            currency, currencyAmount = clean:match("You receive currency:%s*(.-)%s+(%d+)%s*%.?$")
-        end
-        if currency and currencyAmount then
-            local formatted = FormatCurrencyGain(currencyAmount, currency)
-            if formatted then
-                return false, formatted, author, ...
+            local currency, currencyAmount = clean:match("You receive currency:%s*(.-)%s+x(%d+)%s*%.?$")
+            if not currency then
+                currency, currencyAmount = clean:match("You receive currency:%s*(.-)%s+(%d+)%s*%.?$")
             end
-        elseif clean:find("You receive currency:", 1, true) then
-            currency = clean:match("You receive currency:%s*(.-)%s*%.?$")
-            currency = currency and CleanPunctuation(currency:gsub("^%s+", ""):gsub("%s+$", ""))
-            if currency and currency ~= "" then
-                local name, amount = currency:match("^(.-)%s*x(%d+)$")
-                if name and amount then
-                    local formatted = FormatCurrencyGain(amount, name)
-                    if formatted then
-                        return false, formatted, author, ...
-                    end
+            if currency and currencyAmount then
+                local formatted = FormatCurrencyGain(currencyAmount, currency)
+                if formatted then
+                    return false, formatted, author, ...
                 end
+            elseif clean:find("You receive currency:", 1, true) then
+                currency = clean:match("You receive currency:%s*(.-)%s*%.?$")
+                currency = currency and CleanPunctuation(currency:gsub("^%s+", ""):gsub("%s+$", ""))
+                if currency and currency ~= "" then
+                    local name, amount = currency:match("^(.-)%s*x(%d+)$")
+                    if name and amount then
+                        local formatted = FormatCurrencyGain(amount, name)
+                        if formatted then
+                            return false, formatted, author, ...
+                        end
+                    end
 
-                amount, name = currency:match("^x?(%d+)%s*(%D.+)$")
-                if amount and name then
-                    local formatted = FormatCurrencyGain(amount, name)
-                    if formatted then
-                        return false, formatted, author, ...
+                    amount, name = currency:match("^x?(%d+)%s*(%D.+)$")
+                    if amount and name then
+                        local formatted = FormatCurrencyGain(amount, name)
+                        if formatted then
+                            return false, formatted, author, ...
+                        end
                     end
+                    return false, prefixPlus .. ColorCyan .. currency .. "|r", author, ...
                 end
-                return false, prefixPlus .. ColorCyan .. currency .. "|r", author, ...
             end
         end
     end
