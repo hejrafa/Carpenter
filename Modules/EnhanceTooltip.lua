@@ -33,8 +33,22 @@ local function HookStatusBar(bar)
             end
         end)
     end
+    if bar.SetShown then
+        hooksecurefunc(bar, "SetShown", function(self)
+            if IsEnabled() then
+                HideStatusBar(self)
+            end
+        end)
+    end
     if bar.SetAlpha then
         hooksecurefunc(bar, "SetAlpha", function(self)
+            if IsEnabled() then
+                HideStatusBar(self)
+            end
+        end)
+    end
+    if bar.SetValue then
+        hooksecurefunc(bar, "SetValue", function(self)
             if IsEnabled() then
                 HideStatusBar(self)
             end
@@ -69,6 +83,18 @@ local function HideTooltipHealthBar(tooltip)
                 HideStatusBar(child)
             end
         end
+    end
+end
+
+local function ScheduleHideTooltipHealthBar(tooltip)
+    HideTooltipHealthBar(tooltip)
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0, function()
+            HideTooltipHealthBar(tooltip)
+        end)
+        C_Timer.After(0.05, function()
+            HideTooltipHealthBar(tooltip)
+        end)
     end
 end
 
@@ -290,7 +316,7 @@ end
 
 local function EnhanceUnitTooltip(tooltip, unit)
     if not unit then return end
-    HideTooltipHealthBar(tooltip)
+    ScheduleHideTooltipHealthBar(tooltip)
     ApplyNameLine(tooltip, unit)
     if UnitIsPlayer(unit) then
         ApplyPlayerInfoLine(tooltip, unit)
@@ -309,7 +335,6 @@ local function ShowTip(self)
     if not IsEnabled() then return end
     -- Only enhance the main GameTooltip (avoid affecting LibDBIcon and other tooltips)
     if self ~= GameTooltip then return end
-    if not CanAccessTooltipText() then return end
     -- Do not modify tooltip when it is showing an item (e.g. merchant); avoids comparison tooltip flicker
     if self.GetItem then
         local _, itemLink = self:GetItem()
@@ -325,6 +350,13 @@ local function ShowTip(self)
     if not unit then return end
     local reaction = UnitReaction(unit, "player")
     if not reaction then return end
+
+    -- Hide the bar before touching protected tooltip strings. Retail can block
+    -- text access for some world-hover enemy tooltips, but the status bar still
+    -- needs to be suppressed.
+    ScheduleHideTooltipHealthBar(self)
+
+    if not CanAccessTooltipText() then return end
     EnhanceUnitTooltip(self, unit)
 end
 
@@ -335,6 +367,7 @@ local function InstallHooks()
         WorldFrame:EnableMouseMotion(true)
     end
     if not hooked then
+        HideTooltipHealthBar(GameTooltip)
         if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Unit then
             TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip)
                 ShowTip(tooltip)

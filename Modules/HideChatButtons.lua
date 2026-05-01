@@ -4,7 +4,8 @@
 
 local HIDDEN_OPACITY = 0
 local HOVER_OPACITY = 0.65 -- 65% transparent when visible as requested
-local FADE_SPEED = 0.05    -- Adjust for faster/slower fading
+local FADE_IN_SPEED = 0.25
+local FADE_OUT_SPEED = 0.08
 local UPDATE_INTERVAL = 0.05
 
 -- =========================
@@ -182,9 +183,9 @@ hoverFrame:SetScript("OnUpdate", function(self, elapsed)
     -- Smooth transition logic
     if currentAlpha ~= targetAlpha then
         if currentAlpha < targetAlpha then
-            currentAlpha = math.min(targetAlpha, currentAlpha + FADE_SPEED)
+            currentAlpha = math.min(targetAlpha, currentAlpha + FADE_IN_SPEED)
         else
-            currentAlpha = math.max(targetAlpha, currentAlpha - FADE_SPEED)
+            currentAlpha = math.max(targetAlpha, currentAlpha - FADE_OUT_SPEED)
         end
         ApplyTransparency(currentAlpha)
     end

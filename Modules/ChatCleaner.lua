@@ -117,6 +117,27 @@ local function SpaceBeforeX(s)
     return s:gsub("(|r)x(%d+)", "%1 x%2"):gsub("([^%s])x(%d+)", "%1 x%2")
 end
 
+local function FormatCurrencyGain(amount, currency)
+    amount = amount and tostring(amount)
+    currency = currency and tostring(currency)
+    if not amount or amount == "" or not currency or currency == "" then return nil end
+
+    currency = CleanPunctuation(currency:gsub("^%s+", ""):gsub("%s+$", ""))
+    local leadingAmount, leadingName = currency:match("^x?(%d+)%s*(%D.+)$")
+    if leadingAmount and leadingName then
+        amount = leadingAmount
+        currency = leadingName:gsub("^%s+", ""):gsub("%s+$", "")
+    end
+
+    local trailingName, trailingAmount = currency:match("^(.-)%s*x(%d+)$")
+    if trailingName and trailingAmount then
+        amount = trailingAmount
+        currency = trailingName:gsub("^%s+", ""):gsub("%s+$", "")
+    end
+
+    return (ColorPlus .. "+|r ") .. ColorCyan .. currency .. "|r " .. ColorWhite .. "x" .. amount .. "|r"
+end
+
 -- Return item link with quality color (Goldpaw-style: GetItemInfo colored link; fallback ITEM_QUALITY_COLORS)
 local function GetItemLinkWithQualityColor(itemLink)
     if not itemLink or not itemLink:find("|Hitem:") then return itemLink end
@@ -1438,9 +1459,9 @@ local function ChatFilterImpl(self, event, msg, author, ...)
         local clean = msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("[%[%]]", "")
         local gainedCurrency, gainedCurrencyAmount = clean:match("^You gained:%s*(%d+)%D+(.+)%s*$")
         if gainedCurrency and gainedCurrencyAmount then
-            gainedCurrencyAmount = CleanPunctuation(gainedCurrencyAmount:gsub("^%s+", ""):gsub("%s+$", ""))
-            if gainedCurrencyAmount ~= "" then
-                return false, SpaceBeforeX(prefixPlus .. ColorWhite .. gainedCurrency .. " |r" .. ColorCyan .. gainedCurrencyAmount .. "|r"), author, ...
+            local formatted = FormatCurrencyGain(gainedCurrency, gainedCurrencyAmount)
+            if formatted then
+                return false, formatted, author, ...
             end
         end
 
@@ -1449,14 +1470,29 @@ local function ChatFilterImpl(self, event, msg, author, ...)
             currency, currencyAmount = clean:match("You receive currency:%s*(.-)%s+(%d+)%s*%.?$")
         end
         if currency and currencyAmount then
-            currency = CleanPunctuation(currency:gsub("^%s+", ""):gsub("%s+$", ""))
-            if currency ~= "" then
-                return false, SpaceBeforeX(prefixPlus .. ColorWhite .. currencyAmount .. " |r" .. ColorCyan .. currency .. "|r"), author, ...
+            local formatted = FormatCurrencyGain(currencyAmount, currency)
+            if formatted then
+                return false, formatted, author, ...
             end
         elseif clean:find("You receive currency:", 1, true) then
             currency = clean:match("You receive currency:%s*(.-)%s*%.?$")
             currency = currency and CleanPunctuation(currency:gsub("^%s+", ""):gsub("%s+$", ""))
             if currency and currency ~= "" then
+                local name, amount = currency:match("^(.-)%s*x(%d+)$")
+                if name and amount then
+                    local formatted = FormatCurrencyGain(amount, name)
+                    if formatted then
+                        return false, formatted, author, ...
+                    end
+                end
+
+                amount, name = currency:match("^x?(%d+)%s*(%D.+)$")
+                if amount and name then
+                    local formatted = FormatCurrencyGain(amount, name)
+                    if formatted then
+                        return false, formatted, author, ...
+                    end
+                end
                 return false, prefixPlus .. ColorCyan .. currency .. "|r", author, ...
             end
         end

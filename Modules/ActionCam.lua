@@ -1,6 +1,6 @@
 --[[ Carpenter - ActionCam ]]
--- One option: on = Camera Over Shoulder (+1). Off = reset camera cvars.
--- Nudges the camera out a little when you mount; on dismount zooms back in to where you were.
+-- One option: on = DynamicCam-style over-shoulder framing. Off = reset camera cvars.
+-- Uses default camera framing, then eases to a mounted zoom value while mounted.
 
 -- Suppress Blizzard's "experimental camera features" / "visual discomfort" popup and sound.
 -- Same approach as YUI-Dialogue (https://github.com/Peterodox/YUI-Dialogue): unregister the
@@ -26,22 +26,21 @@ local function SetSpellOverlayPosition(x, y)
     end
 end
 
--- Keep Action Cam performance-safe: over-shoulder framing without Blizzard's
--- experimental dynamic pitch, which can be expensive while flying.
 local OVER_SHOULDER_OFFSET = 1
-local SPELL_OVERLAY_OFFSET_X = -180
+local DYNAMIC_PITCH_GROUND = 0.6
+local DYNAMIC_PITCH_FLYING = 0.75
+local DYNAMIC_PITCH_DOWN_SCALE = 0.25
+local SMART_PIVOT_CUTOFF_DISTANCE = 10
+local SPELL_OVERLAY_OFFSET_X = -90
 local SPELL_OVERLAY_OFFSET_Y = -80
 
--- Smooth zoom: small steps, only on real mount/dismount transitions (debounced).
-local MOUNT_ZOOM_STEPS = 10
-local MOUNT_ZOOM_INCREMENT = 0.2
-local MOUNT_ZOOM_INTERVAL = 0.02
--- Dismount: same steps/increment as mount so we return to the same zoom level.
-local DISMOUNT_ZOOM_STEPS = MOUNT_ZOOM_STEPS
-local DISMOUNT_ZOOM_INCREMENT = MOUNT_ZOOM_INCREMENT
-local DISMOUNT_ZOOM_INTERVAL = MOUNT_ZOOM_INTERVAL
+local MOUNT_ZOOM_VALUE = 10
+local MOUNT_ZOOM_TRANSITION_TIME = 1
+local ZOOM_TICK_INTERVAL = 0.05
 
 local lastMounted = nil   -- last mount state we actually acted on (so we only act on transition)
+local preMountZoom = nil
+local zoomSequence = 0
 local zoomInProgress = false  -- prevent overlapping zoom sequences
 local zoomCheckScheduled = false
 local spellOverlayHooked = false
@@ -63,6 +62,54 @@ end
 
 local function IsRetail()
     return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+end
+
+local function GetCurrentZoom()
+    if GetCameraZoom then
+        return GetCameraZoom()
+    end
+end
+
+local function CancelZoomTransition()
+    zoomSequence = zoomSequence + 1
+    zoomInProgress = false
+end
+
+local function SmoothZoomTo(targetZoom, duration)
+    if not targetZoom or not GetCurrentZoom() then return end
+    if not CameraZoomIn or not CameraZoomOut then return end
+
+    zoomSequence = zoomSequence + 1
+    local sequence = zoomSequence
+    local startZoom = GetCurrentZoom()
+    local delta = targetZoom - startZoom
+    local steps = math.max(1, math.floor((duration or MOUNT_ZOOM_TRANSITION_TIME) / ZOOM_TICK_INTERVAL))
+    local previousZoom = startZoom
+
+    if math.abs(delta) < 0.05 then
+        zoomInProgress = false
+        return
+    end
+
+    zoomInProgress = true
+    for i = 1, steps do
+        C_Timer.After(ZOOM_TICK_INTERVAL * i, function()
+            if sequence ~= zoomSequence then return end
+
+            local nextZoom = startZoom + (delta * (i / steps))
+            local amount = nextZoom - previousZoom
+            if amount > 0 then
+                CameraZoomOut(amount)
+            elseif amount < 0 then
+                CameraZoomIn(-amount)
+            end
+            previousZoom = nextZoom
+
+            if i == steps then
+                zoomInProgress = false
+            end
+        end)
+    end
 end
 
 UpdateSpellOverlayOffset = function()
@@ -112,15 +159,14 @@ local function UpdateCameraZoom()
     if not IsEnabled() then
         return
     end
-    if zoomInProgress then
-        return
-    end
-    
     local isMounted = (IsMounted and IsMounted()) and true or false
     
-    -- Only act when mount state *changes* (never on first run)
     if lastMounted == nil then
         lastMounted = isMounted
+        if isMounted then
+            preMountZoom = GetCurrentZoom()
+            SmoothZoomTo(MOUNT_ZOOM_VALUE, MOUNT_ZOOM_TRANSITION_TIME)
+        end
         return
     end
     if lastMounted == isMounted then
@@ -128,26 +174,12 @@ local function UpdateCameraZoom()
     end
     lastMounted = isMounted
     
-    if isMounted and CameraZoomOut then
-        zoomInProgress = true
-        for i = 1, MOUNT_ZOOM_STEPS do
-            C_Timer.After(MOUNT_ZOOM_INTERVAL * i, function()
-                if CameraZoomOut then CameraZoomOut(MOUNT_ZOOM_INCREMENT) end
-                if i == MOUNT_ZOOM_STEPS then
-                    zoomInProgress = false
-                end
-            end)
-        end
-    elseif not isMounted and CameraZoomIn then
-        zoomInProgress = true
-        for i = 1, DISMOUNT_ZOOM_STEPS do
-            C_Timer.After(DISMOUNT_ZOOM_INTERVAL * i, function()
-                if CameraZoomIn then CameraZoomIn(DISMOUNT_ZOOM_INCREMENT) end
-                if i == DISMOUNT_ZOOM_STEPS then
-                    zoomInProgress = false
-                end
-            end)
-        end
+    if isMounted then
+        preMountZoom = GetCurrentZoom()
+        SmoothZoomTo(MOUNT_ZOOM_VALUE, MOUNT_ZOOM_TRANSITION_TIME)
+    elseif preMountZoom then
+        SmoothZoomTo(preMountZoom, MOUNT_ZOOM_TRANSITION_TIME)
+        preMountZoom = nil
     end
 end
 
@@ -169,16 +201,20 @@ end
 
 local function UpdateCameraSettings()
     if IsEnabled() then
-        -- Camera Over Shoulder Offset
         SetCVar("test_cameraOverShoulder", OVER_SHOULDER_OFFSET)
         SetCVar("cameraSmoothingStyle", 0) -- required for offset
 
-        SetCVar("test_cameraDynamicPitch", 0)
+        SetCVar("test_cameraDynamicPitch", 1)
+        SetCVar("test_cameraDynamicPitchBaseFovPad", DYNAMIC_PITCH_GROUND)
+        SetCVar("test_cameraDynamicPitchBaseFovPadFlying", DYNAMIC_PITCH_FLYING)
+        SetCVar("test_cameraDynamicPitchBaseFovPadDownScale", DYNAMIC_PITCH_DOWN_SCALE)
+        SetCVar("test_cameraDynamicPitchSmartPivotCutoffDist", SMART_PIVOT_CUTOFF_DISTANCE)
         
         -- Update zoom based on mount status
         UpdateCameraZoom()
         UpdateSpellOverlayOffset()
     else
+        CancelZoomTransition()
         ResetCameraCVarsToDefaults()
         UpdateSpellOverlayOffset()
     end

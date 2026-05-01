@@ -22,7 +22,7 @@ local function ShouldHideRestAnimation()
 end
 
 local function ShouldHideCombatIcon()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("hideCombatIconEnabled")
+    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHideHealthLossFx()
@@ -31,14 +31,6 @@ end
 
 local function ShouldHideGroupIndicator()
     return IsRetail() and Carpenter and Carpenter:IsEnabled("hideGroupIndicatorEnabled")
-end
-
-local function ShouldHideRoleIcon()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("hideRoleIconEnabled")
-end
-
-local function ShouldHidePvPTimer()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("hidePvPTimerEnabled")
 end
 
 local function ShouldHideRealmIndicator()
@@ -68,8 +60,6 @@ local function ShouldRunCleaner()
         or ShouldHideCombatIcon()
         or ShouldHideHealthLossFx()
         or ShouldHideGroupIndicator()
-        or ShouldHideRoleIcon()
-        or ShouldHidePvPTimer()
         or ShouldHideRealmIndicator()
         or ShouldHidePlayerCornerIcon()
         or ShouldHidePartyFrameTitle()
@@ -399,26 +389,6 @@ local function GetGroupIndicatorFrames()
     return frames
 end
 
-local function GetRoleIconFrames()
-    local frames = {}
-    local contextual = GetContextualFrame()
-    if contextual then
-        AddFrame(frames, contextual.RoleIcon)
-    end
-    return frames
-end
-
-local function GetPvPTimerFrames()
-    local frames = {}
-    local contextual = GetContextualFrame()
-    if contextual then
-        AddFrame(frames, contextual.PvpTimerText)
-        AddFrame(frames, contextual.PlayerPVPTimerText)
-    end
-    AddFrame(frames, PlayerPVPTimerText)
-    return frames
-end
-
 local function GetPlayerCornerIconFrames()
     local frames = {}
     local contextual = GetContextualFrame()
@@ -546,6 +516,15 @@ local function ApplyRealmIndicator()
     end
 end
 
+local function CanQueryNamePlateForUnit(unit)
+    if not unit then return false end
+    if unit == "target" or unit == "focus" or unit == "mouseover" then return true end
+    if unit:match("^nameplate%d+$") then return true end
+    if unit:match("^party%d+$") then return true end
+    if unit:match("^raid%d+$") then return true end
+    return false
+end
+
 local function ApplyRealmIndicatorForUnit(unit)
     if not ShouldHideRealmIndicator() then return end
 
@@ -569,7 +548,7 @@ local function ApplyRealmIndicatorForUnit(unit)
         AddNameString(strings, _G["CompactRaidFrame" .. index .. "Name"])
     end
 
-    if unit and C_NamePlate and C_NamePlate.GetNamePlateForUnit and not unit:match("^boss%d+$") then
+    if CanQueryNamePlateForUnit(unit) and C_NamePlate and C_NamePlate.GetNamePlateForUnit then
         local plate = C_NamePlate.GetNamePlateForUnit(unit)
         if plate and plate.UnitFrame then
             AddNameString(strings, plate.UnitFrame.name)
@@ -677,8 +656,6 @@ local function Apply()
     ApplyFrameFeature("combatIcon", GetCombatIconFrames, ShouldHideCombatIcon, false)
     ApplyFrameFeature("healthLossFx", GetHealthLossFxFrames, ShouldHideHealthLossFx, false)
     ApplyFrameFeature("groupIndicator", GetGroupIndicatorFrames, ShouldHideGroupIndicator, false)
-    ApplyFrameFeature("roleIcon", GetRoleIconFrames, ShouldHideRoleIcon, false)
-    ApplyFrameFeature("pvpTimer", GetPvPTimerFrames, ShouldHidePvPTimer, false)
     ApplyFrameFeature("playerCornerIcon", GetPlayerCornerIconFrames, ShouldHidePlayerCornerIcon, false)
     ApplyFrameFeature("partyFrameTitle", GetPartyFrameTitleFrames, ShouldHidePartyFrameTitle, false)
     ApplyFrameFeature("targetReputationColor", GetTargetReputationColorFrames, ShouldHideTargetReputationColor, false)
