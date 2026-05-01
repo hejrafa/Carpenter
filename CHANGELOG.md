@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.0
+
+- Improved Chat Cleaner styling for Classic level-up reward messages, including reached-level, hit point, talent point, and stat increase lines.
+- Styled newly gained skill messages such as "You have gained the Subtlety skill."
+
 ## 1.4.0
 
 - Renamed the addon to Carpenter and refreshed addon metadata.
