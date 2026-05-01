@@ -1639,6 +1639,15 @@ local function ChatFilterImpl(self, event, msg, author, ...)
             ...
     end
 
+    -- Skill Learned: "You have gained the Khaz Algar Cooking skill."
+    local gainedSkill = msg:match("You have gained the (.-) skill%.?")
+    if gainedSkill then
+        local display = CleanPunctuation(StripBrackets(gainedSkill))
+        return false,
+            SpaceBeforeX(prefixPlus ..
+            ColorWhite .. "Skill: |r" .. ColorPurple .. display .. "|r"), author, ...
+    end
+
     -- Skill Increase: "Your skill in Bows has increased to 286."
     local skill, sRank = msg:match("Your skill in (.-) has increased to (%d+)")
     if skill and sRank then
