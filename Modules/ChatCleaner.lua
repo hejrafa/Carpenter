@@ -1457,9 +1457,17 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     -- 5a. Retail currency gains: "You receive currency: Voidlight Marl x207"
     if (event == "CHAT_MSG_SYSTEM" or event == "CHAT_MSG_CURRENCY") and type(msg) == "string" then
         local clean = msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("[%[%]]", "")
-        local gainedCurrency, gainedCurrencyAmount = clean:match("^You gained:%s*(%d+)%D+(.+)%s*$")
-        if gainedCurrency and gainedCurrencyAmount then
-            local formatted = FormatCurrencyGain(gainedCurrency, gainedCurrencyAmount)
+        local gainedAmount, gainedCurrency = clean:match("^You gained:%s*(.-)%s+x(%d+)%s*%.?$")
+        if not gainedAmount then
+            gainedAmount, gainedCurrency = clean:match("^You gained:%s*x?(%d+)%s*(%D.+)%s*%.?$")
+            if gainedAmount and gainedCurrency then
+                local formatted = FormatCurrencyGain(gainedAmount, gainedCurrency)
+                if formatted then
+                    return false, formatted, author, ...
+                end
+            end
+        else
+            local formatted = FormatCurrencyGain(gainedCurrency, gainedAmount)
             if formatted then
                 return false, formatted, author, ...
             end
