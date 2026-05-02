@@ -4,7 +4,7 @@
 ## SavedVariables: CarpenterDB
 ## Version: 1.4.0
 ## Author: Rafael Polutta
-## IconTexture: Interface\AddOns\Carpenter\Carpenter_Logo
+## IconTexture: Interface\AddOns\Carpenter\Art\Icons\Carpenter_Logo
 
 # Core
 Core\Compatibility.lua

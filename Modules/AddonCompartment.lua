@@ -60,7 +60,7 @@ local function RegisterAddonCompartment()
         identifier = identifier,
         text = displayName,
         icon = C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(identifier, "IconTexture")
-            or "Interface\\AddOns\\Carpenter\\Carpenter_Logo",
+            or "Interface\\AddOns\\Carpenter\\Art\\Icons\\Carpenter_Logo",
         notCheckable = true,
         registerForAnyClick = true,
         func = OnClick,

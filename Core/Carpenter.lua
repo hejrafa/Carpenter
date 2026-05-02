@@ -134,6 +134,12 @@ function Carpenter:AddChatMessage(msg)
 end
 
 function Carpenter_InitializeSettings()
+    if CarpenterDB and Carpenter.Client and Carpenter.Client.isRetail and
+        CarpenterDB.hideUnitFrameCombatTextEnabled == true and
+        CarpenterDB.cleanUpUnitFramesEnabled ~= true then
+        CarpenterDB.cleanUpUnitFramesEnabled = true
+    end
+
     if CarpenterDB and CarpenterDB.cleanUpUnitFramesEnabled == nil then
         local legacyCleanUpKeys = {
             "hideUnitFramePvPIconEnabled",
