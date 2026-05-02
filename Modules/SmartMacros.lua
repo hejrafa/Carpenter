@@ -32,6 +32,7 @@ local INTERNAL_CATEGORIES = {
 }
 
 local CLASS_HEAL_SPELLS = {
+    CANNIBALIZE = 20577,
     RECUPERATE = 1248165,
     CRIMSON_VIAL = 185311,
 }
@@ -314,6 +315,44 @@ local function IsSpellKnown(spellID)
         return _G.IsPlayerSpell(spellID)
     end
     return false
+end
+
+local function GetCooldownRemaining(startTime, duration, isEnabled)
+    if isEnabled == false or isEnabled == 0 or not duration or duration <= 1.5 or not startTime or startTime <= 0 then
+        return 0
+    end
+    return math.max(0, startTime + duration - (GetTime and GetTime() or 0))
+end
+
+local function GetSpellCooldownRemaining(spellID)
+    if C_Spell and C_Spell.GetSpellCooldown then
+        local cooldownInfo = C_Spell.GetSpellCooldown(spellID)
+        if type(cooldownInfo) == "table" then
+            return GetCooldownRemaining(cooldownInfo.startTime, cooldownInfo.duration, cooldownInfo.isEnabled)
+        end
+    end
+    if _G.GetSpellCooldown then
+        local startTime, duration, isEnabled = _G.GetSpellCooldown(spellID)
+        return GetCooldownRemaining(startTime, duration, isEnabled)
+    end
+    return 0
+end
+
+local function GetItemCooldownRemaining(item)
+    if not item then return 0 end
+    local itemKey = item.itemID or item.name
+    if C_Item and C_Item.GetItemCooldown and itemKey then
+        local startTime, duration, isEnabled = C_Item.GetItemCooldown(itemKey)
+        if type(startTime) == "table" then
+            return GetCooldownRemaining(startTime.startTime, startTime.duration, startTime.isEnabled)
+        end
+        return GetCooldownRemaining(startTime, duration, isEnabled)
+    end
+    if _G.GetItemCooldown and itemKey then
+        local startTime, duration, isEnabled = _G.GetItemCooldown(itemKey)
+        return GetCooldownRemaining(startTime, duration, isEnabled)
+    end
+    return 0
 end
 
 local function IsConsumableItem(item)
@@ -730,24 +769,56 @@ end
 
 local function BuildHealthMacroBody(potion, healthstone)
     local lines = { "#showtooltip" }
+    local entries = {}
+    local cannibalize = GetSpellName(CLASS_HEAL_SPELLS.CANNIBALIZE, "Cannibalize")
     local recuperate = GetSpellName(CLASS_HEAL_SPELLS.RECUPERATE, "Recuperate")
     local crimsonVial = GetSpellName(CLASS_HEAL_SPELLS.CRIMSON_VIAL, "Crimson Vial")
     local _, class = UnitClass("player")
 
+    if cannibalize and IsSpellKnown(CLASS_HEAL_SPELLS.CANNIBALIZE) then
+        entries[#entries + 1] = {
+            line = "/cast [nocombat] " .. cannibalize,
+            cooldown = GetSpellCooldownRemaining(CLASS_HEAL_SPELLS.CANNIBALIZE),
+        }
+    end
+
     if recuperate and (IsRetail() or IsSpellKnown(CLASS_HEAL_SPELLS.RECUPERATE)) then
-        lines[#lines + 1] = "/cast [nocombat] " .. recuperate
+        entries[#entries + 1] = {
+            line = "/cast [nocombat] " .. recuperate,
+            cooldown = GetSpellCooldownRemaining(CLASS_HEAL_SPELLS.RECUPERATE),
+        }
     end
 
     if class == "ROGUE" and crimsonVial and IsSpellKnown(CLASS_HEAL_SPELLS.CRIMSON_VIAL) then
-        lines[#lines + 1] = "/castsequence [@player,combat] reset=combat " .. crimsonVial
+        entries[#entries + 1] = {
+            line = "/castsequence [@player,combat] reset=combat " .. crimsonVial,
+            cooldown = GetSpellCooldownRemaining(CLASS_HEAL_SPELLS.CRIMSON_VIAL),
+        }
     end
 
     if healthstone and healthstone.name then
-        lines[#lines + 1] = "/use " .. healthstone.name
+        entries[#entries + 1] = {
+            line = "/use " .. healthstone.name,
+            cooldown = GetItemCooldownRemaining(healthstone),
+        }
     end
 
     if potion and potion.name then
-        lines[#lines + 1] = "/use " .. potion.name
+        entries[#entries + 1] = {
+            line = "/use " .. potion.name,
+            cooldown = GetItemCooldownRemaining(potion),
+        }
+    end
+
+    for _, entry in ipairs(entries) do
+        if entry.cooldown <= 0 then
+            lines[#lines + 1] = entry.line
+        end
+    end
+    for _, entry in ipairs(entries) do
+        if entry.cooldown > 0 then
+            lines[#lines + 1] = entry.line
+        end
     end
 
     return table.concat(lines, "\n")
@@ -846,7 +917,9 @@ local function MarkDirty(delay, forceRescan)
 end
 
 addonFrame:RegisterEvent("BAG_UPDATE_DELAYED")
+addonFrame:RegisterEvent("BAG_UPDATE_COOLDOWN")
 addonFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+addonFrame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 
 addonFrame:SetScript("OnEvent", function(self, event, unit)
     if event == "PLAYER_REGEN_ENABLED" then
@@ -856,9 +929,13 @@ addonFrame:SetScript("OnEvent", function(self, event, unit)
         MarkDirty(1.5, true)
     elseif event == "BAG_UPDATE_DELAYED" then
         MarkDirty(1.0)
+    elseif event == "BAG_UPDATE_COOLDOWN" then
+        MarkDirty(0.5, true)
     elseif event == "GET_ITEM_INFO_RECEIVED" then
         self:UnregisterEvent(event)
         MarkDirty(2.0, true)
+    elseif event == "SPELL_UPDATE_COOLDOWN" then
+        MarkDirty(0.5, true)
     end
 end)
 
