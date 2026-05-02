@@ -258,11 +258,16 @@ local function ReadTooltip(bag, slot, item)
         if tooltipData and tooltipData.lines then
             for i = 2, #tooltipData.lines do
                 local line = tooltipData.lines[i]
-                if line and line.type == 0 then
+                if IsRetail() and line then
+                    AddTooltipLine(result, line.leftText)
+                    AddTooltipLine(result, line.rightText)
+                elseif line and line.type == 0 then
                     AddTooltipLine(result, line.leftText)
                 end
             end
-            return result
+            if result.text ~= "" or not IsRetail() then
+                return result
+            end
         end
     end
 
