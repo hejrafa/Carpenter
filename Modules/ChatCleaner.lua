@@ -745,32 +745,36 @@ local function FormatLevelUpRewardMessage(plainText)
         return levelColor .. "Reached Level " .. levelNum .. "|r"
     end
 
-    local hitAmount = plainText:match("[Yy]ou%s+have%s+gained%s+(%d+)%s+hit point") or
-        plainText:match("[Hh]ave%s+gained%s+(%d+)%s+hit point") or
-        plainText:match("[Gg]ained%s+(%d+)%s+hit point")
+    local hitAmount = plainText:match("[Yy]ou%s+have%s+gained%s+(%d+)%s+[Hh]it [Pp]oint") or
+        plainText:match("[Hh]ave%s+gained%s+(%d+)%s+[Hh]it [Pp]oint") or
+        plainText:match("[Gg]ained%s*:?.-%s*(%d+)%s+[Hh]it [Pp]oint")
     if hitAmount and plainLower:find("hit point") then
         local n = tonumber(hitAmount) or 0
         local word = (n == 1) and "Hit Point" or "Hit Points"
-        return ColorWhite .. "Gained: |r" .. levelColor .. hitAmount .. " " .. word .. "|r"
+        return ColorPlus .. "+|r " .. levelColor .. hitAmount .. " " .. word .. "|r"
     end
 
-    local talentAmount = plainText:match("[Yy]ou%s+have%s+gained%s+(%d+)%s+talent point") or
-        plainText:match("[Hh]ave%s+gained%s+(%d+)%s+talent point") or
-        plainText:match("[Gg]ained%s+(%d+)%s+talent point")
+    local talentAmount = plainText:match("[Yy]ou%s+have%s+gained%s+(%d+)%s+[Tt]alent [Pp]oint") or
+        plainText:match("[Hh]ave%s+gained%s+(%d+)%s+[Tt]alent [Pp]oint") or
+        plainText:match("[Gg]ained%s*:?.-%s*(%d+)%s+[Tt]alent [Pp]oint")
     if talentAmount and plainLower:find("talent point") then
         local n = tonumber(talentAmount) or 0
         local word = (n == 1) and "Talent Point" or "Talent Points"
-        return ColorWhite .. "Gained: |r" .. levelColor .. talentAmount .. " " .. word .. "|r"
+        return ColorPlus .. "+|r " .. levelColor .. talentAmount .. " " .. word .. "|r"
     end
 
-    if plainText:match("[Yy]our%s+%w+%s+increases%s+by%s+%d+") then
+    if plainText:match("[Yy]our%s+%w+%s+increases%s+by%s+%d+") or plainText:match("[Ii]ncreases:%s*%w+%s+by%s+%d+") then
         local stats = {}
         for statName, statBy in plainText:gmatch("[Yy]our%s+(%w+)%s+increases%s+by%s+(%d+)") do
             statName = statName:sub(1, 1):upper() .. statName:sub(2):lower()
-            stats[#stats + 1] = statName .. " by " .. statBy
+            stats[#stats + 1] = statBy .. " " .. statName
+        end
+        for statName, statBy in plainText:gmatch("[Ii]ncreases:%s*(%w+)%s+by%s+(%d+)") do
+            statName = statName:sub(1, 1):upper() .. statName:sub(2):lower()
+            stats[#stats + 1] = statBy .. " " .. statName
         end
         if #stats > 0 then
-            return ColorWhite .. "Increases: |r" .. levelColor .. table.concat(stats, ", ") .. "|r"
+            return ColorPlus .. "+|r " .. levelColor .. table.concat(stats, ", ") .. "|r"
         end
     end
 
@@ -792,10 +796,10 @@ local function ApplyLevelUpGlobalStringStyling()
 
     local levelColor = GetClassColorForName(UnitName("player") or "")
     _G.LEVEL_UP = levelColor .. "Reached Level %d|r"
-    _G.LEVEL_UP_HEALTH = ColorWhite .. "Gained: |r" .. levelColor .. "%d Hit Points|r"
-    _G.LEVEL_UP_HEALTH_MANA = ColorWhite .. "Gained: |r" .. levelColor .. "%d Hit Points, %d Mana|r"
-    _G.LEVEL_UP_CHAR_POINTS = ColorWhite .. "Gained: |r" .. levelColor .. "%d Talent Points|r"
-    _G.LEVEL_UP_STAT = ColorWhite .. "Increases: |r" .. levelColor .. "%s by %d|r"
+    _G.LEVEL_UP_HEALTH = ColorPlus .. "+|r " .. levelColor .. "%d Hit Points|r"
+    _G.LEVEL_UP_HEALTH_MANA = ColorPlus .. "+|r " .. levelColor .. "%d Hit Points|r, " .. ColorPlus .. "+|r " .. levelColor .. "%d Mana|r"
+    _G.LEVEL_UP_CHAR_POINTS = ColorPlus .. "+|r " .. levelColor .. "%d Talent Points|r"
+    _G.LEVEL_UP_STAT = "Your %s increases by %d"
 end
 
 local function ChatFilterImpl(self, event, msg, author, ...)
