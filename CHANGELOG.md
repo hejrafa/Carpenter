@@ -4,6 +4,8 @@
 
 - Improved Chat Cleaner styling for Classic level-up reward messages, including reached-level, hit point, talent point, and stat increase lines.
 - Styled newly gained skill messages such as "You have gained the Subtlety skill."
+- Fixed the HP consumable macro in Classic/TBC by removing combat conditionals from healthstone and potion `/use` lines.
+- Added the Auto Track Quests settings preview image.
 
 ## 1.4.0
 

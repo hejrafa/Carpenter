@@ -738,11 +738,11 @@ local function BuildHealthMacroBody(potion, healthstone)
     end
 
     if healthstone and healthstone.name then
-        lines[#lines + 1] = "/use [@player,combat] " .. healthstone.name
+        lines[#lines + 1] = "/use " .. healthstone.name
     end
 
     if potion and potion.name then
-        lines[#lines + 1] = "/use [@player,combat] " .. potion.name
+        lines[#lines + 1] = "/use " .. potion.name
     end
 
     return table.concat(lines, "\n")

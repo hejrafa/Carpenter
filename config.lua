@@ -782,6 +782,7 @@ local OPTION_SECTIONS = {
                 label = L.OPTION_AUTO_TRACK_QUESTS or "Auto Track Quests",
                 description = LightGrey .. "New quests should land in the tracker without an extra trip to the quest log.\n\n" ..
                     "Automatically adds " .. LighterCream .. "newly accepted quests" .. LightGrey .. " to the objective tracker.",
+                image = ADDON_IMAGE_PATH .. "questtrack.png",
                 requiresReload = false,
             },
             {
