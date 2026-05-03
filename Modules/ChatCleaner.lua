@@ -14,7 +14,7 @@ local ColorLootLiteral= ColorGray
 
 local ColorOffwhite   = Colors and Colors.offwhite and Colors.offwhite.colorCode or "|cfff0f0f0"
 local ColorWhite      = Colors and Colors.white and Colors.white.colorCode or "|cffffffff"
-local ColorYellow     = Colors and Colors.title and Colors.title.colorCode or "|cffffff00"
+local ColorYellow     = "|cffffd200"
 local ColorGreen      = Colors and Colors.green and Colors.green.colorCode or "|cff00ff00"
 local ColorOrange     = Colors and Colors.quest and Colors.quest.orange and Colors.quest.orange.colorCode or "|cffff8000"
 local ColorDarkorange = Colors and Colors.quest and Colors.quest.red and Colors.quest.red.colorCode or "|cffff6600"
