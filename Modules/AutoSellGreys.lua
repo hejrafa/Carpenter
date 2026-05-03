@@ -9,8 +9,13 @@ local ColorPlus = Colors and Colors.gray and Colors.gray.colorCode or "|cffc8c8c
 local ColorJunk = Colors and Colors.quality and Colors.quality[0] and Colors.quality[0].colorCode or "|cff9d9d9d"
 
 f:RegisterEvent("MERCHANT_SHOW")
+f:RegisterEvent("MERCHANT_CLOSED")
+
+local sellAttemptedThisMerchant = false
 
 local function SellGreyItems()
+    if sellAttemptedThisMerchant then return end
+    sellAttemptedThisMerchant = true
     if not Carpenter:IsEnabled("autoSellGreys") then return end
     
     -- Don't sell if Shift is held
@@ -75,5 +80,7 @@ f:SetScript("OnEvent", function(self, event)
         -- Defer so ChatCleaner's MERCHANT_SHOW runs first and clears flags;
         -- then we set merchantAutoSoldJunk/Amount for MERCHANT_CLOSED suppression.
         Carpenter:After(0, SellGreyItems)
+    elseif event == "MERCHANT_CLOSED" then
+        sellAttemptedThisMerchant = false
     end
 end)

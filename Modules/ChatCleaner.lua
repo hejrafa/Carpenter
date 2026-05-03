@@ -611,11 +611,13 @@ _G["Carpenter_MerchantState"] = MerchantState
 local merchantFrame = CreateFrame("Frame")
 local merchantMoneyAtOpen = 0
 local merchantZoningGuard = false  -- ignore MERCHANT_CLOSED during/after zone transition (hearth, etc.) when GetMoney() can be wrong
+local merchantSession = 0
 merchantFrame:RegisterEvent("MERCHANT_SHOW")
 merchantFrame:RegisterEvent("MERCHANT_CLOSED")
 merchantFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 merchantFrame:SetScript("OnEvent", function(self, event)
     if event == "MERCHANT_SHOW" then
+        merchantSession = merchantSession + 1
         -- New merchant interaction: clear any previous auto-sell/auto-repair markers
         MerchantState.autoSoldJunk = false
         MerchantState.autoSoldAmount = nil
@@ -625,6 +627,7 @@ merchantFrame:SetScript("OnEvent", function(self, event)
         self.isOpen = true
         merchantMoneyAtOpen = GetMoney()
     elseif event == "PLAYER_ENTERING_WORLD" then
+        merchantSession = merchantSession + 1
         merchantZoningGuard = true
         self.isOpen = false
     elseif event == "MERCHANT_CLOSED" then
@@ -649,13 +652,19 @@ merchantFrame:SetScript("OnEvent", function(self, event)
         if adjusted == 0 then
             -- Defer clearing so late CHAT_MSG_MONEY from auto-sell/auto-repair
             -- is still suppressed and doesn't duplicate the gain message.
-            C_Timer.After(0.5, function() self.isOpen = false end)
+            local closedSession = merchantSession
+            C_Timer.After(0.5, function()
+                if merchantSession == closedSession then self.isOpen = false end
+            end)
             return
         end
         net = adjusted
         -- Sanity: you can't lose more than you have; if reported loss > current gold, GetMoney() was wrong (e.g. during zone transition)
         if net < 0 and (-net) > current then
-            C_Timer.After(0.5, function() self.isOpen = false end)
+            local closedSession = merchantSession
+            C_Timer.After(0.5, function()
+                if merchantSession == closedSession then self.isOpen = false end
+            end)
             return
         end
         if net > 0 then
@@ -664,7 +673,10 @@ merchantFrame:SetScript("OnEvent", function(self, event)
             print((ColorMinus .. "-|r ") .. FormatMoney(-net))
         end
         -- Defer clearing so any CHAT_MSG_MONEY from this session (e.g. last sale) is still suppressed and we don't show the amount twice
-        C_Timer.After(0.5, function() self.isOpen = false end)
+        local closedSession = merchantSession
+        C_Timer.After(0.5, function()
+            if merchantSession == closedSession then self.isOpen = false end
+        end)
     end
 end)
 
