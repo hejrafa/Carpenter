@@ -73,6 +73,10 @@ local function GetUnitFrameHealthBar(unit)
                 and TargetFrame.TargetFrameContent.TargetFrameContentMain.HealthBarsContainer.HealthBar)
             or TargetFrameHealthBar
             or (TargetFrame and TargetFrame.TargetFrameContent and TargetFrame.TargetFrameContent.TargetFrameContentMain and TargetFrame.TargetFrameContent.TargetFrameContentMain.HealthBar)
+    elseif unit == "targettarget" then
+        return (TargetFrameToT and TargetFrameToT.HealthBar)
+            or TargetFrameToTHealthBar
+            or (TargetFrameToT and TargetFrameToT.healthbar)
     elseif unit == "focus" then
         return (FocusFrame and FocusFrame.TargetFrameContent and FocusFrame.TargetFrameContent.TargetFrameContentMain
                 and FocusFrame.TargetFrameContent.TargetFrameContentMain.HealthBarsContainer
@@ -102,6 +106,7 @@ end
 local function RefreshUnitFrameColors()
     UpdateHealthBarColor(GetUnitFrameHealthBar("player"), "player")
     UpdateHealthBarColor(GetUnitFrameHealthBar("target"), "target")
+    UpdateHealthBarColor(GetUnitFrameHealthBar("targettarget"), "targettarget")
     UpdateHealthBarColor(GetUnitFrameHealthBar("focus"), "focus")
 
     for i = 1, 4 do
@@ -118,8 +123,9 @@ end
 local unitFrameDriver = CreateFrame("Frame")
 unitFrameDriver:RegisterEvent("PLAYER_TARGET_CHANGED")
 unitFrameDriver:RegisterEvent("PLAYER_FOCUS_CHANGED")
-unitFrameDriver:RegisterUnitEvent("UNIT_HEALTH", "player", "target", "focus", "party1", "party2", "party3", "party4")
-unitFrameDriver:RegisterUnitEvent("UNIT_FACTION", "player", "target", "focus", "party1", "party2", "party3", "party4")
+unitFrameDriver:RegisterUnitEvent("UNIT_HEALTH", "player", "target", "targettarget", "focus", "party1", "party2", "party3", "party4")
+unitFrameDriver:RegisterUnitEvent("UNIT_FACTION", "player", "target", "targettarget", "focus", "party1", "party2", "party3", "party4")
+unitFrameDriver:RegisterUnitEvent("UNIT_TARGET", "target")
 unitFrameDriver:RegisterEvent("GROUP_ROSTER_UPDATE") -- Added for party changes
 unitFrameDriver:RegisterEvent("PLAYER_ENTERING_WORLD")
 
@@ -139,6 +145,9 @@ local function HandleUnitFrameEvent(self, event, unit)
     elseif event == "UNIT_HEALTH" or event == "UNIT_FACTION" then
         if unit == "target" then
             UpdateHealthBarColor(GetUnitFrameHealthBar("target"), "target")
+            UpdateHealthBarColor(GetUnitFrameHealthBar("targettarget"), "targettarget")
+        elseif unit == "targettarget" then
+            UpdateHealthBarColor(GetUnitFrameHealthBar("targettarget"), "targettarget")
         elseif unit == "focus" then
             UpdateHealthBarColor(GetUnitFrameHealthBar("focus"), "focus")
         elseif unit == "player" then
@@ -154,6 +163,8 @@ local function HandleUnitFrameEvent(self, event, unit)
                 end
             end
         end
+    elseif event == "UNIT_TARGET" and unit == "target" then
+        UpdateHealthBarColor(GetUnitFrameHealthBar("targettarget"), "targettarget")
     elseif event == "GROUP_ROSTER_UPDATE" then
         RefreshUnitFrameColors()
     end
