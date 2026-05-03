@@ -8,6 +8,11 @@ local ALWAYS_HIDE = {
     "visual discomfort",
 }
 
+local NEVER_HIDE = {
+    "invalid target",
+    "target is in combat",
+}
+
 local HIDE_PHRASES = {
     "not enough energy",
     "not ready yet",
@@ -29,7 +34,6 @@ local HIDE_PHRASES = {
     "can't carry any more of those items",
     "the object is busy",
     "need to be closer to interact",
-    "invalid target",
     "can't attack while stunned",
     "can't attack while horrified",
     "can't attack while disoriented",
@@ -56,6 +60,9 @@ local HIDE_PHRASES = {
 local function ShouldHideError(message)
     if not message or type(message) ~= "string" then return false end
     local lower = message:lower()
+    for _, phrase in ipairs(NEVER_HIDE) do
+        if lower:find(phrase:lower(), 1, true) then return false end
+    end
     for _, phrase in ipairs(ALWAYS_HIDE) do
         if lower:find(phrase:lower(), 1, true) then return true end
     end
