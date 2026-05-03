@@ -32,7 +32,6 @@ local INTERNAL_CATEGORIES = {
 }
 
 local CLASS_HEAL_SPELLS = {
-    CANNIBALIZE = 20577,
     RECUPERATE = 1248165,
     CRIMSON_VIAL = 185311,
 }
@@ -768,56 +767,48 @@ local function DeleteMacroByName(name)
 end
 
 local function BuildHealthMacroBody(potion, healthstone)
-    local lines = { "#showtooltip" }
+    local lines = {}
     local entries = {}
-    local cannibalize = GetSpellName(CLASS_HEAL_SPELLS.CANNIBALIZE, "Cannibalize")
     local recuperate = GetSpellName(CLASS_HEAL_SPELLS.RECUPERATE, "Recuperate")
     local crimsonVial = GetSpellName(CLASS_HEAL_SPELLS.CRIMSON_VIAL, "Crimson Vial")
     local _, class = UnitClass("player")
-
-    if cannibalize and IsSpellKnown(CLASS_HEAL_SPELLS.CANNIBALIZE) then
-        entries[#entries + 1] = {
-            line = "/cast [nocombat] " .. cannibalize,
-            cooldown = GetSpellCooldownRemaining(CLASS_HEAL_SPELLS.CANNIBALIZE),
-        }
-    end
+    local tooltip
 
     if recuperate and (IsRetail() or IsSpellKnown(CLASS_HEAL_SPELLS.RECUPERATE)) then
+        tooltip = tooltip or ("[nocombat] " .. recuperate)
         entries[#entries + 1] = {
             line = "/cast [nocombat] " .. recuperate,
-            cooldown = GetSpellCooldownRemaining(CLASS_HEAL_SPELLS.RECUPERATE),
+            stopLine = "/stopmacro [nocombat]",
         }
     end
 
     if class == "ROGUE" and crimsonVial and IsSpellKnown(CLASS_HEAL_SPELLS.CRIMSON_VIAL) then
+        tooltip = tooltip and (tooltip .. "; [combat] " .. crimsonVial) or ("[combat] " .. crimsonVial)
         entries[#entries + 1] = {
             line = "/castsequence [@player,combat] reset=combat " .. crimsonVial,
-            cooldown = GetSpellCooldownRemaining(CLASS_HEAL_SPELLS.CRIMSON_VIAL),
         }
     end
 
     if healthstone and healthstone.name then
+        tooltip = tooltip and (tooltip .. "; " .. healthstone.name) or healthstone.name
         entries[#entries + 1] = {
             line = "/use " .. healthstone.name,
-            cooldown = GetItemCooldownRemaining(healthstone),
         }
     end
 
     if potion and potion.name then
+        tooltip = tooltip and (tooltip .. "; " .. potion.name) or potion.name
         entries[#entries + 1] = {
             line = "/use " .. potion.name,
-            cooldown = GetItemCooldownRemaining(potion),
         }
     end
 
+    lines[#lines + 1] = tooltip and ("#showtooltip " .. tooltip) or "#showtooltip"
+
     for _, entry in ipairs(entries) do
-        if entry.cooldown <= 0 then
-            lines[#lines + 1] = entry.line
-        end
-    end
-    for _, entry in ipairs(entries) do
-        if entry.cooldown > 0 then
-            lines[#lines + 1] = entry.line
+        lines[#lines + 1] = entry.line
+        if entry.stopLine then
+            lines[#lines + 1] = entry.stopLine
         end
     end
 

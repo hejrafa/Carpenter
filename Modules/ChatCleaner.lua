@@ -727,6 +727,17 @@ local lastHonorKey, lastHonorTime = nil, 0
 local HONOR_DEDUP_SEC = 5
 local lastRepairAmount, lastRepairTime = nil, 0
 local REPAIR_DEDUP_SEC = 2
+local lastLearnedSkillName, lastLearnedSkillTime = nil, 0
+local LEARNED_SKILL_DEDUP_SEC = 3
+
+local function NormalizeSkillName(name)
+    if not name or type(name) ~= "string" then return nil end
+    name = CleanPunctuation(StripBrackets(name))
+    name = name:gsub("%s*%b()%s*$", "")
+    name = name:gsub("^%s+", ""):gsub("%s+$", "")
+    if name == "" then return nil end
+    return name:lower()
+end
 
 local function IsLevelUpRewardEvent(event)
     return event == "CHAT_MSG_SYSTEM" or
@@ -1691,6 +1702,10 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     if learned then
         local display = CleanPunctuation(StripBrackets(learned))
         display = display:gsub("^a new item: ", ""):gsub("^a new spell: ", ""):gsub("^a new ability: ", "")
+        if display:match("%b()%s*$") then
+            lastLearnedSkillName = NormalizeSkillName(display)
+            lastLearnedSkillTime = GetTime and GetTime() or 0
+        end
         return false,
             SpaceBeforeX(prefixPlus ..
             ColorWhite .. "Learned: " .. "|r" .. ColorPurple .. display .. "|r"), author,
@@ -1715,6 +1730,10 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     local gainedSkill = plainSys:match("[Yy]ou have gained the (.-) skill[%.,!]?%s*$")
     if gainedSkill then
         local display = CleanPunctuation(StripBrackets(gainedSkill))
+        local now = GetTime and GetTime() or 0
+        if lastLearnedSkillName and NormalizeSkillName(display) == lastLearnedSkillName and (now - lastLearnedSkillTime) <= LEARNED_SKILL_DEDUP_SEC then
+            return true
+        end
         return false,
             SpaceBeforeX(prefixPlus ..
             ColorWhite .. "Skill: |r" .. ColorPurple .. display .. "|r"), author, ...
