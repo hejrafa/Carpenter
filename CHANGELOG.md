@@ -6,7 +6,18 @@
 - Styled newly gained skill messages such as "You have gained the Subtlety skill."
 - Fixed the HP consumable macro in Classic/TBC by removing combat conditionals from healthstone and potion `/use` lines.
 - Fixed Retail food macro detection by reading modern tooltip data more broadly.
+- Refined level-up reward chat lines to use compact `+` formatting for hit points, talent points, and stat gains.
+- Added Cannibalize support and cooldown-aware ordering to the HP consumable macro so ready heals appear first.
 - Added the Auto Track Quests settings preview image.
+- Reorganized addon artwork into `Art/Icons`, `Art/Masks`, and `Art/Settings` folders with separate Classic and Retail settings previews.
+- Merged Retail unit frame combat text hiding into the renamed Clean Unit Frame option.
+- Added a Classic Settings category with a Preset option for auto loot, enemy nameplates, minion nameplates, and action bars 2/3.
+- Added Classic Enhance UI support for wider quest log, profession, trainer, and flight map frames, including a trainer scroll-area fix.
+- Updated Classic chat cleanup with Story Mode yellow styling, cleaner Hardcore level 60 messages, profession-learn deduping, and duplicate merchant money protection.
+- Refined Classic/TBC consumable macros by removing Cannibalize from the health macro and excluding health regeneration potions from immediate health restores.
+- Added player buff highlights for important self buffs such as Sprint, Slice and Dice, offensive cooldowns, defensive cooldowns, and immunities.
+- Applied class-colored health bars to target-of-target frames.
+- Kept Sap-related errors such as "Invalid target" and "Target is in combat" visible when error hiding is enabled.
 
 ## 1.4.0
 
