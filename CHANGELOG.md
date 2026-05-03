@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.5.0
+## 1.4.1
 
 - Improved Chat Cleaner styling for Classic level-up reward messages, including reached-level, hit point, talent point, and stat increase lines.
 - Styled newly gained skill messages such as "You have gained the Subtlety skill."
