@@ -26,6 +26,7 @@ local defaults = {
     classHealthColorsEnabled = false,
     threatIndicatorEnabled = false,
     unitFrameDebuffsEnabled = false,
+    unitFrameBuffsEnabled = false,
     unitFrameClassIconEnabled = false,
     hideUnitFrameCombatTextEnabled = false,
     cleanUpUnitFramesEnabled = false,

@@ -424,6 +424,8 @@ addon.Spells = {
     [2983] = { type = BUFF_OFFENSIVE }, -- Sprint
         [8696] = { parent = 2983 },
         [11305] = { parent = 2983 },
+    [5171] = { type = BUFF_OFFENSIVE }, -- Slice and Dice
+        [6774] = { parent = 5171 },
     [5277] = { type = BUFF_DEFENSIVE }, -- Evasion
         [26669] = { parent = 5277 },
     [1776] = { type = CROWD_CONTROL }, -- Gouge
@@ -499,4 +501,10 @@ end
 function addon.IsImportantDebuff(spellId)
     local t = addon.GetSpellInfo(spellId)
     return t == CROWD_CONTROL or t == ROOT
+end
+
+-- True if this spell ID should be shown as an important player buff
+function addon.IsImportantBuff(spellId)
+    local t = addon.GetSpellInfo(spellId)
+    return t == BUFF_DEFENSIVE or t == BUFF_OFFENSIVE or t == IMMUNITY or t == IMMUNITY_SPELL
 end

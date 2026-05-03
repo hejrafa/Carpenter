@@ -667,6 +667,17 @@ local OPTION_SECTIONS = {
                 image = GetSettingsImage("unitdebuff.png"),
             },
             {
+                key = "unitFrameBuffsEnabled",
+                label = L.OPTION_UNIT_FRAME_BUFFS or "Buffs",
+                description = LightGrey .. "Your own cooldown buffs should be visible where your eyes already check your health.\n\n" ..
+                    "Highlights important " .. LighterCream .. "player buffs" .. LightGrey .. " such as Sprint, Slice and Dice, defensive cooldowns, offensive cooldowns, and immunities on the player unit frame.",
+                image = GetSettingsImage("unitdebuff.png"),
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_UpdateUnitFrameAuras then Carpenter_UpdateUnitFrameAuras() end
+                end,
+            },
+            {
                 key = "unitFrameClassIconEnabled",
                 label = L.OPTION_CLASS_ICON_PORTRAIT or "Class Icon Portrait",
                 description = LightGrey .. "Unit portraits are flavorful, but class icons are faster to parse.\n\n" ..

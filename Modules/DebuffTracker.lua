@@ -74,6 +74,10 @@ local function IsUnitFrameEnabled()
     return Carpenter and Carpenter:IsEnabled("unitFrameDebuffsEnabled")
 end
 
+local function IsUnitFrameBuffsEnabled()
+    return Carpenter and Carpenter:IsEnabled("unitFrameBuffsEnabled")
+end
+
 -- =========================================================
 -- Icon Creation & Management
 -- =========================================================
@@ -170,9 +174,11 @@ end
 local function UpdateUnitPortraitDebuff(unit)
     local portrait = GetPortraitForUnit(unit)
     local unitFrame = GetUnitFrameForPortrait(unit)
+    local showDebuffs = IsUnitFrameEnabled()
+    local showPlayerBuffs = unit == "player" and IsUnitFrameBuffsEnabled()
 
     -- If setting is off or unit doesn't exist, reset to default portrait
-    if not IsUnitFrameEnabled() or not UnitExists(unit) then
+    if (not showDebuffs and not showPlayerBuffs) or not UnitExists(unit) then
         if portraitIcons[unit] then portraitIcons[unit]:Hide() end
         if portrait then portrait:SetAlpha(1) end
         return
@@ -199,22 +205,40 @@ local function UpdateUnitPortraitDebuff(unit)
     local bestName, bestIcon, bestDuration, bestExpTime
     local maxRemaining = -1
 
-    for i = 1, 40 do
-        local name, icon, _, _, duration, expirationTime, _, _, _, spellId = UnitDebuff(unit, i)
-        if not name then break end
+    if showDebuffs then
+        for i = 1, 40 do
+            local name, icon, _, _, duration, expirationTime, _, _, _, spellId = UnitDebuff(unit, i)
+            if not name then break end
 
-        local isImportant = IMPORTANT_DEBUFFS[name]
-        if not isImportant and spellId and CarpenterSpellData and CarpenterSpellData.IsImportantDebuff then
-            isImportant = CarpenterSpellData.IsImportantDebuff(spellId)
+            local isImportant = IMPORTANT_DEBUFFS[name]
+            if not isImportant and spellId and CarpenterSpellData and CarpenterSpellData.IsImportantDebuff then
+                isImportant = CarpenterSpellData.IsImportantDebuff(spellId)
+            end
+            -- Unit frames: hide slows (Crippling Poison, Hamstring, etc.); nameplates still show them
+            local rootId = (spellId and CarpenterSpellData and CarpenterSpellData.GetRootSpellId) and CarpenterSpellData.GetRootSpellId(spellId) or spellId
+            local hiddenOnUnitFrame = rootId and DEBUFFS_HIDDEN_ON_UNIT_FRAME[rootId]
+            if isImportant and not hiddenOnUnitFrame then
+                local remaining = (expirationTime or 0) - GetTime()
+                if remaining > maxRemaining then
+                    maxRemaining = remaining
+                    bestName, bestIcon, bestDuration, bestExpTime = name, icon, duration, expirationTime
+                end
+            end
         end
-        -- Unit frames: hide slows (Crippling Poison, Hamstring, etc.); nameplates still show them
-        local rootId = (spellId and CarpenterSpellData and CarpenterSpellData.GetRootSpellId) and CarpenterSpellData.GetRootSpellId(spellId) or spellId
-        local hiddenOnUnitFrame = rootId and DEBUFFS_HIDDEN_ON_UNIT_FRAME[rootId]
-        if isImportant and not hiddenOnUnitFrame then
-            local remaining = (expirationTime or 0) - GetTime()
-            if remaining > maxRemaining then
-                maxRemaining = remaining
-                bestName, bestIcon, bestDuration, bestExpTime = name, icon, duration, expirationTime
+    end
+
+    if not bestName and showPlayerBuffs then
+        for i = 1, 40 do
+            local name, icon, _, _, duration, expirationTime, _, _, _, spellId = UnitBuff("player", i)
+            if not name then break end
+
+            local isImportant = spellId and CarpenterSpellData and CarpenterSpellData.IsImportantBuff and CarpenterSpellData.IsImportantBuff(spellId)
+            if isImportant then
+                local remaining = (expirationTime or 0) - GetTime()
+                if remaining > maxRemaining then
+                    maxRemaining = remaining
+                    bestName, bestIcon, bestDuration, bestExpTime = name, icon, duration, expirationTime
+                end
             end
         end
     end
@@ -222,7 +246,11 @@ local function UpdateUnitPortraitDebuff(unit)
     local iconFrame = portraitIcons[unit]
     if bestName then
         iconFrame.icon:SetTexture(bestIcon)
-        iconFrame.cooldown:SetCooldown(bestExpTime - bestDuration, bestDuration)
+        if bestDuration and bestDuration > 0 and bestExpTime and bestExpTime > 0 then
+            iconFrame.cooldown:SetCooldown(bestExpTime - bestDuration, bestDuration)
+        else
+            iconFrame.cooldown:SetCooldown(0, 0)
+        end
         iconFrame:Show()
         portrait:SetAlpha(0)
     else
@@ -353,6 +381,12 @@ local function UpdateAllPartyPortraits()
     end
 end
 
+function Carpenter_UpdateUnitFrameAuras()
+    UpdateUnitPortraitDebuff("player")
+    UpdateUnitPortraitDebuff("target")
+    UpdateAllPartyPortraits()
+end
+
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
 frame:RegisterEvent("UNIT_AURA")
@@ -361,7 +395,7 @@ frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("GROUP_ROSTER_UPDATE")
 
 frame:SetScript("OnEvent", function(self, event, unit)
-    if not IsNameplateEnabled() and not IsUnitFrameEnabled() then return end
+    if not IsNameplateEnabled() and not IsUnitFrameEnabled() and not IsUnitFrameBuffsEnabled() then return end
 
     if event == "NAME_PLATE_UNIT_ADDED" then
         local plate = C_NamePlate.GetNamePlateForUnit(unit)

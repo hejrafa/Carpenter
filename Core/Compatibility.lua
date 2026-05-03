@@ -42,6 +42,7 @@ local classicFeatures = {
     classHealthColorsEnabled = true,
     threatIndicatorEnabled = true,
     unitFrameDebuffsEnabled = true,
+    unitFrameBuffsEnabled = true,
     unitFrameClassIconEnabled = true,
     hideUnitFrameCombatTextEnabled = true,
     debuffTrackerEnabled = true,
