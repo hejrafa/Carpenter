@@ -2,7 +2,7 @@
 ## Title: Carpenter
 ## Notes: A modular UI cleanup and quality-of-life addon for cleaner action bars, unit frames, chat, automation, and camera settings.
 ## SavedVariables: CarpenterDB
-## Version: 1.4.0
+## Version: 1.4.1
 ## Author: Rafael Polutta
 ## IconTexture: Interface\AddOns\Carpenter\Art\Icons\Carpenter_Logo
 
@@ -50,6 +50,7 @@ Modules\SmartMacros.lua
 Modules\AutoTrackQuests.lua
 Modules\AutoSellGreys.lua
 Modules\AutoRepair.lua
+Modules\ClassicSettingsPreset.lua
 
 # Text
 Modules\HideErrorMessages.lua

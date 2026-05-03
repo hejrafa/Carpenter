@@ -851,6 +851,22 @@ local OPTION_SECTIONS = {
         },
     },
     {
+        title = L.SECTION_SETTINGS or "Settings",
+        options = {
+            {
+                key = "classicSettingsPresetEnabled",
+                label = L.OPTION_SETTINGS_PRESET or "Preset",
+                description = LightGrey .. "A quick Classic baseline for fresh characters or clients.\n\n" ..
+                    "Turns on " .. LighterCream .. "auto loot" .. LightGrey .. ", " .. LighterCream .. "enemy unit and minion nameplates" .. LightGrey .. ", and " .. LighterCream .. "action bars 2 and 3" .. LightGrey .. ". Carpenter reapplies these settings when you log in while the preset is enabled.",
+                image = GetSettingsImage("actionbar.png"),
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_ApplyClassicSettingsPreset then Carpenter_ApplyClassicSettingsPreset() end
+                end,
+            },
+        },
+    },
+    {
         title = L.SECTION_IMMERSION or "Immersion",
         options = {
             {
@@ -909,7 +925,7 @@ end
 yPos = yPos - 48
 local footerVersion = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 footerVersion:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, yPos)
-footerVersion:SetText(LightGrey .. "v1.4.0|r")
+footerVersion:SetText(LightGrey .. "v1.4.1|r")
 
 -- Match sidebar: footer ends with same bottom spacing as "Requires UI reload" (SIDE_GAP)
 local FOOTER_LINE_HEIGHT = 14

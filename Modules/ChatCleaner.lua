@@ -739,6 +739,39 @@ local function FormatLevelUpRewardMessage(plainText)
 
     local plainLower = plainText:lower()
     local levelColor = GetClassColorForName(UnitName("player") or "")
+
+    local function TrimName(name)
+        if not name or name == "" then return nil end
+        name = name:gsub("^%s+", ""):gsub("%s+$", "")
+        name = name:gsub("^%*%s*", ""):gsub("%s*%*$", "")
+        name = name:gsub("^%[", ""):gsub("%]$", "")
+        name = name:gsub("%-.*$", "")
+        if name == "" then return nil end
+        return name
+    end
+
+    local function FormatOtherPlayerLevel(name, levelNum)
+        name = TrimName(name)
+        if not name or not levelNum then return nil end
+        if name:lower() == "you" then return nil end
+
+        local nameColor = GetClassColorForName(name)
+        return nameColor .. name .. "|r " .. levelColor .. "Reached Level " .. levelNum .. "|r"
+    end
+
+    local otherName, otherLevel = plainText:match("^%s*(.-)%s+[Hh]as%s+[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
+    local styledOther = FormatOtherPlayerLevel(otherName, otherLevel)
+    if styledOther then return styledOther end
+
+    otherName, otherLevel = plainText:match("^%s*(.-)%s+[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
+    styledOther = FormatOtherPlayerLevel(otherName, otherLevel)
+    if styledOther then return styledOther end
+
+    otherName, otherLevel = plainText:match("^%s*[Cc]ongratulations%s+to%s+(.+)%s+on%s+[Rr]eaching%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$") or
+        plainText:match("^%s*[Cc]ongratulations%s+to%s+(.+)%s+for%s+[Rr]eaching%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
+    styledOther = FormatOtherPlayerLevel(otherName, otherLevel)
+    if styledOther then return styledOther end
+
     local levelNum = plainText:match("[Rr]eached%s+level%s+(%d+)") or plainText:match("[Rr]each%s+level%s+(%d+)") or
         plainText:match("[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
     if levelNum and plainLower:find("level") and (plainLower:find("reached") or plainLower:find("reach") or plainLower:find("congratulations")) then

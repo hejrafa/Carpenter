@@ -59,6 +59,7 @@ local classicFeatures = {
     enchantWarningEnabled = true,
     hideErrorMessagesEnabled = true,
     actionCamEnabled = true,
+    classicSettingsPresetEnabled = true,
 }
 
 local featureSupport = {

@@ -65,6 +65,8 @@ local defaults = {
     hideErrorMessagesEnabled = false,
     -- Immersion
     actionCamEnabled = false,
+    -- Settings
+    classicSettingsPresetEnabled = false,
 }
 
 Carpenter.Defaults = defaults
