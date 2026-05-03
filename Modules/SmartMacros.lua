@@ -520,6 +520,23 @@ local function IsHealthstoneItem(item, tooltip)
         or ContainsAny(tooltip, TOOLTIP_KEYWORDS.healthstone)
 end
 
+local function HasRegeneratingHealthEffect(text)
+    if not text or text == "" then return false end
+    return text:find("regenerate", 1, true)
+        or text:find("regenerates", 1, true)
+        or text:find("regeneration", 1, true)
+        or text:find("over %d+ sec")
+        or text:find("every %d+ sec")
+end
+
+local function HasImmediateHealthRestore(text)
+    if not text or text == "" or HasRegeneratingHealthEffect(text) then return false end
+    return text:find("restores %d+ health")
+        or text:find("restores %d+ to %d+ health")
+        or text:find("restore health", 1, true)
+        or text:find("heals %d+")
+end
+
 local function IsBandageItem(item, tooltip)
     local name = item.name and item.name:lower() or ""
     local subType = item.itemSubType:lower()
@@ -575,14 +592,15 @@ local function IsHealthConsumable(item, tooltip, spellText)
     local name = item.name and item.name:lower() or ""
 
     if IsHealthstoneItem(item, tooltip) then return false end
+    if HasRegeneratingHealthEffect(name) or HasRegeneratingHealthEffect(tooltip) or HasRegeneratingHealthEffect(spellText) then return false end
     if item.itemID and KNOWN_HEALTH_IDS[item.itemID] then return true end
     if not IsConsumableItem(item) then return false end
     if not IsPotionItem(item) then return false end
     if name:find("healing potion", 1, true) or name:find("health potion", 1, true) then return true end
-    if spellText:find("healing potion", 1, true) or spellText:find("restore health", 1, true) or spellText:find("heal", 1, true) then return true end
-    if (tooltip:find("restores %d+ health") or tooltip:find("restores %d+ to %d+ health") or tooltip:find("heals %d+")) and not tooltip:find("mana", 1, true) then return true end
+    if spellText:find("healing potion", 1, true) or HasImmediateHealthRestore(spellText) then return true end
+    if HasImmediateHealthRestore(tooltip) and not tooltip:find("mana", 1, true) then return true end
 
-    return tooltip:find("health", 1, true) ~= nil
+    return false
 end
 
 local function IsManaConsumable(item, tooltip, spellText)
