@@ -290,13 +290,15 @@ local function ApplyTrainer()
     ClassTrainerFrame._CarpenterEnhancedUI = true
 
     local tall = 73
+    local extraRows = 17
+    local baseRows = _G.CLASS_TRAINER_SKILLS_DISPLAYED or 0
     UIPanelWindows["ClassTrainerFrame"] = { area = "override", pushable = 0, xoffset = -16, yoffset = 12, bottomClampOverride = 152, width = 685, height = 560, whileDead = 1 }
     ClassTrainerFrame:SetSize(714, 487 + tall)
     AddFrameShell(ClassTrainerFrame)
     Move(ClassTrainerNameText, "TOP", ClassTrainerFrame, "TOP", 0, -18)
     Move(ClassTrainerListScrollFrame, "TOPLEFT", ClassTrainerFrame, "TOPLEFT", 25, -75)
     ClassTrainerListScrollFrame:SetSize(295, 336 + tall)
-    AddRows(ClassTrainerFrame, "ClassTrainerSkill", "CLASS_TRAINER_SKILLS_DISPLAYED", "ClassTrainerSkillButtonTemplate", 17)
+    AddRows(ClassTrainerFrame, "ClassTrainerSkill", "CLASS_TRAINER_SKILLS_DISPLAYED", "ClassTrainerSkillButtonTemplate", extraRows)
     Move(ClassTrainerDetailScrollFrame, "TOPLEFT", ClassTrainerFrame, "TOPLEFT", 352, -74)
     ClassTrainerDetailScrollFrame:SetSize(296, 336 + tall)
     if ClassTrainerDetailScrollFrameTop then ClassTrainerDetailScrollFrameTop:SetAlpha(0) end
@@ -318,6 +320,25 @@ local function ApplyTrainer()
     if ClassTrainerMoneyFrame then Move(ClassTrainerMoneyFrame, "TOPLEFT", ClassTrainerFrame, "TOPLEFT", 143, -49) end
     if ClassTrainerGreetingText then ClassTrainerGreetingText:Hide() end
     hooksecurefunc(ClassTrainerSkillHighlightFrame, "Show", function() ClassTrainerSkillHighlightFrame:SetWidth(290) end)
+
+    local function RestoreTrainerScrollArea(rowOffset)
+        if not IsEnabled() then return end
+        _G.CLASS_TRAINER_SKILLS_DISPLAYED = baseRows + extraRows + (rowOffset or 0)
+        ClassTrainerListScrollFrame:SetHeight(336 + tall)
+        ClassTrainerDetailScrollFrame:SetHeight(336 + tall)
+    end
+
+    if type(ClassTrainer_SetToTradeSkillTrainer) == "function" then
+        hooksecurefunc("ClassTrainer_SetToTradeSkillTrainer", function()
+            RestoreTrainerScrollArea(0)
+        end)
+    end
+    if type(ClassTrainer_SetToClassTrainer) == "function" then
+        hooksecurefunc("ClassTrainer_SetToClassTrainer", function()
+            RestoreTrainerScrollArea(-1)
+        end)
+    end
+    RestoreTrainerScrollArea(0)
 
     local trainAll = CreateFrame("Button", "CarpenterTrainAllButton", ClassTrainerFrame, "UIPanelButtonTemplate")
     trainAll:SetText("Train All")
