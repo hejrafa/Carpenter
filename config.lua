@@ -612,6 +612,13 @@ local OPTION_SECTIONS = {
                 image = GetSettingsImage("tooltip.png"),
             },
             {
+                key = "enhanceUIEnabled",
+                label = L.OPTION_ENHANCE_UI or "Enhance UI",
+                description = LightGrey .. "Some Classic interface panels are cramped for repeated use.\n\n" ..
+                    "Expands the " .. LighterCream .. "quest log" .. LightGrey .. ", " .. LighterCream .. "professions" .. LightGrey .. ", and " .. LighterCream .. "trainer" .. LightGrey .. " frames, adds quest levels and a map button, adds a trainer " .. LighterCream .. "Train All" .. LightGrey .. " button, and cleans up the " .. LighterCream .. "flight map" .. LightGrey .. " with larger controls.",
+                image = GetSettingsImage("tooltip.png"),
+            },
+            {
                 key = "scaleExtraAbilityEnabled",
                 label = L.OPTION_SCALE_EXTRA_ABILITY or "Scale Extra Ability",
                 description = LightGrey .. "Retail's extra ability buttons can appear oversized compared with the rest of your UI.\n\n" ..
