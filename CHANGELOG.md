@@ -18,6 +18,8 @@
 - Added player buff highlights for important self buffs such as Sprint, Slice and Dice, offensive cooldowns, defensive cooldowns, and immunities.
 - Applied class-colored health bars to target-of-target frames.
 - Kept Sap-related errors such as "Invalid target" and "Target is in combat" visible when error hiding is enabled.
+- Fixed Retail Clean Unit Frame target reputation color hiding so it no longer nudges target name or level text, and refreshed the Retail class health bar preview image.
+- Fixed Retail chat tabs sometimes ignoring the hidden chat-button opacity state until clicked.
 
 ## 1.4.0
 
