@@ -22,11 +22,14 @@ end
 local currentAlpha = 0
 local targetAlpha = 0
 
-local function SetFrameAlpha(frame, alpha)
+local function SetFrameAlpha(frame, alpha, depth)
     if not frame then return end
+    depth = depth or 0
 
     if frame.SetAlpha then
+        frame._CarpenterChatButtonsSettingAlpha = true
         frame:SetAlpha(alpha)
+        frame._CarpenterChatButtonsSettingAlpha = nil
     end
 
     if frame.GetRegions then
@@ -36,16 +39,45 @@ local function SetFrameAlpha(frame, alpha)
             end
         end
     end
+
+    if depth >= 2 or not frame.GetChildren then return end
+    for i = 1, frame:GetNumChildren() do
+        SetFrameAlpha(select(i, frame:GetChildren()), alpha, depth + 1)
+    end
+end
+
+local function HookManagedFrame(frame)
+    if not frame or frame._CarpenterChatButtonsHooked then return end
+    frame._CarpenterChatButtonsHooked = true
+
+    if frame.Show then
+        hooksecurefunc(frame, "Show", function(self)
+            if IsEnabled() then
+                SetFrameAlpha(self, currentAlpha)
+            end
+        end)
+    end
+
+    if frame.SetAlpha then
+        hooksecurefunc(frame, "SetAlpha", function(self)
+            if IsEnabled() and not self._CarpenterChatButtonsSettingAlpha then
+                SetFrameAlpha(self, currentAlpha)
+            end
+        end)
+    end
 end
 
 local function SetGroupAlpha(group, alpha)
     for _, name in ipairs(group) do
-        SetFrameAlpha(_G[name], alpha)
+        local frame = _G[name]
+        HookManagedFrame(frame)
+        SetFrameAlpha(frame, alpha)
     end
 end
 
 local function SetFramesAlpha(frames, alpha)
     for _, frame in ipairs(frames) do
+        HookManagedFrame(frame)
         SetFrameAlpha(frame, alpha)
     end
 end
@@ -108,6 +140,7 @@ local function RefreshChatTabs()
     for i = 1, NUM_CHAT_WINDOWS or 10 do
         local tab = _G["ChatFrame" .. i .. "Tab"]
         if tab then
+            HookManagedFrame(tab)
             table.insert(chatTabs, tab)
         end
     end
@@ -197,6 +230,7 @@ end)
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+frame:RegisterEvent("UPDATE_CHAT_WINDOWS")
 
 frame:SetScript("OnEvent", function()
     currentAlpha = HIDDEN_OPACITY

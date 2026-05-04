@@ -412,13 +412,8 @@ local function GetTargetReputationColorFrames()
     if TargetFrame and TargetFrame.TargetFrameContent and TargetFrame.TargetFrameContent.TargetFrameContentMain then
         local main = TargetFrame.TargetFrameContent.TargetFrameContentMain
         AddFrame(frames, main.ReputationColor)
-        AddFrame(frames, main.ReputationColorTexture)
-        AddFrame(frames, main.NameBackground)
-        AddFrame(frames, main.NameBackgroundTexture)
-        AddFrame(frames, main.Background)
     end
     AddFrame(frames, TargetFrameTextureFrameReputationColor)
-    AddFrame(frames, TargetFrameNameBackground)
     return frames
 end
 
@@ -658,6 +653,8 @@ local function Apply()
     ApplyFrameFeature("groupIndicator", GetGroupIndicatorFrames, ShouldHideGroupIndicator, false)
     ApplyFrameFeature("playerCornerIcon", GetPlayerCornerIconFrames, ShouldHidePlayerCornerIcon, false)
     ApplyFrameFeature("partyFrameTitle", GetPartyFrameTitleFrames, ShouldHidePartyFrameTitle, false)
+    -- Match BetterBlizzFrames' narrow Retail approach: only hide the actual reputation
+    -- color texture, not the surrounding name/background pieces that affect layout.
     ApplyFrameFeature("targetReputationColor", GetTargetReputationColorFrames, ShouldHideTargetReputationColor, false)
     ApplyRealmIndicatorFeature()
 end
