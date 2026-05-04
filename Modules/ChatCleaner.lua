@@ -1100,6 +1100,11 @@ local function ChatFilterImpl(self, event, msg, author, ...)
             if plainMsg:match("^You feel normal%.?%s*$") or (plainMsg:lower():find("feel normal") and plainMsg:lower():find("you")) then
                 return false, ColorNormalBar .. "Normal|r", author, ...
             end
+            -- "The Sepulcher is now your home." -> "Home: The Sepulcher"
+            local homeLocation = plainMsg:match("^(.+) is now your home%.?%s*$")
+            if homeLocation and homeLocation ~= "" then
+                return false, ColorWhite .. "Home: |r" .. ColorQueue .. CleanPunctuation(homeLocation) .. "|r", author, ...
+            end
 
             -- Ready / role checks
             -- "The Ready Check has failed." → "Ready Check failed" (red)
@@ -2161,7 +2166,7 @@ local function ChatFilterImpl(self, event, msg, author, ...)
         -- Roll result: "... for Item. N - Name" / "Winner: Name" -> "Name Type roll N: Item" / "Name won: Item"
         local nameAtEnd = coreRoll:match(" by ([^|%[%]]+)%s*$") or coreRoll:match(" [Ww]inner:?%s+([^|%[%]]+)%s*$")
         if nameAtEnd then
-            nameAtEnd = nameAtEnd:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
+            nameAtEnd = CleanPunctuation(nameAtEnd:gsub("^%s+", ""):gsub("%s+$", "")):gsub("%-.*$", "")
             if nameAtEnd ~= "" then
                 local isWinner = not not coreRoll:match(" [Ww]inner:?%s+[^|%[%]]+%s*$")
                 local rollNum = coreRoll:match("(%d+)%s+for") or coreRoll:match("[--]%s*(%d+)%s*%.?%s*[Ww]inner") or coreRoll:match("[--]%s*(%d+)")
@@ -2183,11 +2188,14 @@ local function ChatFilterImpl(self, event, msg, author, ...)
                     return false, SpaceBeforeX(nameColor .. displayName .. "|r won: " .. display), author, ...
                 else
                     -- Non-winner roll summary from result line: "Name rolls 95: Item"
+                    if not rollNum or not display or display == "" then
+                        return false, SpaceBeforeX(msg), author, ...
+                    end
                     local rollType = getRollType(itemKey, shortName)
                     if isYou then
-                        return false, SpaceBeforeX("You roll " .. (rollNum or "?") .. ": " .. display), author, ...
+                        return false, SpaceBeforeX("You roll " .. rollNum .. ": " .. display), author, ...
                     else
-                        return false, SpaceBeforeX(nameColor .. displayName .. "|r rolls " .. (rollNum or "?") .. ": " .. display), author, ...
+                        return false, SpaceBeforeX(nameColor .. displayName .. "|r rolls " .. rollNum .. ": " .. display), author, ...
                     end
                 end
             end

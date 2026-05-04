@@ -506,6 +506,14 @@ local function IsConjuredFoodOrWater(item, tooltipData, category)
         or ContainsAny(tooltip, TOOLTIP_KEYWORDS.conjured)
 end
 
+local function IsWellFedFood(tooltipData, spellText)
+    local text = ((tooltipData and tooltipData.text) or "") .. " " .. (spellText or "")
+    text = text:lower()
+    return text:find("well fed", 1, true) ~= nil
+        or text:find("gut genährt", 1, true) ~= nil
+        or text:find("satt", 1, true) ~= nil
+end
+
 local function IsPotionItem(item)
     local name = item.name and item.name:lower() or ""
     local subType = item.itemSubType:lower()
@@ -627,6 +635,9 @@ local function ScoreItem(item, tooltipData, spellText, category)
 
     if category == "Food" then
         score = ExtractRestoreValue(tooltipData.useText, TOOLTIP_KEYWORDS.health, UnitHealthMax("player") or 0)
+        if not IsWellFedFood(tooltipData, spellText) then
+            score = score + 2000000000
+        end
         if IsConjuredFoodOrWater(item, tooltipData, category) then
             score = score + 1000000000
         end
@@ -653,9 +664,7 @@ local function ScoreItem(item, tooltipData, spellText, category)
         score = score + 150000
     end
 
-    if category == "Food" and (tooltip:find("well fed", 1, true) or tooltip:find("%+%d+")) then
-        score = score - 5000
-    elseif category == "Pot" and (tooltip:find("healthstone", 1, true) or (item.itemID and KNOWN_HEALTHSTONE_IDS[item.itemID])) then
+    if category == "Pot" and (tooltip:find("healthstone", 1, true) or (item.itemID and KNOWN_HEALTHSTONE_IDS[item.itemID])) then
         score = score + 200000
     end
 

@@ -615,7 +615,7 @@ local OPTION_SECTIONS = {
                 key = "enhanceUIEnabled",
                 label = L.OPTION_ENHANCE_UI or "Enhance UI",
                 description = LightGrey .. "Some Classic interface panels are cramped for repeated use.\n\n" ..
-                    "Expands the " .. LighterCream .. "quest log" .. LightGrey .. ", " .. LighterCream .. "professions" .. LightGrey .. ", and " .. LighterCream .. "trainer" .. LightGrey .. " frames, adds quest levels and a map button, adds a trainer " .. LighterCream .. "Train All" .. LightGrey .. " button, and cleans up the " .. LighterCream .. "flight map" .. LightGrey .. " with larger controls.",
+                    "Expands the " .. LighterCream .. "quest log" .. LightGrey .. ", " .. LighterCream .. "professions" .. LightGrey .. ", and " .. LighterCream .. "trainer" .. LightGrey .. " frames, adds quest levels and a map button, and adds a trainer " .. LighterCream .. "Train All" .. LightGrey .. " button.",
                 image = GetSettingsImage("tooltip.png"),
             },
             {

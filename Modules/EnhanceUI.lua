@@ -1,5 +1,5 @@
 --[[ Carpenter - Enhance UI ]]
--- Classic-only expansions for quest log, professions, trainers, and flight map.
+-- Classic-only expansions for quest log, professions, and trainers.
 
 local function IsEnabled()
     return Carpenter and Carpenter.Client and Carpenter.Client.isClassic and Carpenter:IsEnabled("enhanceUIEnabled")
@@ -372,53 +372,9 @@ local function ApplyTrainer()
     UpdateTrainAllButton(trainAll)
 end
 
-local function ApplyFlightMap()
-    if not IsEnabled() or not TaxiFrame or TaxiFrame._CarpenterEnhancedUI then return end
-    TaxiFrame._CarpenterEnhancedUI = true
-
-    HideRegions(TaxiFrame, 2, 3, 4, 5)
-    if TaxiPortrait then TaxiPortrait:Hide() end
-    if TaxiMerchant then TaxiMerchant:Hide() end
-    TaxiFrame:SetFrameStrata("FULLSCREEN_DIALOG")
-    TaxiFrame:SetScale(1.9)
-    TaxiFrame:SetClampedToScreen(true)
-    TaxiFrame:SetClampRectInsets(200, -200, -300, 300)
-    if TaxiCloseButton and TaxiRouteMap then
-        TaxiCloseButton:SetIgnoreParentScale(true)
-        Move(TaxiCloseButton, "TOPRIGHT", TaxiRouteMap, "TOPRIGHT", 0, 0)
-    end
-
-    local border = TaxiFrame:CreateTexture(nil, "BACKGROUND")
-    border:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Background-Dark")
-    border:SetPoint("TOPLEFT", 18, -73)
-    border:SetPoint("BOTTOMRIGHT", -45, 83)
-
-    local function ResizeTaxiButtons()
-        for i = 1, (NUM_TAXI_BUTTONS or 0) do
-            local button = _G["TaxiButton" .. i]
-            if button and button:IsVisible() then
-                button:SetSize(12, 12)
-                if button:GetHighlightTexture() then button:GetHighlightTexture():SetSize(24, 24) end
-                if button:GetPushedTexture() then button:GetPushedTexture():SetSize(24, 24) end
-            end
-        end
-    end
-    TaxiFrame:HookScript("OnShow", ResizeTaxiButtons)
-
-    TaxiFrame:RegisterForDrag("LeftButton")
-    TaxiFrame:SetMovable(true)
-    TaxiFrame:HookScript("OnDragStart", function(self)
-        if IsAltKeyDown() then self:StartMoving() end
-    end)
-    TaxiFrame:HookScript("OnDragStop", function(self)
-        self:StopMovingOrSizing()
-    end)
-end
-
 local function Apply()
     if not IsEnabled() then return end
     ApplyQuestLog()
-    ApplyFlightMap()
     OnAddonLoaded("Blizzard_TradeSkillUI", ApplyTradeSkill)
     OnAddonLoaded("Blizzard_CraftUI", ApplyCraft)
     OnAddonLoaded("Blizzard_TrainerUI", ApplyTrainer)
