@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.2
+
+- Fixed Classic Era target and target-of-target class health coloring so NPC unit frames keep Blizzard's default health bar color while player unit frames still use class colors.
+
 ## 1.4.1
 
 - Improved Chat Cleaner styling for Classic level-up reward messages, including reached-level, hit point, talent point, and stat increase lines.
