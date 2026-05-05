@@ -1797,14 +1797,14 @@ local function ChatFilterImpl(self, event, msg, author, ...)
         end
     end
 
-    -- Other player receives loot/creates: style as "Name: Item (2)" (runs for LOOT, PARTY, RAID, YELL so group loot is styled regardless of channel)
+    -- Other player receives loot/creates: style as "Name: + Item (2)" (runs for LOOT, PARTY, RAID, YELL so group loot is styled regardless of channel)
     local isGroupLootEvent = (event == "CHAT_MSG_LOOT" or event == "CHAT_MSG_PARTY" or event == "CHAT_MSG_PARTY_LEADER" or
         event == "CHAT_MSG_RAID" or event == "CHAT_MSG_RAID_LEADER" or event == "CHAT_MSG_YELL")
     if isGroupLootEvent then
         local function styleGroupLoot(name, display)
             if not name or name == "" or name == "You" then return nil end
             local nameColor = GetClassColorForName(name)
-            return SpaceBeforeX(nameColor .. name .. "|r" .. ColorLootLiteral .. ": " .. "|r" .. display)
+            return SpaceBeforeX(nameColor .. name .. "|r" .. ColorLootLiteral .. ": " .. ColorPlus .. "+|r " .. display)
         end
         local function buildDisplayFromMsg(message)
             local itemLink = GetItemLinkFromMessage(message)
