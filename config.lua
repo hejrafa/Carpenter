@@ -800,7 +800,7 @@ local OPTION_SECTIONS = {
                 key = "hideChatButtonsEnabled",
                 label = L.OPTION_HIDE_CHAT_BUTTONS or "Hide Chat Buttons",
                 description = LightGrey .. "Chat buttons are handy, but they do not need to frame the chat box all day.\n\n" ..
-                    "Fades default " .. LighterCream .. "chat buttons" .. LightGrey .. " such as Social, Chat Channels, and Voice until you hover the chat area.",
+                    "Fades default " .. LighterCream .. "chat buttons" .. LightGrey .. " such as Chat Channels, Voice, scroll arrows, and minimize controls until you hover the chat area.",
                 image = GetSettingsImage("chatbuttons.png"),
             },
         },

@@ -3,6 +3,12 @@
 ## 1.4.2
 
 - Fixed Classic Era target and target-of-target class health coloring so NPC unit frames keep Blizzard's default health bar color while player unit frames still use class colors.
+- Added compact home-bind chat styling such as `Home: The Sepulcher`.
+- Fixed malformed loot roll fallback messages that could show `rolls ?:` when a roll number or item was missing.
+- Removed the Classic Enhance UI flight map changes so the default taxi map stays untouched.
+- Changed food macro scoring so Well Fed food is only selected when no normal health-restoring food is available.
+- Fixed Retail enhanced tooltips so protected unit values from refreshed unit-frame tooltips no longer throw `UnitReaction` errors.
+- Stopped fading Social and Quick Join buttons with Hide Chat Buttons to avoid stuck half-visible social toast states.
 
 ## 1.4.1
 

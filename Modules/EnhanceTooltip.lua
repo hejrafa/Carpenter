@@ -122,6 +122,20 @@ local function CanAccessTooltipText()
     return text ~= nil and CanAccessValue(text)
 end
 
+local function CanUseUnit(unit)
+    if type(unit) ~= "string" or unit == "" then return false end
+    if not CanAccessValue(unit) then return false end
+    local ok = pcall(UnitExists, unit)
+    return ok
+end
+
+local function SafeUnitReaction(unit, target)
+    if not CanUseUnit(unit) or not CanUseUnit(target) then return nil end
+    local ok, reaction = pcall(UnitReaction, unit, target)
+    if ok then return reaction end
+    return nil
+end
+
 local function GetClassColorHex(unit)
     if not RAID_CLASS_COLORS or not UnitIsPlayer(unit) then return nil end
     local _, classToken = UnitClass(unit)
@@ -137,7 +151,7 @@ local function ApplyNameLine(tooltip, unit)
 
     local tipIsPlayer = UnitIsPlayer(unit)
     local playerControl = UnitPlayerControlled(unit)
-    local reaction = UnitReaction(unit, "player") or 0
+    local reaction = SafeUnitReaction(unit, "player") or 0
     local dead = UnitIsDeadOrGhost(unit)
 
     if dead then
@@ -219,7 +233,7 @@ end
 -- Mob level line (level + creature type + classification)
 local function ApplyMobLevelLine(tooltip, unit)
     if UnitIsPlayer(unit) or UnitPlayerControlled(unit) then return end
-    local reaction = UnitReaction(unit, "player") or 0
+    local reaction = SafeUnitReaction(unit, "player") or 0
     if reaction >= 5 then return end
     if not UnitCanAttack(unit, "player") then return end
 
@@ -315,13 +329,13 @@ local function ShowUnitTargetInTooltip(tooltip, unit)
 end
 
 local function EnhanceUnitTooltip(tooltip, unit)
-    if not unit then return end
+    if not CanUseUnit(unit) then return end
     ScheduleHideTooltipHealthBar(tooltip)
     ApplyNameLine(tooltip, unit)
     if UnitIsPlayer(unit) then
         ApplyPlayerInfoLine(tooltip, unit)
     else
-        local reaction = UnitReaction(unit, "player") or 0
+        local reaction = SafeUnitReaction(unit, "player") or 0
         if reaction < 5 and not UnitPlayerControlled(unit) and UnitCanAttack(unit, "player") then
             ApplyMobLevelLine(tooltip, unit)
         end
@@ -347,8 +361,8 @@ local function ShowTip(self)
         -- Leatrix uses select(2, GameTooltip:GetUnit()); support both one and two return values
         unit = (self.GetUnit and select(2, self:GetUnit())) or (self.GetUnit and self:GetUnit())
     end
-    if not unit then return end
-    local reaction = UnitReaction(unit, "player")
+    if not CanUseUnit(unit) then return end
+    local reaction = SafeUnitReaction(unit, "player")
     if not reaction then return end
 
     -- Hide the bar before touching protected tooltip strings. Retail can block

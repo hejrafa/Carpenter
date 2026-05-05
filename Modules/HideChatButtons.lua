@@ -90,12 +90,6 @@ local chatButtons = {
     "ChatFrameToggleButton"
 }
 
-local socialButtons = {
-    "QuickJoinToastButton", -- Social toast button
-    "ChatSocialButton", -- Social button in chat frame
-    "FriendsMicroButton", -- Social (O) button near chat
-}
-
 -- Chat minimize and other buttons
 local minimizeButtons = {
     "ChatFrame1MinimizeButton",
@@ -127,7 +121,7 @@ local arrowButtons = {
 
 -- All buttons that should be affected
 local allChatButtons = {}
-for _, group in ipairs({chatButtons, socialButtons, arrowButtons, minimizeButtons}) do
+for _, group in ipairs({chatButtons, arrowButtons, minimizeButtons}) do
     for _, btn in ipairs(group) do
         table.insert(allChatButtons, btn)
     end
@@ -156,13 +150,6 @@ local function ApplyTransparency(alpha)
     SetGroupAlpha(allChatButtons, alpha)
     SetFramesAlpha(chatTabs, alpha)
     
-    -- Try specific known button names to avoid dynamic search errors
-    local additionalButtons = {
-        "QuickJoinToastButton1",
-        "ChatSocialMenuButton",
-    }
-
-    SetGroupAlpha(additionalButtons, alpha)
 end
 
 -- Create an invisible "hitbox" frame to detect mouse hover for the chat buttons area
