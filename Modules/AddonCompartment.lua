@@ -41,6 +41,10 @@ local function OnLeave()
     end
 end
 
+_G.Carpenter_AddonCompartment_OnClick = OnClick
+_G.Carpenter_AddonCompartment_OnEnter = OnEnter
+_G.Carpenter_AddonCompartment_OnLeave = OnLeave
+
 local function RegisterAddonCompartment()
     if registered or not AddonCompartmentFrame or not AddonCompartmentFrame.RegisterAddon then return end
 
