@@ -660,6 +660,17 @@ local OPTION_SECTIONS = {
                 image = GetSettingsImage("threat.png"),
             },
             {
+                key = "targetHealthPercentEnabled",
+                label = L.OPTION_TARGET_HEALTH_PERCENT or "Target Health Percentage",
+                description = LightGrey .. "Classic can show your own health as a percentage, but enemy target frames stay vague.\n\n" ..
+                    "Shows a compact " .. LighterCream .. "health percentage" .. LightGrey .. " on hostile target frames.",
+                image = GetSettingsImage("unitnumbers.png"),
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_UpdateTargetHealthPercent then Carpenter_UpdateTargetHealthPercent() end
+                end,
+            },
+            {
                 key = "unitFrameDebuffsEnabled",
                 label = L.OPTION_DEBUFFS or "Debuffs",
                 description = LightGrey .. "Crowd control should stand out from ordinary aura noise.\n\n" ..
@@ -875,7 +886,7 @@ local OPTION_SECTIONS = {
                 key = "classicSettingsPresetEnabled",
                 label = L.OPTION_SETTINGS_PRESET or "Preset",
                 description = LightGrey .. "A quick Classic baseline for fresh characters or clients.\n\n" ..
-                    "Turns on " .. LighterCream .. "auto loot" .. LightGrey .. ", " .. LighterCream .. "enemy unit and minion nameplates" .. LightGrey .. ", and " .. LighterCream .. "action bars 2 and 3" .. LightGrey .. ". Carpenter reapplies these settings when you log in while the preset is enabled.",
+                    "Turns on " .. LighterCream .. "auto loot" .. LightGrey .. ", " .. LighterCream .. "enemy unit and minion nameplates" .. LightGrey .. ", " .. LighterCream .. "health percentages" .. LightGrey .. ", and " .. LighterCream .. "action bars 2 and 3" .. LightGrey .. ". Carpenter reapplies these settings when you log in while the preset is enabled.",
                 image = GetSettingsImage("actionbar.png"),
                 requiresReload = false,
                 onToggle = function()
@@ -943,7 +954,7 @@ end
 yPos = yPos - 48
 local footerVersion = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 footerVersion:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, yPos)
-footerVersion:SetText(LightGrey .. "v1.4.2|r")
+footerVersion:SetText(LightGrey .. "v1.4.3|r")
 
 -- Match sidebar: footer ends with same bottom spacing as "Requires UI reload" (SIDE_GAP)
 local FOOTER_LINE_HEIGHT = 14

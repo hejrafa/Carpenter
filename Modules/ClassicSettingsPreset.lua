@@ -41,6 +41,8 @@ local function Apply()
     SetCVarValue("nameplateShowEnemyPets", "1")
     SetCVarValue("nameplateShowEnemyGuardians", "1")
     SetCVarValue("nameplateShowEnemyTotems", "1")
+    SetCVarValue("statusText", "1")
+    SetCVarValue("statusTextDisplay", "PERCENT")
     ApplyActionBarToggles()
 end
 

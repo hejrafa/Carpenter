@@ -25,6 +25,7 @@ local defaults = {
     -- Unit Frames
     classHealthColorsEnabled = false,
     threatIndicatorEnabled = false,
+    targetHealthPercentEnabled = false,
     unitFrameDebuffsEnabled = false,
     unitFrameBuffsEnabled = false,
     unitFrameClassIconEnabled = false,
