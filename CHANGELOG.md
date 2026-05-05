@@ -9,6 +9,7 @@
 - Changed food macro scoring so Well Fed food is only selected when no normal health-restoring food is available.
 - Fixed Retail enhanced tooltips so protected unit values from refreshed unit-frame tooltips no longer throw `UnitReaction` errors.
 - Stopped fading Social and Quick Join buttons with Hide Chat Buttons to avoid stuck half-visible social toast states.
+- Removed the redundant Mainline TOC and made `Carpenter.toc` the Retail TOC for interface `120005`.
 
 ## 1.4.1
 

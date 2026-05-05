@@ -1,4 +1,4 @@
-## Interface: 20505
+## Interface: 120005
 ## Title: Carpenter
 ## Notes: A modular UI cleanup and quality-of-life addon for cleaner action bars, unit frames, chat, automation, and camera settings.
 ## SavedVariables: CarpenterDB
@@ -12,50 +12,35 @@ Localization\enUS.lua
 Localization\deDE.lua
 Core\Carpenter.lua
 
-# Settings & Data
+# Settings
 config.lua
+Modules\AddonCompartment.lua
 SpellData.lua
 
 # Action Bars
 Modules\HideUIElements.lua
-Modules\ActionBarFader.lua
-Modules\ActionBarRange.lua
 
 # Interface
-Modules\SmallerExpBar.lua
 Modules\MenuTransparency.lua
-Modules\MinimapClutter.lua
 Modules\EnhanceTooltip.lua
-Modules\EnhanceUI.lua
+Modules\ExtraAbilityScale.lua
 
 # Unit Frames
 Modules\ClassHealthColors.lua
-Modules\DebuffTracker.lua
-Modules\UnitFrameClassIcon.lua
-Modules\ThreatIndicator.lua
 Modules\HideUnitFrameCombatText.lua
-
-# Nameplates
-Modules\NameplateCastNames.lua
-Modules\NameplateComboPoints.lua
-Modules\RaidTargetIconAligned.lua
+Modules\RetailUnitFrameCleaner.lua
 
 # Chat
 Modules\ChatCleaner.lua
-Modules\ChatFilter.lua
 Modules\HideChatButtons.lua
 
 # Automations
-Modules\AutoCarrot.lua
 Modules\SmartMacros.lua
-Modules\AutoTrackQuests.lua
 Modules\AutoSellGreys.lua
 Modules\AutoRepair.lua
-Modules\ClassicSettingsPreset.lua
 
 # Text
 Modules\HideErrorMessages.lua
-Modules\EnchantWarning.lua
 
 # Immersion
 Modules\ActionCam.lua
