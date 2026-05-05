@@ -2,7 +2,7 @@
 
 ## 1.4.3
 
-- Added an opt-in Classic hostile target health percentage display with proper settings text and Blizzard-style target-frame placement.
+- Added an opt-in Classic target health and resource percentage display for hostile targets and player targets with proper settings text and Blizzard-style target-frame placement.
 - Added Classic health percentage status text to the Classic Settings preset without enabling the target-frame percentage option by default.
 
 ## 1.4.2

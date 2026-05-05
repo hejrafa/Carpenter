@@ -661,9 +661,9 @@ local OPTION_SECTIONS = {
             },
             {
                 key = "targetHealthPercentEnabled",
-                label = L.OPTION_TARGET_HEALTH_PERCENT or "Target Health Percentage",
+                label = L.OPTION_TARGET_HEALTH_PERCENT or "Target Percentages",
                 description = LightGrey .. "Classic can show your own health as a percentage, but enemy target frames stay vague.\n\n" ..
-                    "Shows a compact " .. LighterCream .. "health percentage" .. LightGrey .. " on hostile target frames.",
+                    "Shows compact " .. LighterCream .. "health and resource percentages" .. LightGrey .. " on player targets and hostile target frames.",
                 image = GetSettingsImage("unitnumbers.png"),
                 requiresReload = false,
                 onToggle = function()
