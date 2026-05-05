@@ -11,6 +11,8 @@
 - Stopped fading Social and Quick Join buttons with Hide Chat Buttons to avoid stuck half-visible social toast states.
 - Removed the redundant Mainline TOC and made `Carpenter.toc` the Retail TOC for interface `120005`.
 - Matched the Retail TOC to StoryMode's format with `120001, 120005` support and addon-compartment metadata.
+- Removed duplicate manual addon-compartment registration now that Retail uses TOC-driven callbacks.
+- Fixed Vanilla food and water macro detection by falling back to full tooltip restore text when `useText` is empty.
 
 ## 1.4.1
 

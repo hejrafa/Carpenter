@@ -409,6 +409,11 @@ local function TooltipRestoresMana(useText)
     return ContainsAny(useText, TOOLTIP_KEYWORDS.mana)
 end
 
+local function GetRestoreText(tooltipData)
+    if not tooltipData then return "" end
+    return (tooltipData.useText and tooltipData.useText ~= "" and tooltipData.useText) or tooltipData.text or ""
+end
+
 local function NormalizeTooltipNumber(value)
     if not value or value == "" then return 0 end
     value = value:gsub("%s+", "")
@@ -567,7 +572,7 @@ local function IsFood(item, tooltipData, spellText)
 
     if IsPotionItem(item) or IsBandageItem(item, tooltip) then return false end
     if not IsFoodDrinkItem(item, tooltipData) then return false end
-    if not TooltipRestoresHealth(tooltipData.useText) then return false end
+    if not TooltipRestoresHealth(GetRestoreText(tooltipData)) then return false end
     if item.itemID and KNOWN_FOOD_IDS[item.itemID] then return true end
     if spellText:find("food", 1, true) then return true end
     if tooltip:find("must remain seated while eating", 1, true) then return true end
@@ -586,7 +591,7 @@ IsWater = function(item, tooltipData, spellText)
 
     if IsPotionItem(item) or IsBandageItem(item, tooltip) then return false end
     if not IsFoodDrinkItem(item, tooltipData) then return false end
-    if not TooltipRestoresMana(tooltipData.useText) then return false end
+    if not TooltipRestoresMana(GetRestoreText(tooltipData)) then return false end
     if item.itemID and KNOWN_WATER_IDS[item.itemID] then return true end
     if spellText:find("drink", 1, true) then return true end
     if tooltip:find("must remain seated while drinking", 1, true) then return true end
@@ -634,7 +639,7 @@ local function ScoreItem(item, tooltipData, spellText, category)
     local name = item.name and item.name:lower() or ""
 
     if category == "Food" then
-        score = ExtractRestoreValue(tooltipData.useText, TOOLTIP_KEYWORDS.health, UnitHealthMax("player") or 0)
+        score = ExtractRestoreValue(GetRestoreText(tooltipData), TOOLTIP_KEYWORDS.health, UnitHealthMax("player") or 0)
         if not IsWellFedFood(tooltipData, spellText) then
             score = score + 2000000000
         end
@@ -643,13 +648,13 @@ local function ScoreItem(item, tooltipData, spellText, category)
         end
         return score
     elseif category == "Water" then
-        score = ExtractRestoreValue(tooltipData.useText, TOOLTIP_KEYWORDS.mana, UnitPowerMax("player", Enum and Enum.PowerType and Enum.PowerType.Mana or 0) or 0)
+        score = ExtractRestoreValue(GetRestoreText(tooltipData), TOOLTIP_KEYWORDS.mana, UnitPowerMax("player", Enum and Enum.PowerType and Enum.PowerType.Mana or 0) or 0)
         if IsConjuredFoodOrWater(item, tooltipData, category) then
             score = score + 1000000000
         end
         return score
     elseif category == "Healthstone" then
-        score = ExtractRestoreValue(tooltipData.useText, TOOLTIP_KEYWORDS.health, UnitHealthMax("player") or 0)
+        score = ExtractRestoreValue(GetRestoreText(tooltipData), TOOLTIP_KEYWORDS.health, UnitHealthMax("player") or 0)
         return score > 0 and score or (item.itemLevel or 0)
     end
 
