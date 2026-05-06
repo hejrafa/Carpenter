@@ -304,6 +304,12 @@ end
 local TARGET_PREFIX = "Target: "
 local TARGET_YOU = "YOU"
 
+local function RefreshTooltipLayout(tooltip)
+    if tooltip and tooltip.Show then
+        tooltip:Show()
+    end
+end
+
 local function TooltipAlreadyHasTargetLine()
     for i = 1, GameTooltip:NumLines() do
         local line = _G["GameTooltipTextLeft" .. i]
@@ -370,6 +376,7 @@ local function ShowUnitTargetInTooltip(tooltip, unit)
 
     if ok and line then
         tooltip:AddLine(line)
+        RefreshTooltipLayout(tooltip)
     end
 end
 
@@ -399,7 +406,7 @@ local function ScheduleEnhanceUnitTooltip(tooltip, unit)
     end
 
     C_Timer.After(0, Reapply)
-    C_Timer.After(0.05, Reapply)
+    C_Timer.After(0.03, Reapply)
 end
 
 local tooltipUpdateElapsed = 0
@@ -408,7 +415,7 @@ local function MaintainEnhancedTooltip(self, elapsed)
     if self ~= GameTooltip or not IsEnabled() or not self:IsShown() then return end
 
     tooltipUpdateElapsed = tooltipUpdateElapsed + (elapsed or 0)
-    if tooltipUpdateElapsed < 0.05 then return end
+    if tooltipUpdateElapsed < 0.02 then return end
     tooltipUpdateElapsed = 0
 
     if self.GetItem then
