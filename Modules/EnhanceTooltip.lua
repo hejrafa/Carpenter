@@ -388,6 +388,20 @@ local function EnhanceUnitTooltip(tooltip, unit)
     ShowUnitTargetInTooltip(tooltip, unit)
 end
 
+local function ScheduleEnhanceUnitTooltip(tooltip, unit)
+    EnhanceUnitTooltip(tooltip, unit)
+    if not (C_Timer and C_Timer.After) then return end
+
+    local function Reapply()
+        if IsEnabled() and tooltip and tooltip:IsShown() and GetTooltipUnit(tooltip) == unit and CanAccessTooltipText() then
+            EnhanceUnitTooltip(tooltip, unit)
+        end
+    end
+
+    C_Timer.After(0, Reapply)
+    C_Timer.After(0.05, Reapply)
+end
+
 -- Match Leatrix Plus: world hover uses "mouseover", else GetUnit.
 -- WorldFrame:EnableMouseMotion(true) so world hover triggers unit tooltips.
 local function ShowTip(self)
@@ -410,7 +424,7 @@ local function ShowTip(self)
     ScheduleHideTooltipHealthBar(self)
 
     if not CanAccessTooltipText() then return end
-    EnhanceUnitTooltip(self, unit)
+    ScheduleEnhanceUnitTooltip(self, unit)
 end
 
 local hooked = false
