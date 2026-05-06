@@ -24,6 +24,16 @@ local function GetClassColor(unit)
     return class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
 end
 
+local function RestoreDefaultUnitColor(bar, unit)
+    if not bar or not unit or not UnitExists(unit) or not bar._Carpenter_IsUnitClassColored then return end
+
+    bar._Carpenter_IsUnitClassColored = false
+    local r, g, b = UnitSelectionColor(unit)
+    if r and g and b then
+        bar:SetStatusBarColor(r, g, b)
+    end
+end
+
 -- Apply class color to a given health bar; returns true if applied.
 local function ApplyClassColor(bar, unit)
     if not bar then return false end
@@ -33,6 +43,7 @@ local function ApplyClassColor(bar, unit)
     if bar.SetStatusBarDesaturated then
         bar:SetStatusBarDesaturated(true)
     end
+    bar._Carpenter_IsUnitClassColored = true
     bar:SetStatusBarColor(color.r, color.g, color.b)
     return true
 end
@@ -89,7 +100,9 @@ end
 local function UpdateHealthBarColor(bar, unit)
     if not IsUnitFrameEnabled() then return end
     HookUnitFrameHealthBar(bar, unit)
-    ApplyClassColor(bar, unit)
+    if not ApplyClassColor(bar, unit) then
+        RestoreDefaultUnitColor(bar, unit)
+    end
 end
 
 local function RefreshUnitFrameColors()
