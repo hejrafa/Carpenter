@@ -215,7 +215,5 @@ function Targets.CanQueryNamePlateForUnit(unit)
     if not unit then return false end
     if unit == "target" or unit == "focus" or unit == "mouseover" then return true end
     if unit:match("^nameplate%d+$") then return true end
-    if unit:match("^party%d+$") then return true end
-    if unit:match("^raid%d+$") then return true end
     return false
 end
