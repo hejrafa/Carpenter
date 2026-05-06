@@ -136,6 +136,28 @@ local function SafeUnitReaction(unit, target)
     return nil
 end
 
+local function SafeUnitCanAttack(unit, target)
+    if not CanUseUnit(unit) or not CanUseUnit(target) then return false end
+    local ok, canAttack = pcall(UnitCanAttack, unit, target)
+    return ok and canAttack or false
+end
+
+local function IsTapDenied(unit)
+    if not CanUseUnit(unit) then return false end
+    if UnitIsTapDenied then
+        local ok, denied = pcall(UnitIsTapDenied, unit)
+        if ok then return denied end
+    end
+    if UnitIsTapped and UnitIsTappedByPlayer then
+        local ok, tapped = pcall(UnitIsTapped, unit)
+        if ok and tapped then
+            local okByPlayer, tappedByPlayer = pcall(UnitIsTappedByPlayer, unit)
+            return okByPlayer and not tappedByPlayer
+        end
+    end
+    return false
+end
+
 local function GetClassColorHex(unit)
     if not RAID_CLASS_COLORS or not UnitIsPlayer(unit) then return nil end
     local _, classToken = UnitClass(unit)
@@ -181,7 +203,7 @@ local function ApplyNameLine(tooltip, unit)
 
     -- Hostile mob (not player, reaction < 4, not player control)
     if not tipIsPlayer and reaction < 4 and not playerControl then
-        if UnitIsTapDenied(unit) then
+        if IsTapDenied(unit) then
             left1:SetTextColor(0.53, 0.53, 0.73)
         else
             left1:SetTextColor(1, 0.2, 0.2)
@@ -235,7 +257,7 @@ local function ApplyMobLevelLine(tooltip, unit)
     if UnitIsPlayer(unit) or UnitPlayerControlled(unit) then return end
     local reaction = SafeUnitReaction(unit, "player") or 0
     if reaction >= 5 then return end
-    if not UnitCanAttack(unit, "player") then return end
+    if not SafeUnitCanAttack("player", unit) then return end
 
     local unitLevel = UnitLevel(unit)
     local levelColor = GetCreatureDifficultyColor(unitLevel)
@@ -293,6 +315,29 @@ local function TooltipAlreadyHasTargetLine()
     return false
 end
 
+local function GetTooltipUnit(tooltip)
+    if WorldFrame and WorldFrame.IsMouseMotionFocus and WorldFrame:IsMouseMotionFocus() and UnitExists("mouseover") then
+        return "mouseover"
+    end
+
+    if tooltip and tooltip.GetUnit then
+        local ok, name, unit = pcall(tooltip.GetUnit, tooltip)
+        if ok then
+            if type(unit) == "string" and unit ~= "" then
+                return unit
+            end
+            if type(name) == "string" and UnitExists(name) then
+                return name
+            end
+        end
+    end
+
+    if UnitExists("mouseover") then
+        return "mouseover"
+    end
+    return nil
+end
+
 local function ShowUnitTargetInTooltip(tooltip, unit)
     if not unit then return end
     local targetUnit = unit .. "target"
@@ -336,7 +381,7 @@ local function EnhanceUnitTooltip(tooltip, unit)
         ApplyPlayerInfoLine(tooltip, unit)
     else
         local reaction = SafeUnitReaction(unit, "player") or 0
-        if reaction < 5 and not UnitPlayerControlled(unit) and UnitCanAttack(unit, "player") then
+        if reaction < 5 and not UnitPlayerControlled(unit) and SafeUnitCanAttack("player", unit) then
             ApplyMobLevelLine(tooltip, unit)
         end
     end
@@ -354,13 +399,7 @@ local function ShowTip(self)
         local _, itemLink = self:GetItem()
         if itemLink and itemLink ~= "" then return end
     end
-    local unit
-    if WorldFrame and WorldFrame.IsMouseMotionFocus and WorldFrame:IsMouseMotionFocus() then
-        unit = "mouseover"
-    else
-        -- Leatrix uses select(2, GameTooltip:GetUnit()); support both one and two return values
-        unit = (self.GetUnit and select(2, self:GetUnit())) or (self.GetUnit and self:GetUnit())
-    end
+    local unit = GetTooltipUnit(self)
     if not CanUseUnit(unit) then return end
     local reaction = SafeUnitReaction(unit, "player")
     if not reaction then return end
@@ -382,6 +421,7 @@ local function InstallHooks()
     end
     if not hooked then
         HideTooltipHealthBar(GameTooltip)
+        local hookedOnShow = false
         if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Unit then
             TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip)
                 ShowTip(tooltip)
@@ -389,6 +429,10 @@ local function InstallHooks()
         elseif GameTooltip.HasScript and GameTooltip:HasScript("OnTooltipSetUnit") then
             GameTooltip:HookScript("OnTooltipSetUnit", ShowTip)
         else
+            GameTooltip:HookScript("OnShow", ShowTip)
+            hookedOnShow = true
+        end
+        if not hookedOnShow and GameTooltip.HasScript and GameTooltip:HasScript("OnShow") then
             GameTooltip:HookScript("OnShow", ShowTip)
         end
         hooked = true
