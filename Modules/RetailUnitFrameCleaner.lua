@@ -93,50 +93,20 @@ end
 
 local function HideFrameVisuals(frame)
     if not frame then return end
+    if frame._CarpenterOriginalVisualAlpha == nil and frame.GetAlpha then
+        frame._CarpenterOriginalVisualAlpha = frame:GetAlpha()
+    end
     if frame.SetAlpha then
         frame:SetAlpha(0)
-    end
-    if frame.GetRegions then
-        local regions = { frame:GetRegions() }
-        for _, region in ipairs(regions) do
-            if region and region.SetAlpha then
-                region:SetAlpha(0)
-            end
-            if region and region.Hide then
-                region:Hide()
-            end
-        end
-    end
-    if frame.GetChildren then
-        local children = { frame:GetChildren() }
-        for _, child in ipairs(children) do
-            HideFrameVisuals(child)
-            if child.Hide then
-                child:Hide()
-            end
-        end
     end
 end
 
 local function RestoreFrameVisuals(frame)
     if not frame then return end
     if frame.SetAlpha then
-        frame:SetAlpha(1)
+        frame:SetAlpha(frame._CarpenterOriginalVisualAlpha or 1)
     end
-    if frame.GetRegions then
-        local regions = { frame:GetRegions() }
-        for _, region in ipairs(regions) do
-            if region and region.SetAlpha then
-                region:SetAlpha(1)
-            end
-        end
-    end
-    if frame.GetChildren then
-        local children = { frame:GetChildren() }
-        for _, child in ipairs(children) do
-            RestoreFrameVisuals(child)
-        end
-    end
+    frame._CarpenterOriginalVisualAlpha = nil
 end
 
 local function HideFrame(frame)
