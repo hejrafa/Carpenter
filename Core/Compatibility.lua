@@ -65,8 +65,13 @@ local classicFeatures = {
     classicSettingsPresetEnabled = true,
 }
 
+local vanillaFeatures = setmetatable({
+    targetHealthPercentEnabled = false,
+    classicSettingsPresetEnabled = false,
+}, { __index = classicFeatures })
+
 local featureSupport = {
-    vanilla = classicFeatures,
+    vanilla = vanillaFeatures,
     tbc = setmetatable({
         menuTransparencyEnabled = true,
         smallerExpBarEnabled = true,
