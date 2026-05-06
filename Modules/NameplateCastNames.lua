@@ -244,16 +244,6 @@ end
 -- ── Events ──────────────────────────────────────────────────────────────────
 
 local frame = CreateFrame("Frame")
-frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
-frame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
-frame:RegisterEvent("UNIT_SPELLCAST_START")
-frame:RegisterEvent("UNIT_SPELLCAST_STOP")
-frame:RegisterEvent("UNIT_SPELLCAST_FAILED")
-frame:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
-frame:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START")
-frame:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP")
-frame:RegisterEvent("UNIT_SPELLCAST_DELAYED")
-frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 frame:SetScript("OnEvent", function(self, event, unit)
     if not IsEnabled() then
@@ -319,20 +309,62 @@ frame:SetScript("OnEvent", function(self, event, unit)
 end)
 
 -- Safety ticker
-C_Timer.NewTicker(0.5, function()
-    if not IsEnabled() then return end
-    for _, plate in pairs(C_NamePlate.GetNamePlates()) do
-        local unit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
-        if unit then
-            local casting    = UnitCastingInfo(unit)
-            local channeling = UnitChannelInfo(unit)
-            if casting or channeling or (plate.CP_Widget and plate.CP_Widget:IsShown()) then
-                if not plate.CP_Widget then
-                    SetupPlate(plate, unit)
-                else
-                    UpdateCast(plate, unit)
+local safetyTicker
+
+local function StartSafetyTicker()
+    if safetyTicker or not C_Timer or not C_Timer.NewTicker then return end
+    safetyTicker = C_Timer.NewTicker(0.5, function()
+        if not IsEnabled() then return end
+        for _, plate in pairs(C_NamePlate.GetNamePlates()) do
+            local unit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
+            if unit then
+                local casting    = UnitCastingInfo(unit)
+                local channeling = UnitChannelInfo(unit)
+                if casting or channeling or (plate.CP_Widget and plate.CP_Widget:IsShown()) then
+                    if not plate.CP_Widget then
+                        SetupPlate(plate, unit)
+                    else
+                        UpdateCast(plate, unit)
+                    end
                 end
             end
         end
+    end)
+end
+
+local function StopSafetyTicker()
+    if safetyTicker and safetyTicker.Cancel then
+        safetyTicker:Cancel()
     end
-end)
+    safetyTicker = nil
+end
+
+local feature = {}
+
+function feature:Enable()
+    frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+    frame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
+    frame:RegisterEvent("UNIT_SPELLCAST_START")
+    frame:RegisterEvent("UNIT_SPELLCAST_STOP")
+    frame:RegisterEvent("UNIT_SPELLCAST_FAILED")
+    frame:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
+    frame:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START")
+    frame:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP")
+    frame:RegisterEvent("UNIT_SPELLCAST_DELAYED")
+    frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    StartSafetyTicker()
+    frame:GetScript("OnEvent")(frame, "PLAYER_ENTERING_WORLD")
+end
+
+function feature:Disable()
+    frame:UnregisterAllEvents()
+    StopSafetyTicker()
+    driver:Hide()
+    for plate in pairs(activeCasts) do
+        HideBar(plate)
+    end
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("nameplateCastNamesEnabled", feature)
+end

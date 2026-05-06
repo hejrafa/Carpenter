@@ -175,10 +175,6 @@ local function RefreshAll()
 end
 
 local frame = CreateFrame("Frame")
-frame:RegisterEvent("PLAYER_TARGET_CHANGED")
-frame:RegisterEvent("PLAYER_FOCUS_CHANGED")
-frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-frame:RegisterEvent("UNIT_PORTRAIT_UPDATE")
 
 frame:SetScript("OnEvent", function(self, event, unit)
     if event == "PLAYER_TARGET_CHANGED" then
@@ -198,3 +194,28 @@ frame:SetScript("OnEvent", function(self, event, unit)
         end
     end
 end)
+
+local feature = {}
+
+function feature:Enable()
+    frame:RegisterEvent("PLAYER_TARGET_CHANGED")
+    frame:RegisterEvent("PLAYER_FOCUS_CHANGED")
+    frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    frame:RegisterEvent("UNIT_PORTRAIT_UPDATE")
+    RefreshAll()
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0.5, RefreshAll)
+    end
+end
+
+function feature:Disable()
+    frame:UnregisterAllEvents()
+    UpdateUnitClassIcon("player")
+    UpdateUnitClassIcon("target")
+    UpdateUnitClassIcon("targettarget")
+    UpdateUnitClassIcon("focus")
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("unitFrameClassIconEnabled", feature)
+end

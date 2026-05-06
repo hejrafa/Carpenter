@@ -139,12 +139,6 @@ end
 -- =========================================================
 -- Events
 -- =========================================================
-addonFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
-addonFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
-addonFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
-addonFrame:RegisterUnitEvent("UNIT_POWER_UPDATE", "player")
-addonFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-
 addonFrame:SetScript("OnEvent", function(self, event, ...)
     update()
 end)
@@ -159,3 +153,26 @@ addonFrame:SetScript("OnUpdate", function(_, delta)
     end
 end)
 addonFrame:Hide()
+
+local feature = {}
+
+function feature:Enable()
+    addonFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
+    addonFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+    addonFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
+    addonFrame:RegisterUnitEvent("UNIT_POWER_UPDATE", "player")
+    addonFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    update()
+end
+
+function feature:Disable()
+    addonFrame:UnregisterAllEvents()
+    addonFrame:Hide()
+    if resourceFrame then
+        resourceFrame:Hide()
+    end
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("nameplateComboEnabled", feature)
+end

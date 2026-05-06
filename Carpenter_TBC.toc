@@ -2,7 +2,7 @@
 ## Title: Carpenter
 ## Notes: A modular UI cleanup and quality-of-life addon for cleaner action bars, unit frames, chat, automation, and camera settings.
 ## SavedVariables: CarpenterDB
-## Version: 1.4.2
+## Version: 1.5.0
 ## Author: Rafael Polutta
 ## IconTexture: Interface\AddOns\Carpenter\Art\Icons\Carpenter_Logo
 
@@ -33,6 +33,7 @@ Modules\ClassHealthColors.lua
 Modules\DebuffTracker.lua
 Modules\UnitFrameClassIcon.lua
 Modules\ThreatIndicator.lua
+Modules\TargetHealthPercent.lua
 Modules\HideUnitFrameCombatText.lua
 
 # Nameplates
@@ -41,6 +42,13 @@ Modules\NameplateComboPoints.lua
 Modules\RaidTargetIconAligned.lua
 
 # Chat
+Modules\ChatCleanerUtils.lua
+Modules\ChatCleanerLoot.lua
+Modules\ChatCleanerSessions.lua
+Modules\ChatCleanerSystem.lua
+Modules\ChatCleanerRewards.lua
+Modules\ChatCleanerSocial.lua
+Modules\ChatCleanerPostProcess.lua
 Modules\ChatCleaner.lua
 Modules\ChatFilter.lua
 Modules\HideChatButtons.lua

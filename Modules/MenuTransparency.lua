@@ -32,7 +32,8 @@ local function SetFrameAlpha(frame, alpha, depth)
     end
 
     if frame.GetRegions then
-        for _, region in ipairs({ frame:GetRegions() }) do
+        for i = 1, select("#", frame:GetRegions()) do
+            local region = select(i, frame:GetRegions())
             if region and region.SetAlpha then
                 region:SetAlpha(alpha)
             end
@@ -210,25 +211,53 @@ end)
 -- Events
 -- =========================
 local frame = CreateFrame("Frame")
-frame:RegisterEvent("PLAYER_LOGIN")
-frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
-frame:SetScript("OnEvent", function()
+local function ApplyStartupState()
     currentAlpha = HIDDEN_OPACITY
     SetupButtonHoverScripts()
     ApplyTransparency(HIDDEN_OPACITY)
     if IsEnabled() then updateFrame:Show() else updateFrame:Hide() end
 
     -- Secondary enforcement after a small delay to catch lazy-loading buttons (like Guild button)
-    C_Timer.After(2, function()
-        SetupButtonHoverScripts()
-        ApplyTransparency(currentAlpha)
-        if IsEnabled() then updateFrame:Show() else updateFrame:Hide() end
-    end)
-    C_Timer.After(5, function()
-        SetupButtonHoverScripts()
-        ApplyTransparency(currentAlpha)
-        if IsEnabled() then updateFrame:Show() else updateFrame:Hide() end
-    end)
-end)
+    if Carpenter and Carpenter.DeferMany then
+        Carpenter:DeferMany("MenuTransparency:startup", { 2, 5 }, function()
+            SetupButtonHoverScripts()
+            ApplyTransparency(currentAlpha)
+            if IsEnabled() then updateFrame:Show() else updateFrame:Hide() end
+        end)
+    else
+        C_Timer.After(2, function()
+            SetupButtonHoverScripts()
+            ApplyTransparency(currentAlpha)
+            if IsEnabled() then updateFrame:Show() else updateFrame:Hide() end
+        end)
+        C_Timer.After(5, function()
+            SetupButtonHoverScripts()
+            ApplyTransparency(currentAlpha)
+            if IsEnabled() then updateFrame:Show() else updateFrame:Hide() end
+        end)
+    end
+end
+
+frame:SetScript("OnEvent", ApplyStartupState)
 updateFrame:Hide()
+
+local feature = {}
+
+function feature:Enable()
+    frame:RegisterEvent("PLAYER_LOGIN")
+    frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    ApplyStartupState()
+end
+
+function feature:Disable()
+    frame:UnregisterAllEvents()
+    updateFrame:Hide()
+    currentAlpha = 1
+    targetAlpha = 1
+    ApplyTransparency(1)
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("menuTransparencyEnabled", feature)
+end

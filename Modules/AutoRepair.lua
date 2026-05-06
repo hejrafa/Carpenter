@@ -8,8 +8,6 @@ local Colors = ns and ns.Private and ns.Private.Colors
 local ColorPlus   = Colors and Colors.gray and Colors.gray.colorCode or "|cffc8c8c8"
 local ColorRepair = Colors and Colors.palered and Colors.palered.colorCode or "|cffd97a5c"
 
-f:RegisterEvent("MERCHANT_SHOW")
-
 f:SetScript("OnEvent", function(self, event)
     if event == "MERCHANT_SHOW" then
         -- Defer so ChatCleaner's MERCHANT_SHOW runs first; then we set repair flags.
@@ -26,3 +24,17 @@ f:SetScript("OnEvent", function(self, event)
         end)
     end
 end)
+
+local feature = {}
+
+function feature:Enable()
+    f:RegisterEvent("MERCHANT_SHOW")
+end
+
+function feature:Disable()
+    f:UnregisterAllEvents()
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("autoRepair", feature)
+end

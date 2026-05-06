@@ -110,13 +110,7 @@ end
 
 -- Event listener for unit changes to force update immediately
 local unitFrameDriver = CreateFrame("Frame")
-unitFrameDriver:RegisterEvent("PLAYER_TARGET_CHANGED")
-unitFrameDriver:RegisterEvent("PLAYER_FOCUS_CHANGED")
-unitFrameDriver:RegisterUnitEvent("UNIT_HEALTH", "player", "target", "targettarget", "focus", "party1", "party2", "party3", "party4")
-unitFrameDriver:RegisterUnitEvent("UNIT_FACTION", "player", "target", "targettarget", "focus", "party1", "party2", "party3", "party4")
-unitFrameDriver:RegisterUnitEvent("UNIT_TARGET", "target")
-unitFrameDriver:RegisterEvent("GROUP_ROSTER_UPDATE") -- Added for party changes
-unitFrameDriver:RegisterEvent("PLAYER_ENTERING_WORLD")
+unitFrameDriver:Hide()
 
 local function HandleUnitFrameEvent(self, event, unit)
     if not IsUnitFrameEnabled() then return end
@@ -165,6 +159,29 @@ unitFrameDriver:SetScript("OnEvent", function(...)
     end
     return HandleUnitFrameEvent(...)
 end)
+
+local unitFrameFeature = {}
+
+function unitFrameFeature:Enable()
+    unitFrameDriver:RegisterEvent("PLAYER_TARGET_CHANGED")
+    unitFrameDriver:RegisterEvent("PLAYER_FOCUS_CHANGED")
+    unitFrameDriver:RegisterUnitEvent("UNIT_HEALTH", "player", "target", "targettarget", "focus", "party1", "party2", "party3", "party4")
+    unitFrameDriver:RegisterUnitEvent("UNIT_FACTION", "player", "target", "targettarget", "focus", "party1", "party2", "party3", "party4")
+    unitFrameDriver:RegisterUnitEvent("UNIT_TARGET", "target")
+    unitFrameDriver:RegisterEvent("GROUP_ROSTER_UPDATE")
+    unitFrameDriver:RegisterEvent("PLAYER_ENTERING_WORLD")
+    unitFrameDriver:Show()
+    RefreshUnitFrameColors()
+end
+
+function unitFrameFeature:Disable()
+    unitFrameDriver:UnregisterAllEvents()
+    unitFrameDriver:Hide()
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("classHealthColorsEnabled", unitFrameFeature)
+end
 
 -- =========================
 -- Nameplates
@@ -259,10 +276,7 @@ local function RefreshAllNameplates()
 end
 
 local nameplateDriver = CreateFrame("Frame")
-nameplateDriver:RegisterEvent("NAME_PLATE_UNIT_ADDED")
-nameplateDriver:RegisterEvent("PLAYER_ENTERING_WORLD")
-nameplateDriver:RegisterEvent("GROUP_ROSTER_UPDATE")
-nameplateDriver:RegisterEvent("UNIT_FACTION")
+nameplateDriver:Hide()
 
 local function HandleNameplateEvent(self, event, unit)
     if not IsNameplateEnabled() then
@@ -301,4 +315,23 @@ nameplateDriver:SetScript("OnUpdate", function(self, delta)
         elapsed = 0
     end
 end)
-nameplateDriver:Hide()
+
+local nameplateFeature = {}
+
+function nameplateFeature:Enable()
+    nameplateDriver:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+    nameplateDriver:RegisterEvent("PLAYER_ENTERING_WORLD")
+    nameplateDriver:RegisterEvent("GROUP_ROSTER_UPDATE")
+    nameplateDriver:RegisterEvent("UNIT_FACTION")
+    nameplateDriver:Show()
+    RefreshAllNameplates()
+end
+
+function nameplateFeature:Disable()
+    nameplateDriver:UnregisterAllEvents()
+    nameplateDriver:Hide()
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("nameplateClassHealthEnabled", nameplateFeature)
+end

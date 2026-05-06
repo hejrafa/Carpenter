@@ -915,7 +915,11 @@ local function RunScheduledUpdate()
     local now = GetTime and GetTime() or 0
     if lastUpdateTime > 0 and now - lastUpdateTime < 2 then
         updateScheduled = true
-        C_Timer.After(2 - (now - lastUpdateTime), RunScheduledUpdate)
+        if Carpenter and Carpenter.Defer then
+            Carpenter:Defer("SmartMacros:update", 2 - (now - lastUpdateTime), RunScheduledUpdate)
+        else
+            C_Timer.After(2 - (now - lastUpdateTime), RunScheduledUpdate)
+        end
         return
     end
 
@@ -936,13 +940,12 @@ local function MarkDirty(delay, forceRescan)
     forceNextUpdate = forceNextUpdate or forceRescan
     if updateScheduled then return end
     updateScheduled = true
-    C_Timer.After(delay or 0.75, RunScheduledUpdate)
+    if Carpenter and Carpenter.Defer then
+        Carpenter:Defer("SmartMacros:update", delay or 0.75, RunScheduledUpdate)
+    else
+        C_Timer.After(delay or 0.75, RunScheduledUpdate)
+    end
 end
-
-addonFrame:RegisterEvent("BAG_UPDATE_DELAYED")
-addonFrame:RegisterEvent("BAG_UPDATE_COOLDOWN")
-addonFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-addonFrame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 
 addonFrame:SetScript("OnEvent", function(self, event, unit)
     if event == "PLAYER_REGEN_ENABLED" then
@@ -964,6 +967,27 @@ end)
 
 ns.UpdateSmartMacros = function()
     MarkDirty(0.25, true)
+end
+
+local feature = {}
+
+function feature:Enable()
+    addonFrame:RegisterEvent("BAG_UPDATE_DELAYED")
+    addonFrame:RegisterEvent("BAG_UPDATE_COOLDOWN")
+    addonFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    addonFrame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
+    MarkDirty(1.5, true)
+end
+
+function feature:Disable()
+    addonFrame:UnregisterAllEvents()
+    isDirty = false
+    updateScheduled = false
+    forceNextUpdate = false
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("smartMacrosEnabled", feature)
 end
 
 SLASH_CARPENTERSMARTMACROS1 = "/cpmacros"

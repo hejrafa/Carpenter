@@ -96,13 +96,6 @@ function Carpenter_ApplyExtraAbilityScale()
 end
 
 local eventFrame = CreateFrame("Frame")
-eventFrame:RegisterEvent("PLAYER_LOGIN")
-eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-eventFrame:RegisterEvent("UPDATE_EXTRA_ACTIONBAR")
-eventFrame:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR")
-eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-eventFrame:RegisterEvent("UI_SCALE_CHANGED")
-eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_REGEN_ENABLED" and not pendingCombatApply then return end
     pendingCombatApply = false
@@ -111,3 +104,27 @@ eventFrame:SetScript("OnEvent", function(_, event)
     ScheduleApply(0.2)
     ScheduleApply(1)
 end)
+
+local feature = {}
+
+function feature:Enable()
+    eventFrame:RegisterEvent("PLAYER_LOGIN")
+    eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    eventFrame:RegisterEvent("UPDATE_EXTRA_ACTIONBAR")
+    eventFrame:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR")
+    eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+    eventFrame:RegisterEvent("UI_SCALE_CHANGED")
+    eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    Carpenter_ApplyExtraAbilityScale()
+    ScheduleApply(0.2)
+    ScheduleApply(1)
+end
+
+function feature:Disable()
+    eventFrame:UnregisterAllEvents()
+    Carpenter_ApplyExtraAbilityScale()
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("scaleExtraAbilityEnabled", feature)
+end

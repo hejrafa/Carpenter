@@ -101,8 +101,8 @@ end
 local function ApplyAddonButtonClutter(enabled)
     if not Minimap or not Minimap.GetChildren then return end
 
-    local children = { Minimap:GetChildren() }
-    for _, child in ipairs(children) do
+    for i = 1, Minimap:GetNumChildren() do
+        local child = select(i, Minimap:GetChildren())
         if IsAddonMinimapButton(child) then
             if enabled then
                 if not child.CP_OrigOnEnter then
@@ -243,14 +243,32 @@ end
 -- =========================
 
 local f = CreateFrame("Frame")
-f:RegisterEvent("PLAYER_LOGIN")
-f:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 f:SetScript("OnEvent", function()
     ApplyMinimapClutter()
 end)
 CP_FaderFrame:Hide()
 
--- Re-enforce shortly after login/zone to catch any late layout changes.
-C_Timer.After(1, ApplyMinimapClutter)
-C_Timer.After(5, ApplyMinimapClutter)
+local feature = {}
+
+function feature:Enable()
+    f:RegisterEvent("PLAYER_LOGIN")
+    f:RegisterEvent("PLAYER_ENTERING_WORLD")
+    ApplyMinimapClutter()
+    -- Re-enforce shortly after login/zone to catch any late layout changes.
+    if Carpenter and Carpenter.DeferMany then
+        Carpenter:DeferMany("MinimapClutter:startup", { 1, 5 }, ApplyMinimapClutter)
+    else
+        C_Timer.After(1, ApplyMinimapClutter)
+        C_Timer.After(5, ApplyMinimapClutter)
+    end
+end
+
+function feature:Disable()
+    f:UnregisterAllEvents()
+    ApplyMinimapClutter()
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("minimapClutterEnabled", feature)
+end

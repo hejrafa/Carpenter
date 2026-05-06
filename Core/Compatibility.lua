@@ -41,6 +41,7 @@ local classicFeatures = {
     enhanceUIEnabled = true,
     classHealthColorsEnabled = true,
     threatIndicatorEnabled = true,
+    targetHealthPercentEnabled = true,
     unitFrameDebuffsEnabled = true,
     unitFrameBuffsEnabled = true,
     unitFrameClassIconEnabled = true,

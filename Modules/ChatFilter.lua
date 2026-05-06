@@ -1,11 +1,24 @@
 --[[ Carpenter - ChatFilter ]]
 -- Filters spam (gambling, bots, recruitment) and duplicate messages.
-local f = CreateFrame("Frame")
-
 local lastMessages = {}
 local messageHistory = {}
 local MAX_HISTORY = 25
 local THROTTLE_TIME = 45
+local filtersRegistered = false
+local pruneCounter = 0
+
+local chatEvents = {
+    "CHAT_MSG_CHANNEL",
+    "CHAT_MSG_YELL",
+    "CHAT_MSG_SAY",
+    "CHAT_MSG_WHISPER",
+    "CHAT_MSG_EMOTE",
+    "CHAT_MSG_TEXT_EMOTE",
+    "CHAT_MSG_PARTY",
+    "CHAT_MSG_PARTY_LEADER",
+    "CHAT_MSG_RAID",
+    "CHAT_MSG_RAID_LEADER"
+}
 
 -- =========================
 -- Helper Functions
@@ -129,6 +142,17 @@ local function ChatSpamFilter(self, event, msg, author, ...)
 
             -- Local Throttling: prevent the same person from repeating the same thing too fast
             local now = GetTime()
+            pruneCounter = pruneCounter + 1
+            if pruneCounter >= 50 then
+                pruneCounter = 0
+                local cutoff = now - (THROTTLE_TIME * 2)
+                for key, seenAt in pairs(lastMessages) do
+                    if seenAt < cutoff then
+                        lastMessages[key] = nil
+                    end
+                end
+            end
+
             local msgKey = sender .. ":" .. cleanMsg
             if lastMessages[msgKey] and (now - lastMessages[msgKey] < THROTTLE_TIME) then
                 return true
@@ -144,26 +168,34 @@ end
 -- Event Handling
 -- =========================
 
-f:RegisterEvent("PLAYER_LOGIN")
+local function RegisterFilters()
+    if filtersRegistered then return end
+    filtersRegistered = true
+    for _, chatEvent in ipairs(chatEvents) do
+        ChatFrame_AddMessageEventFilter(chatEvent, ChatSpamFilter)
+    end
+end
 
-f:SetScript("OnEvent", function(self, event)
-    -- We register the filters on login.
-    -- The internal logic of ChatSpamFilter checks DB toggles in real-time.
-    if event == "PLAYER_LOGIN" then
-        local chatEvents = {
-            "CHAT_MSG_CHANNEL",
-            "CHAT_MSG_YELL",
-            "CHAT_MSG_SAY",
-            "CHAT_MSG_WHISPER",
-            "CHAT_MSG_EMOTE",
-            "CHAT_MSG_TEXT_EMOTE",
-            "CHAT_MSG_PARTY",
-            "CHAT_MSG_PARTY_LEADER",
-            "CHAT_MSG_RAID",
-            "CHAT_MSG_RAID_LEADER"
-        }
+local function UnregisterFilters()
+    if not filtersRegistered then return end
+    filtersRegistered = false
+    if ChatFrame_RemoveMessageEventFilter then
         for _, chatEvent in ipairs(chatEvents) do
-            ChatFrame_AddMessageEventFilter(chatEvent, ChatSpamFilter)
+            ChatFrame_RemoveMessageEventFilter(chatEvent, ChatSpamFilter)
         end
     end
-end)
+end
+
+local feature = {}
+
+function feature:Enable()
+    RegisterFilters()
+end
+
+function feature:Disable()
+    UnregisterFilters()
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("chatFilterEnabled", feature)
+end

@@ -526,6 +526,9 @@ local function CreateCheckbox(key, label, description, sideLogic, imagePath, req
         if CarpenterDB then
             CarpenterDB[key] = self:GetChecked()
             UpdateReloadButton()
+            if Carpenter and Carpenter.RefreshFeature then
+                Carpenter:RefreshFeature(key)
+            end
             if onToggle then onToggle() end
         end
     end)
@@ -658,6 +661,17 @@ local OPTION_SECTIONS = {
                 description = LightGrey .. "Threat is easier to manage when the number is where your eyes already are.\n\n" ..
                     "Shows your " .. LighterCream .. "threat percentage" .. LightGrey .. " on the target frame so you can ease off, hold steady, or push with confidence.",
                 image = GetSettingsImage("threat.png"),
+            },
+            {
+                key = "targetHealthPercentEnabled",
+                label = L.OPTION_TARGET_HEALTH_PERCENT or "Target Percentages",
+                description = LightGrey .. "Classic can show your own health as a percentage, but enemy target frames stay vague.\n\n" ..
+                    "Shows compact " .. LighterCream .. "health and resource percentages" .. LightGrey .. " on player targets and hostile target frames.",
+                image = GetSettingsImage("unitnumbers.png"),
+                requiresReload = false,
+                onToggle = function()
+                    if Carpenter_UpdateTargetHealthPercent then Carpenter_UpdateTargetHealthPercent() end
+                end,
             },
             {
                 key = "unitFrameDebuffsEnabled",
@@ -875,7 +889,7 @@ local OPTION_SECTIONS = {
                 key = "classicSettingsPresetEnabled",
                 label = L.OPTION_SETTINGS_PRESET or "Preset",
                 description = LightGrey .. "A quick Classic baseline for fresh characters or clients.\n\n" ..
-                    "Turns on " .. LighterCream .. "auto loot" .. LightGrey .. ", " .. LighterCream .. "enemy unit and minion nameplates" .. LightGrey .. ", and " .. LighterCream .. "action bars 2 and 3" .. LightGrey .. ". Carpenter reapplies these settings when you log in while the preset is enabled.",
+                    "Turns on " .. LighterCream .. "auto loot" .. LightGrey .. ", " .. LighterCream .. "enemy unit and minion nameplates" .. LightGrey .. ", " .. LighterCream .. "health percentages" .. LightGrey .. ", and " .. LighterCream .. "action bars 2 and 3" .. LightGrey .. ". Carpenter reapplies these settings when you log in while the preset is enabled.",
                 image = GetSettingsImage("actionbar.png"),
                 requiresReload = false,
                 onToggle = function()
@@ -943,7 +957,7 @@ end
 yPos = yPos - 48
 local footerVersion = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 footerVersion:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, yPos)
-footerVersion:SetText(LightGrey .. "v1.4.2|r")
+footerVersion:SetText(LightGrey .. "v1.5.0|r")
 
 -- Match sidebar: footer ends with same bottom spacing as "Requires UI reload" (SIDE_GAP)
 local FOOTER_LINE_HEIGHT = 14

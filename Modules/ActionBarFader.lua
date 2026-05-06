@@ -51,10 +51,8 @@ local function SetupFader(barName)
 end
 
 local frame = CreateFrame("Frame")
-frame:RegisterEvent("PLAYER_LOGIN")
-frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
-frame:SetScript("OnEvent", function(self, event)
+local function ApplyActionBarFader()
     -- Apply fader only to specified extra bars
     for _, barName in ipairs(bars) do
         SetupFader(barName)
@@ -99,4 +97,23 @@ frame:SetScript("OnEvent", function(self, event)
             if b then b:SetAlpha(1.0) end
         end
     end
-end)
+end
+
+frame:SetScript("OnEvent", ApplyActionBarFader)
+
+local feature = {}
+
+function feature:Enable()
+    frame:RegisterEvent("PLAYER_LOGIN")
+    frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    ApplyActionBarFader()
+end
+
+function feature:Disable()
+    frame:UnregisterAllEvents()
+    ApplyActionBarFader()
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("actionBarFaderEnabled", feature)
+end

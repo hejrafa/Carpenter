@@ -121,11 +121,25 @@ local function HookRangeUpdates()
 end
 
 local frame = CreateFrame("Frame")
-frame:RegisterEvent("PLAYER_LOGIN")
-frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 frame:SetScript("OnEvent", function(self, event)
     if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
         HookRangeUpdates()
     end
 end)
+
+local feature = {}
+
+function feature:Enable()
+    frame:RegisterEvent("PLAYER_LOGIN")
+    frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    HookRangeUpdates()
+end
+
+function feature:Disable()
+    frame:UnregisterAllEvents()
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("actionBarRangeEnabled", feature)
+end

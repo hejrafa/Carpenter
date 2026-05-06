@@ -8,9 +8,6 @@ local Colors   = ns and ns.Private and ns.Private.Colors
 local ColorPlus = Colors and Colors.gray and Colors.gray.colorCode or "|cffc8c8c8"
 local ColorJunk = Colors and Colors.quality and Colors.quality[0] and Colors.quality[0].colorCode or "|cff9d9d9d"
 
-f:RegisterEvent("MERCHANT_SHOW")
-f:RegisterEvent("MERCHANT_CLOSED")
-
 local sellAttemptedThisMerchant = false
 
 local function SellGreyItems()
@@ -84,3 +81,19 @@ f:SetScript("OnEvent", function(self, event)
         sellAttemptedThisMerchant = false
     end
 end)
+
+local feature = {}
+
+function feature:Enable()
+    f:RegisterEvent("MERCHANT_SHOW")
+    f:RegisterEvent("MERCHANT_CLOSED")
+end
+
+function feature:Disable()
+    f:UnregisterAllEvents()
+    sellAttemptedThisMerchant = false
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("autoSellGreys", feature)
+end

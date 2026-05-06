@@ -25,6 +25,7 @@ local defaults = {
     -- Unit Frames
     classHealthColorsEnabled = false,
     threatIndicatorEnabled = false,
+    targetHealthPercentEnabled = false,
     unitFrameDebuffsEnabled = false,
     unitFrameBuffsEnabled = false,
     unitFrameClassIconEnabled = false,
@@ -102,6 +103,71 @@ function Carpenter:After(delay, callback)
         C_Timer.After(delay, callback)
     elseif delay == 0 then
         callback()
+    end
+end
+
+Carpenter.Features = Carpenter.Features or {}
+Carpenter.Deferred = Carpenter.Deferred or {}
+
+function Carpenter:RegisterFeature(key, module)
+    if not key or type(module) ~= "table" then return end
+    module.key = key
+    module.enabled = false
+    self.Features[key] = module
+end
+
+function Carpenter:SetFeatureEnabled(key, enabled)
+    local module = self.Features and self.Features[key]
+    if not module then return end
+    enabled = enabled == true
+    if module.enabled == enabled then return end
+
+    module.enabled = enabled
+    local callback = enabled and module.Enable or module.Disable
+    if type(callback) == "function" then
+        callback(module)
+    end
+end
+
+function Carpenter:RefreshFeature(key)
+    self:SetFeatureEnabled(key, self:IsEnabled(key))
+end
+
+function Carpenter:RefreshFeatures()
+    if not self.Features then return end
+    for key in pairs(self.Features) do
+        self:RefreshFeature(key)
+    end
+end
+
+function Carpenter:Defer(key, delay, callback)
+    if not key or type(callback) ~= "function" then return end
+    delay = delay or 0
+    local token = {}
+    self.Deferred[key] = token
+
+    self:After(delay, function()
+        if Carpenter.Deferred[key] ~= token then return end
+        Carpenter.Deferred[key] = nil
+        callback()
+    end)
+end
+
+function Carpenter:DeferMany(key, delays, callback)
+    if not key or type(delays) ~= "table" or type(callback) ~= "function" then return end
+    local token = {}
+    local remaining = #delays
+    self.Deferred[key] = token
+
+    for _, delay in ipairs(delays) do
+        self:After(delay or 0, function()
+            if Carpenter.Deferred[key] ~= token then return end
+            remaining = remaining - 1
+            if remaining <= 0 then
+                Carpenter.Deferred[key] = nil
+            end
+            callback()
+        end)
     end
 end
 
@@ -265,6 +331,7 @@ f:RegisterEvent("PLAYER_ENTERING_WORLD")
 f:SetScript("OnEvent", function(self, event, addon)
     if (event == "ADDON_LOADED" and addon == addonName) or event == "PLAYER_ENTERING_WORLD" then
         Carpenter_InitializeSettings()
+        Carpenter:RefreshFeatures()
         if event == "PLAYER_ENTERING_WORLD" then
             self:UnregisterEvent("PLAYER_ENTERING_WORLD")
         end

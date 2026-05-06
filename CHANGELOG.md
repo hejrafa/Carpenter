@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.5.0
+
+- Refactored Classic/TBC/Retail feature startup through shared lifecycle registration, refresh, and deferred execution helpers for more reliable enable/disable behavior.
+- Split Chat Cleaner into focused helper modules for loot, rewards, social/system messages, session tracking, post-processing, and shared utilities.
+- Improved Chat Cleaner performance and reliability by reducing repeated inline parsing, centralizing message formatting helpers, and making chat filter registration idempotent.
+- Hardened chat session tracking for merchant, mail, repair, auction, money, loot, honor, queue, quest, level-up, reputation, and skill messages.
+- Migrated multiple Classic modules to lifecycle-managed events and timers so toggles cleanly register, unregister, and refresh without duplicate hooks.
+
+## 1.4.3
+
+- Added an opt-in Classic target health and resource percentage display for hostile targets and player targets with proper settings text and Blizzard-style target-frame placement.
+- Added Classic health percentage status text to the Classic Settings preset without enabling the target-frame percentage option by default.
+
 ## 1.4.2
 
 - Fixed Classic Era target and target-of-target class health coloring so NPC unit frames keep Blizzard's default health bar color while player unit frames still use class colors.

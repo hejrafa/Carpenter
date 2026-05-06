@@ -388,11 +388,6 @@ function Carpenter_UpdateUnitFrameAuras()
 end
 
 local frame = CreateFrame("Frame")
-frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
-frame:RegisterEvent("UNIT_AURA")
-frame:RegisterEvent("PLAYER_TARGET_CHANGED")
-frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-frame:RegisterEvent("GROUP_ROSTER_UPDATE")
 
 frame:SetScript("OnEvent", function(self, event, unit)
     if not IsNameplateEnabled() and not IsUnitFrameEnabled() and not IsUnitFrameBuffsEnabled() then return end
@@ -427,6 +422,44 @@ frame:SetScript("OnEvent", function(self, event, unit)
     end
 end)
 
+local function RefreshEventSubscriptions()
+    frame:UnregisterAllEvents()
+    if not IsNameplateEnabled() and not IsUnitFrameEnabled() and not IsUnitFrameBuffsEnabled() then
+        return
+    end
+
+    frame:RegisterEvent("UNIT_AURA")
+    frame:RegisterEvent("PLAYER_TARGET_CHANGED")
+    frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    frame:RegisterEvent("GROUP_ROSTER_UPDATE")
+
+    if IsNameplateEnabled() then
+        frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+    end
+
+    Carpenter_UpdateUnitFrameAuras()
+    if IsNameplateEnabled() and C_NamePlate and C_NamePlate.GetNamePlates then
+        for _, plate in pairs(C_NamePlate.GetNamePlates()) do
+            if plate and plate.UnitFrame then
+                OnNameplateUpdate(plate.UnitFrame)
+            end
+        end
+    end
+end
+
+local function CreateAuraFeature()
+    return {
+        Enable = RefreshEventSubscriptions,
+        Disable = RefreshEventSubscriptions,
+    }
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("debuffTrackerEnabled", CreateAuraFeature())
+    Carpenter:RegisterFeature("unitFrameDebuffsEnabled", CreateAuraFeature())
+    Carpenter:RegisterFeature("unitFrameBuffsEnabled", CreateAuraFeature())
+end
+
 -- After Blizzard positions unit frame auras, set their frame level so the aura row draws on top
 if TargetFrame_UpdateAuraPositions then
     hooksecurefunc("TargetFrame_UpdateAuraPositions", OnBlizzardAuraPositionsUpdated)
@@ -442,7 +475,7 @@ if _G.FocusFrame then
 end
 
 hooksecurefunc("CompactUnitFrame_UpdateAuras", function(self)
-    if self.unit and self.unit:find("nameplate") then
+    if IsNameplateEnabled() and self.unit and self.unit:find("nameplate") then
         OnNameplateUpdate(self)
     end
 end)

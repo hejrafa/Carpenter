@@ -33,7 +33,8 @@ local function SetFrameAlpha(frame, alpha, depth)
     end
 
     if frame.GetRegions then
-        for _, region in ipairs({ frame:GetRegions() }) do
+        for i = 1, select("#", frame:GetRegions()) do
+            local region = select(i, frame:GetRegions())
             if region and region.SetAlpha then
                 region:SetAlpha(alpha)
             end
@@ -215,26 +216,54 @@ end)
 -- Events
 -- =========================
 local frame = CreateFrame("Frame")
-frame:RegisterEvent("PLAYER_LOGIN")
-frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-frame:RegisterEvent("UPDATE_CHAT_WINDOWS")
 
-frame:SetScript("OnEvent", function()
+local function ApplyStartupState()
     currentAlpha = HIDDEN_OPACITY
     RefreshChatTabs()
     ApplyTransparency(HIDDEN_OPACITY)
     if IsEnabled() then hoverFrame:Show() else hoverFrame:Hide() end
 
     -- Secondary enforcement after a small delay to catch lazy-loading buttons
-    C_Timer.After(2, function()
-        RefreshChatTabs()
-        ApplyTransparency(currentAlpha)
-        if IsEnabled() then hoverFrame:Show() else hoverFrame:Hide() end
-    end)
-    C_Timer.After(5, function()
-        RefreshChatTabs()
-        ApplyTransparency(currentAlpha)
-        if IsEnabled() then hoverFrame:Show() else hoverFrame:Hide() end
-    end)
-end)
+    if Carpenter and Carpenter.DeferMany then
+        Carpenter:DeferMany("HideChatButtons:startup", { 2, 5 }, function()
+            RefreshChatTabs()
+            ApplyTransparency(currentAlpha)
+            if IsEnabled() then hoverFrame:Show() else hoverFrame:Hide() end
+        end)
+    else
+        C_Timer.After(2, function()
+            RefreshChatTabs()
+            ApplyTransparency(currentAlpha)
+            if IsEnabled() then hoverFrame:Show() else hoverFrame:Hide() end
+        end)
+        C_Timer.After(5, function()
+            RefreshChatTabs()
+            ApplyTransparency(currentAlpha)
+            if IsEnabled() then hoverFrame:Show() else hoverFrame:Hide() end
+        end)
+    end
+end
+
+frame:SetScript("OnEvent", ApplyStartupState)
 hoverFrame:Hide()
+
+local feature = {}
+
+function feature:Enable()
+    frame:RegisterEvent("PLAYER_LOGIN")
+    frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    frame:RegisterEvent("UPDATE_CHAT_WINDOWS")
+    ApplyStartupState()
+end
+
+function feature:Disable()
+    frame:UnregisterAllEvents()
+    hoverFrame:Hide()
+    currentAlpha = 1
+    targetAlpha = 1
+    ApplyTransparency(1)
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("hideChatButtonsEnabled", feature)
+end
