@@ -48,6 +48,8 @@ Modules\HideChatButtons.lua
 
 # Automations
 Modules\SmartMacroData.lua
+Modules\SmartMacroTooltip.lua
+Modules\SmartMacroClassifier.lua
 Modules\SmartMacroScanner.lua
 Modules\SmartMacroBuilder.lua
 Modules\SmartMacros.lua
