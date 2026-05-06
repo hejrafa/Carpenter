@@ -1,5 +1,5 @@
 --[[ Carpenter - Sleek Options UI Configuration ]]
-local addonName = ...
+local addonName, ns = ...
 local L = Carpenter and Carpenter.L or {}
 local ADDON_ART_PATH = "Interface\\AddOns\\" .. (addonName or "Carpenter") .. "\\Art\\"
 local COVER_FADE_MASK_PATH = ADDON_ART_PATH .. "Masks\\CoverFadeMask"
