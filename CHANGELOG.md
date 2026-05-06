@@ -7,6 +7,11 @@
 - Improved Chat Cleaner performance and reliability by reducing repeated inline parsing, centralizing message formatting helpers, and making chat filter registration idempotent.
 - Hardened chat session tracking for merchant, mail, repair, auction, money, loot, honor, queue, quest, level-up, reputation, and skill messages.
 - Migrated multiple Classic modules to lifecycle-managed events and timers so toggles cleanly register, unregister, and refresh without duplicate hooks.
+- Fixed the split settings panel so option sections render correctly on Retail.
+- Fixed Retail unit-frame cleaner nameplate lookups for party and raid unit events.
+- Guarded NPC health bars from stale class-color tinting when unit frames or nameplates are recycled.
+- Hid unsupported target percentage and settings preset options on Anniversary/TBC.
+- Improved Enhanced Tooltip compatibility on Anniversary/TBC, including player tooltip refresh handling and target-line sizing.
 
 ## 1.4.3
 
