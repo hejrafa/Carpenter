@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.1
+
+- Shortened Hardcore death channel messages to remove the channel prefix and death source details.
+
 ## 1.5.0
 
 - Refactored Classic/TBC/Retail feature startup through shared lifecycle registration, refresh, and deferred execution helpers for more reliable enable/disable behavior.

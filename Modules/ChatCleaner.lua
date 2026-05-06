@@ -254,6 +254,7 @@ local postProcessor = ChatCleanerPostProcess.Create and ChatCleanerPostProcess.C
     ParseRetailMoneyGain = ParseRetailMoneyGain,
     SpaceBeforeX = SpaceBeforeX,
     ColorPlus = ColorPlus,
+    ColorRed = ColorRed,
     HonorDelay = 3,
     JoinDedupDelay = 8,
 }) or {}

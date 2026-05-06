@@ -61,6 +61,7 @@ function PostProcess.Create(config)
     local parseRetailMoneyGain = config.ParseRetailMoneyGain or function() return nil end
     local spaceBeforeX = config.SpaceBeforeX or function(text) return text end
     local colorPlus = config.ColorPlus or "|cffc8c8c8"
+    local colorRed = config.ColorRed or "|cffff4040"
     local honorDelay = config.HonorDelay or 3
     local joinDedupDelay = config.JoinDedupDelay or 8
 
@@ -76,6 +77,19 @@ function PostProcess.Create(config)
     local function StripColorCodes(text)
         if not text or type(text) ~= "string" then return "" end
         return text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
+    end
+
+    local function FormatHardcoreDeathMessage(plainText)
+        if not plainText or type(plainText) ~= "string" then return nil end
+
+        local text = plainText:gsub("^%s*%d+%.:?%s*", ""):gsub("^%s*:%s*", "")
+        local playerName, level = text:match("^%s*(.-)%s+has been slain.-%!%s*They were level%s+(%d+)%s*%.?%s*$")
+        if not playerName or playerName == "" or not level then return nil end
+
+        playerName = Trim(playerName):gsub("%-.*$", "")
+        if playerName == "" then return nil end
+
+        return colorRed .. playerName .. " has been slain! They were level " .. level .. "|r"
     end
 
     local function ClassColorPlayerNames(text)
@@ -187,6 +201,11 @@ function PostProcess.Create(config)
         message = ClassColorLootRollNames(message)
 
         local plain = StripColorCodes(message)
+        local hardcoreDeathMessage = FormatHardcoreDeathMessage(plain)
+        if hardcoreDeathMessage then
+            return originalAddMessage(frame, hardcoreDeathMessage, unpack(args))
+        end
+
         local styledLevelReward = formatLevelUpRewardMessage(plain)
         if styledLevelReward then
             return originalAddMessage(frame, styledLevelReward, unpack(args))
