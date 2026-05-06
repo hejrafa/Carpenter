@@ -51,6 +51,7 @@ Modules\ChatCleanerSystem.lua
 Modules\ChatCleanerRewards.lua
 Modules\ChatCleanerSocial.lua
 Modules\ChatCleanerPostProcess.lua
+Modules\ChatCleanerLifecycle.lua
 Modules\ChatCleaner.lua
 Modules\ChatFilter.lua
 Modules\HideChatButtons.lua

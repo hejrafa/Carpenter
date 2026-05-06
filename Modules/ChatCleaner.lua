@@ -1,6 +1,5 @@
 --[[ Carpenter - ChatCleaner ]]
 local _, ns = ...
-local f = CreateFrame("Frame")
 
 -- Shared Carpenter color palette
 local Colors = ns and ns.Private and ns.Private.Colors
@@ -55,6 +54,7 @@ local ChatCleanerSystem = ns and ns.Private and ns.Private.ChatCleanerSystem or 
 local ChatCleanerRewards = ns and ns.Private and ns.Private.ChatCleanerRewards or {}
 local ChatCleanerSocial = ns and ns.Private and ns.Private.ChatCleanerSocial or {}
 local ChatCleanerPostProcess = ns and ns.Private and ns.Private.ChatCleanerPostProcess or {}
+local ChatCleanerLifecycle = ns and ns.Private and ns.Private.ChatCleanerLifecycle or {}
 
 local moneyIcons = {
     Gold = GoldIcon,
@@ -481,160 +481,13 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     return false, SpaceBeforeX(msg), author, ...
 end
 
--- Safe wrapper so any Lua error in the filter doesn't trigger "Interface action failed because of an AddOn"
--- Must return ALL values from the filter (msg, author, arg4, arg5, ...); returning only 4 causes Blizzard's
--- MessageEventHandler to receive nil for trailing args and call strlen(nil) on CHAT_MSG_LOOT etc.
--- Coerce any nil to "" so Blizzard code that does strlen(arg) never gets nil.
-local function ChatFilter(self, event, msg, author, ...)
-    local function RunFilter(...)
-        return pcall(ChatFilterImpl, ...)
-    end
-    local results
-    if Carpenter and Carpenter.Profile then
-        results = { Carpenter:Profile("ChatCleaner:Filter", RunFilter, self, event, msg, author, ...) }
-    else
-        results = { RunFilter(self, event, msg, author, ...) }
-    end
-    local ok = results[1]
-    if not ok then
-        return false, (msg or ""), (author or ""), ...
-    end
-    table.remove(results, 1)
-    for i = 1, #results do
-        if results[i] == nil then
-            results[i] = ""
-        end
-    end
-    return unpack(results)
-end
-
--- =========================
--- Registration & Initialization
--- =========================
-local ChatCleanerFiltersRegistered = false
-local chatEvents = {
-    -- Combat/Log Events
-    "CHAT_MSG_COMBAT_XP_GAIN",
-    "CHAT_MSG_COMBAT_MISC_INFO",
-    "CHAT_MSG_COMBAT_HONOR_GAIN",
-    "CHAT_MSG_COMBAT_FACTION_CHANGE",
-    "CHAT_MSG_MONEY",
-    "CHAT_MSG_LOOT",
-    "CHAT_MSG_SYSTEM",
-    "CHAT_MSG_SKILL",
-    "CHAT_MSG_BG_SYSTEM_ALLIANCE",
-    "CHAT_MSG_BG_SYSTEM_HORDE",
-    "CHAT_MSG_BG_SYSTEM_NEUTRAL",
-    "CHAT_MSG_AUCTION_LISTED",
-    "CHAT_MSG_AUCTION_REMOVED",
-    "CHAT_MSG_AUCTION_WON",
-    "CHAT_MSG_AUCTION_OUTBIDDED",
-    "CHAT_MSG_AUCTION_EXPIRED",
-    "CHAT_MSG_AUCTION_CANCELLED",
-    "CHAT_MSG_CURRENCY",
-    -- Monster emotes (sanitize stray % format sequences before Blizzard formats them)
-    "CHAT_MSG_MONSTER_EMOTE",
-    -- Standard Chat Events for Bracket Removal
-    "CHAT_MSG_CHANNEL",
-    "CHAT_MSG_GUILD",
-    "CHAT_MSG_OFFICER",
-    "CHAT_MSG_PARTY",
-    "CHAT_MSG_PARTY_LEADER",
-    "CHAT_MSG_RAID",
-    "CHAT_MSG_RAID_LEADER",
-    "CHAT_MSG_SAY",
-    "CHAT_MSG_WHISPER",
-    "CHAT_MSG_BN_WHISPER",
-    "CHAT_MSG_YELL",
-}
-
-local function RegisterChatFilters()
-    if ChatCleanerFiltersRegistered then return end
-    ChatCleanerFiltersRegistered = true
-    for _, event in ipairs(chatEvents) do
-        ChatFrame_AddMessageEventFilter(event, ChatFilter)
-    end
-end
-
-local function UnregisterChatFilters()
-    if not ChatCleanerFiltersRegistered or not ChatFrame_RemoveMessageEventFilter then return end
-    ChatCleanerFiltersRegistered = false
-    for _, event in ipairs(chatEvents) do
-        ChatFrame_RemoveMessageEventFilter(event, ChatFilter)
-    end
-end
-
--- =========================
--- Texture Removal (Clean EditBox)
--- =========================
-local function CleanEditBox()
-    for i = 1, NUM_CHAT_WINDOWS do
-        local eb = _G["ChatFrame" .. i .. "EditBox"]
-        if eb then
-            for regionIndex = 1, select("#", eb:GetRegions()) do
-                local region = select(regionIndex, eb:GetRegions())
-                if region:IsObjectType("Texture") then
-                    region:SetTexture(nil)
-                    region:SetAlpha(0)
-                end
-            end
-            if eb.cp_bg then
-                eb.cp_bg:Hide()
-            end
-        end
-    end
-end
-
-local loader = CreateFrame("Frame")
-loader:RegisterEvent("VARIABLES_LOADED")
-local initializedHooks = false
-
-local function InitializeChatCleanerHooks()
-    if initializedHooks then return end
-    initializedHooks = true
-
-    C_Timer.After(0, function()
-        for i = 1, NUM_CHAT_WINDOWS do
-            if HookChatFrameAddMessage then
-                HookChatFrameAddMessage(_G["ChatFrame" .. i])
-            end
-        end
-    end)
-
-    -- Strip brackets from flags
-    _G.CHAT_FLAG_AFK = "AFK "
-    _G.CHAT_FLAG_DND = "DND "
-end
-
-local function EnableChatCleaner()
-    InitializeChatCleanerHooks()
-    ApplyLevelUpGlobalStringStyling()
-    RegisterChatFilters()
-    CleanEditBox()
-    if sessionTracker.Enable then
-        sessionTracker:Enable()
-    end
-end
-
-local function DisableChatCleaner()
-    UnregisterChatFilters()
-    if sessionTracker.Disable then
-        sessionTracker:Disable()
-    end
-end
-
-loader:SetScript("OnEvent", function(self, event)
-    InitializeChatCleanerHooks()
-    if Carpenter and Carpenter.RefreshFeature then
-        Carpenter:RefreshFeature("chatCleanerEnabled")
-    elseif Carpenter and Carpenter:IsEnabled("chatCleanerEnabled") then
-        EnableChatCleaner()
-    end
-end)
+local chatCleanerFeature = ChatCleanerLifecycle.Create and ChatCleanerLifecycle.Create({
+    FilterImpl = ChatFilterImpl,
+    HookChatFrameAddMessage = HookChatFrameAddMessage,
+    ApplyLevelUpGlobalStringStyling = ApplyLevelUpGlobalStringStyling,
+    SessionTracker = sessionTracker,
+}) or {}
 
 if Carpenter and Carpenter.RegisterFeature then
-    Carpenter:RegisterFeature("chatCleanerEnabled", {
-        Enable = EnableChatCleaner,
-        Disable = DisableChatCleaner,
-    })
+    Carpenter:RegisterFeature("chatCleanerEnabled", chatCleanerFeature)
 end

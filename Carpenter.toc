@@ -33,6 +33,9 @@ Modules\ExtraAbilityScale.lua
 # Unit Frames
 Modules\ClassHealthColors.lua
 Modules\HideUnitFrameCombatText.lua
+Modules\RetailUnitFrameCleanerVisuals.lua
+Modules\RetailUnitFrameCleanerTargets.lua
+Modules\RetailUnitFrameCleanerRealm.lua
 Modules\RetailUnitFrameCleaner.lua
 
 # Chat
@@ -43,6 +46,7 @@ Modules\ChatCleanerSystem.lua
 Modules\ChatCleanerRewards.lua
 Modules\ChatCleanerSocial.lua
 Modules\ChatCleanerPostProcess.lua
+Modules\ChatCleanerLifecycle.lua
 Modules\ChatCleaner.lua
 Modules\HideChatButtons.lua
 
