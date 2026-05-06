@@ -312,8 +312,8 @@ end)
 local safetyTicker
 
 local function StartSafetyTicker()
-    if safetyTicker or not C_Timer or not C_Timer.NewTicker then return end
-    safetyTicker = C_Timer.NewTicker(0.5, function()
+    if safetyTicker then return end
+    local function Tick()
         if not IsEnabled() then return end
         for _, plate in pairs(C_NamePlate.GetNamePlates()) do
             local unit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
@@ -329,11 +329,19 @@ local function StartSafetyTicker()
                 end
             end
         end
-    end)
+    end
+
+    if Carpenter and Carpenter.StartTicker then
+        safetyTicker = Carpenter:StartTicker("NameplateCastNames:safety", 0.5, Tick) or true
+    elseif C_Timer and C_Timer.NewTicker then
+        safetyTicker = C_Timer.NewTicker(0.5, Tick)
+    end
 end
 
 local function StopSafetyTicker()
-    if safetyTicker and safetyTicker.Cancel then
+    if Carpenter and Carpenter.StopTicker then
+        Carpenter:StopTicker("NameplateCastNames:safety")
+    elseif safetyTicker and safetyTicker.Cancel then
         safetyTicker:Cancel()
     end
     safetyTicker = nil

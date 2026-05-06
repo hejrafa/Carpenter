@@ -302,19 +302,21 @@ nameplateDriver:SetScript("OnEvent", function(...)
     return HandleNameplateEvent(...)
 end)
 
--- Periodic refresh so Blizzard's threat coloring does not stick over class colors.
-local elapsed = 0
-nameplateDriver:SetScript("OnUpdate", function(self, delta)
-    if not IsNameplateEnabled() then
-        self:Hide()
-        return
+local function StartNameplateTicker()
+    if Carpenter and Carpenter.StartTicker then
+        Carpenter:StartTicker("ClassHealthColors:nameplates", 0.1, function()
+            if IsNameplateEnabled() then
+                RefreshAllNameplates()
+            end
+        end)
     end
-    elapsed = elapsed + delta
-    if elapsed >= 0.1 then
-        RefreshAllNameplates()
-        elapsed = 0
+end
+
+local function StopNameplateTicker()
+    if Carpenter and Carpenter.StopTicker then
+        Carpenter:StopTicker("ClassHealthColors:nameplates")
     end
-end)
+end
 
 local nameplateFeature = {}
 
@@ -324,11 +326,13 @@ function nameplateFeature:Enable()
     nameplateDriver:RegisterEvent("GROUP_ROSTER_UPDATE")
     nameplateDriver:RegisterEvent("UNIT_FACTION")
     nameplateDriver:Show()
+    StartNameplateTicker()
     RefreshAllNameplates()
 end
 
 function nameplateFeature:Disable()
     nameplateDriver:UnregisterAllEvents()
+    StopNameplateTicker()
     nameplateDriver:Hide()
 end
 

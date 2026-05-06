@@ -87,9 +87,14 @@ end
 -- =========================================================
 -- Core Logic
 -- =========================================================
+local StartFollowTicker
+local StopFollowTicker
+local followTickerActive = false
+
 local function update()
     if not isEnabled() then
         if resourceFrame then resourceFrame:Hide() end
+        if StopFollowTicker then StopFollowTicker() end
         addonFrame:Hide()
         return
     end
@@ -97,6 +102,7 @@ local function update()
     -- 1. Check Target validity
     if not UnitExists("target") or UnitIsDead("target") or not UnitCanAttack("player", "target") then
         if resourceFrame then resourceFrame:Hide() end
+        if StopFollowTicker then StopFollowTicker() end
         addonFrame:Hide()
         return
     end
@@ -105,6 +111,7 @@ local function update()
     local plate = C_NamePlate.GetNamePlateForUnit("target")
     if not plate then
         if resourceFrame then resourceFrame:Hide() end
+        if StopFollowTicker then StopFollowTicker() end
         addonFrame:Hide()
         return
     end
@@ -133,6 +140,7 @@ local function update()
     resourceFrame:SetPoint("CENTER", plate, "BOTTOM", -8, 1)
 
     setComboVisual(cp)
+    if StartFollowTicker then StartFollowTicker() end
     addonFrame:Show()
 end
 
@@ -143,16 +151,23 @@ addonFrame:SetScript("OnEvent", function(self, event, ...)
     update()
 end)
 
--- Periodic follow for nameplate movement between events.
-local elapsed = 0
-addonFrame:SetScript("OnUpdate", function(_, delta)
-    elapsed = elapsed + delta
-    if elapsed >= 0.05 then
-        update()
-        elapsed = 0
-    end
-end)
 addonFrame:Hide()
+
+StartFollowTicker = function()
+    if followTickerActive then return end
+    followTickerActive = true
+    if Carpenter and Carpenter.StartTicker then
+        Carpenter:StartTicker("NameplateComboPoints:follow", 0.05, update)
+    end
+end
+
+StopFollowTicker = function()
+    if not followTickerActive then return end
+    followTickerActive = false
+    if Carpenter and Carpenter.StopTicker then
+        Carpenter:StopTicker("NameplateComboPoints:follow")
+    end
+end
 
 local feature = {}
 
@@ -167,6 +182,7 @@ end
 
 function feature:Disable()
     addonFrame:UnregisterAllEvents()
+    StopFollowTicker()
     addonFrame:Hide()
     if resourceFrame then
         resourceFrame:Hide()

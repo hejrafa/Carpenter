@@ -119,6 +119,7 @@ end
 
 Carpenter.Features = Carpenter.Features or {}
 Carpenter.Deferred = Carpenter.Deferred or {}
+Carpenter.Tickers = Carpenter.Tickers or {}
 
 function Carpenter:RegisterFeature(key, module)
     if not key or type(module) ~= "table" then return end
@@ -180,6 +181,45 @@ function Carpenter:DeferMany(key, delays, callback)
             callback()
         end)
     end
+end
+
+function Carpenter:StartTicker(key, interval, callback)
+    if not key or type(callback) ~= "function" then return nil end
+    interval = interval or 1
+
+    self:StopTicker(key)
+
+    if C_Timer and C_Timer.NewTicker then
+        local ticker = C_Timer.NewTicker(interval, callback)
+        self.Tickers[key] = ticker
+        return ticker
+    end
+
+    local frame = CreateFrame("Frame")
+    local elapsed = 0
+    frame:SetScript("OnUpdate", function(_, delta)
+        elapsed = elapsed + delta
+        if elapsed >= interval then
+            elapsed = 0
+            callback()
+        end
+    end)
+    self.Tickers[key] = frame
+    return frame
+end
+
+function Carpenter:StopTicker(key)
+    if not key or not self.Tickers then return end
+    local ticker = self.Tickers[key]
+    if not ticker then return end
+
+    if ticker.Cancel then
+        ticker:Cancel()
+    elseif ticker.SetScript then
+        ticker:SetScript("OnUpdate", nil)
+        if ticker.Hide then ticker:Hide() end
+    end
+    self.Tickers[key] = nil
 end
 
 local GoldIcon = "|TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:0|t"

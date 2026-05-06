@@ -51,7 +51,7 @@ end
 
 local lastFeatureState = {}
 
-local function ShouldRunCleaner()
+local function HasActiveCleanerOption()
     if not IsRetail() then return false end
     if ShouldHidePvPIcon()
         or ShouldHidePowerBar()
@@ -65,6 +65,13 @@ local function ShouldRunCleaner()
         or ShouldHidePartyFrameTitle()
         or ShouldHideTargetReputationColor()
     then
+        return true
+    end
+    return false
+end
+
+local function ShouldRunCleaner()
+    if HasActiveCleanerOption() then
         return true
     end
 
@@ -660,18 +667,36 @@ local function Apply()
 end
 
 local frame = CreateFrame("Frame")
-frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-frame:RegisterEvent("PLAYER_TARGET_CHANGED")
-frame:RegisterEvent("PLAYER_FOCUS_CHANGED")
-frame:RegisterEvent("GROUP_ROSTER_UPDATE")
-frame:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT")
-frame:RegisterEvent("PLAYER_FLAGS_CHANGED")
-frame:RegisterEvent("PLAYER_UPDATE_RESTING")
-frame:RegisterEvent("PLAYER_REGEN_DISABLED")
-frame:RegisterEvent("UNIT_NAME_UPDATE")
-frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
-frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+local frameEvents = {
+    "PLAYER_ENTERING_WORLD",
+    "PLAYER_TARGET_CHANGED",
+    "PLAYER_FOCUS_CHANGED",
+    "GROUP_ROSTER_UPDATE",
+    "INSTANCE_ENCOUNTER_ENGAGE_UNIT",
+    "PLAYER_FLAGS_CHANGED",
+    "PLAYER_UPDATE_RESTING",
+    "PLAYER_REGEN_DISABLED",
+    "UNIT_NAME_UPDATE",
+    "NAME_PLATE_UNIT_ADDED",
+    "PLAYER_REGEN_ENABLED",
+}
+local eventsRegistered = false
 local applyScheduled = false
+
+local function RegisterCleanerEvents()
+    if eventsRegistered then return end
+    eventsRegistered = true
+    for _, event in ipairs(frameEvents) do
+        frame:RegisterEvent(event)
+    end
+end
+
+local function UnregisterCleanerEvents()
+    if not eventsRegistered then return end
+    eventsRegistered = false
+    frame:UnregisterAllEvents()
+end
+
 local function ScheduleApply()
     if applyScheduled then return end
     applyScheduled = true
@@ -679,16 +704,24 @@ local function ScheduleApply()
         C_Timer.After(0.05, function()
             applyScheduled = false
             Apply()
+            if not HasActiveCleanerOption() and not ShouldRunCleaner() then
+                UnregisterCleanerEvents()
+            end
         end)
     else
         applyScheduled = false
         Apply()
+        if not HasActiveCleanerOption() and not ShouldRunCleaner() then
+            UnregisterCleanerEvents()
+        end
     end
 end
 
 local function HandleEvent(_, event, unit)
     if event == "UNIT_NAME_UPDATE" or event == "NAME_PLATE_UNIT_ADDED" then
-        ApplyRealmIndicatorForUnit(unit)
+        if HasActiveCleanerOption() then
+            ApplyRealmIndicatorForUnit(unit)
+        end
         return
     end
 
@@ -704,9 +737,37 @@ frame:SetScript("OnEvent", function(...)
     return HandleEvent(...)
 end)
 
+local function RefreshSubscriptions()
+    if not IsRetail() then
+        UnregisterCleanerEvents()
+        return
+    end
+
+    if HasActiveCleanerOption() or ShouldRunCleaner() then
+        RegisterCleanerEvents()
+        ScheduleApply()
+    else
+        UnregisterCleanerEvents()
+    end
+end
+
 function Carpenter_ApplyRetailUnitFrameCleaner()
     if Carpenter and Carpenter.Profile then
         return Carpenter:Profile("RetailUnitFrameCleaner:Apply", Apply)
     end
     return Apply()
+end
+
+local function CreateFeature()
+    return {
+        Enable = RefreshSubscriptions,
+        Disable = RefreshSubscriptions,
+    }
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("cleanUpUnitFramesEnabled", CreateFeature())
+    Carpenter:RegisterFeature("hideUnitFramePowerBarEnabled", CreateFeature())
+    Carpenter:RegisterFeature("hideBossFramesEnabled", CreateFeature())
+    Carpenter:RegisterFeature("hideGroupIndicatorEnabled", CreateFeature())
 end

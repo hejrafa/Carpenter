@@ -16,6 +16,8 @@ Localization\deDE.lua
 Core\Carpenter.lua
 
 # Settings
+Modules\ConfigSidebar.lua
+Modules\ConfigOptions.lua
 config.lua
 Modules\AddonCompartment.lua
 SpellData.lua
