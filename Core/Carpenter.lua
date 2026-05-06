@@ -75,6 +75,17 @@ local defaults = {
 Carpenter.Defaults = defaults
 Carpenter.MerchantState = _G["Carpenter_MerchantState"] or {}
 _G["Carpenter_MerchantState"] = Carpenter.MerchantState
+Carpenter.AddonName = addonName or "Carpenter"
+
+function Carpenter:GetVersion()
+    if C_AddOns and C_AddOns.GetAddOnMetadata then
+        return C_AddOns.GetAddOnMetadata(self.AddonName, "Version")
+    end
+    if GetAddOnMetadata then
+        return GetAddOnMetadata(self.AddonName, "Version")
+    end
+    return nil
+end
 
 ns.Private.Colors = ns.Private.Colors or {
     gray = { colorCode = "|cffc8c8c8" },

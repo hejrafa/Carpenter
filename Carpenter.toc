@@ -45,6 +45,9 @@ Modules\ChatCleaner.lua
 Modules\HideChatButtons.lua
 
 # Automations
+Modules\SmartMacroData.lua
+Modules\SmartMacroScanner.lua
+Modules\SmartMacroBuilder.lua
 Modules\SmartMacros.lua
 Modules\AutoSellGreys.lua
 Modules\AutoRepair.lua

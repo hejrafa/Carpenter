@@ -55,6 +55,9 @@ Modules\HideChatButtons.lua
 
 # Automations
 Modules\AutoCarrot.lua
+Modules\SmartMacroData.lua
+Modules\SmartMacroScanner.lua
+Modules\SmartMacroBuilder.lua
 Modules\SmartMacros.lua
 Modules\AutoTrackQuests.lua
 Modules\AutoSellGreys.lua

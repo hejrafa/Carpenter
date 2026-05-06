@@ -957,7 +957,7 @@ end
 yPos = yPos - 48
 local footerVersion = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 footerVersion:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, yPos)
-footerVersion:SetText(LightGrey .. "v1.5.0|r")
+footerVersion:SetText(LightGrey .. "v" .. ((Carpenter and Carpenter.GetVersion and Carpenter:GetVersion()) or "1.5.0") .. "|r")
 
 -- Match sidebar: footer ends with same bottom spacing as "Requires UI reload" (SIDE_GAP)
 local FOOTER_LINE_HEIGHT = 14
