@@ -402,6 +402,26 @@ local function ScheduleEnhanceUnitTooltip(tooltip, unit)
     C_Timer.After(0.05, Reapply)
 end
 
+local tooltipUpdateElapsed = 0
+
+local function MaintainEnhancedTooltip(self, elapsed)
+    if self ~= GameTooltip or not IsEnabled() or not self:IsShown() then return end
+
+    tooltipUpdateElapsed = tooltipUpdateElapsed + (elapsed or 0)
+    if tooltipUpdateElapsed < 0.05 then return end
+    tooltipUpdateElapsed = 0
+
+    if self.GetItem then
+        local _, itemLink = self:GetItem()
+        if itemLink and itemLink ~= "" then return end
+    end
+
+    local unit = GetTooltipUnit(self)
+    if CanUseUnit(unit) and CanAccessTooltipText() then
+        EnhanceUnitTooltip(self, unit)
+    end
+end
+
 -- Match Leatrix Plus: world hover uses "mouseover", else GetUnit.
 -- WorldFrame:EnableMouseMotion(true) so world hover triggers unit tooltips.
 local function ShowTip(self)
@@ -448,6 +468,9 @@ local function InstallHooks()
         end
         if not hookedOnShow and GameTooltip.HasScript and GameTooltip:HasScript("OnShow") then
             GameTooltip:HookScript("OnShow", ShowTip)
+        end
+        if GameTooltip.HasScript and GameTooltip:HasScript("OnUpdate") then
+            GameTooltip:HookScript("OnUpdate", MaintainEnhancedTooltip)
         end
         hooked = true
     end
