@@ -124,7 +124,10 @@ function PostProcess.Create(config)
         local causeLabel = nil
         if lowerCause:find("drowned to death", 1, true) then
             causeLabel = T("CHAT_HARDCORE_DEATH_DROWNED", "drowned")
-        elseif lowerCause:find("fell to death", 1, true) then
+        elseif lowerCause:find("fell to death", 1, true) or
+            lowerCause:find("fell to their death", 1, true) or
+            lowerCause:find("fell to his death", 1, true) or
+            lowerCause:find("fell to her death", 1, true) then
             causeLabel = T("CHAT_HARDCORE_DEATH_FELL", "fell")
         elseif lowerCause:find("burned to death", 1, true) then
             causeLabel = T("CHAT_HARDCORE_DEATH_BURNED", "burned")
