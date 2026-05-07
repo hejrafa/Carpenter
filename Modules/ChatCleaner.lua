@@ -370,7 +370,9 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     if event == "CHAT_MSG_SYSTEM" then
         local plainMsg = msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
         local questProgressMessage = FormatQuestProgressMessage and FormatQuestProgressMessage(event, msg, plainMsg, prefixPlus)
-        if questProgressMessage then
+        if questProgressMessage == true then
+            return true
+        elseif questProgressMessage then
             return false, questProgressMessage, author, ...
         end
 

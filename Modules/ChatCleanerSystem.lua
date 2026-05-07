@@ -34,6 +34,15 @@ function System.Create(config)
     local lastLearnedSkillName, lastLearnedSkillTime = nil, 0
     local learnedSkillDedupSeconds = config.LearnedSkillDedupSeconds or 3
 
+    local function ShouldSuppressStoryModeQuestAccepted(message)
+        local storyMode = _G.StoryMode
+        local suppress = storyMode and storyMode.ShouldSuppressQuestAcceptedSystemMessage
+        if type(suppress) ~= "function" then return false end
+
+        local ok, result = pcall(suppress, message)
+        return ok and result == true
+    end
+
     function api.NormalizeSkillName(name)
         if not name or type(name) ~= "string" then return nil end
         name = cleanPunctuation(stripBrackets(name))
@@ -182,6 +191,9 @@ function System.Create(config)
         end
 
         if questAccepted then
+            if ShouldSuppressStoryModeQuestAccepted(message) then
+                return true
+            end
             return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_ACCEPTED_LABEL", "Accepted:") .. " |r" .. colorYellow .. cleanPunctuation(stripBrackets(questAccepted)) .. "|r")
         elseif questCompleted then
             local cleanQuest = cleanPunctuation(stripBrackets(questCompleted))
