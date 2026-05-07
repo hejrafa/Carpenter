@@ -117,13 +117,31 @@ function PostProcess.Create(config)
         if not plainText or type(plainText) ~= "string" then return nil end
 
         local text = plainText:gsub("^%s*%d+%.:?%s*", ""):gsub("^%s*:%s*", "")
-        local playerName, level = text:match("^%s*(.-)%s+has been slain.-%!%s*They were level%s+(%d+)%s*%.?%s*$")
+        local playerName, cause, level = text:match("^%s*(%S+)%s+(.+)%!%s*[Tt]hey were level%s+(%d+)%s*%.?%s*$")
         if not playerName or playerName == "" or not level then return nil end
+
+        local lowerCause = cause:lower()
+        local causeLabel = nil
+        if lowerCause:find("drowned to death", 1, true) then
+            causeLabel = T("CHAT_HARDCORE_DEATH_DROWNED", "drowned")
+        elseif lowerCause:find("fell to death", 1, true) then
+            causeLabel = T("CHAT_HARDCORE_DEATH_FELL", "fell")
+        elseif lowerCause:find("burned to death", 1, true) then
+            causeLabel = T("CHAT_HARDCORE_DEATH_BURNED", "burned")
+        elseif lowerCause:find("died from fatigue", 1, true) or lowerCause:find("died to fatigue", 1, true) then
+            causeLabel = T("CHAT_HARDCORE_DEATH_FATIGUE", "died from fatigue")
+        elseif lowerCause:find("has been slain", 1, true) or lowerCause:find("was slain", 1, true) then
+            causeLabel = T("CHAT_HARDCORE_DEATH_SLAIN", "slain")
+        elseif lowerCause:find("was killed", 1, true) or lowerCause:find("died to", 1, true) or
+            lowerCause:find("died from", 1, true) or lowerCause:find("died in", 1, true) then
+            causeLabel = T("CHAT_HARDCORE_DEATH_DIED", "died")
+        end
+        if not causeLabel then return nil end
 
         playerName = Trim(playerName):gsub("%-.*$", "")
         if playerName == "" then return nil end
 
-        return colorRed .. T("CHAT_HARDCORE_DEATH", "%s has been slain! They were level %s", playerName, level) .. "|r"
+        return colorRed .. T("CHAT_HARDCORE_DEATH", "%s %s! Level %s", playerName, causeLabel, level) .. "|r"
     end
 
     local function ClassColorPlayerNames(text)
