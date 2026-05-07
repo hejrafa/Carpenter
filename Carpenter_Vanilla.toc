@@ -1,8 +1,8 @@
 ## Interface: 11508
 ## Title: Carpenter
-## Notes: A modular UI cleanup and quality-of-life addon for cleaner action bars, unit frames, chat, automation, and camera settings.
+## Notes: Provides a variety of UI cleanup and quality-of-life features.|n|nOpen Settings with Slash Command:|n/carpenter or /cp
 ## SavedVariables: CarpenterDB
-## Version: 1.5.0
+## Version: 1.5.1
 ## Author: Rafael Polutta
 ## IconTexture: Interface\AddOns\Carpenter\Art\Icons\Carpenter_Logo
 

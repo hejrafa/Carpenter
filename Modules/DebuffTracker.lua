@@ -64,6 +64,81 @@ local function GetDebuffColor(debuffType)
     return color.r, color.g, color.b
 end
 
+local function FormatCooldownTime(remaining)
+    if not remaining or remaining <= 0 then return "" end
+    if remaining < 10 then
+        return tostring(math.ceil(remaining))
+    elseif remaining < 60 then
+        return tostring(math.ceil(remaining))
+    elseif remaining < 3600 then
+        return tostring(math.ceil(remaining / 60)) .. "m"
+    end
+    return tostring(math.ceil(remaining / 3600)) .. "h"
+end
+
+local function HasExternalCooldownCount()
+    if _G.OmniCC then return true end
+    if C_AddOns and C_AddOns.IsAddOnLoaded then
+        return C_AddOns.IsAddOnLoaded("OmniCC")
+    end
+    if IsAddOnLoaded then
+        return IsAddOnLoaded("OmniCC")
+    end
+    return false
+end
+
+local function UpdateCooldownText(frame)
+    if not frame or not frame.cooldownText then return end
+    if HasExternalCooldownCount() then
+        frame.cooldownExpirationTime = nil
+        frame.cooldownText:SetText("")
+        frame:SetScript("OnUpdate", nil)
+        return
+    end
+
+    local expirationTime = frame.cooldownExpirationTime
+    if not expirationTime or expirationTime <= 0 then
+        frame.cooldownText:SetText("")
+        return
+    end
+
+    local remaining = expirationTime - GetTime()
+    if remaining <= 0 then
+        frame.cooldownExpirationTime = nil
+        frame.cooldownText:SetText("")
+        frame:SetScript("OnUpdate", nil)
+        return
+    end
+
+    frame.cooldownText:SetText(FormatCooldownTime(remaining))
+end
+
+local function SetIconCooldown(frame, startTime, duration, expirationTime)
+    if not frame or not frame.cooldown then return end
+    frame.cooldown:SetCooldown(startTime or 0, duration or 0)
+
+    if frame.cooldownText then
+        if HasExternalCooldownCount() then
+            frame.cooldownExpirationTime = nil
+            frame.cooldownText:SetText("")
+            frame:SetScript("OnUpdate", nil)
+            return
+        end
+
+        if duration and duration > 0 and expirationTime and expirationTime > 0 then
+            frame.cooldownExpirationTime = expirationTime
+            UpdateCooldownText(frame)
+            frame:SetScript("OnUpdate", function(self)
+                UpdateCooldownText(self)
+            end)
+        else
+            frame.cooldownExpirationTime = nil
+            frame.cooldownText:SetText("")
+            frame:SetScript("OnUpdate", nil)
+        end
+    end
+end
+
 -- Check settings for Nameplates
 local function IsNameplateEnabled()
     return Carpenter and Carpenter:IsEnabled("debuffTrackerEnabled")
@@ -127,6 +202,14 @@ local function CreateBaseIcon(parent, isNameplate)
         end
         f.cooldown:SetDrawSwipe(true)
         f.cooldown:SetSwipeColor(0, 0, 0, 0.6)
+        f.cooldown:SetHideCountdownNumbers(true)
+
+        f.cooldownText = container:CreateFontString(nil, "OVERLAY")
+        f.cooldownText:SetPoint("CENTER", container, "CENTER", 0, 0)
+        f.cooldownText:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", 24, "OUTLINE")
+        f.cooldownText:SetTextColor(1, 1, 1)
+        f.cooldownText:SetShadowColor(0, 0, 0, 0.9)
+        f.cooldownText:SetShadowOffset(1, -1)
 
         -- Mask the icon so it stays circular like the portrait
         if container.CreateMaskTexture then
@@ -247,13 +330,14 @@ local function UpdateUnitPortraitDebuff(unit)
     if bestName then
         iconFrame.icon:SetTexture(bestIcon)
         if bestDuration and bestDuration > 0 and bestExpTime and bestExpTime > 0 then
-            iconFrame.cooldown:SetCooldown(bestExpTime - bestDuration, bestDuration)
+            SetIconCooldown(iconFrame, bestExpTime - bestDuration, bestDuration, bestExpTime)
         else
-            iconFrame.cooldown:SetCooldown(0, 0)
+            SetIconCooldown(iconFrame, 0, 0, nil)
         end
         iconFrame:Show()
         portrait:SetAlpha(0)
     else
+        SetIconCooldown(iconFrame, 0, 0, nil)
         iconFrame:Hide()
         portrait:SetAlpha(1)
     end
@@ -362,7 +446,11 @@ local function OnNameplateUpdate(self)
         f.icon:SetTexture(data.icon)
         local r, g, b = GetDebuffColor(data.type)
         f.border:SetVertexColor(r, g, b)
-        f.cooldown:SetCooldown(data.exp - data.dur, data.dur)
+        if data.dur and data.dur > 0 and data.exp and data.exp > 0 then
+            SetIconCooldown(f, data.exp - data.dur, data.dur, data.exp)
+        else
+            SetIconCooldown(f, 0, 0, nil)
+        end
         -- Explicitly push border to OVERLAY to stay on top
         f.border:SetDrawLayer("OVERLAY", 7)
         f:Show()

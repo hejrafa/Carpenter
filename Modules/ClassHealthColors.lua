@@ -24,10 +24,18 @@ local function GetClassColor(unit)
     return class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
 end
 
-local function RestoreDefaultUnitColor(bar, unit)
-    if not bar or not unit or not UnitExists(unit) or not bar._Carpenter_IsUnitClassColored then return end
+local function RestoreDefaultUnitColor(bar, unit, force)
+    if not bar or not unit or not UnitExists(unit) then return end
+    if not force and not bar._Carpenter_IsUnitClassColored then return end
 
     bar._Carpenter_IsUnitClassColored = false
+    if UnitFrameHealthBar_Update then
+        bar._CarpenterRestoringDefault = true
+        pcall(UnitFrameHealthBar_Update, bar, unit)
+        bar._CarpenterRestoringDefault = false
+        return
+    end
+
     local r, g, b = UnitSelectionColor(unit)
     if r and g and b then
         bar:SetStatusBarColor(r, g, b)
@@ -56,9 +64,11 @@ local function HookUnitFrameHealthBar(bar, unit)
 
     hooksecurefunc(bar, "SetStatusBarColor", function(self)
         local function Recolor()
-            if self._CarpenterRecoloring or not IsUnitFrameEnabled() then return end
+            if self._CarpenterRestoringDefault or self._CarpenterRecoloring or not IsUnitFrameEnabled() then return end
             self._CarpenterRecoloring = true
-            ApplyClassColor(self, self._CarpenterUnitFrameUnit)
+            if not ApplyClassColor(self, self._CarpenterUnitFrameUnit) then
+                RestoreDefaultUnitColor(self, self._CarpenterUnitFrameUnit)
+            end
             self._CarpenterRecoloring = false
         end
         if Carpenter and Carpenter.Profile then
@@ -101,7 +111,7 @@ local function UpdateHealthBarColor(bar, unit)
     if not IsUnitFrameEnabled() then return end
     HookUnitFrameHealthBar(bar, unit)
     if not ApplyClassColor(bar, unit) then
-        RestoreDefaultUnitColor(bar, unit)
+        RestoreDefaultUnitColor(bar, unit, true)
     end
 end
 
@@ -138,7 +148,7 @@ local function HandleUnitFrameEvent(self, event, unit)
         if C_Timer and C_Timer.After then
             C_Timer.After(0.1, RefreshUnitFrameColors)
         end
-    elseif event == "UNIT_HEALTH" or event == "UNIT_FACTION" then
+    elseif event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or event == "UNIT_FLAGS" or event == "UNIT_FACTION" then
         if unit == "target" then
             UpdateHealthBarColor(GetUnitFrameHealthBar("target"), "target")
             UpdateHealthBarColor(GetUnitFrameHealthBar("targettarget"), "targettarget")
@@ -179,6 +189,8 @@ function unitFrameFeature:Enable()
     unitFrameDriver:RegisterEvent("PLAYER_TARGET_CHANGED")
     unitFrameDriver:RegisterEvent("PLAYER_FOCUS_CHANGED")
     unitFrameDriver:RegisterUnitEvent("UNIT_HEALTH", "player", "target", "targettarget", "focus", "party1", "party2", "party3", "party4")
+    unitFrameDriver:RegisterUnitEvent("UNIT_MAXHEALTH", "player", "target", "targettarget", "focus", "party1", "party2", "party3", "party4")
+    unitFrameDriver:RegisterUnitEvent("UNIT_FLAGS", "player", "target", "targettarget", "focus", "party1", "party2", "party3", "party4")
     unitFrameDriver:RegisterUnitEvent("UNIT_FACTION", "player", "target", "targettarget", "focus", "party1", "party2", "party3", "party4")
     unitFrameDriver:RegisterUnitEvent("UNIT_TARGET", "target")
     unitFrameDriver:RegisterEvent("GROUP_ROSTER_UPDATE")

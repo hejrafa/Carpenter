@@ -61,8 +61,12 @@ function System.Create(config)
             if not name or not levelNum then return nil end
             if name:lower() == "you" then return nil end
 
+            if tonumber(levelNum) == 60 then
+                return colorYellow .. name .. " reached level " .. levelNum .. "|r"
+            end
+
             local nameColor = getClassColorForName(name)
-            return nameColor .. name .. "|r " .. levelColor .. "Reached Level " .. levelNum .. "|r"
+            return nameColor .. name .. "|r " .. levelColor .. "reached level " .. levelNum .. "|r"
         end
 
         local otherName, otherLevel = plainText:match("^%s*(.-)%s+[Hh]as%s+[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
@@ -81,7 +85,7 @@ function System.Create(config)
         local levelNum = plainText:match("[Rr]eached%s+level%s+(%d+)") or plainText:match("[Rr]each%s+level%s+(%d+)") or
             plainText:match("[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
         if levelNum and plainLower:find("level") and (plainLower:find("reached") or plainLower:find("reach") or plainLower:find("congratulations")) then
-            return levelColor .. "Reached Level " .. levelNum .. "|r"
+            return levelColor .. "reached level " .. levelNum .. "|r"
         end
 
         local hitAmount = plainText:match("[Yy]ou%s+have%s+gained%s+(%d+)%s+[Hh]it [Pp]oint") or
@@ -310,7 +314,7 @@ function System.Create(config)
         }
 
         local levelColor = getClassColorForName(UnitName("player") or "")
-        _G.LEVEL_UP = levelColor .. "Reached Level %d|r"
+        _G.LEVEL_UP = levelColor .. "reached level %d|r"
         _G.LEVEL_UP_HEALTH = colorPlus .. "+|r " .. levelColor .. "%d Hit Points|r"
         _G.LEVEL_UP_HEALTH_MANA = colorPlus .. "+|r " .. levelColor .. "%d Hit Points|r, " .. colorPlus .. "+|r " .. levelColor .. "%d Mana|r"
         _G.LEVEL_UP_CHAR_POINTS = colorPlus .. "+|r " .. levelColor .. "%d Talent Points|r"
