@@ -14,9 +14,11 @@ end
 local function ApplyActionBarToggles()
     _G.SHOW_MULTI_ACTIONBAR_1 = "1"
     _G.SHOW_MULTI_ACTIONBAR_2 = "1"
+    _G.SHOW_MULTI_ACTIONBAR_3 = "1"
 
     SetCVarValue("multiBarBottomLeft", "1")
     SetCVarValue("multiBarBottomRight", "1")
+    SetCVarValue("multiBarRight", "1")
 
     if type(SetActionBarToggles) == "function" then
         pcall(SetActionBarToggles, 1, 1, _G.SHOW_MULTI_ACTIONBAR_3, _G.SHOW_MULTI_ACTIONBAR_4)

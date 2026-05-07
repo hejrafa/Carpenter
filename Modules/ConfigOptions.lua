@@ -90,7 +90,7 @@ function Options.Create(context)
                     key = "enhanceUIEnabled",
                     label = L.OPTION_ENHANCE_UI or "Enhance UI",
                     description = Description("DESC_ENHANCE_UI"),
-                    image = GetSettingsImage("tooltip.png"),
+                    image = GetSettingsImage("enhanced.png"),
                 },
                 {
                     key = "scaleExtraAbilityEnabled",
@@ -133,7 +133,7 @@ function Options.Create(context)
                     key = "targetHealthPercentEnabled",
                     label = L.OPTION_TARGET_HEALTH_PERCENT or "Target Percentages",
                     description = Description("DESC_TARGET_HEALTH_PERCENT"),
-                    image = GetSettingsImage("unitnumbers.png"),
+                    image = GetSettingsImage("targetpercentage.png"),
                     requiresReload = false,
                     onToggle = function()
                         if Carpenter_UpdateTargetHealthPercent then Carpenter_UpdateTargetHealthPercent() end
@@ -149,7 +149,7 @@ function Options.Create(context)
                     key = "unitFrameBuffsEnabled",
                     label = L.OPTION_UNIT_FRAME_BUFFS or "Buffs",
                     description = Description("DESC_UNIT_FRAME_BUFFS"),
-                    image = GetSettingsImage("unitdebuff.png"),
+                    image = GetSettingsImage("unitbuff.png"),
                     requiresReload = false,
                     onToggle = function()
                         if Carpenter_UpdateUnitFrameAuras then Carpenter_UpdateUnitFrameAuras() end
@@ -334,7 +334,7 @@ function Options.Create(context)
                     key = "classicSettingsPresetEnabled",
                     label = L.OPTION_SETTINGS_PRESET or "Preset",
                     description = Description("DESC_SETTINGS_PRESET"),
-                    image = GetSettingsImage("actionbar.png"),
+                    image = GetSettingsImage("preset.png"),
                     requiresReload = false,
                     onToggle = function()
                         if Carpenter_ApplyClassicSettingsPreset then Carpenter_ApplyClassicSettingsPreset() end
