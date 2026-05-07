@@ -241,6 +241,9 @@ function PostProcess.Create(config)
         text = text:gsub("^(.-)%s+rolls?%s+(%d+)", function(name, rollNumber)
             local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
             if short ~= "" and short ~= "Loot" then
+                if short == "You" then
+                    return getClassColorForName(UnitName("player") or "You") .. (L.CHAT_YOU or "You") .. "|r rolls " .. rollNumber
+                end
                 return getClassColorForName(short) .. short .. "|r rolls " .. rollNumber
             end
             return name .. " rolls " .. rollNumber

@@ -462,7 +462,8 @@ function Loot.Create(config)
                     return spaceBeforeX(message)
                 end
                 if isYou then
-                    return spaceBeforeX(T("CHAT_YOU_ROLL_ITEM", "You roll %s:", rollNum) .. " " .. display)
+                    local youColor = getClassColorForName(UnitName("player") or "You")
+                    return spaceBeforeX(youColor .. You() .. "|r " .. T("CHAT_ROLL_LABEL", "roll %s:", rollNum) .. " " .. display)
                 end
                 return spaceBeforeX(nameColor .. displayName .. "|r " .. T("CHAT_ROLLS_LABEL", "rolls %s:", rollNum) .. " " .. display)
             end
