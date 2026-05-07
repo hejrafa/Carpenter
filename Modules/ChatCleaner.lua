@@ -1,5 +1,6 @@
 --[[ Carpenter - ChatCleaner ]]
 local _, ns = ...
+local L = (Carpenter and Carpenter.L) or (ns and ns.L) or {}
 
 -- Shared Carpenter color palette
 local Colors = ns and ns.Private and ns.Private.Colors
@@ -147,6 +148,7 @@ local GroupLootPatterns = ChatCleanerLoot.BuildGroupLootPatterns and ChatCleaner
 local RollPatterns = ChatCleanerLoot.BuildRollPatterns and ChatCleanerLoot.BuildRollPatterns() or {}
 local RollPatternsFallback = ChatCleanerLoot.RollPatternsFallback or {}
 local lootFormatter = ChatCleanerLoot.Create and ChatCleanerLoot.Create({
+    L = L,
     CleanPunctuation = CleanPunctuation,
     StripBrackets = StripBrackets,
     SpaceBeforeX = SpaceBeforeX,
@@ -176,6 +178,7 @@ local mailTracker = sessionTracker.mailTracker or {}
 
 
 local systemFormatter = ChatCleanerSystem.Create and ChatCleanerSystem.Create({
+    L = L,
     CleanPunctuation = CleanPunctuation,
     StripBrackets = StripBrackets,
     SpaceBeforeX = SpaceBeforeX,
@@ -200,6 +203,7 @@ local FormatSkillMessage = systemFormatter.FormatSkillMessage
 local ApplyLevelUpGlobalStringStyling = systemFormatter.ApplyLevelUpGlobalStringStyling
 
 local rewardFormatter = ChatCleanerRewards.Create and ChatCleanerRewards.Create({
+    L = L,
     CleanPunctuation = CleanPunctuation,
     StripBrackets = StripBrackets,
     SpaceBeforeX = SpaceBeforeX,
@@ -229,6 +233,7 @@ local FormatRefundDisplay = rewardFormatter.FormatRefundDisplay
 local FormatGenericReward = rewardFormatter.FormatGenericReward
 
 local socialFormatter = ChatCleanerSocial.Create and ChatCleanerSocial.Create({
+    L = L,
     GetPartyOrRaidMessageColor = GetPartyOrRaidMessageColor,
     CleanPunctuation = CleanPunctuation,
     GetClassColorForName = GetClassColorForName,
@@ -248,6 +253,7 @@ local FormatBattlegroundAndGroupNotice = socialFormatter.FormatBattlegroundAndGr
 local FormatSystemSocialMessage = socialFormatter.FormatSystemSocialMessage
 
 local postProcessor = ChatCleanerPostProcess.Create and ChatCleanerPostProcess.Create({
+    L = L,
     RemoveLinkBrackets = RemoveLinkBrackets,
     GetClassColorForName = GetClassColorForName,
     FormatLevelUpRewardMessage = FormatLevelUpRewardMessage,

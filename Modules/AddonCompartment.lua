@@ -28,8 +28,9 @@ local function OnEnter(owner, menuButton)
     if not GameTooltip or not tooltipOwner then return end
 
     GameTooltip:SetOwner(tooltipOwner, "ANCHOR_RIGHT")
-    GameTooltip:SetText((Carpenter and Carpenter.L and Carpenter.L.ADDON_NAME) or addonName or "Carpenter")
-    GameTooltip:AddLine("Open settings", 1, 1, 1)
+    local L = (Carpenter and Carpenter.L) or {}
+    GameTooltip:SetText(L.ADDON_NAME or addonName or "Carpenter")
+    GameTooltip:AddLine(L.OPEN_SETTINGS or "Open settings", 1, 1, 1)
     GameTooltip:Show()
 end
 

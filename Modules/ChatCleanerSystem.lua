@@ -19,6 +19,15 @@ function System.Create(config)
     local colorPurple = config.ColorPurple or "|cffb794f4"
     local colorTeal = config.ColorTeal or "|cff00ccaa"
     local colorYellow = config.ColorYellow or "|cffffd200"
+    local L = config.L or (Carpenter and Carpenter.L) or {}
+
+    local function T(key, fallback, ...)
+        local text = L[key] or fallback or key
+        if select("#", ...) > 0 then
+            return string.format(text, ...)
+        end
+        return text
+    end
 
     local api = {}
     local originalLevelUpGlobals = nil
@@ -62,11 +71,11 @@ function System.Create(config)
             if name:lower() == "you" then return nil end
 
             if tonumber(levelNum) == 60 then
-                return colorYellow .. name .. " reached level " .. levelNum .. "|r"
+                return colorYellow .. T("CHAT_REACHED_LEVEL", "%s reached level %s", name, levelNum) .. "|r"
             end
 
             local nameColor = getClassColorForName(name)
-            return nameColor .. name .. "|r " .. levelColor .. "reached level " .. levelNum .. "|r"
+            return nameColor .. name .. "|r " .. levelColor .. T("CHAT_REACHED_LEVEL_NO_NAME", "reached level %s", levelNum) .. "|r"
         end
 
         local otherName, otherLevel = plainText:match("^%s*(.-)%s+[Hh]as%s+[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
@@ -85,7 +94,7 @@ function System.Create(config)
         local levelNum = plainText:match("[Rr]eached%s+level%s+(%d+)") or plainText:match("[Rr]each%s+level%s+(%d+)") or
             plainText:match("[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
         if levelNum and plainLower:find("level") and (plainLower:find("reached") or plainLower:find("reach") or plainLower:find("congratulations")) then
-            return levelColor .. "reached level " .. levelNum .. "|r"
+            return levelColor .. T("CHAT_REACHED_LEVEL_NO_NAME", "reached level %s", levelNum) .. "|r"
         end
 
         local hitAmount = plainText:match("[Yy]ou%s+have%s+gained%s+(%d+)%s+[Hh]it [Pp]oint") or
@@ -93,7 +102,7 @@ function System.Create(config)
             plainText:match("[Gg]ained%s*:?.-%s*(%d+)%s+[Hh]it [Pp]oint")
         if hitAmount and plainLower:find("hit point") then
             local n = tonumber(hitAmount) or 0
-            local word = (n == 1) and "Hit Point" or "Hit Points"
+            local word = (n == 1) and T("CHAT_HIT_POINT", "Hit Point") or T("CHAT_HIT_POINTS", "Hit Points")
             return colorPlus .. "+|r " .. levelColor .. hitAmount .. " " .. word .. "|r"
         end
 
@@ -102,7 +111,7 @@ function System.Create(config)
             plainText:match("[Gg]ained%s*:?.-%s*(%d+)%s+[Tt]alent [Pp]oint")
         if talentAmount and plainLower:find("talent point") then
             local n = tonumber(talentAmount) or 0
-            local word = (n == 1) and "Talent Point" or "Talent Points"
+            local word = (n == 1) and T("CHAT_TALENT_POINT", "Talent Point") or T("CHAT_TALENT_POINTS", "Talent Points")
             return colorPlus .. "+|r " .. levelColor .. talentAmount .. " " .. word .. "|r"
         end
 
@@ -138,7 +147,7 @@ function System.Create(config)
             plainText:match("^%s*[Dd]iscovered:%s*(.+)$")
         if exploredZone and exploredZone ~= "" then
             exploredZone = exploredZone:gsub("^%s+", ""):gsub("%s+$", "")
-            return spaceBeforeX(colorWhite .. "Exploring a new zone: " .. exploredZone .. "|r")
+            return spaceBeforeX(colorWhite .. T("CHAT_EXPLORING_ZONE", "Exploring a new zone: %s", exploredZone) .. "|r")
         end
 
         local xp = message:match("You gain (%d+) experience") or message:match("Experience gained: (%d+)")
@@ -173,10 +182,10 @@ function System.Create(config)
         end
 
         if questAccepted then
-            return spaceBeforeX(prefixPlus .. colorWhite .. "Accepted: " .. "|r" .. colorYellow .. cleanPunctuation(stripBrackets(questAccepted)) .. "|r")
+            return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_ACCEPTED_LABEL", "Accepted:") .. " |r" .. colorYellow .. cleanPunctuation(stripBrackets(questAccepted)) .. "|r")
         elseif questCompleted then
             local cleanQuest = cleanPunctuation(stripBrackets(questCompleted))
-            return spaceBeforeX(prefixPlus .. colorWhite .. "Completed: " .. "|r" .. colorYellow .. cleanQuest .. "|r")
+            return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_COMPLETED_LABEL", "Completed:") .. " |r" .. colorYellow .. cleanQuest .. "|r")
         end
 
         return nil
@@ -202,7 +211,7 @@ function System.Create(config)
         end
         if faction and amount then
             faction = cleanPunctuation(stripBrackets(faction))
-            return spaceBeforeX(colorPlus .. "+|r " .. colorWhite .. amount .. " Reputation: |r" .. colorBluePurple .. faction .. "|r")
+            return spaceBeforeX(colorPlus .. "+|r " .. colorWhite .. amount .. " " .. T("CHAT_REPUTATION_LABEL", "Reputation:") .. " |r" .. colorBluePurple .. faction .. "|r")
         end
 
         local repFaction, repAmount = message:match("Your reputation with (.-) has decreased by (%d+)")
@@ -210,7 +219,7 @@ function System.Create(config)
         if not repFaction then repAmount, repFaction = message:match("(%d+) reputation with (.-) lost") end
         if not repFaction then repFaction, repAmount = message:match("(.-) reputation decreased by (%d+)") end
         if repFaction and repAmount then
-            return spaceBeforeX(colorMinus .. "-|r " .. colorWhite .. repAmount .. " Reputation: |r" .. colorBluePurple .. repFaction .. "|r")
+            return spaceBeforeX(colorMinus .. "-|r " .. colorWhite .. repAmount .. " " .. T("CHAT_REPUTATION_LABEL", "Reputation:") .. " |r" .. colorBluePurple .. repFaction .. "|r")
         end
 
         return nil
@@ -223,7 +232,7 @@ function System.Create(config)
         if queueMsg:find("joined the queue") or queueMsg:find("joined queue") or
            queueMsg:find("entering battleground") or queueMsg:find("entered battleground") or
            queueMsg:find("battlefield queue") then
-            local bgType = "Unknown"
+            local bgType = T("CHAT_UNKNOWN", "Unknown")
             if queueMsg:find("alterac valley", 1, true) then
                 bgType = "Alterac Valley"
             elseif queueMsg:find("warsong gulch", 1, true) then
@@ -237,13 +246,13 @@ function System.Create(config)
             elseif queueMsg:find("isle of conquest", 1, true) then
                 bgType = "Isle of Conquest"
             elseif queueMsg:find("arena", 1, true) or queueMsg:find("2v2", 1, true) or queueMsg:find("3v3", 1, true) or queueMsg:find("5v5", 1, true) then
-                bgType = "Arena"
+                bgType = T("CHAT_ARENA", "Arena")
             end
-            return spaceBeforeX(colorPlus .. "+|r " .. colorWhite .. "Joined the queue: |r" .. colorQueue .. bgType .. "|r")
+            return spaceBeforeX(colorPlus .. "+|r " .. colorWhite .. T("CHAT_JOINED_QUEUE_LABEL", "Joined the queue:") .. " |r" .. colorQueue .. bgType .. "|r")
         end
 
         if message:match("^You are now saved to this instance%.?$") then
-            return spaceBeforeX(colorPlus .. "+|r " .. colorWhite .. "Saved to instance|r")
+            return spaceBeforeX(colorPlus .. "+|r " .. colorWhite .. T("CHAT_SAVED_TO_INSTANCE", "Saved to instance") .. "|r")
         end
 
         local hasWin = queueMsg:find("victory") or queueMsg:find("win") or queueMsg:find("won")
@@ -271,7 +280,7 @@ function System.Create(config)
                 lastLearnedSkillName = api.NormalizeSkillName(display)
                 lastLearnedSkillTime = GetTime and GetTime() or 0
             end
-            return spaceBeforeX(prefixPlus .. colorWhite .. "Learned: " .. "|r" .. colorPurple .. display .. "|r")
+            return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_LEARNED_LABEL", "Learned:") .. " |r" .. colorPurple .. display .. "|r")
         end
 
         local unlearned = message:match("You have unlearned: (.+)") or message:match("You have unlearned (.+)") or
@@ -281,7 +290,7 @@ function System.Create(config)
         if unlearned then
             local display = cleanPunctuation(stripBrackets(unlearned))
             display = display:gsub("^a new item: ", ""):gsub("^a new spell: ", ""):gsub("^a new ability: ", "")
-            return spaceBeforeX(prefixMinus .. colorWhite .. "Unlearned: " .. "|r" .. colorPurple .. display .. "|r")
+            return spaceBeforeX(prefixMinus .. colorWhite .. T("CHAT_UNLEARNED_LABEL", "Unlearned:") .. " |r" .. colorPurple .. display .. "|r")
         end
 
         local gainedSkill = plainText:match("[Yy]ou have gained the (.-) skill[%.,!]?%s*$")
@@ -291,12 +300,12 @@ function System.Create(config)
             if lastLearnedSkillName and api.NormalizeSkillName(display) == lastLearnedSkillName and (now - lastLearnedSkillTime) <= learnedSkillDedupSeconds then
                 return true
             end
-            return spaceBeforeX(prefixPlus .. colorWhite .. "Skill: |r" .. colorPurple .. display .. "|r")
+            return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_SKILL_LABEL", "Skill:") .. " |r" .. colorPurple .. display .. "|r")
         end
 
         local skill, skillRank = message:match("Your skill in (.-) has increased to (%d+)")
         if skill and skillRank then
-            return spaceBeforeX(prefixPlus .. colorWhite .. skillRank .. " Skill: |r" .. colorPurple .. skill .. "|r")
+            return spaceBeforeX(prefixPlus .. colorWhite .. skillRank .. " " .. T("CHAT_SKILL_LABEL", "Skill:") .. " |r" .. colorPurple .. skill .. "|r")
         end
 
         return nil
@@ -314,10 +323,10 @@ function System.Create(config)
         }
 
         local levelColor = getClassColorForName(UnitName("player") or "")
-        _G.LEVEL_UP = levelColor .. "reached level %d|r"
-        _G.LEVEL_UP_HEALTH = colorPlus .. "+|r " .. levelColor .. "%d Hit Points|r"
-        _G.LEVEL_UP_HEALTH_MANA = colorPlus .. "+|r " .. levelColor .. "%d Hit Points|r, " .. colorPlus .. "+|r " .. levelColor .. "%d Mana|r"
-        _G.LEVEL_UP_CHAR_POINTS = colorPlus .. "+|r " .. levelColor .. "%d Talent Points|r"
+        _G.LEVEL_UP = levelColor .. T("CHAT_REACHED_LEVEL_NO_NAME", "reached level %d") .. "|r"
+        _G.LEVEL_UP_HEALTH = colorPlus .. "+|r " .. levelColor .. "%d " .. T("CHAT_HIT_POINTS", "Hit Points") .. "|r"
+        _G.LEVEL_UP_HEALTH_MANA = colorPlus .. "+|r " .. levelColor .. "%d " .. T("CHAT_HIT_POINTS", "Hit Points") .. "|r, " .. colorPlus .. "+|r " .. levelColor .. "%d " .. (MANA or T("MANA", "Mana")) .. "|r"
+        _G.LEVEL_UP_CHAR_POINTS = colorPlus .. "+|r " .. levelColor .. "%d " .. T("CHAT_TALENT_POINTS", "Talent Points") .. "|r"
         _G.LEVEL_UP_STAT = "Your %s increases by %d"
     end
 

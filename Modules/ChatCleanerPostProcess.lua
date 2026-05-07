@@ -64,11 +64,20 @@ function PostProcess.Create(config)
     local colorRed = config.ColorRed or "|cffff4040"
     local honorDelay = config.HonorDelay or 3
     local joinDedupDelay = config.JoinDedupDelay or 8
+    local L = config.L or (Carpenter and Carpenter.L) or {}
 
     local lastStyledHonor = nil
     local lastJoinKey, lastJoinTime = nil, nil
 
     local api = {}
+
+    local function T(key, fallback, ...)
+        local text = L[key] or fallback or key
+        if select("#", ...) > 0 then
+            return string.format(text, ...)
+        end
+        return text
+    end
 
     local function Trim(text)
         return (text and text:gsub("^%s+", ""):gsub("%s+$", "") or "")
@@ -89,7 +98,7 @@ function PostProcess.Create(config)
         playerName = Trim(playerName):gsub("%-.*$", "")
         if playerName == "" then return nil end
 
-        return colorRed .. playerName .. " has been slain! They were level " .. level .. "|r"
+        return colorRed .. T("CHAT_HARDCORE_DEATH", "%s has been slain! They were level %s", playerName, level) .. "|r"
     end
 
     local function ClassColorPlayerNames(text)

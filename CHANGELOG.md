@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.0
+
+- Added German, French, and Russian localization files for settings labels, sidebar descriptions, addon messages, Chat Cleaner output, tooltips, warnings, and Retail addon-compartment tooltip text.
+- Moved settings sidebar descriptions out of `Modules/ConfigOptions.lua` and into localization keys so future translations can land without touching settings layout code.
+- Added localized TOC notes for German, French, and Russian clients.
+
 ## 1.5.1
 
 - Shortened Hardcore death channel messages to remove the channel prefix and death source details.

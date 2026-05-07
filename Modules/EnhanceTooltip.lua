@@ -1,5 +1,6 @@
 --[[ Carpenter - Enhance Tooltip ]]
 -- When enabled: hides the health bar, recolors name/info lines, shows unit target.
+local L = (Carpenter and Carpenter.L) or {}
 
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("enhanceTooltipEnabled")
@@ -301,8 +302,8 @@ local function ApplyMobLevelLine(tooltip, unit)
     end
 end
 
-local TARGET_PREFIX = "Target: "
-local TARGET_YOU = "YOU"
+local TARGET_PREFIX = (L.TOOLTIP_TARGET_PREFIX or "Target:") .. " "
+local TARGET_YOU = L.TOOLTIP_YOU or "YOU"
 
 local function RefreshTooltipLayout(tooltip)
     if tooltip and tooltip.Show then
@@ -315,7 +316,7 @@ local function TooltipAlreadyHasTargetLine()
         local line = _G["GameTooltipTextLeft" .. i]
         if line then
             local text = line:GetText() or ""
-            if text:find("^Target: ") then return true end
+            if text:find("^" .. TARGET_PREFIX:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")) then return true end
         end
     end
     return false

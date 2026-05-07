@@ -1,5 +1,6 @@
 --[[ Carpenter - Enhance UI ]]
 -- Classic-only expansions for quest log, professions, and trainers.
+local L = (Carpenter and Carpenter.L) or {}
 
 local function IsEnabled()
     return Carpenter and Carpenter.Client and Carpenter.Client.isClassic and Carpenter:IsEnabled("enhanceUIEnabled")
@@ -341,7 +342,7 @@ local function ApplyTrainer()
     RestoreTrainerScrollArea(0)
 
     local trainAll = CreateFrame("Button", "CarpenterTrainAllButton", ClassTrainerFrame, "UIPanelButtonTemplate")
-    trainAll:SetText("Train All")
+    trainAll:SetText(L.TRAIN_ALL or "Train All")
     trainAll:SetSize(100, 22)
     trainAll:SetPoint("BOTTOMLEFT", ClassTrainerFrame, "BOTTOMLEFT", 344, 54)
     trainAll:SetScript("OnEnter", function(self)
@@ -355,7 +356,8 @@ local function ApplyTrainer()
         end
         if count > 0 then
             GameTooltip:SetOwner(self, "ANCHOR_TOP", 0, 4)
-            GameTooltip:SetText("Train " .. count .. " " .. (count == 1 and "skill" or "skills") .. " for " .. GetCoinTextureString(cost))
+            local skillWord = (count == 1 and (L.TRAIN_SKILL or "skill")) or (L.TRAIN_SKILLS or "skills")
+            GameTooltip:SetText(string.format(L.TRAIN_ALL_TOOLTIP or "Train %d %s for %s", count, skillWord, GetCoinTextureString(cost)))
             GameTooltip:Show()
         end
     end)

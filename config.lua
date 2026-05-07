@@ -40,10 +40,11 @@ end
 
 function Carpenter_OpenConfig()
     if InCombatLockdown and InCombatLockdown() then
+        local combatMessage = L.CONFIG_COMBAT_LOCKDOWN or "Carpenter settings cannot be opened while in combat."
         if UIErrorsFrame and UIErrorsFrame.AddMessage then
-            UIErrorsFrame:AddMessage("Carpenter settings cannot be opened while in combat.", 1, 0.1, 0.1, 1)
+            UIErrorsFrame:AddMessage(combatMessage, 1, 0.1, 0.1, 1)
         else
-            print("|cffff0000Carpenter:|r Settings cannot be opened while in combat.")
+            print("|cffff0000Carpenter:|r " .. combatMessage)
         end
         return
     end
@@ -356,7 +357,7 @@ end
 yPos = yPos - 48
 local footerVersion = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 footerVersion:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, yPos)
-footerVersion:SetText(LightGrey .. "v" .. ((Carpenter and Carpenter.GetVersion and Carpenter:GetVersion()) or "1.5.0") .. "|r")
+footerVersion:SetText(LightGrey .. "v" .. ((Carpenter and Carpenter.GetVersion and Carpenter:GetVersion()) or "1.6.0") .. "|r")
 
 -- Match sidebar: footer ends with same bottom spacing as "Requires UI reload" (SIDE_GAP)
 local FOOTER_LINE_HEIGHT = 14

@@ -127,6 +127,19 @@ function Loot.Create(config)
     local rollPatternsFallback = config.RollPatternsFallback or Loot.RollPatternsFallback
     local colorPlus = config.ColorPlus or "|cffc8c8c8"
     local colorLootLiteral = config.ColorLootLiteral or "|cffc8c8c8"
+    local L = config.L or (Carpenter and Carpenter.L) or {}
+
+    local function T(key, fallback, ...)
+        local text = L[key] or fallback or key
+        if select("#", ...) > 0 then
+            return string.format(text, ...)
+        end
+        return text
+    end
+
+    local function You()
+        return L.CHAT_YOU or "You"
+    end
 
     local api = {}
 
@@ -260,7 +273,7 @@ function Loot.Create(config)
         local function NameOut(name)
             local isYou = name:lower() == "you"
             if isYou then
-                return getClassColorForName(UnitName("player") or "You") .. "You|r", true
+                return getClassColorForName(UnitName("player") or "You") .. You() .. "|r", true
             end
             local short = name:gsub("%-.*$", "")
             return getClassColorForName(short) .. short .. "|r", false
@@ -270,7 +283,7 @@ function Loot.Create(config)
         if looseYouType and looseYouItem then
             local itemLink = getItemLinkFromMessage(message)
             local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(looseYouItem))
-            local nameOut = getClassColorForName(UnitName("player") or "You") .. "You|r"
+            local nameOut = getClassColorForName(UnitName("player") or "You") .. You() .. "|r"
             return spaceBeforeX(nameOut .. " " .. looseYouType .. ": " .. display)
         end
 
@@ -313,7 +326,7 @@ function Loot.Create(config)
         if youType and youItem then
             local itemLink = getItemLinkFromMessage(message)
             local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(youItem))
-            return spaceBeforeX(getClassColorForName(UnitName("player") or "You") .. "You|r " .. youType .. ": " .. display)
+            return spaceBeforeX(getClassColorForName(UnitName("player") or "You") .. You() .. "|r " .. youType .. ": " .. display)
         end
 
         local wonName, wonItem = afterLoot:match("^(.-)%s+[Ww]on:%s*(.+)$") or afterLoot:match("^(.-)%s+[Ww]on%s+(.+)$") or
@@ -323,7 +336,7 @@ function Loot.Create(config)
             local itemLink = getItemLinkFromMessage(message)
             local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(wonItem))
             local nameOut = NameOut(wonName)
-            return spaceBeforeX(nameOut .. " won: " .. display)
+            return spaceBeforeX(nameOut .. " " .. T("CHAT_WON_LABEL", "won:") .. " " .. display)
         end
 
         local wonItem2, wonBy = coreRoll:match("^%s*[Ll]oot:%s*(.-)%s+won by%s+(.+)$")
@@ -332,7 +345,7 @@ function Loot.Create(config)
             local itemLink = getItemLinkFromMessage(message)
             local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(wonItem2))
             local nameOut = NameOut(wonBy)
-            return spaceBeforeX(nameOut .. " won: " .. display)
+            return spaceBeforeX(nameOut .. " " .. T("CHAT_WON_LABEL", "won:") .. " " .. display)
         end
 
         local function RollTypeWord(literal)
@@ -362,20 +375,20 @@ function Loot.Create(config)
             local itemKey = Loot.GetRollItemKey(itemPart, message)
 
             if typeWord == "Pass" then
-                return spaceBeforeX(nameColor .. displayName .. "|r passed: " .. display)
+                return spaceBeforeX(nameColor .. displayName .. "|r " .. T("CHAT_PASSED_LABEL", "passed:") .. " " .. display)
             end
             if typeWord == "Won" then
                 Loot.ClearRollItem(itemKey)
-                return spaceBeforeX(nameColor .. displayName .. "|r won: " .. display)
+                return spaceBeforeX(nameColor .. displayName .. "|r " .. T("CHAT_WON_LABEL", "won:") .. " " .. display)
             end
             Loot.SetRollType(itemKey, shortName, typeWord)
             if isYou then Loot.SetRollType(itemKey, "You", typeWord) end
             if isYou then
                 local youColor = getClassColorForName(UnitName("player") or "You")
-                return spaceBeforeX(youColor .. "You|r selected " .. typeWord .. ": " .. display)
+                return spaceBeforeX(youColor .. You() .. "|r " .. T("CHAT_SELECTED_ROLL", "selected %s:", T("CHAT_ROLL_" .. typeWord:upper(), typeWord)) .. " " .. display)
             end
             if display and display ~= "" then
-                return spaceBeforeX(nameColor .. displayName .. "|r selected " .. typeWord .. ": " .. display)
+                return spaceBeforeX(nameColor .. displayName .. "|r " .. T("CHAT_SELECTED_ROLL", "selected %s:", T("CHAT_ROLL_" .. typeWord:upper(), typeWord)) .. " " .. display)
             end
             return true
         end
@@ -400,17 +413,17 @@ function Loot.Create(config)
                     local rangeText = rollItemPart and rollItemPart:match("%(%d+%-%d+%)") or "(1-100)"
                     local blue = "|cff33aaff"
                     if isYouRoll then
-                        return spaceBeforeX(blue .. "You roll " .. rollNum .. " " .. rangeText .. "|r")
+                        return spaceBeforeX(blue .. T("CHAT_YOU_ROLL", "You roll %s %s", rollNum, rangeText) .. "|r")
                     end
-                    return spaceBeforeX(blue .. rollName:gsub("%-.*$", "") .. " rolls " .. rollNum .. " " .. rangeText .. "|r")
+                    return spaceBeforeX(blue .. T("CHAT_PLAYER_ROLLS_RANGE", "%s rolls %s %s", rollName:gsub("%-.*$", ""), rollNum, rangeText) .. "|r")
                 end
 
                 local display = BuildRollDisplay(rollItemPart, message)
                 if display and display ~= "" then
                     if isYouRoll then
-                        return spaceBeforeX(getClassColorForName(UnitName("player") or "You") .. "You|r roll " .. rollNum .. ": " .. display)
+                        return spaceBeforeX(getClassColorForName(UnitName("player") or "You") .. You() .. "|r " .. T("CHAT_ROLL_LABEL", "roll %s:", rollNum) .. " " .. display)
                     end
-                    return spaceBeforeX(getClassColorForName(rollName) .. rollName .. "|r rolls " .. rollNum .. ": " .. display)
+                    return spaceBeforeX(getClassColorForName(rollName) .. rollName .. "|r " .. T("CHAT_ROLLS_LABEL", "rolls %s:", rollNum) .. " " .. display)
                 end
                 local _ = Loot.GetRollType(itemKey, isYouRoll and "You" or rollName:gsub("%-.*$", ""))
             end
@@ -436,15 +449,15 @@ function Loot.Create(config)
                 local nameColor = getClassColorForName(displayName)
                 if isWinner then
                     Loot.ClearRollItem(itemKey)
-                    return spaceBeforeX(nameColor .. displayName .. "|r won: " .. display)
+                    return spaceBeforeX(nameColor .. displayName .. "|r " .. T("CHAT_WON_LABEL", "won:") .. " " .. display)
                 end
                 if not rollNum or not display or display == "" then
                     return spaceBeforeX(message)
                 end
                 if isYou then
-                    return spaceBeforeX("You roll " .. rollNum .. ": " .. display)
+                    return spaceBeforeX(T("CHAT_YOU_ROLL_ITEM", "You roll %s:", rollNum) .. " " .. display)
                 end
-                return spaceBeforeX(nameColor .. displayName .. "|r rolls " .. rollNum .. ": " .. display)
+                return spaceBeforeX(nameColor .. displayName .. "|r " .. T("CHAT_ROLLS_LABEL", "rolls %s:", rollNum) .. " " .. display)
             end
         end
 

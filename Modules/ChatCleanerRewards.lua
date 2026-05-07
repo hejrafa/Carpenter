@@ -26,9 +26,18 @@ function Rewards.Create(config)
     local merchantFrame = config.MerchantFrame or {}
     local mailTracker = config.MailTracker or {}
     local repairDedupSeconds = config.RepairDedupSeconds or 2
+    local L = config.L or (Carpenter and Carpenter.L) or {}
     local lastRepairAmount, lastRepairTime = nil, 0
 
     local api = {}
+
+    local function T(key, fallback, ...)
+        local text = L[key] or fallback or key
+        if select("#", ...) > 0 then
+            return string.format(text, ...)
+        end
+        return text
+    end
 
     local function ParseMoneyAmount(message)
         local gold = tonumber(message:match("(%d+) Gold") or message:match("(%d+) gold")) or 0
@@ -70,7 +79,7 @@ function Rewards.Create(config)
                 clean:match("(%d+)%s*[Aa]rena%s+[Pp]oints")
 
             if arenaPoints then
-                return spaceBeforeX(prefixPlus .. colorWhite .. "Arena Points: |r" .. colorPurple .. arenaPoints .. "|r")
+                return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_ARENA_POINTS_LABEL", "Arena Points:") .. " |r" .. colorPurple .. arenaPoints .. "|r")
             end
         end
 
@@ -144,10 +153,10 @@ function Rewards.Create(config)
 
         if shareGold > 0 or shareSilver > 0 or shareCopper > 0 then
             local totalShare = shareGold * 10000 + shareSilver * 100 + shareCopper
-            return spaceBeforeX(prefixPlus .. colorWhite .. "Loot Share: |r" .. formatMoney(totalShare))
+            return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_LOOT_SHARE_LABEL", "Loot Share:") .. " |r" .. formatMoney(totalShare))
         elseif altGold > 0 or altSilver > 0 or altCopper > 0 then
             local totalAlt = altGold * 10000 + altSilver * 100 + altCopper
-            return spaceBeforeX(prefixPlus .. colorWhite .. "Loot Share: |r" .. formatMoney(totalAlt))
+            return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_LOOT_SHARE_LABEL", "Loot Share:") .. " |r" .. formatMoney(totalAlt))
         end
 
         return nil
@@ -245,7 +254,7 @@ function Rewards.Create(config)
             local itemLink = getItemLinkFromMessage(message)
             if itemLink then
                 local display = getItemLinkWithQualityColor(itemLink)
-                return spaceBeforeX(prefixPlus .. colorAuctionHouse .. "Buyer found: |r" .. display)
+                return spaceBeforeX(prefixPlus .. colorAuctionHouse .. T("CHAT_BUYER_FOUND_LABEL", "Buyer found:") .. " |r" .. display)
             end
             return spaceBeforeX(prefixPlus .. message)
         end
@@ -257,7 +266,7 @@ function Rewards.Create(config)
         if buyerItem then
             buyerItem = buyerItem:gsub("^auction of%s+", ""):gsub("^your auction of%s+", "")
             local display = api.FormatAuctionDisplay(buyerItem, message)
-            return spaceBeforeX(prefixPlus .. colorAuctionHouse .. "Buyer found: |r" .. display)
+            return spaceBeforeX(prefixPlus .. colorAuctionHouse .. T("CHAT_BUYER_FOUND_LABEL", "Buyer found:") .. " |r" .. display)
         end
 
         if message == "Auction created." or message == "Auction created" then
@@ -272,7 +281,7 @@ function Rewards.Create(config)
             message:match("You have listed (.+)")
         if createdItem then
             local display = api.FormatAuctionDisplay(createdItem, message)
-            return spaceBeforeX(prefixPlus .. colorAuctionHouse .. "Auction created: |r" .. display)
+            return spaceBeforeX(prefixPlus .. colorAuctionHouse .. T("CHAT_AUCTION_CREATED_LABEL", "Auction created:") .. " |r" .. display)
         end
 
         local wonItem = message:match("You won an auction for (.+)") or
@@ -285,7 +294,7 @@ function Rewards.Create(config)
                 return spaceBeforeX(prefixPlus .. message)
             end
             local display = colorWhite .. cleanPunctuation(stripBrackets(wonItem)) .. "|r"
-            return spaceBeforeX(prefixPlus .. colorWhite .. "Auction won: |r" .. display)
+            return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_AUCTION_WON_LABEL", "Auction won:") .. " |r" .. display)
         end
 
         local expiredItem = message:match("Your auction of (.+) has expired") or
@@ -294,7 +303,7 @@ function Rewards.Create(config)
             message:match("Auction for (.+) has expired")
         if expiredItem then
             local cleanItem = cleanPunctuation(stripBrackets(expiredItem))
-            return spaceBeforeX(prefixMinus .. colorAuctionExpired .. "Auction expired: |r" .. colorWhite .. cleanItem .. "|r")
+            return spaceBeforeX(prefixMinus .. colorAuctionExpired .. T("CHAT_AUCTION_EXPIRED_LABEL", "Auction expired:") .. " |r" .. colorWhite .. cleanItem .. "|r")
         end
 
         local cancelledItem = message:match("You cancelled your auction of (.+)") or
@@ -302,7 +311,7 @@ function Rewards.Create(config)
             message:match("Cancelled auction: (.+)")
         if cancelledItem then
             local cleanItem = cleanPunctuation(stripBrackets(cancelledItem))
-            return spaceBeforeX(prefixMinus .. "Auction cancelled: |r" .. colorWhite .. cleanItem .. "|r")
+            return spaceBeforeX(prefixMinus .. T("CHAT_AUCTION_CANCELLED_LABEL", "Auction cancelled:") .. " |r" .. colorWhite .. cleanItem .. "|r")
         end
 
         return nil
@@ -322,7 +331,7 @@ function Rewards.Create(config)
             display = cleanPunctuation(stripBrackets(refundItem:gsub("x%d+", "")))
         end
         display = spaceBeforeX(display)
-        return spaceBeforeX(colorWhite .. "Refunded: |r" .. display .. " " .. colorPlus .. "(" .. count .. ")|r")
+        return spaceBeforeX(colorWhite .. T("CHAT_REFUNDED_LABEL", "Refunded:") .. " |r" .. display .. " " .. colorPlus .. "(" .. count .. ")|r")
     end
 
     function api.FormatGenericReward(message, prefixPlus)
@@ -354,7 +363,7 @@ function Rewards.Create(config)
 
         local isHonor = clean:lower():find("honor")
         local color = isHonor and colorHonor or colorCyan
-        local display = isHonor and "Honor Points" or clean
+        local display = isHonor and T("CHAT_HONOR_POINTS", "Honor Points") or clean
         return spaceBeforeX(prefixPlus .. colorWhite .. rewardAmount .. " |r" .. color .. display .. "|r")
     end
 
