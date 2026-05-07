@@ -83,6 +83,31 @@ function PostProcess.Create(config)
         return (text and text:gsub("^%s+", ""):gsub("%s+$", "") or "")
     end
 
+    local function StyledLootName(name)
+        name = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
+        if name == "" or name == "Loot" then return nil end
+        if name == "You" then
+            return getClassColorForName(UnitName("player") or "You") .. (L.CHAT_YOU or "You") .. "|r"
+        end
+        return getClassColorForName(name) .. name .. "|r"
+    end
+
+    local function FormatDirectLootWin(text)
+        if not text or type(text) ~= "string" then return nil end
+
+        local prefix = text:match("^(.-)[Ll]oot:%s*.-%s+[Ww]on:%s*.+$")
+        local name, item = text:match("[Ll]oot:%s*(.-)%s+[Ww]on:%s*(.+)$")
+        if not name or not item then return nil end
+
+        local nameOut = StyledLootName(name)
+        if not nameOut then return nil end
+
+        item = Trim(item):gsub("%s+[Ll]oot%s*$", "")
+        if item == "" then return nil end
+
+        return (prefix or "") .. nameOut .. " " .. T("CHAT_WON_LABEL", "won:") .. " " .. item
+    end
+
     local function StripColorCodes(text)
         if not text or type(text) ~= "string" then return "" end
         return text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
@@ -113,7 +138,7 @@ function PostProcess.Create(config)
 
         local plain = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("%s+", " ")
         local lower = plain:lower()
-        local isLootRoll = lower:find("has selected") or lower:find("passed on") or lower:find(" won ") or lower:find(" wins ") or
+        local isLootRoll = lower:find("has selected") or lower:find("passed on") or lower:find(" won ") or lower:find(" won:") or lower:find(" wins ") or
             plain:find(" by .+%s*$") or lower:find("won by ") or lower:find("winner:") or
             lower:find("receives loot") or lower:find("receives item") or lower:find(" creates:") or lower:find(" rolls ") or lower:find(" roll ")
         if not isLootRoll then return text end
@@ -186,9 +211,9 @@ function PostProcess.Create(config)
             return name .. " passed: " .. item
         end)
         text = text:gsub("^(.-)%s+[Ww]on:%s*(.+)$", function(name, item)
-            local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
-            if short ~= "" and short ~= "Loot" then
-                return getClassColorForName(short) .. short .. "|r won: " .. item
+            local nameOut = StyledLootName(name)
+            if nameOut then
+                return nameOut .. " " .. T("CHAT_WON_LABEL", "won:") .. " " .. item
             end
             return name .. " won: " .. item
         end)
@@ -206,6 +231,12 @@ function PostProcess.Create(config)
     function api.ProcessMessage(frame, originalAddMessage, message, args)
         message = applyChannelStyling(tostring(message))
         message = removeLinkBrackets(message)
+
+        local directLootWin = FormatDirectLootWin(message)
+        if directLootWin then
+            return originalAddMessage(frame, directLootWin, unpack(args))
+        end
+
         message = ClassColorPlayerNames(message)
         message = ClassColorLootRollNames(message)
 

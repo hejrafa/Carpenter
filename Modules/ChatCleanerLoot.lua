@@ -287,13 +287,16 @@ function Loot.Create(config)
             return spaceBeforeX(nameOut .. " " .. looseYouType .. ": " .. display)
         end
 
-        local directWinName, directWinItem = plainRoll:match("^%s*%b[]%s*[Ll]oot:%s*(%S+)%s+[Ww]on:%s*(.+)$") or
-            plainRoll:match("^%s*[Ll]oot:%s*(%S+)%s+[Ww]on:%s*(.+)$")
+        local directWinName, directWinItem = plainRoll:match("^%s*%b[]%s*[Ll]oot:%s*(.-)%s+[Ww]on:%s*(.+)$")
+        if not directWinName then
+            directWinName, directWinItem = plainRoll:match("^%s*[Ll]oot:%s*(.-)%s+[Ww]on:%s*(.+)$")
+        end
         if directWinName and directWinItem then
+            directWinName = directWinName:gsub("^%s+", ""):gsub("%s+$", "")
             local itemLink = getItemLinkFromMessage(message)
-            local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(directWinItem))
+            local display = itemLink and getItemLinkWithQualityColor(itemLink) or BuildRollDisplay(directWinItem, message)
             local nameOut = NameOut(directWinName)
-            return spaceBeforeX(nameOut .. " won: " .. display)
+            return spaceBeforeX(nameOut .. " " .. T("CHAT_WON_LABEL", "won:") .. " " .. display)
         end
 
         local afterLootPass = coreRoll:match("^[^:]-:%s*(.+)$") or coreRoll
@@ -321,16 +324,20 @@ function Loot.Create(config)
             return spaceBeforeX(nameOut .. " " .. selType .. ": " .. display)
         end
 
-        local youType, youItem = afterLoot:match("^[Yy]ou%s+have%s+selected%s+(%S+).-[Ff]or%s*: ?(.+)$") or
-            afterLoot:match("^[Yy]ou%s+have%s+selected%s+(%S+)%s+for%s+(.+)$")
+        local youType, youItem = afterLoot:match("^[Yy]ou%s+have%s+selected%s+(%S+).-[Ff]or%s*: ?(.+)$")
+        if not youType then
+            youType, youItem = afterLoot:match("^[Yy]ou%s+have%s+selected%s+(%S+)%s+for%s+(.+)$")
+        end
         if youType and youItem then
             local itemLink = getItemLinkFromMessage(message)
             local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(youItem))
             return spaceBeforeX(getClassColorForName(UnitName("player") or "You") .. You() .. "|r " .. youType .. ": " .. display)
         end
 
-        local wonName, wonItem = afterLoot:match("^(.-)%s+[Ww]on:%s*(.+)$") or afterLoot:match("^(.-)%s+[Ww]on%s+(.+)$") or
-            coreRoll:match("^(.-)%s+[Ww]on:%s*(.+)$") or coreRoll:match("^(.-)%s+[Ww]on%s+(.+)$")
+        local wonName, wonItem = afterLoot:match("^(.-)%s+[Ww]on:%s*(.+)$")
+        if not wonName then wonName, wonItem = afterLoot:match("^(.-)%s+[Ww]on%s+(.+)$") end
+        if not wonName then wonName, wonItem = coreRoll:match("^(.-)%s+[Ww]on:%s*(.+)$") end
+        if not wonName then wonName, wonItem = coreRoll:match("^(.-)%s+[Ww]on%s+(.+)$") end
         if wonName and wonItem then
             wonName = wonName:gsub("^%s+", ""):gsub("%s+$", "")
             local itemLink = getItemLinkFromMessage(message)
