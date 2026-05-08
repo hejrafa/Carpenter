@@ -3,6 +3,11 @@
 ## 1.6.0
 
 - Hid Carpenter's styled quest accepted line when Story Mode is already replacing that accepted message for one of its story quests.
+- Added Classic settings preview images for Enhance UI, Unit Frame Buffs, Target Percentages, and Classic Settings Preset, and included action bar 4 in the Classic Settings preset.
+- Improved Chat Cleaner Hardcore death announcements with compact cause-aware styling for slain, drowned, fall, burn, fatigue, and other death messages.
+- Fixed Hardcore fall death announcements that use `fell to their death`, `fell to his death`, or `fell to her death` wording.
+- Fixed Chat Cleaner loot roll styling so self-roll lines class-color `You` consistently.
+- Collapsed the default inactivity AFK message from `AFK: AFK` to `AFK` while keeping custom AFK messages intact.
 - Added German, French, and Russian localization files for settings labels, sidebar descriptions, addon messages, Chat Cleaner output, tooltips, warnings, and Retail addon-compartment tooltip text.
 - Moved settings sidebar descriptions out of `Modules/ConfigOptions.lua` and into localization keys so future translations can land without touching settings layout code.
 - Added localized TOC notes for German, French, and Russian clients.
