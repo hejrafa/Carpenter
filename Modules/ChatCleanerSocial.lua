@@ -111,6 +111,10 @@ function Social.Create(config)
         end
         local afkCustom = plainMsg:match("^You are now Away: (.+)$") or plainMsg:match("^You are now AFK: (.+)$")
         if afkCustom and afkCustom ~= "" then
+            afkCustom = afkCustom:gsub("^%s+", ""):gsub("%s+$", "")
+            if afkCustom == "" or afkCustom:lower() == "afk" then
+                return colorOrange .. T("CHAT_AFK", "AFK") .. "|r"
+            end
             return colorOrange .. T("CHAT_AFK_WITH_MESSAGE", "AFK: %s", afkCustom) .. "|r"
         end
         if _G.MARKED_DND and plainMsg:match("^You are now Busy") then
