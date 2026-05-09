@@ -105,7 +105,7 @@ function Sidebar.Create(context)
                 if _G["CP_Preview_" .. n] then _G["CP_Preview_" .. n]:Hide() end
             end
         end
-        local filters = { "CP_Filter_GuildRecruit", "CP_Filter_TradeBots", "CP_Filter_Gambling", "CP_Filter_Duplicates", "CP_Filter_RestedXP" }
+        local filters = { "CP_Filter_GuildRecruit", "CP_Filter_TradeBots", "CP_Filter_Gambling", "CP_Filter_Duplicates" }
         for _, name in ipairs(filters) do
             if _G[name] then _G[name]:Hide() end
         end
@@ -243,7 +243,6 @@ function Sidebar.Create(context)
                 { key = "filterTradeBotsEnabled", name = "CP_Filter_TradeBots", label = L.FILTER_BOT_SPAM or "Bot spam" },
                 { key = "filterGamblingEnabled", name = "CP_Filter_Gambling", label = L.FILTER_GAMBLING or "Gambling" },
                 { key = "filterDuplicatesEnabled", name = "CP_Filter_Duplicates", label = L.FILTER_DUPLICATES or "Duplicates" },
-                { key = "filterRestedXPEnabled", name = "CP_Filter_RestedXP", label = L.FILTER_RESTEDXP or "RestedXP level-up spam" },
             }
             for i, opt in ipairs(opts) do
                 local cb = CreateFrame("CheckButton", opt.name, sideContent, "InterfaceOptionsCheckButtonTemplate")
@@ -259,7 +258,7 @@ function Sidebar.Create(context)
                 end)
             end
         end
-        local filters = { "CP_Filter_GuildRecruit", "CP_Filter_TradeBots", "CP_Filter_Gambling", "CP_Filter_Duplicates", "CP_Filter_RestedXP" }
+        local filters = { "CP_Filter_GuildRecruit", "CP_Filter_TradeBots", "CP_Filter_Gambling", "CP_Filter_Duplicates" }
         for _, name in ipairs(filters) do
             local key = name:gsub("CP_Filter_", "filter") .. "Enabled"
             if _G[name] then

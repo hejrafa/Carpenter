@@ -53,7 +53,6 @@ local defaults = {
     filterTradeBotsEnabled = false,
     filterGamblingEnabled = false,
     filterDuplicatesEnabled = false,
-    filterRestedXPEnabled = false,
     chatCleanerEnabled = false,
     hideChatButtonsEnabled = false,
     -- Automations

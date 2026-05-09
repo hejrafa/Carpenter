@@ -42,13 +42,6 @@ end
 -- Spam Databases
 -- =========================
 
--- RestedXP level-up / announcer spam (Say, Yell, Party, Raid, General) - filtered when Filter is on
-local RestedXPPatterns = {
-    "restedxp", "rested xp", "restedxp guides", "just leveled from", "just leveled", "just hit level",
-    "reached level", "leveled to", "level up", "with restedxp", "ding!?", "hit level %d", "hit %d+",
-    "level %d+ with", "level %d+ in", "using restedxp"
-}
-
 local SpamPatterns = {
     Gambling = { "deathroll", "death roll", "betting", "casino", "payout", "gold roll", "minimum bet", "max bet", "hosting", "roll for gold", "rolls for gold", "rolling for gold", "!leaderboard" },
     GuildRecruitment = {
@@ -72,20 +65,7 @@ local function ChatSpamFilter(self, event, msg, author, ...)
     -- 1. Main toggle check for the Filter module
     if not (Carpenter and Carpenter:IsEnabled("chatFilterEnabled")) then return false, msg, author, ... end
 
-    -- 2. RestedXP level-up spam (Say, Yell, Party, Raid, General) - when option is on
-    local isRestedXPEvent = (event == "CHAT_MSG_SAY" or event == "CHAT_MSG_YELL" or
-        event == "CHAT_MSG_PARTY" or event == "CHAT_MSG_PARTY_LEADER" or
-        event == "CHAT_MSG_RAID" or event == "CHAT_MSG_RAID_LEADER" or
-        (event == "CHAT_MSG_CHANNEL" and select(7, ...) == "General"))
-    if isRestedXPEvent and CarpenterDB.filterRestedXPEnabled then
-        local plainMsg = msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("|T.-|t", "")
-        local lower = plainMsg:lower()
-        for _, p in ipairs(RestedXPPatterns) do
-            if lower:find(p) then return true end
-        end
-    end
-
-    -- 2b. Filter messages containing "@" in Say, Yell, General, or Trade (when Filter is on)
+    -- 2. Filter messages containing "@" in Say, Yell, General, or Trade (when Filter is on)
     if msg:find("@") then
         if event == "CHAT_MSG_SAY" or event == "CHAT_MSG_YELL" then
             return true
@@ -98,7 +78,7 @@ local function ChatSpamFilter(self, event, msg, author, ...)
         end
     end
 
-    -- 3. SAFETY: Always allow Party, Raid, Whisper, and Say (except RestedXP above)
+    -- 3. SAFETY: Always allow Party, Raid, Whisper, and Say
     if event == "CHAT_MSG_PARTY" or event == "CHAT_MSG_RAID" or
         event == "CHAT_MSG_PARTY_LEADER" or event == "CHAT_MSG_RAID_LEADER" or
         event == "CHAT_MSG_WHISPER" or event == "CHAT_MSG_SAY" then
