@@ -18,6 +18,7 @@ function Sessions.Create(config)
     local merchantMoneyAtOpen = 0
     local merchantZoningGuard = false
     local merchantSession = 0
+    local merchantClosedSession = nil
 
     local function DeferMerchantClosed(frame)
         local closedSession = merchantSession
@@ -31,6 +32,7 @@ function Sessions.Create(config)
     merchantFrame:SetScript("OnEvent", function(self, event)
         if event == "MERCHANT_SHOW" then
             merchantSession = merchantSession + 1
+            merchantClosedSession = nil
             merchantState.autoSoldJunk = false
             merchantState.autoSoldAmount = nil
             merchantState.autoRepaired = false
@@ -40,13 +42,19 @@ function Sessions.Create(config)
             merchantMoneyAtOpen = GetMoney()
         elseif event == "PLAYER_ENTERING_WORLD" then
             merchantSession = merchantSession + 1
+            merchantClosedSession = nil
             merchantZoningGuard = true
             self.isOpen = false
         elseif event == "MERCHANT_CLOSED" then
             if merchantZoningGuard then
                 self.isOpen = false
+                merchantClosedSession = merchantSession
                 return
             end
+            if merchantClosedSession == merchantSession or not self.isOpen then
+                return
+            end
+            merchantClosedSession = merchantSession
 
             local current = GetMoney()
             local net = current - merchantMoneyAtOpen

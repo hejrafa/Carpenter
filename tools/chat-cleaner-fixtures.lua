@@ -66,7 +66,9 @@ _G.ChatFrame1EditBox = {
 }
 
 local now = 1000
+local currentMoney = 0
 function GetTime() return now end
+function GetMoney() return currentMoney end
 function GetLocale() return "enUS" end
 function IsInRaid() return false end
 function GetNumGroupMembers() return 0 end
@@ -86,11 +88,11 @@ function GetItemInfo(item)
     return nil, nil, nil
 end
 function CreateFrame()
-    local frame = {}
+    local frame = { _scripts = {} }
     function frame:RegisterEvent() end
     function frame:RegisterUnitEvent() end
     function frame:UnregisterAllEvents() end
-    function frame:SetScript() end
+    function frame:SetScript(script, handler) self._scripts[script] = handler end
     function frame:Hide() self.hidden = true end
     function frame:Show() self.hidden = false end
     function frame:IsShown() return not self.hidden end
@@ -194,6 +196,7 @@ local fixtures = {
 }
 
 local failures = {}
+local additionalChecks = 0
 
 for _, fixture in ipairs(fixtures) do
     local hidden, out
@@ -224,9 +227,42 @@ for _, fixture in ipairs(fixtures) do
     end
 end
 
+do
+    local printed = {}
+    local originalPrint = print
+    print = function(message)
+        printed[#printed + 1] = tostring(message)
+    end
+
+    local session = ns.Private.ChatCleanerSessions.Create({
+        FormatMoney = function(amount) return tostring(amount or 0) end,
+        ColorPlus = "|cffffffff",
+        ColorMinus = "|cffffffff",
+    })
+    local onMerchantEvent = session.merchantFrame._scripts.OnEvent
+    if type(onMerchantEvent) == "function" then
+        currentMoney = 10000
+        onMerchantEvent(session.merchantFrame, "MERCHANT_SHOW")
+        currentMoney = 12500
+        onMerchantEvent(session.merchantFrame, "MERCHANT_CLOSED")
+        onMerchantEvent(session.merchantFrame, "MERCHANT_CLOSED")
+    else
+        failures[#failures + 1] = "merchant double close: merchant session event handler was not registered"
+    end
+
+    print = originalPrint
+
+    additionalChecks = additionalChecks + 1
+    if type(onMerchantEvent) == "function" and #printed ~= 1 then
+        failures[#failures + 1] = "merchant double close: expected 1 summary got " .. tostring(#printed)
+    elseif type(onMerchantEvent) == "function" and plain(printed[1]) ~= "+ 2500" then
+        failures[#failures + 1] = "merchant double close: expected [+ 2500] got [" .. tostring(plain(printed[1])) .. "]"
+    end
+end
+
 if #failures > 0 then
     io.stderr:write(table.concat(failures, "\n") .. "\n")
     os.exit(1)
 end
 
-print("chat-cleaner fixtures: " .. #fixtures .. " passed")
+print("chat-cleaner fixtures: " .. (#fixtures + additionalChecks) .. " passed")
