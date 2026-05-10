@@ -109,9 +109,14 @@ end
 
 local function CanAccessValue(value)
     if type(canaccessvalue) == "function" then
-        return canaccessvalue(value)
+        local ok, accessible = pcall(canaccessvalue, value)
+        return ok and accessible
     end
     return true
+end
+
+local function IsAccessibleString(value)
+    return CanAccessValue(value) and type(value) == "string" and value ~= ""
 end
 
 local function CanAccessTooltipText()
@@ -124,10 +129,9 @@ local function CanAccessTooltipText()
 end
 
 local function CanUseUnit(unit)
-    if type(unit) ~= "string" or unit == "" then return false end
-    if not CanAccessValue(unit) then return false end
-    local ok = pcall(UnitExists, unit)
-    return ok
+    if not IsAccessibleString(unit) then return false end
+    local ok, exists = pcall(UnitExists, unit)
+    return ok and exists == true
 end
 
 local function SafeUnitReaction(unit, target)
@@ -330,11 +334,14 @@ local function GetTooltipUnit(tooltip)
     if tooltip and tooltip.GetUnit then
         local ok, name, unit = pcall(tooltip.GetUnit, tooltip)
         if ok then
-            if type(unit) == "string" and unit ~= "" then
+            if IsAccessibleString(unit) then
                 return unit
             end
-            if type(name) == "string" and UnitExists(name) then
-                return name
+            if IsAccessibleString(name) then
+                local nameOk, nameExists = pcall(UnitExists, name)
+                if nameOk and nameExists then
+                    return name
+                end
             end
         end
     end

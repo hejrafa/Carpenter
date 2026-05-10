@@ -230,6 +230,23 @@ end
 
 local portraitIcons = {}
 
+local function IsPartyUnit(unit)
+    return type(unit) == "string" and unit:match("^party%d$")
+end
+
+local function IsNPCPartyUnit(unit)
+    return IsPartyUnit(unit) and UnitExists(unit) and not UnitIsPlayer(unit)
+end
+
+local function RestoreUnitPortrait(unit, portrait)
+    if portraitIcons[unit] then
+        portraitIcons[unit]:Hide()
+    end
+    if portrait then
+        portrait:SetAlpha(1)
+    end
+end
+
 -- Get the unit frame (parent of portrait) so we can layer debuff under frame textures but over portrait
 local function GetUnitFrameForPortrait(unit)
     if unit == "player" and PlayerFrame then return PlayerFrame end
@@ -260,10 +277,14 @@ local function UpdateUnitPortraitDebuff(unit)
     local showDebuffs = IsUnitFrameEnabled()
     local showPlayerBuffs = unit == "player" and IsUnitFrameBuffsEnabled()
 
+    if IsNPCPartyUnit(unit) then
+        RestoreUnitPortrait(unit, portrait)
+        return
+    end
+
     -- If setting is off or unit doesn't exist, reset to default portrait
     if (not showDebuffs and not showPlayerBuffs) or not UnitExists(unit) then
-        if portraitIcons[unit] then portraitIcons[unit]:Hide() end
-        if portrait then portrait:SetAlpha(1) end
+        RestoreUnitPortrait(unit, portrait)
         return
     end
 
@@ -489,7 +510,7 @@ frame:SetScript("OnEvent", function(self, event, unit)
         if unit == "target" or unit == "player" then
             UpdateUnitPortraitDebuff(unit)
         end
-        if unit and unit:match("^party%d$") then
+        if IsPartyUnit(unit) then
             UpdateUnitPortraitDebuff(unit)
         end
         local plate = C_NamePlate.GetNamePlateForUnit(unit)

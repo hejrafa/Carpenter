@@ -18,6 +18,10 @@ local function IsRetail()
     return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
 end
 
+local function IsRetailNPCUnit(unit)
+    return IsRetail() and unit and UnitExists(unit) and not UnitIsPlayer(unit)
+end
+
 local function GetClassColor(unit)
     if not unit or not UnitExists(unit) or not UnitIsPlayer(unit) then return nil end
     local _, class = UnitClass(unit)
@@ -29,6 +33,10 @@ local function RestoreDefaultUnitColor(bar, unit, force)
     if not force and not bar._Carpenter_IsUnitClassColored then return end
 
     bar._Carpenter_IsUnitClassColored = false
+    -- Retail unit-frame bars can hold protected health values; leave their default
+    -- repainting to Blizzard instead of calling back into protected update paths.
+    if IsRetail() then return end
+
     if UnitFrameHealthBar_Update then
         bar._CarpenterRestoringDefault = true
         pcall(UnitFrameHealthBar_Update, bar, unit)
@@ -109,6 +117,16 @@ end
 -- =========================
 local function UpdateHealthBarColor(bar, unit)
     if not IsUnitFrameEnabled() then return end
+    if IsRetailNPCUnit(unit) then
+        if bar then
+            if bar._Carpenter_IsUnitClassColored and bar.SetStatusBarDesaturated then
+                bar:SetStatusBarDesaturated(false)
+            end
+            bar._Carpenter_IsUnitClassColored = false
+        end
+        return
+    end
+
     HookUnitFrameHealthBar(bar, unit)
     if not ApplyClassColor(bar, unit) then
         RestoreDefaultUnitColor(bar, unit, true)

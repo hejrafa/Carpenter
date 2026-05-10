@@ -37,10 +37,6 @@ local function ShouldHideHealthLossFx()
     return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
-local function ShouldHideGroupIndicator()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("hideGroupIndicatorEnabled")
-end
-
 local function ShouldHideRealmIndicator()
     return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
@@ -65,7 +61,6 @@ local function HasActiveCleanerOption()
         or ShouldHideRestAnimation()
         or ShouldHideCombatIcon()
         or ShouldHideHealthLossFx()
-        or ShouldHideGroupIndicator()
         or ShouldHideRealmIndicator()
         or ShouldHidePlayerCornerIcon()
         or ShouldHidePartyFrameTitle()
@@ -136,7 +131,9 @@ local function Apply()
     ApplyFrameFeature("restAnimation", Targets.GetRestAnimationFrames, ShouldHideRestAnimation, false)
     ApplyFrameFeature("combatIcon", Targets.GetCombatIconFrames, ShouldHideCombatIcon, false)
     ApplyFrameFeature("healthLossFx", Targets.GetHealthLossFxFrames, ShouldHideHealthLossFx, false)
-    ApplyFrameFeature("groupIndicator", Targets.GetGroupIndicatorFrames, ShouldHideGroupIndicator, false)
+    for _, frame in ipairs(Targets.GetLegacyPartyHealthLossFxFrames and Targets.GetLegacyPartyHealthLossFxFrames() or {}) do
+        Visuals.RestoreFrame(frame)
+    end
     ApplyFrameFeature("playerCornerIcon", Targets.GetPlayerCornerIconFrames, ShouldHidePlayerCornerIcon, false)
     ApplyFrameFeature("partyFrameTitle", Targets.GetPartyFrameTitleFrames, ShouldHidePartyFrameTitle, false)
     -- Match BetterBlizzFrames' narrow Retail approach: only hide the actual reputation
@@ -248,5 +245,4 @@ if Carpenter and Carpenter.RegisterFeature then
     Carpenter:RegisterFeature("cleanUpUnitFramesEnabled", CreateFeature())
     Carpenter:RegisterFeature("hideUnitFramePowerBarEnabled", CreateFeature())
     Carpenter:RegisterFeature("hideBossFramesEnabled", CreateFeature())
-    Carpenter:RegisterFeature("hideGroupIndicatorEnabled", CreateFeature())
 end

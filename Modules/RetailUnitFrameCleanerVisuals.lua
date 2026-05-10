@@ -15,6 +15,18 @@ local function GetHiddenParent()
     return hiddenParent
 end
 
+local function IsCompactPartyMemberVisual(frame)
+    local current = frame
+    while current do
+        local name = current.GetName and current:GetName()
+        if type(name) == "string" and name:match("^CompactPartyFrameMember%d") then
+            return true
+        end
+        current = current.GetParent and current:GetParent() or nil
+    end
+    return false
+end
+
 local function HideFrameVisuals(frame)
     if not frame then return end
     if frame._CarpenterOriginalVisualAlpha == nil and frame.GetAlpha then
@@ -35,6 +47,7 @@ end
 
 function Visuals.HideFrame(frame)
     if not frame or frame._CarpenterHiding then return end
+    if IsCompactPartyMemberVisual(frame) then return end
     if frame._CarpenterHiddenByCleaner then return end
     local isProtected = frame.IsProtected and frame:IsProtected()
     if isProtected and InCombatLockdown and InCombatLockdown() then return end
@@ -109,6 +122,7 @@ end
 
 function Visuals.HideFrameAlpha(frame)
     if not frame or frame._CarpenterAlphaHiding then return end
+    if IsCompactPartyMemberVisual(frame) then return end
     if frame._CarpenterAlphaHiddenByCleaner then return end
     local isProtected = frame.IsProtected and frame:IsProtected()
     if isProtected and InCombatLockdown and InCombatLockdown() then return end

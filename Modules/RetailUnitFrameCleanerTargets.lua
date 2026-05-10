@@ -109,6 +109,11 @@ function Targets.GetHealthLossFxFrames()
     if focusBars then
         AddFrame(frames, focusBars.TempMaxHealthLoss)
     end
+    return frames
+end
+
+function Targets.GetLegacyPartyHealthLossFxFrames()
+    local frames = {}
     for i = 1, 5 do
         AddFrame(frames, _G["CompactPartyFrameMember" .. i .. "TempMaxHealthLoss"])
     end

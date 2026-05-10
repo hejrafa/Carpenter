@@ -10,6 +10,10 @@
 local AddOn = select(2, ...);
 AddOn.Options = AddOn.Options or {};
 
+if Carpenter and Carpenter.Client and Carpenter.Client.isRetail then
+    return;
+end
+
 -- Robust version check
 if not AddOn.ClientVersionMajor then
     local version = GetBuildInfo();
