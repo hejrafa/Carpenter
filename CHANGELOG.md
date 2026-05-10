@@ -2,14 +2,15 @@
 
 ## 1.6.2
 
+- Stopped NPC unit frames and recycled NPC nameplates from retaining Carpenter's class-colored health state.
+
+## 1.6.1
+
 - Fixed Retail secret-value taint paths in enhanced tooltip unit detection and class-colored health bar updates.
 - Kept Retail NPC party frames out of class health coloring and unit-frame aura portrait replacement while preserving player party frame behavior.
 - Removed Retail Hide Group Indicator support and made Threat Percentage explicitly unavailable on Retail.
 - Guarded Carpenter's custom threat indicator so it cannot create target or focus threat frames on Retail.
 - Hardened the Retail unit-frame cleaner so compact party frame visuals are not hidden or reparented, and legacy hidden party health-loss textures are restored.
-
-## 1.6.1
-
 - Added Spanish localization coverage for `esES` and `esMX` clients, including settings labels, descriptions, addon messages, Chat Cleaner output, tooltips, warnings, and addon metadata.
 - Added Brazilian Portuguese localization coverage for `ptBR` clients, including settings labels, descriptions, addon messages, Chat Cleaner output, tooltips, warnings, and addon metadata.
 

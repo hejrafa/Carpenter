@@ -18,21 +18,46 @@ local function IsRetail()
     return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
 end
 
-local function IsRetailNPCUnit(unit)
-    return IsRetail() and unit and UnitExists(unit) and not UnitIsPlayer(unit)
+local function IsPlayerUnit(unit)
+    if not unit or not UnitExists(unit) or not UnitIsPlayer(unit) then return false end
+
+    local ok, guid = pcall(UnitGUID, unit)
+    if not ok then return false end
+
+    -- Some NPCs expose player-like class data; only real player GUIDs are safe
+    -- to class-color.
+    local prefixOk, isPlayerGuid = pcall(function()
+        return type(guid) == "string" and guid:sub(1, 7) == "Player-"
+    end)
+    return prefixOk and isPlayerGuid
 end
 
 local function GetClassColor(unit)
-    if not unit or not UnitExists(unit) or not UnitIsPlayer(unit) then return nil end
+    if not IsPlayerUnit(unit) then return nil end
     local _, class = UnitClass(unit)
     return class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+end
+
+local function ClearClassColorState(bar)
+    if not bar then return false end
+
+    local wasClassColored = bar._Carpenter_IsUnitClassColored or bar._Carpenter_IsClassColored
+    bar._Carpenter_IsUnitClassColored = false
+    bar._Carpenter_IsClassColored = false
+    bar._Carpenter_ClassColor = nil
+
+    if wasClassColored and bar.SetStatusBarDesaturated then
+        bar:SetStatusBarDesaturated(false)
+    end
+
+    return wasClassColored
 end
 
 local function RestoreDefaultUnitColor(bar, unit, force)
     if not bar or not unit or not UnitExists(unit) then return end
     if not force and not bar._Carpenter_IsUnitClassColored then return end
 
-    bar._Carpenter_IsUnitClassColored = false
+    ClearClassColorState(bar)
     -- Retail unit-frame bars can hold protected health values; leave their default
     -- repainting to Blizzard instead of calling back into protected update paths.
     if IsRetail() then return end
@@ -117,13 +142,8 @@ end
 -- =========================
 local function UpdateHealthBarColor(bar, unit)
     if not IsUnitFrameEnabled() then return end
-    if IsRetailNPCUnit(unit) then
-        if bar then
-            if bar._Carpenter_IsUnitClassColored and bar.SetStatusBarDesaturated then
-                bar:SetStatusBarDesaturated(false)
-            end
-            bar._Carpenter_IsUnitClassColored = false
-        end
+    if not IsPlayerUnit(unit) then
+        RestoreDefaultUnitColor(bar, unit, true)
         return
     end
 
@@ -244,10 +264,8 @@ local function ColorNameplateForUnit(plate, unit)
     -- when this nameplate was recycled from a player (had our class color), so the mob
     -- doesn't keep the player's color. Otherwise leave the bar alone so Blizzard controls
     -- reaction/tapped (grey) etc.
-    if not UnitIsPlayer(unit) then
-        local wasClassColored = bar._Carpenter_IsClassColored
-        bar._Carpenter_IsClassColored = false
-        bar._Carpenter_ClassColor = nil
+    if not IsPlayerUnit(unit) then
+        local wasClassColored = ClearClassColorState(bar)
         if wasClassColored then
             local r, g, b = UnitSelectionColor(unit)
             if r and g and b then
@@ -279,8 +297,7 @@ local function ColorNameplateForUnit(plate, unit)
     end
 
     -- Reset flags; they'll be re-set if we successfully apply a class color.
-    bar._Carpenter_IsClassColored = false
-    bar._Carpenter_ClassColor = nil
+    ClearClassColorState(bar)
 
     if not IsNameplateEnabled() then
         -- When disabled, fall back to Blizzard's selection coloring
