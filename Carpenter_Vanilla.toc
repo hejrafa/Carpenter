@@ -21,6 +21,7 @@ Localization\frFR.lua
 Localization\ptBR.lua
 Localization\ruRU.lua
 Core\Carpenter.lua
+Core\Unit.lua
 
 # Settings & Data
 Modules\ConfigSidebar.lua
@@ -39,7 +40,8 @@ Modules\EnhanceTooltip.lua
 Modules\EnhanceUI.lua
 
 # Unit Frames
-Modules\ClassHealthColors.lua
+Modules\ClassHealthColorsShared.lua
+Modules\ClassHealthColorsUnitFrames.lua
 Modules\DebuffTracker.lua
 Modules\UnitFrameClassIcon.lua
 Modules\ThreatIndicator.lua
@@ -47,6 +49,7 @@ Modules\TargetHealthPercent.lua
 Modules\HideUnitFrameCombatText.lua
 
 # Nameplates
+Modules\ClassHealthColorsNameplates.lua
 Modules\NameplateCastNames.lua
 Modules\NameplateComboPoints.lua
 Modules\RaidTargetIconAligned.lua

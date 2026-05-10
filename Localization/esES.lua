@@ -5,6 +5,7 @@ local _, ns = ...
 local L = ns.L
 if not L then return end
 
+L.ADDON_NAME = "Carpenter"
 L.RELOAD_UI = "Recargar interfaz"
 L.REQUIRES_RELOAD = "Requiere recargar la interfaz"
 L.SIDEBAR_PLACEHOLDER = "Pasa el cursor sobre una opción de la izquierda para ver su descripción y ajustes."

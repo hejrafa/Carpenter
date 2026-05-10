@@ -1,6 +1,11 @@
 --[[ Carpenter - Enhance Tooltip ]]
 -- When enabled: hides the health bar, recolors name/info lines, shows unit target.
-local L = (Carpenter and Carpenter.L) or {}
+local _, ns = ...
+ns = ns or {}
+ns.Private = ns.Private or {}
+
+local L = (Carpenter and Carpenter.L) or (ns and ns.L) or {}
+local Unit = ns.Private.Unit or {}
 
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("enhanceTooltipEnabled")
@@ -116,7 +121,11 @@ local function CanAccessValue(value)
 end
 
 local function IsAccessibleString(value)
-    return CanAccessValue(value) and type(value) == "string" and value ~= ""
+    if Unit.IsToken then return Unit.IsToken(value) end
+    local ok, accessible = pcall(function()
+        return CanAccessValue(value) and type(value) == "string" and value ~= ""
+    end)
+    return ok and accessible == true
 end
 
 local function CanAccessTooltipText()
@@ -129,6 +138,7 @@ local function CanAccessTooltipText()
 end
 
 local function CanUseUnit(unit)
+    if Unit.Exists then return Unit.Exists(unit) end
     if not IsAccessibleString(unit) then return false end
     local ok, exists = pcall(UnitExists, unit)
     return ok and exists == true
@@ -164,9 +174,8 @@ local function IsTapDenied(unit)
 end
 
 local function GetClassColorHex(unit)
-    if not RAID_CLASS_COLORS or not UnitIsPlayer(unit) then return nil end
-    local _, classToken = UnitClass(unit)
-    local c = classToken and RAID_CLASS_COLORS[classToken]
+    if not RAID_CLASS_COLORS then return nil end
+    local c = Unit.ClassColor and Unit.ClassColor(unit)
     if not c then return nil end
     return string.format("|cff%02x%02x%02x", c.r * 255, c.g * 255, c.b * 255)
 end
@@ -176,8 +185,8 @@ local function ApplyNameLine(tooltip, unit)
     local left1 = _G["GameTooltipTextLeft1"]
     if not left1 then return end
 
-    local tipIsPlayer = UnitIsPlayer(unit)
-    local playerControl = UnitPlayerControlled(unit)
+    local tipIsPlayer = Unit.IsPlayer and Unit.IsPlayer(unit)
+    local playerControl = Unit.IsPlayerControlled and Unit.IsPlayerControlled(unit)
     local reaction = SafeUnitReaction(unit, "player") or 0
     local dead = UnitIsDeadOrGhost(unit)
 
@@ -259,7 +268,7 @@ end
 
 -- Mob level line (level + creature type + classification)
 local function ApplyMobLevelLine(tooltip, unit)
-    if UnitIsPlayer(unit) or UnitPlayerControlled(unit) then return end
+    if (Unit.IsPlayer and Unit.IsPlayer(unit)) or (Unit.IsPlayerControlled and Unit.IsPlayerControlled(unit)) then return end
     local reaction = SafeUnitReaction(unit, "player") or 0
     if reaction >= 5 then return end
     if not SafeUnitCanAttack("player", unit) then return end
@@ -327,7 +336,7 @@ local function TooltipAlreadyHasTargetLine()
 end
 
 local function GetTooltipUnit(tooltip)
-    if WorldFrame and WorldFrame.IsMouseMotionFocus and WorldFrame:IsMouseMotionFocus() and UnitExists("mouseover") then
+    if WorldFrame and WorldFrame.IsMouseMotionFocus and WorldFrame:IsMouseMotionFocus() and CanUseUnit("mouseover") then
         return "mouseover"
     end
 
@@ -346,7 +355,7 @@ local function GetTooltipUnit(tooltip)
         end
     end
 
-    if UnitExists("mouseover") then
+    if CanUseUnit("mouseover") then
         return "mouseover"
     end
     return nil
@@ -366,9 +375,8 @@ local function ShowUnitTargetInTooltip(tooltip, unit)
         local displayText
         if UnitIsUnit(targetUnit, "player") then
             displayText = "|cffff4400" .. TARGET_YOU .. "|r"
-        elseif UnitIsPlayer(targetUnit) and RAID_CLASS_COLORS then
-            local _, classToken = UnitClass(targetUnit)
-            local color = classToken and RAID_CLASS_COLORS[classToken]
+        elseif Unit.IsPlayer and Unit.IsPlayer(targetUnit) and RAID_CLASS_COLORS then
+            local color = Unit.ClassColor and Unit.ClassColor(targetUnit)
             if color then
                 local hex = string.format("|cff%02x%02x%02x", color.r * 255, color.g * 255, color.b * 255)
                 displayText = hex .. name .. "|r"
@@ -392,11 +400,11 @@ local function EnhanceUnitTooltip(tooltip, unit)
     if not CanUseUnit(unit) then return end
     ScheduleHideTooltipHealthBar(tooltip)
     ApplyNameLine(tooltip, unit)
-    if UnitIsPlayer(unit) then
+    if Unit.IsPlayer and Unit.IsPlayer(unit) then
         ApplyPlayerInfoLine(tooltip, unit)
     else
         local reaction = SafeUnitReaction(unit, "player") or 0
-        if reaction < 5 and not UnitPlayerControlled(unit) and SafeUnitCanAttack("player", unit) then
+        if reaction < 5 and not (Unit.IsPlayerControlled and Unit.IsPlayerControlled(unit)) and SafeUnitCanAttack("player", unit) then
             ApplyMobLevelLine(tooltip, unit)
         end
     end

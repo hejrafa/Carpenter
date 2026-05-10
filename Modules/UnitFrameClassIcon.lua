@@ -3,6 +3,11 @@
 -- Uses the same circular mask as the default portrait. Works with DebuffTracker: when a debuff
 -- is shown, DebuffTracker hides the portrait (our class icon) and shows its icon; when no debuff,
 -- the portrait (class icon) is visible again.
+local _, ns = ...
+ns = ns or {}
+ns.Private = ns.Private or {}
+
+local Unit = ns.Private.Unit or {}
 
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("unitFrameClassIconEnabled")
@@ -53,7 +58,7 @@ local function ShouldShowClassIcon(unit)
     if unit == "player" then
         return true
     end
-    if (unit == "target" or unit == "focus" or unit == "targettarget") and UnitExists(unit) and UnitIsPlayer(unit) then
+    if (unit == "target" or unit == "focus" or unit == "targettarget") and Unit.IsPlayer and Unit.IsPlayer(unit) then
         return true
     end
     return false
@@ -123,7 +128,12 @@ local function UpdateUnitClassIcon(unit)
         return
     end
 
-    local _, class = UnitClass(unit)
+    local _, class
+    if Unit.Class then
+        _, class = Unit.Class(unit)
+    else
+        _, class = UnitClass(unit)
+    end
     if not class then
         if overlays[unit] then overlays[unit]:Hide() end
         if portrait.SetAlpha then portrait:SetAlpha(1) end

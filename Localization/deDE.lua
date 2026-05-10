@@ -5,6 +5,7 @@ local _, ns = ...
 local L = ns.L
 if not L then return end
 
+L.ADDON_NAME = "Carpenter"
 L.RELOAD_UI = "UI neu laden"
 L.REQUIRES_RELOAD = "Benotigt UI-Neuladen"
 L.SIDEBAR_PLACEHOLDER = "Bewege den Mauszeiger uber eine Option links, um Beschreibung und Einstellungen zu sehen."

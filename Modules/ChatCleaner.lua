@@ -498,6 +498,10 @@ local chatCleanerFeature = ChatCleanerLifecycle.Create and ChatCleanerLifecycle.
     SessionTracker = sessionTracker,
 }) or {}
 
+ns.Private.ChatCleaner = ns.Private.ChatCleaner or {}
+ns.Private.ChatCleaner.FilterImpl = ChatFilterImpl
+ns.Private.ChatCleaner.PostProcessor = postProcessor
+
 if Carpenter and Carpenter.RegisterFeature then
     Carpenter:RegisterFeature("chatCleanerEnabled", chatCleanerFeature)
 end

@@ -2,6 +2,9 @@
 -- Displays important debuffs/CC on Nameplates and replaces Target/Party Portraits.
 
 local addonName, ns = ...
+ns = ns or {}
+ns.Private = ns.Private or {}
+local Unit = ns.Private.Unit or {}
 
 -- Slows / movement debuffs: show on nameplates but NOT on unit frame portraits (root spell IDs)
 local DEBUFFS_HIDDEN_ON_UNIT_FRAME = {
@@ -231,10 +234,12 @@ end
 local portraitIcons = {}
 
 local function IsPartyUnit(unit)
+    if Unit.IsPartyUnit then return Unit.IsPartyUnit(unit) end
     return type(unit) == "string" and unit:match("^party%d$")
 end
 
 local function IsNPCPartyUnit(unit)
+    if Unit.IsNPCPartyUnit then return Unit.IsNPCPartyUnit(unit) end
     return IsPartyUnit(unit) and UnitExists(unit) and not UnitIsPlayer(unit)
 end
 

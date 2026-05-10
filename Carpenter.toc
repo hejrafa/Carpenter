@@ -24,6 +24,7 @@ Localization\frFR.lua
 Localization\ptBR.lua
 Localization\ruRU.lua
 Core\Carpenter.lua
+Core\Unit.lua
 
 # Settings
 Modules\ConfigSidebar.lua
@@ -41,12 +42,16 @@ Modules\EnhanceTooltip.lua
 Modules\ExtraAbilityScale.lua
 
 # Unit Frames
-Modules\ClassHealthColors.lua
+Modules\ClassHealthColorsShared.lua
+Modules\ClassHealthColorsUnitFrames.lua
 Modules\HideUnitFrameCombatText.lua
 Modules\RetailUnitFrameCleanerVisuals.lua
 Modules\RetailUnitFrameCleanerTargets.lua
 Modules\RetailUnitFrameCleanerRealm.lua
 Modules\RetailUnitFrameCleaner.lua
+
+# Nameplates
+Modules\ClassHealthColorsNameplates.lua
 
 # Chat
 Modules\ChatCleanerUtils.lua
