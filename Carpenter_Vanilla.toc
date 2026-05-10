@@ -2,10 +2,13 @@
 ## Title: Carpenter
 ## Notes: Provides a variety of UI cleanup and quality-of-life features.|n|nOpen Settings with Slash Command:|n/carpenter or /cp
 ## Notes-deDE: Bietet verschiedene Funktionen zum Aufräumen der Benutzeroberfläche und zur Verbesserung der Bedienqualität.|n|nEinstellungen per Slash-Befehl öffnen:|n/carpenter oder /cp
+## Notes-esES: Ofrece varias funciones de limpieza de interfaz y mejoras de calidad de vida.|n|nAbre los ajustes con el comando:|n/carpenter o /cp
+## Notes-esMX: Ofrece varias funciones de limpieza de interfaz y mejoras de calidad de vida.|n|nAbre los ajustes con el comando:|n/carpenter o /cp
 ## Notes-frFR: Ajoute plusieurs fonctions de nettoyage de l'interface et de confort.|n|nOuvrir les réglages avec la commande :|n/carpenter ou /cp
+## Notes-ptBR: Oferece vários recursos de limpeza da interface e qualidade de vida.|n|nAbra as configurações com o comando:|n/carpenter ou /cp
 ## Notes-ruRU: Добавляет разные функции очистки интерфейса и удобства игры.|n|nОткрыть настройки командой:|n/carpenter или /cp
 ## SavedVariables: CarpenterDB
-## Version: 1.6.0
+## Version: 1.6.1
 ## Author: Rafael Polutta
 ## IconTexture: Interface\AddOns\Carpenter\Art\Icons\Carpenter_Logo
 
@@ -13,7 +16,9 @@
 Core\Compatibility.lua
 Localization\enUS.lua
 Localization\deDE.lua
+Localization\esES.lua
 Localization\frFR.lua
+Localization\ptBR.lua
 Localization\ruRU.lua
 Core\Carpenter.lua
 

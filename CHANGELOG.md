@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.1
+
+- Added Spanish localization coverage for `esES` and `esMX` clients, including settings labels, descriptions, addon messages, Chat Cleaner output, tooltips, warnings, and addon metadata.
+- Added Brazilian Portuguese localization coverage for `ptBR` clients, including settings labels, descriptions, addon messages, Chat Cleaner output, tooltips, warnings, and addon metadata.
+
 ## 1.6.0
 
 - Hid Carpenter's styled quest accepted line when Story Mode is already replacing that accepted message for one of its story quests.
