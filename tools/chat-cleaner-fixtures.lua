@@ -130,6 +130,7 @@ local function plain(text)
     return text
         :gsub("|c%x%x%x%x%x%x%x%x", "")
         :gsub("|r", "")
+        :gsub("|H.-|h(.-)|h", "%1")
         :gsub("|T.-|t", "")
         :gsub("%s+", " ")
         :gsub("^%s+", "")
@@ -145,10 +146,26 @@ local fixtures = {
         expectPlain = "Lionginas died from fatigue! Level 32",
     },
     {
+        name = "player links keep original color",
+        path = "post",
+        event = "CHAT_MSG_CHANNEL",
+        message = "|Hplayer:Tester|h[Tester]|h says hi",
+        expectPlain = "Tester says hi",
+        rejectColor = "|cffc69b6d",
+    },
+    {
         name = "loot roll range",
         event = "CHAT_MSG_LOOT",
         message = "Yantiparazi rolls 40 (1-100)",
         expectPlain = "Yantiparazi rolls 40 (1-100)",
+        rejectColor = "|cffc69b6d",
+    },
+    {
+        name = "self level up capitalization",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Reached level 24.",
+        expectPlain = "Reached level 24",
+        rejectColor = "|cffc69b6d",
     },
     {
         name = "guild join",
@@ -202,6 +219,8 @@ for _, fixture in ipairs(fixtures) do
         failures[#failures + 1] = fixture.name .. ": unexpectedly hidden"
     elseif outPlain ~= fixture.expectPlain then
         failures[#failures + 1] = fixture.name .. ": expected [" .. fixture.expectPlain .. "] got [" .. tostring(outPlain) .. "]"
+    elseif fixture.rejectColor and out and out:find(fixture.rejectColor, 1, true) then
+        failures[#failures + 1] = fixture.name .. ": output used rejected color " .. fixture.rejectColor
     end
 end
 

@@ -46,7 +46,6 @@ local ParseRetailMoneyGain = ChatCleanerUtils.ParseRetailMoneyGain
 local StripBrackets = ChatCleanerUtils.StripBrackets
 local CleanPunctuation = ChatCleanerUtils.CleanPunctuation
 local SpaceBeforeX = ChatCleanerUtils.SpaceBeforeX
-local GetFirstPlayerLink = ChatCleanerUtils.GetFirstPlayerLink
 local RemoveLinkBrackets = ChatCleanerUtils.RemoveLinkBrackets
 local GetItemLinkFromMessage = ChatCleanerUtils.GetItemLinkFromMessage
 local ChatCleanerLoot = ns and ns.Private and ns.Private.ChatCleanerLoot or {}
@@ -98,52 +97,6 @@ local function GetPartyOrRaidMessageColor()
     return string.format("|cff%02x%02x%02x", r, g, b)
 end
 
--- Cache inviter/joiner name -> class color (when "Name joins" we learn their class; use for "Name invited you" next time)
-local playerNameToClassColor = {}
-
--- Return |cffRRGGBB class color for a player name (if in party/raid), else white
-local function GetClassColorForName(playerName)
-    if not playerName or playerName == "" then return ColorOffwhite end
-    -- Strip server/realm suffix (e.g. "Name-ServerName") so we match UnitName() which returns "Name"
-    local shortName = playerName:gsub("%-[^%-]+$", "")
-    if shortName == "" then shortName = playerName end
-
-    if RAID_CLASS_COLORS then
-        -- Special-case the local player so we always get their class color,
-        -- even when not present in party/raid unit lists.
-        local myName = UnitName("player")
-        if myName and (shortName == myName or playerName == myName) then
-            local _, myClass = UnitClass("player")
-            local c = myClass and RAID_CLASS_COLORS[myClass]
-            if c then
-                local r, g, b = math.floor((c.r or 1) * 255), math.floor((c.g or 1) * 255), math.floor((c.b or 1) * 255)
-                return string.format("|cff%02x%02x%02x", r, g, b)
-            end
-        end
-
-        local numGroup = GetNumGroupMembers and GetNumGroupMembers() or 0
-        local prefix, count = "party", (numGroup > 0 and numGroup) or 0
-        if count == 0 and IsInRaid() then
-            count = GetNumGroupMembers and GetNumGroupMembers() or 0
-            prefix = "raid"
-        end
-        for i = 1, count do
-            local unit = prefix .. i
-            local name = UnitName(unit)
-            if name and (name == shortName or name == playerName or name:find(shortName) or shortName:find(name)) then
-                local _, class = UnitClass(unit)
-                if class and RAID_CLASS_COLORS[class] then
-                    local c = RAID_CLASS_COLORS[class]
-                    local r, g, b = math.floor((c.r or 1) * 255), math.floor((c.g or 1) * 255), math.floor((c.b or 1) * 255)
-                    return string.format("|cff%02x%02x%02x", r, g, b)
-                end
-                break
-            end
-        end
-    end
-    return ColorOffwhite
-end
-
 local GroupLootPatterns = ChatCleanerLoot.BuildGroupLootPatterns and ChatCleanerLoot.BuildGroupLootPatterns() or {}
 local RollPatterns = ChatCleanerLoot.BuildRollPatterns and ChatCleanerLoot.BuildRollPatterns() or {}
 local RollPatternsFallback = ChatCleanerLoot.RollPatternsFallback or {}
@@ -154,7 +107,6 @@ local lootFormatter = ChatCleanerLoot.Create and ChatCleanerLoot.Create({
     SpaceBeforeX = SpaceBeforeX,
     GetItemLinkFromMessage = GetItemLinkFromMessage,
     GetItemLinkWithQualityColor = GetItemLinkWithQualityColor,
-    GetClassColorForName = GetClassColorForName,
     FormatItemCountSuffix = FormatItemCountSuffix,
     FormatReceivedDisplay = FormatReceivedDisplay,
     ShouldSkipGenericReceive = ShouldSkipGenericReceive,
@@ -182,7 +134,6 @@ local systemFormatter = ChatCleanerSystem.Create and ChatCleanerSystem.Create({
     CleanPunctuation = CleanPunctuation,
     StripBrackets = StripBrackets,
     SpaceBeforeX = SpaceBeforeX,
-    GetClassColorForName = GetClassColorForName,
     ColorPlus = ColorPlus,
     ColorMinus = ColorMinus,
     ColorWhite = ColorWhite,
@@ -236,15 +187,11 @@ local socialFormatter = ChatCleanerSocial.Create and ChatCleanerSocial.Create({
     L = L,
     GetPartyOrRaidMessageColor = GetPartyOrRaidMessageColor,
     CleanPunctuation = CleanPunctuation,
-    GetClassColorForName = GetClassColorForName,
-    GetFirstPlayerLink = GetFirstPlayerLink,
-    PlayerNameToClassColor = playerNameToClassColor,
     ColorGreen = ColorGreen,
     ColorRed = ColorRed,
     ColorOrange = ColorOrange,
     ColorDarkorange = ColorDarkorange,
     ColorWhite = ColorWhite,
-    ColorOffwhite = ColorOffwhite,
     ColorQueue = ColorQueue,
     ColorRestedBar = ColorRestedBar,
     ColorNormalBar = ColorNormalBar,
@@ -255,7 +202,6 @@ local FormatSystemSocialMessage = socialFormatter.FormatSystemSocialMessage
 local postProcessor = ChatCleanerPostProcess.Create and ChatCleanerPostProcess.Create({
     L = L,
     RemoveLinkBrackets = RemoveLinkBrackets,
-    GetClassColorForName = GetClassColorForName,
     FormatLevelUpRewardMessage = FormatLevelUpRewardMessage,
     ParseRetailMoneyGain = ParseRetailMoneyGain,
     SpaceBeforeX = SpaceBeforeX,
@@ -378,7 +324,7 @@ local function ChatFilterImpl(self, event, msg, author, ...)
         end
 
         do
-            local systemSocialMessage = FormatSystemSocialMessage and FormatSystemSocialMessage(plainMsg, msg)
+            local systemSocialMessage = FormatSystemSocialMessage and FormatSystemSocialMessage(plainMsg)
             if systemSocialMessage == true then
                 return true
             elseif systemSocialMessage then

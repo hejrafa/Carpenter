@@ -56,7 +56,6 @@ function PostProcess.Create(config)
     config = config or {}
     local applyChannelStyling = config.ApplyChannelStyling or ApplyChannelStyling
     local removeLinkBrackets = config.RemoveLinkBrackets or function(text) return text end
-    local getClassColorForName = config.GetClassColorForName or function() return "|cfff0f0f0" end
     local formatLevelUpRewardMessage = config.FormatLevelUpRewardMessage or function() return nil end
     local parseRetailMoneyGain = config.ParseRetailMoneyGain or function() return nil end
     local spaceBeforeX = config.SpaceBeforeX or function(text) return text end
@@ -88,9 +87,9 @@ function PostProcess.Create(config)
         name = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
         if name == "" or name == "Loot" then return nil end
         if name == "You" then
-            return getClassColorForName(UnitName("player") or "You") .. (L.CHAT_YOU or "You") .. "|r"
+            return colorLootLiteral .. (L.CHAT_YOU or "You") .. "|r"
         end
-        return getClassColorForName(name) .. name .. "|r"
+        return colorLootLiteral .. name .. "|r"
     end
 
     local function Literal(text)
@@ -160,14 +159,7 @@ function PostProcess.Create(config)
         return colorRed .. T("CHAT_HARDCORE_DEATH", "%s %s! Level %s", playerName, causeLabel, level) .. "|r"
     end
 
-    local function ClassColorPlayerNames(text)
-        if not text or type(text) ~= "string" then return text end
-        return text:gsub("(|c%x%x%x%x%x%x%x%x)?(|Hplayer:([^:|]+)(:[^|]*)?|h.-|h)", function(_, link, playerName)
-            return getClassColorForName(playerName) .. link
-        end)
-    end
-
-    local function ClassColorLootRollNames(text)
+    local function StyleLootRollNames(text)
         if not text or type(text) ~= "string" then return text end
 
         local plain = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("%s+", " ")
@@ -196,13 +188,13 @@ function PostProcess.Create(config)
                 text = text:gsub(" by ([^|%[%]]+)%s*(|r)?%s*$", function(name, reset)
                     didReplace = true
                     local short = Trim(name):gsub("%-.*$", "")
-                    return " by " .. getClassColorForName(short) .. short .. "|r" .. (reset or "")
+                    return " by " .. colorLootLiteral .. short .. "|r" .. (reset or "")
                 end, 1)
                 if not didReplace then
                     text = text:gsub(" ([Ww]inner:?%s+)([^|%[%]]+)%s*(|r)?%s*$", function(label, name, reset)
                         didReplace = true
                         local short = Trim(name):gsub("%-.*$", "")
-                        return " " .. label .. getClassColorForName(short) .. short .. "|r" .. (reset or "")
+                        return " " .. label .. colorLootLiteral .. short .. "|r" .. (reset or "")
                     end, 1)
                 end
                 if didReplace then return text end
@@ -212,35 +204,35 @@ function PostProcess.Create(config)
         text = text:gsub("^(|c%x%x%x%x%x%x%x%x)?%s*([^|%[%]%s]+)(%s+receives loot:%s*)(.-)$", function(prefix, name, literal, tail)
             local short = Trim(name):gsub("%-.*$", "")
             if short ~= "" and short ~= "You" and short ~= "Loot" then
-                return (prefix or "") .. getClassColorForName(short) .. short .. "|r" .. literal .. tail
+                return (prefix or "") .. colorLootLiteral .. short .. "|r" .. literal .. tail
             end
             return (prefix or "") .. short .. literal .. tail
         end)
         text = text:gsub("^(|c%x%x%x%x%x%x%x%x)?%s*([^|%[%]%s]+)(%s+receives item:%s*)(.-)$", function(prefix, name, literal, tail)
             local short = Trim(name):gsub("%-.*$", "")
             if short ~= "" and short ~= "You" and short ~= "Loot" then
-                return (prefix or "") .. getClassColorForName(short) .. short .. "|r" .. literal .. tail
+                return (prefix or "") .. colorLootLiteral .. short .. "|r" .. literal .. tail
             end
             return (prefix or "") .. short .. literal .. tail
         end)
         text = text:gsub("^(|c%x%x%x%x%x%x%x%x)?%s*([^|%[%]%s]+)(%s+creates:%s*)(.-)$", function(prefix, name, literal, tail)
             local short = Trim(name):gsub("%-.*$", "")
             if short ~= "" and short ~= "You" and short ~= "Loot" then
-                return (prefix or "") .. getClassColorForName(short) .. short .. "|r" .. literal .. tail
+                return (prefix or "") .. colorLootLiteral .. short .. "|r" .. literal .. tail
             end
             return (prefix or "") .. short .. literal .. tail
         end)
         text = text:gsub("^(.-)%s+has selected%s+(%w+)%s*:%s*(.+)$", function(name, typeWord, item)
             local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
             if short ~= "" and short ~= "Loot" and typeWord then
-                return getClassColorForName(short) .. short .. "|r " .. Literal(SelectedRollText(typeWord)) .. " " .. item
+                return colorLootLiteral .. short .. "|r " .. Literal(SelectedRollText(typeWord)) .. " " .. item
             end
             return name .. " " .. typeWord .. ": " .. item
         end)
         text = text:gsub("^(.-)%s+passed on[:%s]+(.+)$", function(name, item)
             local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
             if short ~= "" and short ~= "Loot" then
-                return getClassColorForName(short) .. short .. "|r " .. Literal(T("CHAT_PASSED_LABEL", "passed:")) .. " " .. item
+                return colorLootLiteral .. short .. "|r " .. Literal(T("CHAT_PASSED_LABEL", "passed:")) .. " " .. item
             end
             return name .. " passed: " .. item
         end)
@@ -255,9 +247,9 @@ function PostProcess.Create(config)
             local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
             if short ~= "" and short ~= "Loot" then
                 if short == "You" then
-                    return getClassColorForName(UnitName("player") or "You") .. (L.CHAT_YOU or "You") .. "|r " .. Literal("roll " .. rollNumber .. ":") .. " " .. item
+                    return colorLootLiteral .. (L.CHAT_YOU or "You") .. "|r " .. Literal("roll " .. rollNumber .. ":") .. " " .. item
                 end
-                return getClassColorForName(short) .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber .. ":") .. " " .. item
+                return colorLootLiteral .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber .. ":") .. " " .. item
             end
             return name .. " " .. rollWord .. " " .. rollNumber .. ": " .. item
         end)
@@ -265,9 +257,9 @@ function PostProcess.Create(config)
             local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
             if short ~= "" and short ~= "Loot" then
                 if short == "You" then
-                    return getClassColorForName(UnitName("player") or "You") .. (L.CHAT_YOU or "You") .. "|r " .. Literal("roll " .. rollNumber .. " " .. rangeText)
+                    return colorLootLiteral .. (L.CHAT_YOU or "You") .. "|r " .. Literal("roll " .. rollNumber .. " " .. rangeText)
                 end
-                return getClassColorForName(short) .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber .. " " .. rangeText)
+                return colorLootLiteral .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber .. " " .. rangeText)
             end
             return name .. " " .. rollWord .. " " .. rollNumber .. " " .. rangeText
         end)
@@ -275,9 +267,9 @@ function PostProcess.Create(config)
             local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
             if short ~= "" and short ~= "Loot" then
                 if short == "You" then
-                    return getClassColorForName(UnitName("player") or "You") .. (L.CHAT_YOU or "You") .. "|r " .. Literal("roll " .. rollNumber)
+                    return colorLootLiteral .. (L.CHAT_YOU or "You") .. "|r " .. Literal("roll " .. rollNumber)
                 end
-                return getClassColorForName(short) .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber)
+                return colorLootLiteral .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber)
             end
             return name .. " " .. rollWord .. " " .. rollNumber
         end)
@@ -294,8 +286,7 @@ function PostProcess.Create(config)
             return originalAddMessage(frame, directLootWin, unpack(args))
         end
 
-        message = ClassColorPlayerNames(message)
-        message = ClassColorLootRollNames(message)
+        message = StyleLootRollNames(message)
 
         local plain = StripColorCodes(message)
         local hardcoreDeathMessage = FormatHardcoreDeathMessage(plain)

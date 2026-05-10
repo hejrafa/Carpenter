@@ -10,7 +10,6 @@ function System.Create(config)
     local cleanPunctuation = config.CleanPunctuation or function(text) return text end
     local stripBrackets = config.StripBrackets or function(text) return text end
     local spaceBeforeX = config.SpaceBeforeX or function(text) return text end
-    local getClassColorForName = config.GetClassColorForName or function() return "|cfff0f0f0" end
     local colorPlus = config.ColorPlus or "|cffc8c8c8"
     local colorMinus = config.ColorMinus or "|cffc8c8c8"
     local colorWhite = config.ColorWhite or "|cffffffff"
@@ -62,7 +61,7 @@ function System.Create(config)
         if not plainText or type(plainText) ~= "string" then return nil end
 
         local plainLower = plainText:lower()
-        local levelColor = getClassColorForName(UnitName("player") or "")
+        local levelColor = colorWhite
 
         local function TrimName(name)
             if not name or name == "" then return nil end
@@ -83,8 +82,7 @@ function System.Create(config)
                 return colorYellow .. T("CHAT_REACHED_LEVEL", "%s reached level %s", name, levelNum) .. "|r"
             end
 
-            local nameColor = getClassColorForName(name)
-            return nameColor .. name .. "|r " .. levelColor .. T("CHAT_REACHED_LEVEL_NO_NAME", "reached level %s", levelNum) .. "|r"
+            return levelColor .. T("CHAT_REACHED_LEVEL", "%s reached level %s", name, levelNum) .. "|r"
         end
 
         local otherName, otherLevel = plainText:match("^%s*(.-)%s+[Hh]as%s+[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
@@ -103,7 +101,7 @@ function System.Create(config)
         local levelNum = plainText:match("[Rr]eached%s+level%s+(%d+)") or plainText:match("[Rr]each%s+level%s+(%d+)") or
             plainText:match("[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
         if levelNum and plainLower:find("level") and (plainLower:find("reached") or plainLower:find("reach") or plainLower:find("congratulations")) then
-            return levelColor .. T("CHAT_REACHED_LEVEL_NO_NAME", "reached level %s", levelNum) .. "|r"
+            return levelColor .. T("CHAT_REACHED_LEVEL_NO_NAME", "Reached level %s", levelNum) .. "|r"
         end
 
         local hitAmount = plainText:match("[Yy]ou%s+have%s+gained%s+(%d+)%s+[Hh]it [Pp]oint") or
@@ -334,8 +332,8 @@ function System.Create(config)
             LEVEL_UP_STAT = _G.LEVEL_UP_STAT,
         }
 
-        local levelColor = getClassColorForName(UnitName("player") or "")
-        _G.LEVEL_UP = levelColor .. T("CHAT_REACHED_LEVEL_NO_NAME", "reached level %d") .. "|r"
+        local levelColor = colorWhite
+        _G.LEVEL_UP = levelColor .. T("CHAT_REACHED_LEVEL_NO_NAME", "Reached level %d") .. "|r"
         _G.LEVEL_UP_HEALTH = colorPlus .. "+|r " .. levelColor .. "%d " .. T("CHAT_HIT_POINTS", "Hit Points") .. "|r"
         _G.LEVEL_UP_HEALTH_MANA = colorPlus .. "+|r " .. levelColor .. "%d " .. T("CHAT_HIT_POINTS", "Hit Points") .. "|r, " .. colorPlus .. "+|r " .. levelColor .. "%d " .. (MANA or T("MANA", "Mana")) .. "|r"
         _G.LEVEL_UP_CHAR_POINTS = colorPlus .. "+|r " .. levelColor .. "%d " .. T("CHAT_TALENT_POINTS", "Talent Points") .. "|r"

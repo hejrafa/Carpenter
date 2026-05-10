@@ -13,14 +13,10 @@ function Social.Create(config)
     local colorOrange = config.ColorOrange or "|cffff8000"
     local colorDarkorange = config.ColorDarkorange or "|cffff6600"
     local colorWhite = config.ColorWhite or "|cffffffff"
-    local colorOffwhite = config.ColorOffwhite or "|cfff0f0f0"
     local colorQueue = config.ColorQueue or "|cff80b0ff"
     local colorRestedBar = config.ColorRestedBar or "|cff3399ff"
     local colorNormalBar = config.ColorNormalBar or "|cff9940ff"
     local cleanPunctuation = config.CleanPunctuation or function(text) return text end
-    local getClassColorForName = config.GetClassColorForName or function() return colorOffwhite end
-    local getFirstPlayerLink = config.GetFirstPlayerLink or function() return nil end
-    local playerNameToClassColor = config.PlayerNameToClassColor or {}
     local L = config.L or (Carpenter and Carpenter.L) or {}
 
     local function T(key, fallback, ...)
@@ -97,7 +93,7 @@ function Social.Create(config)
         return nil
     end
 
-    function api.FormatSystemSocialMessage(plainMsg, rawMsg)
+    function api.FormatSystemSocialMessage(plainMsg)
         if not plainMsg or type(plainMsg) ~= "string" then return nil end
 
         if _G.CLEARED_AFK and plainMsg == _G.CLEARED_AFK then
@@ -161,7 +157,7 @@ function Social.Create(config)
         local rcName = plainMsg:match("^%s*(.-)%s+has initiated a ready check%.?%s*$")
         if rcName and rcName ~= "" then
             local short = rcName:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
-            return getClassColorForName(short) .. short .. "|r " .. colorOrange .. T("CHAT_INITIATED_READY_CHECK", "initiated ready check") .. "|r"
+            return colorOrange .. short .. " " .. T("CHAT_INITIATED_READY_CHECK", "initiated ready check") .. "|r"
         end
         local roleName, roleWord = plainMsg:match("^%s*(.-)%s+is now%s+([%a]+)%.?%s*$")
         if roleName and roleWord then
@@ -169,7 +165,7 @@ function Social.Create(config)
             local lowerRole = roleWord:lower()
             if lowerRole == "tank" or lowerRole == "healer" or lowerRole == "damage" then
                 local prettyRole = (lowerRole == "tank" and T("CHAT_ROLE_TANK", "Tank")) or (lowerRole == "healer" and T("CHAT_ROLE_HEALER", "Healer")) or T("CHAT_ROLE_DAMAGE", "Damage")
-                return getClassColorForName(short) .. short .. "|r " .. colorOrange .. prettyRole .. "|r"
+                return colorOrange .. short .. " " .. prettyRole .. "|r"
             end
         end
 
@@ -201,14 +197,14 @@ function Social.Create(config)
         if guildJoiner and guildJoiner ~= "" then
             local short = guildJoiner:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
             if short ~= "" then
-                return getClassColorForName(short) .. short .. "|r " .. colorGreen .. T("CHAT_JOINED_GUILD", "joined the guild") .. "|r"
+                return colorGreen .. short .. " " .. T("CHAT_JOINED_GUILD", "joined the guild") .. "|r"
             end
         end
         local guildLeaver = plainMsg:match("^%s*(.-)%s+has left the guild%.?%s*$")
         if guildLeaver and guildLeaver ~= "" then
             local short = guildLeaver:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
             if short ~= "" then
-                return getClassColorForName(short) .. short .. "|r " .. colorRed .. T("CHAT_LEFT_GUILD", "left the guild") .. "|r"
+                return colorRed .. short .. " " .. T("CHAT_LEFT_GUILD", "left the guild") .. "|r"
             end
         end
         local numPlayers = plainMsg:match("^(%d+)%s+players have joined the battle%.?%s*$")
@@ -229,12 +225,6 @@ function Social.Create(config)
         if inviteName and inviteName ~= "" then
             inviteName = inviteName:gsub("^%s+", ""):gsub("%s+$", ""):gsub("^%[(.-)%]$", "%1")
             if inviteName ~= "" then
-                local shortName = inviteName:gsub("%-[^%-]+$", "")
-                local playerLink = getFirstPlayerLink(rawMsg)
-                local nameColor = playerNameToClassColor[shortName] or playerNameToClassColor[inviteName] or getClassColorForName(inviteName)
-                if nameColor ~= colorOffwhite then
-                    return (playerLink or (nameColor .. inviteName .. "|r")) .. groupColor .. " " .. T("CHAT_INVITED_YOU", "invited you") .. "|r"
-                end
                 return colorGreen .. T("CHAT_PLAYER_INVITED_YOU", "%s invited you", inviteName) .. "|r"
             end
         end
@@ -272,10 +262,6 @@ function Social.Create(config)
         local joiner = plainMsg:match("^%s*(.-)%s+joins the party%.?%s*$") or plainMsg:match("^%s*(.-)%s+joins the raid%.?%s*$")
         if joiner and joiner ~= "" then
             joiner = joiner:gsub("^%s+", ""):gsub("%s+$", "")
-            local joinerShort = joiner:gsub("%-[^%-]+$", "")
-            local classColor = getClassColorForName(joiner)
-            playerNameToClassColor[joinerShort] = classColor
-            playerNameToClassColor[joiner] = classColor
             return colorGreen .. T("CHAT_PLAYER_JOINS", "%s joins", joiner) .. "|r"
         end
         local newLeader = plainMsg:match("^%s*(.-)%s+is now the group leader%.?%s*$") or plainMsg:match("^%s*(.-)%s+is now the raid leader%.?%s*$")

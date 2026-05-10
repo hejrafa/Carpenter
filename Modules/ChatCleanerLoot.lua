@@ -118,7 +118,6 @@ function Loot.Create(config)
     local spaceBeforeX = config.SpaceBeforeX or function(text) return text end
     local getItemLinkFromMessage = config.GetItemLinkFromMessage or GetItemLinkFromMessage
     local getItemLinkWithQualityColor = config.GetItemLinkWithQualityColor or function(link) return link end
-    local getClassColorForName = config.GetClassColorForName or function() return "|cfff0f0f0" end
     local formatItemCountSuffix = config.FormatItemCountSuffix or function(text) return text end
     local formatReceivedDisplay = config.FormatReceivedDisplay or function() return nil end
     local shouldSkipGenericReceive = config.ShouldSkipGenericReceive or function() return true end
@@ -216,8 +215,7 @@ function Loot.Create(config)
 
         local function StyleGroupLoot(name, display)
             if not name or name == "" or name == "You" then return nil end
-            local nameColor = getClassColorForName(name)
-            return spaceBeforeX(nameColor .. name .. "|r" .. colorLootLiteral .. ": " .. colorPlus .. "+|r " .. display)
+            return spaceBeforeX(colorLootLiteral .. name .. ": " .. colorPlus .. "+|r " .. display)
         end
 
         local plainLoot = message:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("%s+", " ")
@@ -273,10 +271,10 @@ function Loot.Create(config)
         local function NameOut(name)
             local isYou = name:lower() == "you"
             if isYou then
-                return getClassColorForName(UnitName("player") or "You") .. You() .. "|r", true
+                return colorLootLiteral .. You() .. "|r", true
             end
             local short = name:gsub("%-.*$", "")
-            return getClassColorForName(short) .. short .. "|r", false
+            return colorLootLiteral .. short .. "|r", false
         end
         local function RollLiteral(text)
             if not text or text == "" then return "" end
