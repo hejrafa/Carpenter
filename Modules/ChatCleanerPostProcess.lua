@@ -61,6 +61,7 @@ function PostProcess.Create(config)
     local parseRetailMoneyGain = config.ParseRetailMoneyGain or function() return nil end
     local spaceBeforeX = config.SpaceBeforeX or function(text) return text end
     local colorPlus = config.ColorPlus or "|cffc8c8c8"
+    local colorLootLiteral = config.ColorLootLiteral or "|cffc8c8c8"
     local colorRed = config.ColorRed or "|cffff4040"
     local honorDelay = config.HonorDelay or 3
     local joinDedupDelay = config.JoinDedupDelay or 8
@@ -92,6 +93,16 @@ function PostProcess.Create(config)
         return getClassColorForName(name) .. name .. "|r"
     end
 
+    local function Literal(text)
+        if not text or text == "" then return "" end
+        return colorLootLiteral .. text .. "|r"
+    end
+
+    local function SelectedRollText(typeWord)
+        local rollType = typeWord and T("CHAT_ROLL_" .. typeWord:upper(), typeWord) or ""
+        return T("CHAT_SELECTED_ROLL", "selected %s:", rollType)
+    end
+
     local function FormatDirectLootWin(text)
         if not text or type(text) ~= "string" then return nil end
 
@@ -105,7 +116,7 @@ function PostProcess.Create(config)
         item = Trim(item):gsub("%s+[Ll]oot%s*$", "")
         if item == "" then return nil end
 
-        return (prefix or "") .. nameOut .. " " .. T("CHAT_WON_LABEL", "won:") .. " " .. item
+        return (prefix or "") .. nameOut .. " " .. Literal(T("CHAT_WON_LABEL", "won:")) .. " " .. item
     end
 
     local function StripColorCodes(text)
@@ -222,33 +233,53 @@ function PostProcess.Create(config)
         text = text:gsub("^(.-)%s+has selected%s+(%w+)%s*:%s*(.+)$", function(name, typeWord, item)
             local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
             if short ~= "" and short ~= "Loot" and typeWord then
-                return getClassColorForName(short) .. short .. "|r " .. typeWord .. ": " .. item
+                return getClassColorForName(short) .. short .. "|r " .. Literal(SelectedRollText(typeWord)) .. " " .. item
             end
             return name .. " " .. typeWord .. ": " .. item
         end)
         text = text:gsub("^(.-)%s+passed on[:%s]+(.+)$", function(name, item)
             local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
             if short ~= "" and short ~= "Loot" then
-                return getClassColorForName(short) .. short .. "|r passed: " .. item
+                return getClassColorForName(short) .. short .. "|r " .. Literal(T("CHAT_PASSED_LABEL", "passed:")) .. " " .. item
             end
             return name .. " passed: " .. item
         end)
         text = text:gsub("^(.-)%s+[Ww]on:%s*(.+)$", function(name, item)
             local nameOut = StyledLootName(name)
             if nameOut then
-                return nameOut .. " " .. T("CHAT_WON_LABEL", "won:") .. " " .. item
+                return nameOut .. " " .. Literal(T("CHAT_WON_LABEL", "won:")) .. " " .. item
             end
             return name .. " won: " .. item
         end)
-        text = text:gsub("^(.-)%s+rolls?%s+(%d+)", function(name, rollNumber)
+        text = text:gsub("^(.-)%s+(rolls?)%s+(%d+)%s*:%s*(.+)$", function(name, rollWord, rollNumber, item)
             local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
             if short ~= "" and short ~= "Loot" then
                 if short == "You" then
-                    return getClassColorForName(UnitName("player") or "You") .. (L.CHAT_YOU or "You") .. "|r rolls " .. rollNumber
+                    return getClassColorForName(UnitName("player") or "You") .. (L.CHAT_YOU or "You") .. "|r " .. Literal("roll " .. rollNumber .. ":") .. " " .. item
                 end
-                return getClassColorForName(short) .. short .. "|r rolls " .. rollNumber
+                return getClassColorForName(short) .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber .. ":") .. " " .. item
             end
-            return name .. " rolls " .. rollNumber
+            return name .. " " .. rollWord .. " " .. rollNumber .. ": " .. item
+        end)
+        text = text:gsub("^(.-)%s+(rolls?)%s+(%d+)%s+(%(%d+%-%d+%))%s*$", function(name, rollWord, rollNumber, rangeText)
+            local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
+            if short ~= "" and short ~= "Loot" then
+                if short == "You" then
+                    return getClassColorForName(UnitName("player") or "You") .. (L.CHAT_YOU or "You") .. "|r " .. Literal("roll " .. rollNumber .. " " .. rangeText)
+                end
+                return getClassColorForName(short) .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber .. " " .. rangeText)
+            end
+            return name .. " " .. rollWord .. " " .. rollNumber .. " " .. rangeText
+        end)
+        text = text:gsub("^(.-)%s+(rolls?)%s+(%d+)%s*$", function(name, rollWord, rollNumber)
+            local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
+            if short ~= "" and short ~= "Loot" then
+                if short == "You" then
+                    return getClassColorForName(UnitName("player") or "You") .. (L.CHAT_YOU or "You") .. "|r " .. Literal("roll " .. rollNumber)
+                end
+                return getClassColorForName(short) .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber)
+            end
+            return name .. " " .. rollWord .. " " .. rollNumber
         end)
 
         return text

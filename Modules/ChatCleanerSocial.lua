@@ -197,6 +197,13 @@ function Social.Create(config)
         if instLeave and instLeave ~= "" then
             return colorRed .. T("CHAT_PLAYER_LEFT", "%s left", instLeave:gsub("^%s+", ""):gsub("%s+$", "")) .. "|r"
         end
+        local guildLeaver = plainMsg:match("^%s*(.-)%s+has left the guild%.?%s*$")
+        if guildLeaver and guildLeaver ~= "" then
+            local short = guildLeaver:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
+            if short ~= "" then
+                return getClassColorForName(short) .. short .. "|r " .. colorRed .. T("CHAT_LEFT_GUILD", "left the guild") .. "|r"
+            end
+        end
         local numPlayers = plainMsg:match("^(%d+)%s+players have joined the battle%.?%s*$")
         if numPlayers then
             return colorGreen .. T("CHAT_PLAYERS_JOINED", "%s players joined", numPlayers) .. "|r"

@@ -260,6 +260,7 @@ local postProcessor = ChatCleanerPostProcess.Create and ChatCleanerPostProcess.C
     ParseRetailMoneyGain = ParseRetailMoneyGain,
     SpaceBeforeX = SpaceBeforeX,
     ColorPlus = ColorPlus,
+    ColorLootLiteral = ColorLootLiteral,
     ColorRed = ColorRed,
     HonorDelay = 3,
     JoinDedupDelay = 8,
