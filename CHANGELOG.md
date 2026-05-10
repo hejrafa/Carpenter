@@ -5,6 +5,7 @@
 - Stopped NPC unit frames and recycled NPC nameplates from retaining Carpenter's class-colored health state.
 - Split class health coloring into smaller unit-frame and nameplate modules backed by shared safe unit helpers.
 - Added Chat Cleaner fixtures, localization parity checks, and a release helper for validation, packaging, and worktree updates.
+- Added tag-driven GitHub Actions packaging for GitHub Releases, CurseForge, and Wago using BigWigsMods/packager.
 
 ## 1.6.1
 

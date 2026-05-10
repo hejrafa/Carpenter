@@ -1,0 +1,85 @@
+name: Package Addon
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Package and publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Lua
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.1
+          if ! command -v lua >/dev/null 2>&1 && command -v lua5.1 >/dev/null 2>&1; then
+            sudo ln -s "$(command -v lua5.1)" /usr/local/bin/lua
+          fi
+          if ! command -v luac >/dev/null 2>&1 && command -v luac5.1 >/dev/null 2>&1; then
+            sudo ln -s "$(command -v luac5.1)" /usr/local/bin/luac
+          fi
+
+      - name: Validate release metadata
+        shell: bash
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tags must use vMAJOR.MINOR.PATCH, for example v1.6.2."
+            exit 1
+          fi
+
+          tag_version="${GITHUB_REF_NAME#v}"
+          toc_version="$(awk -F': ' '/^## Version:/{print $2; exit}' Carpenter.toc)"
+
+          if [[ "$tag_version" != "$toc_version" ]]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match Carpenter.toc version ${toc_version}."
+            echo "::error::Update the TOC versions and changelog, commit them, then retag v${toc_version}."
+            exit 1
+          fi
+
+          if [[ -x tools/release.sh ]]; then
+            tools/release.sh check
+          fi
+
+      - name: Check publishing secrets
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          CF_PROJECT_ID: ${{ secrets.CF_PROJECT_ID }}
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+          WAGO_PROJECT_ID: ${{ secrets.WAGO_PROJECT_ID }}
+        run: |
+          if [ -z "$CF_API_KEY" ]; then
+            echo "::error::Missing repository secret CF_API_KEY."
+            exit 1
+          fi
+          if [ -z "$CF_PROJECT_ID" ]; then
+            echo "::error::Missing repository secret CF_PROJECT_ID."
+            exit 1
+          fi
+          if [ -z "$WAGO_API_TOKEN" ]; then
+            echo "::error::Missing repository secret WAGO_API_TOKEN."
+            exit 1
+          fi
+          if [ -z "$WAGO_PROJECT_ID" ]; then
+            echo "::error::Missing repository secret WAGO_PROJECT_ID."
+            exit 1
+          fi
+
+      - name: Package and publish to GitHub, CurseForge, and Wago
+        uses: BigWigsMods/packager@v2
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: -p ${{ secrets.CF_PROJECT_ID }} -a ${{ secrets.WAGO_PROJECT_ID }}

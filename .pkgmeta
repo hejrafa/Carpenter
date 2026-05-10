@@ -1,0 +1,22 @@
+package-as: Carpenter
+manual-changelog: CHANGELOG.md
+enable-nolib-creation: no
+
+ignore:
+  - .claude
+  - .github
+  - .release
+  - .DS_Store
+  - .idea
+  - .vscode
+  - _Dev
+  - dev
+  - tools
+  - README.md
+  - DESCRIPTION.md
+  - "*.zip"
+  - "*.log"
+  - ".cache"
+  - ".meta-audit-cache"
+  - ".quest-audit-cache"
+  - "__pycache__"

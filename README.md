@@ -75,4 +75,31 @@ Some features (Micro Menu fade, Exp/Rep bar resize) are TBC-only.
 
 - `Core/` - shared bootstrap and client compatibility checks
 - `Localization/` - English defaults plus locale-specific overrides
-- `Modules/` - feature modules loaded by the Classic Era and TBC TOCs
+- `Modules/` - feature modules loaded by the Retail, Classic Era, and TBC TOCs
+- `tools/` - local validation, fixture, packaging, and worktree helper scripts
+- `CHANGELOG.md` - release notes used by the package workflow
+
+## Release Publishing
+
+GitHub Actions packages Carpenter only when a version tag is pushed. Normal pushes to `main` do not publish. The workflow validates the tag against the committed TOC/changelog metadata, runs `tools/release.sh check`, builds the addon zip with the BigWigs WoW Packager, creates a GitHub Release, and uploads the same package to CurseForge and Wago.
+
+Required GitHub repository secrets:
+
+- `CF_API_KEY`: CurseForge API token. Create it from your CurseForge account API Tokens page: https://www.curseforge.com/account/api-tokens
+- `CF_PROJECT_ID`: CurseForge numeric project ID. Open the Carpenter project page on CurseForge and copy the Project ID from the About Project box.
+- `WAGO_API_TOKEN`: Wago Addons API token. Create it from the Wago developer portal: https://addons.wago.io/account/api-tokens
+- `WAGO_PROJECT_ID`: Wago project ID. Open the Wago developer dashboard and copy the alphanumeric ID shown under the Carpenter project name.
+
+Add secrets in GitHub at `Settings` -> `Secrets and variables` -> `Actions` -> `New repository secret`.
+
+Release flow:
+
+```bash
+tools/release.sh check
+git tag v1.6.2
+git push origin main v1.6.2
+```
+
+The tag must be strict `vMAJOR.MINOR.PATCH`, and the number must match `## Version:` in all TOC files. Platform project IDs stay in GitHub secrets; do not add `X-Curse-Project-ID` or `X-Wago-ID` to the TOCs.
+
+The package rules live in `.pkgmeta`; `.github`, `_Dev`, local tools, caches, and docs such as `README.md` and `DESCRIPTION.md` are excluded from release zips.

@@ -37,6 +37,12 @@ validate_changelog() {
   grep -q "^## ${release_version}$" "$ROOT/CHANGELOG.md" || fail "CHANGELOG.md has no ## ${release_version} section"
 }
 
+validate_pkgmeta() {
+  [[ -f "$ROOT/.pkgmeta" ]] || fail ".pkgmeta is missing"
+  grep -q '^package-as:[[:space:]]*Carpenter$' "$ROOT/.pkgmeta" || fail ".pkgmeta must package as Carpenter"
+  grep -q '^manual-changelog:[[:space:]]*CHANGELOG.md$' "$ROOT/.pkgmeta" || fail ".pkgmeta must use CHANGELOG.md as the manual changelog"
+}
+
 lua_files() {
   find "$ROOT" \
     -path "$ROOT/.git" -prune -o \
@@ -47,6 +53,7 @@ lua_files() {
 check() {
   validate_tocs
   validate_changelog
+  validate_pkgmeta
 
   local files=()
   while IFS= read -r file; do
