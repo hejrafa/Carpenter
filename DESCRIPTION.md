@@ -41,13 +41,13 @@ Carpenter ships dedicated TOCs for Retail/Mainline, Classic Era, and TBC. Retail
 
 ### Chat
 
-- **Filter** - Block guild recruitment spam, trade bots, gambling messages, and duplicates.
+- **Filter** - Block trade bots, gambling messages, and duplicates.
 - **Cleaner** - Restyle system, loot, experience, reputation, money, and level-up messages.
 - **Hide Chat Buttons** - Hide Social, Channels, and Voice buttons until hover.
 
 ### Automations
 
-- **Mount Speed Trinket** - Equip Riding Crop or Carrot on a Stick when mounting.
+- **Mount Speed Trinket** - Equip Carrot on a Stick in Classic Era, or Riding Crop/Carrot in TBC, when mounting.
 - **Consumable Macros** - Create macros that track your best food, water, health potion, mana potion, and bandage.
 - **Auto Track Quests** - Add newly accepted quests to the objective tracker.
 - **Auto Sell Junk** - Sell grey items at vendors. Hold Shift to skip.

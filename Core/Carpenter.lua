@@ -20,7 +20,6 @@ local defaults = {
     smallerExpBarEnabled = false,
     minimapClutterEnabled = false,
     enhanceTooltipEnabled = false,
-    enhanceUIEnabled = false,
     scaleExtraAbilityEnabled = false,
     -- Unit Frames
     classHealthColorsEnabled = false,
@@ -49,7 +48,6 @@ local defaults = {
     raidTargetIconAlignedEnabled = false,
     -- Chat
     chatFilterEnabled = false,
-    filterGuildRecruitEnabled = false,
     filterTradeBotsEnabled = false,
     filterGamblingEnabled = false,
     filterDuplicatesEnabled = false,

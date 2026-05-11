@@ -147,12 +147,70 @@ local SIDE_GAP = sidebarApi.SideGap or 16
 -- =========================
 -- Main Scroll Area
 -- =========================
-local SCROLL_TOP_PADDING = 10
 local scrollFrame = CreateFrame("ScrollFrame", "CP_MainScroll", frame)
-scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -50 - SCROLL_TOP_PADDING)
-scrollFrame:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 10)
-scrollFrame:SetPoint("RIGHT", sidebar, "LEFT", -10, 0)
+scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -50)
+scrollFrame:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 0)
+scrollFrame:SetPoint("RIGHT", sidebar, "LEFT", -28, 0)
 scrollFrame:EnableMouseWheel(true)
+
+local function CreateMainScrollBar(parent)
+    local ok, bar = pcall(CreateFrame, "Slider", "CP_MainScrollBar", parent, "MinimalScrollBarTemplate")
+    if ok and bar then
+        bar:SetWidth(8)
+        return bar
+    end
+
+    bar = CreateFrame("Slider", "CP_MainScrollBar", parent)
+    bar:SetOrientation("VERTICAL")
+    bar:SetWidth(8)
+
+    local track = bar:CreateTexture(nil, "BACKGROUND")
+    track:SetPoint("TOP", bar, "TOP", 0, -1)
+    track:SetPoint("BOTTOM", bar, "BOTTOM", 0, 1)
+    track:SetWidth(2)
+    track:SetTexture("Interface\\BUTTONS\\WHITE8X8")
+    track:SetVertexColor(1, 1, 1, 0.08)
+
+    local thumb = bar:CreateTexture(nil, "ARTWORK")
+    thumb:SetTexture("Interface\\BUTTONS\\WHITE8X8")
+    thumb:SetVertexColor(1, 1, 1, 0.35)
+    thumb:SetSize(6, 40)
+    bar:SetThumbTexture(thumb)
+
+    return bar
+end
+
+local scrollBar = CreateMainScrollBar(frame)
+scrollBar:SetPoint("TOPLEFT", scrollFrame, "TOPRIGHT", 6, -2)
+scrollBar:SetPoint("BOTTOMLEFT", scrollFrame, "BOTTOMRIGHT", 6, 2)
+scrollBar:SetMinMaxValues(0, 0)
+scrollBar:SetValueStep(1)
+scrollBar:EnableMouseWheel(true)
+if scrollBar.SetObeyStepOnDrag then
+    scrollBar:SetObeyStepOnDrag(false)
+end
+scrollBar:SetValue(0)
+
+local syncScrollBar = false
+local function UpdateMainScrollBar()
+    local maxScroll = scrollFrame:GetVerticalScrollRange() or 0
+    local currentScroll = scrollFrame:GetVerticalScroll() or 0
+    if currentScroll > maxScroll then
+        currentScroll = maxScroll
+        scrollFrame:SetVerticalScroll(currentScroll)
+    end
+
+    scrollBar:SetMinMaxValues(0, maxScroll)
+    syncScrollBar = true
+    scrollBar:SetValue(currentScroll)
+    syncScrollBar = false
+    scrollBar:SetShown(maxScroll > 0)
+end
+
+scrollBar:SetScript("OnValueChanged", function(_, value)
+    if syncScrollBar then return end
+    scrollFrame:SetVerticalScroll(value)
+end)
 
 scrollFrame:SetScript("OnMouseWheel", function(self, delta)
     local cur = self:GetVerticalScroll()
@@ -161,8 +219,14 @@ scrollFrame:SetScript("OnMouseWheel", function(self, delta)
     if new < 0 then new = 0 end
     if new > max then new = max end
     self:SetVerticalScroll(new)
+    UpdateMainScrollBar()
 end)
 scrollFrame:SetScript("OnLeave", SetSidebarDefault)
+scrollFrame:SetScript("OnScrollRangeChanged", UpdateMainScrollBar)
+scrollBar:SetScript("OnMouseWheel", function(_, delta)
+    local onMouseWheel = scrollFrame:GetScript("OnMouseWheel")
+    if onMouseWheel then onMouseWheel(scrollFrame, delta) end
+end)
 
 local content = CreateFrame("Frame", nil, scrollFrame)
 content:SetHeight(1000)
@@ -171,6 +235,7 @@ scrollFrame:SetScrollChild(content)
 scrollFrame:SetScript("OnSizeChanged", function(self)
     local w = self:GetWidth()
     if w and w > 0 then content:SetWidth(w) end
+    UpdateMainScrollBar()
 end)
 
 -- =========================
@@ -180,7 +245,7 @@ local vLineTop = frame:CreateTexture(nil, "ARTWORK")
 vLineTop:SetWidth(1)
 vLineTop:SetPoint("TOP", scrollFrame, "TOP", 0, 0)
 vLineTop:SetPoint("BOTTOM", scrollFrame, "CENTER", 0, 0)
-vLineTop:SetPoint("LEFT", scrollFrame, "RIGHT", 7, 0)
+vLineTop:SetPoint("LEFT", scrollBar, "RIGHT", 6, 0)
 vLineTop:SetTexture("Interface\\BUTTONS\\WHITE8X8")
 vLineTop:SetGradient("VERTICAL", CreateColor(1, 1, 1, 0.1), CreateColor(1, 1, 1, 0))
 
@@ -188,14 +253,14 @@ local vLineBot = frame:CreateTexture(nil, "ARTWORK")
 vLineBot:SetWidth(1)
 vLineBot:SetPoint("TOP", scrollFrame, "CENTER", 0, 0)
 vLineBot:SetPoint("BOTTOM", scrollFrame, "BOTTOM", 0, 0)
-vLineBot:SetPoint("LEFT", scrollFrame, "RIGHT", 7, 0)
+vLineBot:SetPoint("LEFT", scrollBar, "RIGHT", 6, 0)
 vLineBot:SetTexture("Interface\\BUTTONS\\WHITE8X8")
 vLineBot:SetGradient("VERTICAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, 0.1))
 
 -- =========================
 -- UI Component Helpers
 -- =========================
-local yPos = -10
+local yPos = -6
 
 local function CreateHeader(text)
     local label = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -359,9 +424,10 @@ local footerVersion = content:CreateFontString(nil, "OVERLAY", "GameFontDisableS
 footerVersion:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, yPos)
 footerVersion:SetText(LightGrey .. "v" .. ((Carpenter and Carpenter.GetVersion and Carpenter:GetVersion()) or "1.6.0") .. "|r")
 
--- Match sidebar: footer ends with same bottom spacing as "Requires UI reload" (SIDE_GAP)
+-- Keep the scroll child close to the frame edges without crowding the footer.
 local FOOTER_LINE_HEIGHT = 14
-content:SetHeight(-yPos + FOOTER_LINE_HEIGHT + SIDE_GAP)
+local SCROLL_CONTENT_BOTTOM_PADDING = 8
+content:SetHeight(-yPos + FOOTER_LINE_HEIGHT + SCROLL_CONTENT_BOTTOM_PADDING)
 
 -- Sync on Login
 local init = CreateFrame("Frame")

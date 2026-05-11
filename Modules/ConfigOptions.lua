@@ -22,6 +22,11 @@ function Options.Create(context)
         return LightGrey .. text
     end
 
+    local function MountSpeedDescription()
+        local client = Carpenter and Carpenter.Client
+        return Description(client and client.isVanilla and "DESC_MOUNT_SPEED_TRINKET_CLASSIC" or "DESC_MOUNT_SPEED_TRINKET")
+    end
+
     local sections = {
         {
             title = L.SECTION_ACTION_BARS or "Action Bars",
@@ -85,12 +90,6 @@ function Options.Create(context)
                     label = L.OPTION_ENHANCE_TOOLTIP or "Enhanced Tooltip",
                     description = Description("DESC_ENHANCE_TOOLTIP"),
                     image = GetSettingsImage("tooltip.png"),
-                },
-                {
-                    key = "enhanceUIEnabled",
-                    label = L.OPTION_ENHANCE_UI or "Enhance UI",
-                    description = Description("DESC_ENHANCE_UI"),
-                    image = GetSettingsImage("enhanced.png"),
                 },
                 {
                     key = "scaleExtraAbilityEnabled",
@@ -277,7 +276,7 @@ function Options.Create(context)
                 {
                     key = "autoCarrotEnabled",
                     label = L.OPTION_MOUNT_SPEED_TRINKET or "Mount Speed Trinket",
-                    description = Description("DESC_MOUNT_SPEED_TRINKET"),
+                    description = MountSpeedDescription(),
                     sideLogic = ShowCarrotSlots,
                     image = GetSettingsImage("carrot.png"),
                 },

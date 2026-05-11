@@ -38,7 +38,6 @@ local classicFeatures = {
     hideStanceBarEnabled = true,
     minimapClutterEnabled = true,
     enhanceTooltipEnabled = true,
-    enhanceUIEnabled = true,
     classHealthColorsEnabled = true,
     threatIndicatorEnabled = true,
     targetHealthPercentEnabled = true,

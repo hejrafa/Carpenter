@@ -1,5 +1,5 @@
 --[[ Carpenter - ChatFilter ]]
--- Filters spam (gambling, bots, recruitment) and duplicate messages.
+-- Filters spam (gambling, bots) and duplicate messages.
 local lastMessages = {}
 local messageHistory = {}
 local MAX_HISTORY = 25
@@ -44,13 +44,6 @@ end
 
 local SpamPatterns = {
     Gambling = { "deathroll", "death roll", "betting", "casino", "payout", "gold roll", "minimum bet", "max bet", "hosting", "roll for gold", "rolls for gold", "rolling for gold", "!leaderboard" },
-    GuildRecruitment = {
-        "guild", "recruiting", "recruit", "raiding", "active members",
-        "recrute", "guilde", "recherche joueurs",                 -- FR
-        "gilde", "sucht", "mitglieder",                           -- DE
-        "gildia", "rekrutuje", "zapraszamy", "polska", "polacy",  -- PL
-        "søger", "söker", "rekrutterer", "nordic", "skandinavisk" -- SCAN
-    },
     TradeBots = {
         "wts boost", "wts", "wtb", "lfw", "wtf", "enchant", "gallywix", "selling run", "carry", "reliable gold", "fast delivery",
         "WWW%.", "%.COM", "%.NET", "%.ORG", "USD", "EUR", "PAYPAL", "G2G"
@@ -92,12 +85,6 @@ local function ChatSpamFilter(self, event, msg, author, ...)
     -- 4. Toggleable Category Filters
     if CarpenterDB.filterGamblingEnabled then
         for _, p in ipairs(SpamPatterns.Gambling) do
-            if cleanMsg:find(p) then return true end
-        end
-    end
-
-    if CarpenterDB.filterGuildRecruitEnabled then
-        for _, p in ipairs(SpamPatterns.GuildRecruitment) do
             if cleanMsg:find(p) then return true end
         end
     end

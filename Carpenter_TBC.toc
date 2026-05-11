@@ -39,7 +39,6 @@ Modules\SmallerExpBar.lua
 Modules\MenuTransparency.lua
 Modules\MinimapClutter.lua
 Modules\EnhanceTooltip.lua
-Modules\EnhanceUI.lua
 
 # Unit Frames
 Modules\ClassHealthColorsShared.lua

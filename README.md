@@ -34,12 +34,12 @@ The default UI is cluttered and missing information. Carpenter fixes it.
 - **Raid Target Icon Aligned** — Moves raid icons flush with the nameplate
 
 ### Chat
-- **Filter** — Blocks guild recruitment spam, bots, gambling, and duplicates
+- **Filter** — Blocks bot spam, gambling, and duplicates
 - **Cleaner** — Restyles system/loot messages (exp, rep, money, etc.)
 - **Hide Chat Buttons** — Hides Social, Channels, Voice buttons until hover
 
 ### Automations
-- **Mount Speed Trinket** — Auto-equips Riding Crop or Carrot on a Stick when mounting
+- **Mount Speed Trinket** — Auto-equips Carrot on a Stick in Classic Era, or Riding Crop/Carrot in TBC, when mounting
 - **Consumable Macros** — Creates smart macros that always use your best food, water, potions, and bandages
 - **Auto Track Quests** — Adds newly accepted quests to the objective tracker
 - **Auto Sell Junk** — Sells grey items at vendors (hold Shift to skip)

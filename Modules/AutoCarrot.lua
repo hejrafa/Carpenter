@@ -1,11 +1,13 @@
 --[[ Carpenter - Mount Speed Trinket ]]
--- Automatically equips a mount speed trinket (Riding Crop 10% or Carrot on a Stick 3%) when mounting; prefers Crop if both in bags.
+-- Automatically equips a mount speed trinket when mounting.
+-- Classic Era supports Carrot on a Stick; TBC also supports Riding Crop and prefers it when available.
 
--- Item IDs, ordered by priority (best first): Riding Crop 10%, Carrot on a Stick 3%
 local RIDING_CROP_ID = 25653
 local CARROT_ID = 11122
-local MOUNT_SPEED_TRINKET_IDS = { [RIDING_CROP_ID] = true, [CARROT_ID] = true }
-local MOUNT_SPEED_PRIORITY = { RIDING_CROP_ID, CARROT_ID }
+local VANILLA_MOUNT_SPEED_TRINKET_IDS = { [CARROT_ID] = true }
+local TBC_MOUNT_SPEED_TRINKET_IDS = { [RIDING_CROP_ID] = true, [CARROT_ID] = true }
+local VANILLA_MOUNT_SPEED_PRIORITY = { CARROT_ID }
+local TBC_MOUNT_SPEED_PRIORITY = { RIDING_CROP_ID, CARROT_ID }
 
 local previousTrinketID = nil
 local lastSwapTime = 0
@@ -20,8 +22,20 @@ local function GetTargetSlot()
     return (CarpenterDB and CarpenterDB.autoCarrotSlot) or 13
 end
 
+local function IsVanillaClient()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isVanilla
+end
+
+local function GetMountSpeedTrinketIDs()
+    return IsVanillaClient() and VANILLA_MOUNT_SPEED_TRINKET_IDS or TBC_MOUNT_SPEED_TRINKET_IDS
+end
+
+local function GetMountSpeedPriority()
+    return IsVanillaClient() and VANILLA_MOUNT_SPEED_PRIORITY or TBC_MOUNT_SPEED_PRIORITY
+end
+
 local function IsMountSpeedTrinket(itemID)
-    return itemID and MOUNT_SPEED_TRINKET_IDS[itemID]
+    return itemID and GetMountSpeedTrinketIDs()[itemID]
 end
 
 -- True if the player can equip this item (level requirement).
@@ -74,12 +88,12 @@ local function IsContainerItemSoulbound(bag, slot)
     return false
 end
 
--- Returns bag, slot for the best mount speed trinket in bags (Crop preferred over Carrot). Only returns trinkets the player can use. Riding Crop is only considered when soulbound; tradeable Crops are skipped and we fall back to Carrot.
+-- Returns bag, slot for the best mount speed trinket in bags. Classic Era only considers Carrot; TBC prefers Riding Crop over Carrot. Only returns trinkets the player can use. Riding Crop is only considered when soulbound; tradeable Crops are skipped and we fall back to Carrot.
 local function GetBestMountSpeedTrinketInBags()
     local getNumSlots = C_Container and C_Container.GetContainerNumSlots or GetContainerNumSlots
     local getItemID = C_Container and C_Container.GetContainerItemID or GetContainerItemID
 
-    for _, preferredID in ipairs(MOUNT_SPEED_PRIORITY) do
+    for _, preferredID in ipairs(GetMountSpeedPriority()) do
         if not CanUseTrinket(preferredID) then
             -- e.g. Riding Crop req 69 and we're not there yet - skip to next
         else
@@ -166,7 +180,7 @@ local function SwapTrinket()
     local isFlying = (IsFlyableArea() and IsFlying()) or UnitOnTaxi("player")
     local currentTrinketAtTarget = GetInventoryItemID("player", targetSlot)
 
-    -- Logic for equipping best mount speed trinket (Crop preferred, then Carrot)
+    -- Logic for equipping best mount speed trinket (Classic Era: Carrot; TBC: Crop, then Carrot)
     if isMounted and not isFlying then
         if not IsMountSpeedTrinket(GetInventoryItemID("player", 13)) and not IsMountSpeedTrinket(GetInventoryItemID("player", 14)) then
             local bag, slot = GetBestMountSpeedTrinketInBags()

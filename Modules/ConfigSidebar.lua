@@ -105,7 +105,7 @@ function Sidebar.Create(context)
                 if _G["CP_Preview_" .. n] then _G["CP_Preview_" .. n]:Hide() end
             end
         end
-        local filters = { "CP_Filter_GuildRecruit", "CP_Filter_TradeBots", "CP_Filter_Gambling", "CP_Filter_Duplicates" }
+        local filters = { "CP_Filter_TradeBots", "CP_Filter_Gambling", "CP_Filter_Duplicates" }
         for _, name in ipairs(filters) do
             if _G[name] then _G[name]:Hide() end
         end
@@ -196,7 +196,7 @@ function Sidebar.Create(context)
             "Interface\\Icons\\Inv_Misc_Bandage_08" }
             local order = GetSmartMacroPreviewOrder()
             local labels = { Food = L.FOOD or "Food", Water = L.WATER or "Water", Pot = L.HEALTH or "Health", Mana = L.MANA or "Mana", Band = L.BANDAGE or "Bandage" }
-            local iconSize, spacing = 34, 12
+            local iconSize, spacing = 34, 8
             local totalWidth = (#order * iconSize) + ((#order - 1) * spacing)
             local startX = -(totalWidth / 2) + (iconSize / 2)
             local function CreatePreview(name, labelText, index)
@@ -237,9 +237,8 @@ function Sidebar.Create(context)
         sideContent:ClearAllPoints()
         sideContent:SetPoint("TOPLEFT", sideDesc, "BOTTOMLEFT", 0, -SIDE_GAP)
         sideContent:Show()
-        if not _G["CP_Filter_GuildRecruit"] then
+        if not _G["CP_Filter_TradeBots"] then
             local opts = {
-                { key = "filterGuildRecruitEnabled", name = "CP_Filter_GuildRecruit", label = L.FILTER_GUILD_RECRUITMENT or "Guild recruitment" },
                 { key = "filterTradeBotsEnabled", name = "CP_Filter_TradeBots", label = L.FILTER_BOT_SPAM or "Bot spam" },
                 { key = "filterGamblingEnabled", name = "CP_Filter_Gambling", label = L.FILTER_GAMBLING or "Gambling" },
                 { key = "filterDuplicatesEnabled", name = "CP_Filter_Duplicates", label = L.FILTER_DUPLICATES or "Duplicates" },
@@ -258,7 +257,7 @@ function Sidebar.Create(context)
                 end)
             end
         end
-        local filters = { "CP_Filter_GuildRecruit", "CP_Filter_TradeBots", "CP_Filter_Gambling", "CP_Filter_Duplicates" }
+        local filters = { "CP_Filter_TradeBots", "CP_Filter_Gambling", "CP_Filter_Duplicates" }
         for _, name in ipairs(filters) do
             local key = name:gsub("CP_Filter_", "filter") .. "Enabled"
             if _G[name] then
