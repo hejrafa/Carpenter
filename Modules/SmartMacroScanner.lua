@@ -86,7 +86,34 @@ local function GetBagFingerprint()
         local numSlots = GetNumSlots and GetNumSlots(bag) or 0
         parts[#parts + 1] = bag .. ":" .. numSlots
         for slot = 1, numSlots do
-            parts[#parts + 1] = GetItemID and (GetItemID(bag, slot) or 0) or 0
+            local itemID = GetItemID and GetItemID(bag, slot)
+            local itemLink = GetItemLink and GetItemLink(bag, slot)
+            local texture, stackCount
+
+            if GetBagItemInfo then
+                local info = GetBagItemInfo(bag, slot)
+                if type(info) == "table" then
+                    itemID = itemID or info.itemID
+                    itemLink = itemLink or info.hyperlink
+                    texture = info.iconFileID or info.icon
+                    stackCount = info.stackCount or info.quantity
+                else
+                    local legacyTexture, legacyCount, _, _, _, _, legacyLink, _, _, legacyID = GetBagItemInfo(bag, slot)
+                    itemID = itemID or legacyID
+                    itemLink = itemLink or legacyLink
+                    texture = legacyTexture
+                    stackCount = legacyCount
+                end
+            end
+
+            if not itemID and itemLink then
+                itemID = tonumber(itemLink:match("item:(%d+)"))
+            end
+
+            parts[#parts + 1] = table.concat({
+                tostring(itemID or itemLink or texture or 0),
+                tostring(stackCount or 0),
+            }, ":")
         end
     end
     return table.concat(parts, ";")

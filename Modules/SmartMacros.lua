@@ -124,6 +124,8 @@ addonFrame:SetScript("OnEvent", function(self, event, unit)
         MarkDirty(0.25)
     elseif event == "PLAYER_ENTERING_WORLD" then
         MarkDirty(1.5, true)
+    elseif event == "BAG_UPDATE" then
+        MarkDirty(0.75, true)
     elseif event == "BAG_UPDATE_DELAYED" then
         MarkDirty(1.0)
     elseif event == "BAG_UPDATE_COOLDOWN" then
@@ -143,6 +145,7 @@ end
 local feature = {}
 
 function feature:Enable()
+    addonFrame:RegisterEvent("BAG_UPDATE")
     addonFrame:RegisterEvent("BAG_UPDATE_DELAYED")
     addonFrame:RegisterEvent("BAG_UPDATE_COOLDOWN")
     addonFrame:RegisterEvent("PLAYER_ENTERING_WORLD")

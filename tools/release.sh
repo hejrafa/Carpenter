@@ -59,8 +59,9 @@ check() {
   while IFS= read -r file; do
     files+=("$file")
   done < <(lua_files)
-  luac -p "${files[@]}" "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT/tools/check-localization.lua"
+  luac -p "${files[@]}" "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT/tools/check-localization.lua"
   lua "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT"
+  lua "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT"
   lua "$ROOT/tools/check-localization.lua" "$ROOT"
 
   echo "release: checks passed"
