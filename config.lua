@@ -147,7 +147,15 @@ local SIDE_GAP = sidebarApi.SideGap or 16
 -- =========================
 -- Main Scroll Area
 -- =========================
-local scrollFrame = CreateFrame("ScrollFrame", "CP_MainScroll", frame)
+local function CreateMainScrollFrame(parent)
+    local ok, newScrollFrame = pcall(CreateFrame, "ScrollFrame", "CP_MainScroll", parent, "ScrollFrameTemplate")
+    if ok and newScrollFrame then
+        return newScrollFrame, newScrollFrame.ScrollBar
+    end
+    return CreateFrame("ScrollFrame", "CP_MainScroll", parent), nil
+end
+
+local scrollFrame, scrollBar = CreateMainScrollFrame(frame)
 scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -50)
 scrollFrame:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 0)
 scrollFrame:SetPoint("RIGHT", sidebar, "LEFT", -28, 0)
@@ -159,209 +167,239 @@ local function Clamp(value, minValue, maxValue)
     return value
 end
 
-local function CreateScrollArrow(parent, text)
-    local button = CreateFrame("Button", nil, parent)
-    button:SetSize(16, 16)
+local UpdateMainScrollBar = function() end
 
-    local label = button:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    label:SetPoint("CENTER", button, "CENTER", 0, 0)
-    label:SetText(text)
-    label:SetTextColor(0.55, 0.55, 0.55, 1)
-    button.Label = label
+if scrollBar then
+    scrollBar:ClearAllPoints()
+    scrollBar:SetPoint("TOPLEFT", scrollFrame, "TOPRIGHT", 6, -16)
+    scrollBar:SetPoint("BOTTOMLEFT", scrollFrame, "BOTTOMRIGHT", 6, 28)
+    if scrollBar.SetHideIfUnscrollable then
+        scrollBar:SetHideIfUnscrollable(true)
+    end
+    if scrollBar.SetHideTrackIfThumbExceedsTrack then
+        scrollBar:SetHideTrackIfThumbExceedsTrack(true)
+    end
 
-    button:SetScript("OnEnter", function(self)
-        if self:IsEnabled() then
-            self.Label:SetTextColor(0.85, 0.85, 0.85, 1)
+    local hidesUnscrollable = scrollBar.SetHideIfUnscrollable ~= nil
+    UpdateMainScrollBar = function()
+        if not hidesUnscrollable then
+            scrollBar:SetShown((scrollFrame:GetVerticalScrollRange() or 0) > 0)
         end
-    end)
-    button:SetScript("OnLeave", function(self)
-        if self:IsEnabled() then
-            self.Label:SetTextColor(0.55, 0.55, 0.55, 1)
+    end
+    scrollFrame:HookScript("OnScrollRangeChanged", UpdateMainScrollBar)
+else
+    local function CreateScrollArrow(parent, text)
+        local button = CreateFrame("Button", nil, parent)
+        button:SetSize(16, 16)
+
+        local label = button:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        label:SetPoint("CENTER", button, "CENTER", 0, 0)
+        label:SetText(text)
+        label:SetTextColor(0.55, 0.55, 0.55, 1)
+        button.Label = label
+
+        button:SetScript("OnEnter", function(self)
+            if self:IsEnabled() then
+                self.Label:SetTextColor(0.85, 0.85, 0.85, 1)
+            end
+        end)
+        button:SetScript("OnLeave", function(self)
+            if self:IsEnabled() then
+                self.Label:SetTextColor(0.55, 0.55, 0.55, 1)
+            end
+        end)
+
+        return button
+    end
+
+    local function SetScrollArrowEnabled(button, enabled)
+        button:SetEnabled(enabled)
+        if enabled then
+            button.Label:SetTextColor(0.55, 0.55, 0.55, 1)
+        else
+            button.Label:SetTextColor(0.35, 0.35, 0.35, 0.45)
         end
-    end)
-
-    return button
-end
-
-local function SetScrollArrowEnabled(button, enabled)
-    button:SetEnabled(enabled)
-    if enabled then
-        button.Label:SetTextColor(0.55, 0.55, 0.55, 1)
-    else
-        button.Label:SetTextColor(0.35, 0.35, 0.35, 0.45)
-    end
-end
-
-local function CreateMainScrollBar(parent)
-    local bar = CreateFrame("Frame", "CP_MainScrollBar", parent)
-    bar:SetWidth(16)
-    bar:EnableMouse(true)
-    bar:EnableMouseWheel(true)
-
-    bar.UpButton = CreateScrollArrow(bar, "^")
-    bar.UpButton:SetPoint("TOP", bar, "TOP", 0, 0)
-
-    bar.DownButton = CreateScrollArrow(bar, "v")
-    bar.DownButton:SetPoint("BOTTOM", bar, "BOTTOM", 0, 0)
-
-    bar.Rail = CreateFrame("Frame", nil, bar)
-    bar.Rail:SetPoint("TOP", bar.UpButton, "BOTTOM", 0, -1)
-    bar.Rail:SetPoint("BOTTOM", bar.DownButton, "TOP", 0, 1)
-    bar.Rail:SetWidth(8)
-    bar.Rail:EnableMouse(true)
-
-    local railTexture = bar.Rail:CreateTexture(nil, "BACKGROUND")
-    railTexture:SetPoint("TOP", bar.Rail, "TOP", 0, 0)
-    railTexture:SetPoint("BOTTOM", bar.Rail, "BOTTOM", 0, 0)
-    railTexture:SetWidth(3)
-    railTexture:SetTexture("Interface\\BUTTONS\\WHITE8X8")
-    railTexture:SetVertexColor(0.62, 0.62, 0.62, 0.32)
-    bar.Rail.Texture = railTexture
-
-    bar.Thumb = CreateFrame("Button", nil, bar.Rail)
-    bar.Thumb:SetSize(7, 40)
-    bar.Thumb:SetPoint("TOP", bar.Rail, "TOP", 0, 0)
-
-    local thumbTexture = bar.Thumb:CreateTexture(nil, "ARTWORK")
-    thumbTexture:SetAllPoints(bar.Thumb)
-    thumbTexture:SetTexture("Interface\\BUTTONS\\WHITE8X8")
-    thumbTexture:SetVertexColor(0.56, 0.58, 0.58, 0.88)
-    bar.Thumb.Texture = thumbTexture
-
-    bar.Thumb:SetScript("OnEnter", function(self)
-        self.Texture:SetVertexColor(0.72, 0.74, 0.74, 1)
-    end)
-    bar.Thumb:SetScript("OnLeave", function(self)
-        self.Texture:SetVertexColor(0.56, 0.58, 0.58, 0.88)
-    end)
-
-    return bar
-end
-
-local scrollBar = CreateMainScrollBar(frame)
-scrollBar:SetPoint("TOPLEFT", scrollFrame, "TOPRIGHT", 6, -16)
-scrollBar:SetPoint("BOTTOMLEFT", scrollFrame, "BOTTOMRIGHT", 6, 28)
-scrollBar:Hide()
-
-local function SetMainScroll(value)
-    local maxScroll = scrollFrame:GetVerticalScrollRange() or 0
-    scrollFrame:SetVerticalScroll(Clamp(value, 0, maxScroll))
-end
-
-local function StopMainScrollThumbDrag()
-    scrollBar:SetScript("OnUpdate", nil)
-    scrollBar.dragStartY = nil
-    scrollBar.dragStartScroll = nil
-    scrollBar.dragScrollRange = nil
-    scrollBar.dragThumbRange = nil
-end
-
-local function UpdateMainScrollBar()
-    local maxScroll = scrollFrame:GetVerticalScrollRange() or 0
-    local currentScroll = scrollFrame:GetVerticalScroll() or 0
-    if currentScroll > maxScroll then
-        currentScroll = maxScroll
-        scrollFrame:SetVerticalScroll(currentScroll)
     end
 
-    scrollBar:SetShown(maxScroll > 0)
-    if maxScroll <= 0 then return end
+    local function CreateFallbackScrollBar(parent)
+        local bar = CreateFrame("Frame", "CP_MainScrollBar", parent)
+        bar:SetWidth(16)
+        bar:EnableMouse(true)
+        bar:EnableMouseWheel(true)
 
-    local railHeight = scrollBar.Rail:GetHeight() or 0
-    if railHeight <= 0 then return end
+        bar.UpButton = CreateScrollArrow(bar, "^")
+        bar.UpButton:SetPoint("TOP", bar, "TOP", 0, 0)
 
-    local viewHeight = scrollFrame:GetHeight() or 0
-    local contentHeight = viewHeight + maxScroll
-    local thumbHeight = railHeight
-    if contentHeight > 0 then
-        thumbHeight = railHeight * (viewHeight / contentHeight)
+        bar.DownButton = CreateScrollArrow(bar, "v")
+        bar.DownButton:SetPoint("BOTTOM", bar, "BOTTOM", 0, 0)
+
+        bar.Rail = CreateFrame("Frame", nil, bar)
+        bar.Rail:SetPoint("TOP", bar.UpButton, "BOTTOM", 0, -1)
+        bar.Rail:SetPoint("BOTTOM", bar.DownButton, "TOP", 0, 1)
+        bar.Rail:SetWidth(8)
+        bar.Rail:EnableMouse(true)
+
+        local railTexture = bar.Rail:CreateTexture(nil, "BACKGROUND")
+        railTexture:SetPoint("TOP", bar.Rail, "TOP", 0, 0)
+        railTexture:SetPoint("BOTTOM", bar.Rail, "BOTTOM", 0, 0)
+        railTexture:SetWidth(3)
+        railTexture:SetTexture("Interface\\BUTTONS\\WHITE8X8")
+        railTexture:SetVertexColor(0.62, 0.62, 0.62, 0.32)
+        bar.Rail.Texture = railTexture
+
+        bar.Thumb = CreateFrame("Button", nil, bar.Rail)
+        bar.Thumb:SetSize(7, 40)
+        bar.Thumb:SetPoint("TOP", bar.Rail, "TOP", 0, 0)
+
+        local thumbTexture = bar.Thumb:CreateTexture(nil, "ARTWORK")
+        thumbTexture:SetAllPoints(bar.Thumb)
+        thumbTexture:SetTexture("Interface\\BUTTONS\\WHITE8X8")
+        thumbTexture:SetVertexColor(0.56, 0.58, 0.58, 0.88)
+        bar.Thumb.Texture = thumbTexture
+
+        bar.Thumb:SetScript("OnEnter", function(self)
+            self.Texture:SetVertexColor(0.72, 0.74, 0.74, 1)
+        end)
+        bar.Thumb:SetScript("OnLeave", function(self)
+            self.Texture:SetVertexColor(0.56, 0.58, 0.58, 0.88)
+        end)
+
+        return bar
     end
-    thumbHeight = Clamp(thumbHeight, 32, railHeight)
-    scrollBar.Thumb:SetHeight(thumbHeight)
 
-    local thumbRange = railHeight - thumbHeight
-    local ratio = maxScroll > 0 and (currentScroll / maxScroll) or 0
-    scrollBar.Thumb:ClearAllPoints()
-    scrollBar.Thumb:SetPoint("TOP", scrollBar.Rail, "TOP", 0, -thumbRange * ratio)
+    scrollBar = CreateFallbackScrollBar(frame)
+    scrollBar:SetPoint("TOPLEFT", scrollFrame, "TOPRIGHT", 6, -16)
+    scrollBar:SetPoint("BOTTOMLEFT", scrollFrame, "BOTTOMRIGHT", 6, 28)
+    scrollBar:Hide()
 
-    SetScrollArrowEnabled(scrollBar.UpButton, currentScroll > 0)
-    SetScrollArrowEnabled(scrollBar.DownButton, currentScroll < maxScroll)
-end
+    local function SetMainScroll(value)
+        local maxScroll = scrollFrame:GetVerticalScrollRange() or 0
+        scrollFrame:SetVerticalScroll(Clamp(value, 0, maxScroll))
+    end
 
-scrollFrame:SetScript("OnMouseWheel", function(self, delta)
-    local cur = self:GetVerticalScroll()
-    local max = self:GetVerticalScrollRange()
-    local new = cur - (delta * 25)
-    if new < 0 then new = 0 end
-    if new > max then new = max end
-    self:SetVerticalScroll(new)
-    UpdateMainScrollBar()
-end)
-scrollFrame:SetScript("OnLeave", SetSidebarDefault)
-scrollFrame:SetScript("OnScrollRangeChanged", UpdateMainScrollBar)
-local function ForwardMainScrollWheel(_, delta)
-    local onMouseWheel = scrollFrame:GetScript("OnMouseWheel")
-    if onMouseWheel then onMouseWheel(scrollFrame, delta) end
-end
-scrollBar:SetScript("OnMouseWheel", ForwardMainScrollWheel)
-scrollBar.UpButton:EnableMouseWheel(true)
-scrollBar.UpButton:SetScript("OnMouseWheel", ForwardMainScrollWheel)
-scrollBar.DownButton:EnableMouseWheel(true)
-scrollBar.DownButton:SetScript("OnMouseWheel", ForwardMainScrollWheel)
-scrollBar.Rail:EnableMouseWheel(true)
-scrollBar.Rail:SetScript("OnMouseWheel", ForwardMainScrollWheel)
-scrollBar.Thumb:EnableMouseWheel(true)
-scrollBar.Thumb:SetScript("OnMouseWheel", ForwardMainScrollWheel)
-scrollBar.UpButton:SetScript("OnClick", function()
-    SetMainScroll((scrollFrame:GetVerticalScroll() or 0) - 45)
-    UpdateMainScrollBar()
-end)
-scrollBar.DownButton:SetScript("OnClick", function()
-    SetMainScroll((scrollFrame:GetVerticalScroll() or 0) + 45)
-    UpdateMainScrollBar()
-end)
-scrollBar.Rail:SetScript("OnMouseDown", function(self, button)
-    if button ~= "LeftButton" then return end
-    local _, cursorY = GetCursorPosition()
-    local scale = self:GetEffectiveScale() or 1
-    cursorY = cursorY / scale
-    local top = self:GetTop()
-    local bottom = self:GetBottom()
-    local height = top and bottom and (top - bottom) or 0
-    if height <= 0 then return end
-    local ratio = Clamp((top - cursorY) / height, 0, 1)
-    SetMainScroll((scrollFrame:GetVerticalScrollRange() or 0) * ratio)
-    UpdateMainScrollBar()
-end)
-scrollBar.Thumb:SetScript("OnMouseDown", function(self, button)
-    if button ~= "LeftButton" then return end
-    local _, cursorY = GetCursorPosition()
-    local scale = scrollBar:GetEffectiveScale() or 1
-    scrollBar.dragStartY = cursorY / scale
-    scrollBar.dragStartScroll = scrollFrame:GetVerticalScroll() or 0
-    scrollBar.dragScrollRange = scrollFrame:GetVerticalScrollRange() or 0
-    scrollBar.dragThumbRange = (scrollBar.Rail:GetHeight() or 0) - (self:GetHeight() or 0)
-    if scrollBar.dragThumbRange <= 0 or scrollBar.dragScrollRange <= 0 then return end
-    self:SetButtonState("PUSHED", true)
-    scrollBar:SetScript("OnUpdate", function()
-        local _, currentY = GetCursorPosition()
-        currentY = currentY / scale
-        local deltaY = currentY - scrollBar.dragStartY
-        SetMainScroll(scrollBar.dragStartScroll - (deltaY * (scrollBar.dragScrollRange / scrollBar.dragThumbRange)))
+    local function StopMainScrollThumbDrag()
+        scrollBar:SetScript("OnUpdate", nil)
+        scrollBar.dragStartY = nil
+        scrollBar.dragStartScroll = nil
+        scrollBar.dragScrollRange = nil
+        scrollBar.dragThumbRange = nil
+    end
+
+    UpdateMainScrollBar = function()
+        local maxScroll = scrollFrame:GetVerticalScrollRange() or 0
+        local currentScroll = scrollFrame:GetVerticalScroll() or 0
+        if currentScroll > maxScroll then
+            currentScroll = maxScroll
+            scrollFrame:SetVerticalScroll(currentScroll)
+        end
+
+        scrollBar:SetShown(maxScroll > 0)
+        if maxScroll <= 0 then return end
+
+        local railHeight = scrollBar.Rail:GetHeight() or 0
+        if railHeight <= 0 then return end
+
+        local viewHeight = scrollFrame:GetHeight() or 0
+        local contentHeight = viewHeight + maxScroll
+        local thumbHeight = railHeight
+        if contentHeight > 0 then
+            thumbHeight = railHeight * (viewHeight / contentHeight)
+        end
+        thumbHeight = Clamp(thumbHeight, 32, railHeight)
+        scrollBar.Thumb:SetHeight(thumbHeight)
+
+        local thumbRange = railHeight - thumbHeight
+        local ratio = maxScroll > 0 and (currentScroll / maxScroll) or 0
+        scrollBar.Thumb:ClearAllPoints()
+        scrollBar.Thumb:SetPoint("TOP", scrollBar.Rail, "TOP", 0, -thumbRange * ratio)
+
+        SetScrollArrowEnabled(scrollBar.UpButton, currentScroll > 0)
+        SetScrollArrowEnabled(scrollBar.DownButton, currentScroll < maxScroll)
+    end
+
+    scrollFrame:SetScript("OnMouseWheel", function(self, delta)
+        local cur = self:GetVerticalScroll()
+        local max = self:GetVerticalScrollRange()
+        local new = cur - (delta * 25)
+        if new < 0 then new = 0 end
+        if new > max then new = max end
+        self:SetVerticalScroll(new)
         UpdateMainScrollBar()
     end)
+    scrollFrame:SetScript("OnScrollRangeChanged", UpdateMainScrollBar)
+
+    local function ForwardMainScrollWheel(_, delta)
+        local onMouseWheel = scrollFrame:GetScript("OnMouseWheel")
+        if onMouseWheel then onMouseWheel(scrollFrame, delta) end
+    end
+    scrollBar:SetScript("OnMouseWheel", ForwardMainScrollWheel)
+    scrollBar.UpButton:EnableMouseWheel(true)
+    scrollBar.UpButton:SetScript("OnMouseWheel", ForwardMainScrollWheel)
+    scrollBar.DownButton:EnableMouseWheel(true)
+    scrollBar.DownButton:SetScript("OnMouseWheel", ForwardMainScrollWheel)
+    scrollBar.Rail:EnableMouseWheel(true)
+    scrollBar.Rail:SetScript("OnMouseWheel", ForwardMainScrollWheel)
+    scrollBar.Thumb:EnableMouseWheel(true)
+    scrollBar.Thumb:SetScript("OnMouseWheel", ForwardMainScrollWheel)
+    scrollBar.UpButton:SetScript("OnClick", function()
+        SetMainScroll((scrollFrame:GetVerticalScroll() or 0) - 45)
+        UpdateMainScrollBar()
+    end)
+    scrollBar.DownButton:SetScript("OnClick", function()
+        SetMainScroll((scrollFrame:GetVerticalScroll() or 0) + 45)
+        UpdateMainScrollBar()
+    end)
+    scrollBar.Rail:SetScript("OnMouseDown", function(self, button)
+        if button ~= "LeftButton" then return end
+        local _, cursorY = GetCursorPosition()
+        local scale = self:GetEffectiveScale() or 1
+        cursorY = cursorY / scale
+        local top = self:GetTop()
+        local bottom = self:GetBottom()
+        local height = top and bottom and (top - bottom) or 0
+        if height <= 0 then return end
+        local ratio = Clamp((top - cursorY) / height, 0, 1)
+        SetMainScroll((scrollFrame:GetVerticalScrollRange() or 0) * ratio)
+        UpdateMainScrollBar()
+    end)
+    scrollBar.Thumb:SetScript("OnMouseDown", function(self, button)
+        if button ~= "LeftButton" then return end
+        local _, cursorY = GetCursorPosition()
+        local scale = scrollBar:GetEffectiveScale() or 1
+        scrollBar.dragStartY = cursorY / scale
+        scrollBar.dragStartScroll = scrollFrame:GetVerticalScroll() or 0
+        scrollBar.dragScrollRange = scrollFrame:GetVerticalScrollRange() or 0
+        scrollBar.dragThumbRange = (scrollBar.Rail:GetHeight() or 0) - (self:GetHeight() or 0)
+        if scrollBar.dragThumbRange <= 0 or scrollBar.dragScrollRange <= 0 then return end
+        self:SetButtonState("PUSHED", true)
+        scrollBar:SetScript("OnUpdate", function()
+            local _, currentY = GetCursorPosition()
+            currentY = currentY / scale
+            local deltaY = currentY - scrollBar.dragStartY
+            SetMainScroll(scrollBar.dragStartScroll - (deltaY * (scrollBar.dragScrollRange / scrollBar.dragThumbRange)))
+            UpdateMainScrollBar()
+        end)
+    end)
+    scrollBar.Thumb:SetScript("OnMouseUp", function(self)
+        self:SetButtonState("NORMAL", false)
+        StopMainScrollThumbDrag()
+    end)
+    scrollBar.Thumb:SetScript("OnHide", StopMainScrollThumbDrag)
+end
+
+local scrollFrameOnLeave = scrollFrame:GetScript("OnLeave")
+scrollFrame:SetScript("OnLeave", function(self, ...)
+    if scrollFrameOnLeave then scrollFrameOnLeave(self, ...) end
+    SetSidebarDefault()
 end)
-scrollBar.Thumb:SetScript("OnMouseUp", function(self)
-    self:SetButtonState("NORMAL", false)
-    StopMainScrollThumbDrag()
-end)
-scrollBar.Thumb:SetScript("OnHide", StopMainScrollThumbDrag)
 
 local content = CreateFrame("Frame", nil, scrollFrame)
 content:SetHeight(1000)
 content:SetWidth(scrollFrame:GetWidth())
 scrollFrame:SetScrollChild(content)
-scrollFrame:SetScript("OnSizeChanged", function(self)
+local scrollFrameOnSizeChanged = scrollFrame:GetScript("OnSizeChanged")
+scrollFrame:SetScript("OnSizeChanged", function(self, ...)
+    if scrollFrameOnSizeChanged then scrollFrameOnSizeChanged(self, ...) end
     local w = self:GetWidth()
     if w and w > 0 then content:SetWidth(w) end
     UpdateMainScrollBar()
@@ -389,7 +427,7 @@ vLineBot:SetGradient("VERTICAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, 0
 -- =========================
 -- UI Component Helpers
 -- =========================
-local yPos = -6
+local yPos = -10
 
 local function CreateHeader(text)
     local label = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -555,7 +593,7 @@ footerVersion:SetText(LightGrey .. "v" .. ((Carpenter and Carpenter.GetVersion a
 
 -- Keep the scroll child close to the frame edges without crowding the footer.
 local FOOTER_LINE_HEIGHT = 14
-local SCROLL_CONTENT_BOTTOM_PADDING = 8
+local SCROLL_CONTENT_BOTTOM_PADDING = SIDE_GAP
 content:SetHeight(-yPos + FOOTER_LINE_HEIGHT + SCROLL_CONTENT_BOTTOM_PADDING)
 UpdateMainScrollBar()
 
