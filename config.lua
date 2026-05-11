@@ -180,9 +180,16 @@ local function CreateMainScrollBar(parent)
     return bar
 end
 
-local scrollBar = CreateMainScrollBar(frame)
+local scrollBar = CreateMainScrollBar(scrollFrame)
 scrollBar:SetPoint("TOPLEFT", scrollFrame, "TOPRIGHT", 6, -2)
 scrollBar:SetPoint("BOTTOMLEFT", scrollFrame, "BOTTOMRIGHT", 6, 2)
+
+local syncScrollBar = false
+scrollBar:SetScript("OnValueChanged", function(_, value)
+    if syncScrollBar then return end
+    scrollFrame:SetVerticalScroll(value)
+end)
+
 scrollBar:SetMinMaxValues(0, 0)
 scrollBar:SetValueStep(1)
 scrollBar:EnableMouseWheel(true)
@@ -191,7 +198,6 @@ if scrollBar.SetObeyStepOnDrag then
 end
 scrollBar:SetValue(0)
 
-local syncScrollBar = false
 local function UpdateMainScrollBar()
     local maxScroll = scrollFrame:GetVerticalScrollRange() or 0
     local currentScroll = scrollFrame:GetVerticalScroll() or 0
@@ -206,11 +212,6 @@ local function UpdateMainScrollBar()
     syncScrollBar = false
     scrollBar:SetShown(maxScroll > 0)
 end
-
-scrollBar:SetScript("OnValueChanged", function(_, value)
-    if syncScrollBar then return end
-    scrollFrame:SetVerticalScroll(value)
-end)
 
 scrollFrame:SetScript("OnMouseWheel", function(self, delta)
     local cur = self:GetVerticalScroll()
