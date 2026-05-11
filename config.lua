@@ -361,7 +361,7 @@ end
 -- =========================
 yPos = yPos - 48
 local footerVersion = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-footerVersion:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, yPos - 2)
+footerVersion:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, yPos - 3)
 footerVersion:SetText(LightGrey .. "v" .. ((Carpenter and Carpenter.GetVersion and Carpenter:GetVersion()) or "1.6.0") .. "|r")
 
 -- Keep the scroll child close to the frame edges without crowding the footer.
