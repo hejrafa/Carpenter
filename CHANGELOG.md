@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6.3
+
+- Removed the settings scrollbar again and refined the settings panel's top and bottom spacing, including footer version alignment with the reload hint.
+- Removed Enhance UI so the feature can be redesigned later without carrying the old module and settings.
+- Updated Mount Speed Trinket support so Classic Era only uses Carrot on a Stick, while TBC supports Riding Crop and Carrot on a Stick.
+- Improved Consumable Macros on Classic clients by refreshing bag scans when food, water, and consumables change.
+- Fixed duplicate merchant money summaries after selling items.
+- Simplified Chat Cleaner output by keeping player names the same color as the rest of each message, capitalizing level-up messages as `Reached Level`, and removing the unreliable guild recruitment filter.
+- Tightened the draggable consumable macro icon spacing in the settings sidebar.
+
 ## 1.6.2
 
 - Stopped NPC unit frames and recycled NPC nameplates from retaining Carpenter's class-colored health state.
