@@ -148,6 +148,13 @@ local fixtures = {
         expectPlain = "Lionginas died from fatigue! Level 32",
     },
     {
+        name = "lava crisp death",
+        path = "post",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Duckboisolo was burnt to a crisp by lava in Ragefire Chasm! They were level 14",
+        expectPlain = "Duckboisolo burned! Level 14",
+    },
+    {
         name = "player links keep original color",
         path = "post",
         event = "CHAT_MSG_CHANNEL",

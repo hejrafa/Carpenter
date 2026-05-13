@@ -139,7 +139,10 @@ function PostProcess.Create(config)
             lowerCause:find("fell to his death", 1, true) or
             lowerCause:find("fell to her death", 1, true) then
             causeLabel = T("CHAT_HARDCORE_DEATH_FELL", "fell")
-        elseif lowerCause:find("burned to death", 1, true) then
+        elseif lowerCause:find("burned to death", 1, true) or
+            lowerCause:find("burnt to death", 1, true) or
+            lowerCause:find("burned to a crisp", 1, true) or
+            lowerCause:find("burnt to a crisp", 1, true) then
             causeLabel = T("CHAT_HARDCORE_DEATH_BURNED", "burned")
         elseif lowerCause:find("died from fatigue", 1, true) or
             lowerCause:find("died to fatigue", 1, true) or
