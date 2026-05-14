@@ -84,7 +84,7 @@ function PostProcess.Create(config)
     end
 
     local function StyledLootName(name)
-        name = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
+        name = Trim(name):gsub("^Loot:%s*", ""):gsub("^[:;]+%s*", ""):gsub("%-.*$", "")
         if name == "" or name == "Loot" then return nil end
         if name == "You" then
             return colorLootLiteral .. (L.CHAT_YOU or "You") .. "|r"

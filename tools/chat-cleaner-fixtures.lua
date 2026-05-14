@@ -205,6 +205,13 @@ local fixtures = {
         expectPlain = "You won Sentry's Gloves of the Monkey",
     },
     {
+        name = "loot roll won strips leading semicolon",
+        event = "CHAT_MSG_LOOT",
+        message = "Loot: ; You won: Sentry's Gloves of the Monkey",
+        expectPlain = "You won Sentry's Gloves of the Monkey",
+        rejectPlain = ";",
+    },
+    {
         name = "self level up capitalization",
         event = "CHAT_MSG_SYSTEM",
         message = "Reached level 24.",

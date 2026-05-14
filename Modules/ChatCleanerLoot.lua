@@ -300,7 +300,18 @@ function Loot.Create(config)
         local playerName = UnitName("player") or ""
         local plainRoll = message:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("%s+", " ")
         local coreRoll = plainRoll:gsub("^%s*%b[]%s*", "")
+        local function CleanRollName(name)
+            if not name or type(name) ~= "string" then return "" end
+            return name:gsub("^%s+", "")
+                :gsub("%s+$", "")
+                :gsub("^%s*[Ll]oot:%s*", "")
+                :gsub("^%s*[:;]+%s*", "")
+                :gsub("%-.*$", "")
+                :gsub("^%s+", "")
+                :gsub("%s+$", "")
+        end
         local function NameOut(name)
+            name = CleanRollName(name)
             local isYou = name:lower() == "you"
             if isYou then
                 return colorLootLiteral .. You() .. "|r", true
@@ -353,7 +364,7 @@ function Loot.Create(config)
             directWinName, directWinItem = plainRoll:match("^%s*[Ll]oot:%s*(.-)%s+[Ww]on:%s*(.+)$")
         end
         if directWinName and directWinItem then
-            directWinName = directWinName:gsub("^%s+", ""):gsub("%s+$", "")
+            directWinName = CleanRollName(directWinName)
             local itemLink = getItemLinkFromMessage(message)
             local display = itemLink and getItemLinkWithQualityColor(itemLink) or BuildRollDisplay(directWinItem, message)
             return RollLine(directWinName, T("CHAT_WON_LABEL", "won:"), display)
@@ -362,7 +373,7 @@ function Loot.Create(config)
         local afterLootPass = coreRoll:match("^%s*[Ll]oot:%s*(.+)$") or coreRoll
         local passName, passItem = afterLootPass:match("^(.-)%s+passed on[:%s]+(.+)$")
         if passName and passItem then
-            passName = passName:gsub("^%s+", ""):gsub("%s+$", "")
+            passName = CleanRollName(passName)
             if passName ~= "" and passName ~= "Loot" then
                 local itemLink = getItemLinkFromMessage(message)
                 local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(passItem))
@@ -376,7 +387,7 @@ function Loot.Create(config)
             selName, selType, selItem = afterLoot:match("^(.-)%s+has selected%s+(%S+).-%s+for%s*:?%s*(.+)$")
         end
         if selName and selType and selItem then
-            selName = selName:gsub("^%s+", ""):gsub("%s+$", "")
+            selName = CleanRollName(selName)
             local itemLink = getItemLinkFromMessage(message)
             local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(selItem))
             return RollLine(selName, SelectedRollText(selType), display)
@@ -397,7 +408,7 @@ function Loot.Create(config)
         if not wonName then wonName, wonItem = coreRoll:match("^(.-)%s+[Ww]on:%s*(.+)$") end
         if not wonName then wonName, wonItem = coreRoll:match("^(.-)%s+[Ww]on%s+(.+)$") end
         if wonName and wonItem then
-            wonName = wonName:gsub("^%s+", ""):gsub("%s+$", "")
+            wonName = CleanRollName(wonName)
             local itemLink = getItemLinkFromMessage(message)
             local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(wonItem))
             return RollLine(wonName, T("CHAT_WON_LABEL", "won:"), display)
@@ -405,7 +416,7 @@ function Loot.Create(config)
 
         local wonItem2, wonBy = coreRoll:match("^%s*[Ll]oot:%s*(.-)%s+won by%s+(.+)$")
         if wonItem2 and wonBy then
-            wonBy = wonBy:gsub("^%s+", ""):gsub("%s+$", "")
+            wonBy = CleanRollName(wonBy)
             local itemLink = getItemLinkFromMessage(message)
             local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(wonItem2))
             return RollLine(wonBy, T("CHAT_WON_LABEL", "won:"), display)
@@ -425,14 +436,13 @@ function Loot.Create(config)
         local function TryRollEntry(entry)
             local name, itemPart = coreRoll:match(entry.pattern)
             if not name or name == "" then return nil end
-            name = name:gsub("^%s+", ""):gsub("%s+$", "")
-            if name:find("^Loot: ") then name = name:gsub("^Loot:%s*", ""):gsub("^%s+", ""):gsub("%s+$", "") end
+            name = CleanRollName(name)
             if name == "" or name == "Loot" then return nil end
 
             local display = BuildRollDisplay(itemPart, message)
             local isYou = name == "You" or name == playerName
             local displayName = isYou and "You" or name
-            local shortName = name:gsub("%-.*$", "")
+            local shortName = CleanRollName(name)
             local typeWord = RollTypeWord(entry.literal)
             local itemKey = Loot.GetRollItemKey(itemPart, message)
 
@@ -462,7 +472,7 @@ function Loot.Create(config)
 
         local rollName, rollNum, rollItemPart = coreRoll:match("^%s*(.-)%s+rolls?%s+(%d+)%s*:?%s*(.*)$")
         if rollName and rollNum and rollName ~= "" then
-            rollName = rollName:gsub("^Loot:%s*", ""):gsub("^%s+", ""):gsub("%s+$", "")
+            rollName = CleanRollName(rollName)
             if rollName ~= "" and rollName ~= "Loot" then
                 local itemKey = Loot.GetRollItemKey(rollItemPart, message)
                 local isYouRoll = rollName == "You" or rollName == playerName
