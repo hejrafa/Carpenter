@@ -6,39 +6,65 @@ ns.Private = ns.Private or {}
 
 local frame = CreateFrame("Frame")
 
+local POISON_FAMILIES = {
+    Instant = {
+        6947,  -- Instant Poison
+        6949,  -- Instant Poison II
+        6950,  -- Instant Poison III
+        8926,  -- Instant Poison IV
+        8927,  -- Instant Poison V
+        8928,  -- Instant Poison VI
+        21927, -- Instant Poison VII
+    },
+    Deadly = {
+        2892,  -- Deadly Poison
+        2893,  -- Deadly Poison II
+        8984,  -- Deadly Poison III
+        8985,  -- Deadly Poison IV
+        20844, -- Deadly Poison V
+        22053, -- Deadly Poison VI
+        22054, -- Deadly Poison VII
+    },
+    Wound = {
+        10918, -- Wound Poison
+        10920, -- Wound Poison II
+        10921, -- Wound Poison III
+        10922, -- Wound Poison IV
+        22055, -- Wound Poison V
+    },
+    Crippling = {
+        3775, -- Crippling Poison
+        3776, -- Crippling Poison II
+    },
+    Mind = {
+        5237, -- Mind-numbing Poison
+        6951, -- Mind-numbing Poison II
+        9186, -- Mind-numbing Poison III
+    },
+}
+
 local POISON_MACROS = {
     {
-        key = "Instant",
         macroName = "CarpenterInstant",
-        missingText = "No Instant Poison found.",
+        missingText = "No damage poison found.",
         icon = "Ability_Poisons",
-        itemIDs = {
-            6947,  -- Instant Poison
-            6949,  -- Instant Poison II
-            6950,  -- Instant Poison III
-            8926,  -- Instant Poison IV
-            8927,  -- Instant Poison V
-            8928,  -- Instant Poison VI
-            21927, -- Instant Poison VII
-        },
+        normalPriority = { "Deadly", "Instant" },
+        shiftPriority = { "Wound", "Instant" },
     },
     {
-        key = "Crippling",
         macroName = "CarpenterCrippling",
-        missingText = "No Crippling Poison found.",
+        missingText = "No utility poison found.",
         icon = "Ability_PoisonSting",
-        itemIDs = {
-            3775, -- Crippling Poison
-            3776, -- Crippling Poison II
-        },
+        normalPriority = { "Crippling", "Mind" },
+        shiftPriority = { "Crippling", "Mind" },
     },
 }
 
 local poisonByItemID = {}
-for _, config in ipairs(POISON_MACROS) do
-    for rank, itemID in ipairs(config.itemIDs) do
+for family, itemIDs in pairs(POISON_FAMILIES) do
+    for rank, itemID in ipairs(itemIDs) do
         poisonByItemID[itemID] = {
-            key = config.key,
+            family = family,
             rank = rank,
         }
     end
@@ -114,9 +140,9 @@ local function GetBestPoisons()
                     needsRetry = true
                 end
 
-                local current = best[poisonInfo.key]
+                local current = best[poisonInfo.family]
                 if not current or poisonInfo.rank > current.rank or (poisonInfo.rank == current.rank and itemID > current.itemID) then
-                    best[poisonInfo.key] = {
+                    best[poisonInfo.family] = {
                         itemID = itemID,
                         name = name,
                         rank = poisonInfo.rank,
@@ -129,10 +155,36 @@ local function GetBestPoisons()
     return best, needsRetry
 end
 
-local function BuildMacroBody(poison, missingText)
-    if poison and poison.name then
-        return "#showtooltip " .. poison.name .. "\n/use " .. poison.name .. "\n/use [button:1] 16; [button:2] 17"
+local function PickPoison(bestPoisons, priority)
+    for _, family in ipairs(priority or {}) do
+        local poison = bestPoisons[family]
+        if poison and poison.name then return poison end
     end
+    return nil
+end
+
+local function BuildConditionalPoisonLine(command, normalPoison, shiftPoison)
+    if normalPoison and shiftPoison and normalPoison.itemID == shiftPoison.itemID then
+        shiftPoison = nil
+    end
+
+    if shiftPoison and normalPoison then
+        return command .. " [mod:shift] " .. shiftPoison.name .. "; " .. normalPoison.name
+    elseif shiftPoison then
+        return command .. " [mod:shift] " .. shiftPoison.name
+    elseif normalPoison then
+        return command .. " " .. normalPoison.name
+    end
+    return nil
+end
+
+local function BuildMacroBody(normalPoison, shiftPoison, missingText)
+    local tooltipLine = BuildConditionalPoisonLine("#showtooltip", normalPoison, shiftPoison)
+    local useLine = BuildConditionalPoisonLine("/use", normalPoison, shiftPoison)
+    if tooltipLine and useLine then
+        return tooltipLine .. "\n" .. useLine .. "\n/use [button:1] 16; [button:2] 17"
+    end
+
     return "#showtooltip\n/run print(\"Carpenter: " .. missingText .. "\")"
 end
 
@@ -166,7 +218,9 @@ local function ProcessUpdate(forceRescan)
 
     local bestPoisons, needsRetry = GetBestPoisons()
     for _, config in ipairs(POISON_MACROS) do
-        UpdateMacro(config.macroName, config.icon, BuildMacroBody(bestPoisons[config.key], config.missingText))
+        local normalPoison = PickPoison(bestPoisons, config.normalPriority)
+        local shiftPoison = PickPoison(bestPoisons, config.shiftPriority)
+        UpdateMacro(config.macroName, config.icon, BuildMacroBody(normalPoison, shiftPoison, config.missingText))
     end
 
     if needsRetry then
