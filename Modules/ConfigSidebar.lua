@@ -105,6 +105,11 @@ function Sidebar.Create(context)
                 if _G["CP_Preview_" .. n] then _G["CP_Preview_" .. n]:Hide() end
             end
         end
+        if _G["CP_PoisonPreview_Instant"] then
+            for _, n in ipairs({ "Instant", "Crippling" }) do
+                if _G["CP_PoisonPreview_" .. n] then _G["CP_PoisonPreview_" .. n]:Hide() end
+            end
+        end
         local filters = { "CP_Filter_TradeBots", "CP_Filter_Gambling", "CP_Filter_Duplicates" }
         for _, name in ipairs(filters) do
             if _G[name] then _G[name]:Hide() end
@@ -225,6 +230,41 @@ function Sidebar.Create(context)
         for _, n in ipairs(GetSmartMacroPreviewOrder()) do _G["CP_Preview_" .. n]:Show() end
     end
 
+    local function ShowPoisonMacroPreviews()
+        HideAllSideContent()
+        sideContent:ClearAllPoints()
+        sideContent:SetPoint("TOPLEFT", sideDesc, "BOTTOMLEFT", 0, -SIDE_GAP)
+        sideContent:Show()
+        if not _G["CP_PoisonPreview_Instant"] then
+            local poisons = {
+                { key = "Instant", label = L.INSTANT_POISON or "Instant", macro = "CarpenterInstant", icon = "Interface\\Icons\\Ability_Poisons" },
+                { key = "Crippling", label = L.CRIPPLING_POISON or "Crippling", macro = "CarpenterCrippling", icon = "Interface\\Icons\\Ability_PoisonSting" },
+            }
+            local iconSize, spacing = 34, 12
+            local totalWidth = (#poisons * iconSize) + ((#poisons - 1) * spacing)
+            local startX = -(totalWidth / 2) + (iconSize / 2)
+            for index, poison in ipairs(poisons) do
+                local p = CreateFrame("Button", "CP_PoisonPreview_" .. poison.key, sideContent)
+                p:SetSize(iconSize, iconSize)
+                p:SetPoint("CENTER", sideContent, "TOP", startX + ((index - 1) * (iconSize + spacing)), -iconSize / 2)
+                StyleMacroPreviewButton(p, poison.icon)
+                local l = p:CreateFontString(nil, "OVERLAY")
+                l:SetFont("Fonts\\FRIZQT__.TTF", 9, "OUTLINE")
+                l:SetPoint("TOP", p, "BOTTOM", 0, -4)
+                l:SetTextColor(0.67, 0.67, 0.67, 1)
+                l:SetText(poison.label)
+                p:RegisterForDrag("LeftButton")
+                p:SetScript("OnDragStart", function()
+                    local idx = GetMacroIndexByName(poison.macro)
+                    if idx > 0 then PickupMacro(idx) end
+                end)
+            end
+        end
+        for _, n in ipairs({ "Instant", "Crippling" }) do
+            if _G["CP_PoisonPreview_" .. n] then _G["CP_PoisonPreview_" .. n]:Show() end
+        end
+    end
+
     local function ShowSellJunkOptions()
         HideAllSideContent()
         sideContent:ClearAllPoints()
@@ -277,6 +317,7 @@ function Sidebar.Create(context)
         ToggleImage = ToggleSideImage,
         ShowCarrotSlots = ShowCarrotSlots,
         ShowMacroPreviews = ShowMacroPreviews,
+        ShowPoisonMacroPreviews = ShowPoisonMacroPreviews,
         ShowSellJunkOptions = ShowSellJunkOptions,
         ShowFilterOptions = ShowFilterOptions,
         SideGap = SIDE_GAP,

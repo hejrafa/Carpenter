@@ -318,15 +318,25 @@ local OPTION_SECTIONS = ConfigOptions.Create and ConfigOptions.Create({
     ShowFilterOptions = sidebarApi.ShowFilterOptions,
     ShowCarrotSlots = sidebarApi.ShowCarrotSlots,
     ShowMacroPreviews = sidebarApi.ShowMacroPreviews,
+    ShowPoisonMacroPreviews = sidebarApi.ShowPoisonMacroPreviews,
     ShowSellJunkOptions = sidebarApi.ShowSellJunkOptions,
 }) or {}
+
+local function IsOptionAvailable(option)
+    if not Carpenter:IsFeatureAvailable(option.key) then return false end
+    if option.class then
+        local _, class = UnitClass("player")
+        if class ~= option.class then return false end
+    end
+    return true
+end
 
 local visibleSectionCount = 0
 
 for _, section in ipairs(OPTION_SECTIONS) do
     local hasAvailableOptions = false
     for _, option in ipairs(section.options) do
-        if Carpenter:IsFeatureAvailable(option.key) then
+        if IsOptionAvailable(option) then
             hasAvailableOptions = true
             break
         end
@@ -341,7 +351,7 @@ for _, section in ipairs(OPTION_SECTIONS) do
         CreateHeader(section.title)
 
         for _, option in ipairs(section.options) do
-            if Carpenter:IsFeatureAvailable(option.key) then
+            if IsOptionAvailable(option) then
                 CreateCheckbox(
                     option.key,
                     option.label,

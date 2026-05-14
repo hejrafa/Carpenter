@@ -55,6 +55,7 @@ local classicFeatures = {
     hideChatButtonsEnabled = true,
     autoCarrotEnabled = true,
     smartMacrosEnabled = true,
+    poisonMacrosEnabled = true,
     autoTrackQuestsEnabled = true,
     autoSellGreys = true,
     autoRepair = true,

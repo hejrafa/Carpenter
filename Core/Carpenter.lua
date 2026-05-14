@@ -57,6 +57,7 @@ local defaults = {
     autoCarrotEnabled = false,
     autoCarrotSlot = 14,
     smartMacrosEnabled = false,
+    poisonMacrosEnabled = false,
     autoTrackQuestsEnabled = false,
     autoSellGreys = false,
     autoRepair = false,

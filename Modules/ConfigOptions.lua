@@ -14,6 +14,7 @@ function Options.Create(context)
     local ShowFilterOptions = context.ShowFilterOptions
     local ShowCarrotSlots = context.ShowCarrotSlots
     local ShowMacroPreviews = context.ShowMacroPreviews
+    local ShowPoisonMacroPreviews = context.ShowPoisonMacroPreviews
     local ShowSellJunkOptions = context.ShowSellJunkOptions
 
     local function Description(key)
@@ -286,6 +287,14 @@ function Options.Create(context)
                     description = Description("DESC_CONSUMABLE_MACROS"),
                     sideLogic = ShowMacroPreviews,
                     image = GetSettingsImage("macro.png"),
+                },
+                {
+                    key = "poisonMacrosEnabled",
+                    class = "ROGUE",
+                    label = L.OPTION_POISON_MACROS or "Poison Macros",
+                    description = Description("DESC_POISON_MACROS"),
+                    sideLogic = ShowPoisonMacroPreviews,
+                    image = GetSettingsImage("warning.png"),
                 },
                 {
                     key = "autoTrackQuestsEnabled",

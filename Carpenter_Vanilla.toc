@@ -74,6 +74,7 @@ Modules\SmartMacroClassifier.lua
 Modules\SmartMacroScanner.lua
 Modules\SmartMacroBuilder.lua
 Modules\SmartMacros.lua
+Modules\PoisonMacros.lua
 Modules\AutoTrackQuests.lua
 Modules\AutoSellGreys.lua
 Modules\AutoRepair.lua
