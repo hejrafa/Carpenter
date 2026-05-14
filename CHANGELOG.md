@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.6.4
+
+- Added Classic Era and TBC Rogue poison macros with automatic bag-based poison selection, PvE defaults, and Shift-held PvP priorities.
+- Added draggable settings previews and clearer labels for the generated poison macros.
+- Renamed the generated poison macros to `CarpenterDamage` and `CarpenterUtility`.
+- Fixed poison macro tooltips and action bar icons so Shift-swapping changes the displayed poison instead of keeping a fixed icon.
+- Fixed remaining Chat Cleaner loot roll punctuation and colored loot item names inside party and raid loot messages.
+- Updated release packaging so CurseForge and Wago receive only the latest version's changelog section.
+
 ## 1.6.3
 
 - Removed the settings scrollbar again and refined the settings panel's top and bottom spacing, including footer version alignment with the reload hint.
