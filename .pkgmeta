@@ -1,5 +1,5 @@
 package-as: Carpenter
-manual-changelog: CHANGELOG.md
+manual-changelog: .release/CHANGELOG.md
 enable-nolib-creation: no
 
 ignore:

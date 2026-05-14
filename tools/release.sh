@@ -37,10 +37,41 @@ validate_changelog() {
   grep -q "^## ${release_version}$" "$ROOT/CHANGELOG.md" || fail "CHANGELOG.md has no ## ${release_version} section"
 }
 
+generate_release_changelog() {
+  local release_version out
+  release_version="$(version)"
+  out="$ROOT/.release/CHANGELOG.md"
+
+  mkdir -p "$ROOT/.release"
+  awk -v release_version="$release_version" '
+    BEGIN {
+      found = 0
+      print "# Changelog"
+      print ""
+    }
+    /^## / {
+      if ($0 == "## " release_version) {
+        found = 1
+        print
+        next
+      }
+      if (found) {
+        exit
+      }
+    }
+    found {
+      print
+    }
+  ' "$ROOT/CHANGELOG.md" > "$out"
+
+  grep -q "^## ${release_version}$" "$out" || fail "could not generate latest-version changelog for ${release_version}"
+  [[ "$(grep -c '^## ' "$out")" == "1" ]] || fail "$out contains more than one release section"
+}
+
 validate_pkgmeta() {
   [[ -f "$ROOT/.pkgmeta" ]] || fail ".pkgmeta is missing"
   grep -q '^package-as:[[:space:]]*Carpenter$' "$ROOT/.pkgmeta" || fail ".pkgmeta must package as Carpenter"
-  grep -q '^manual-changelog:[[:space:]]*CHANGELOG.md$' "$ROOT/.pkgmeta" || fail ".pkgmeta must use CHANGELOG.md as the manual changelog"
+  grep -q '^manual-changelog:[[:space:]]*\.release/CHANGELOG.md$' "$ROOT/.pkgmeta" || fail ".pkgmeta must use .release/CHANGELOG.md as the manual changelog"
 }
 
 lua_files() {
@@ -54,6 +85,7 @@ check() {
   validate_tocs
   validate_changelog
   validate_pkgmeta
+  generate_release_changelog
 
   local files=()
   while IFS= read -r file; do
@@ -70,7 +102,7 @@ check() {
 package_zip() {
   local release_version zip_path tmp
   release_version="${1:-$(version)}"
-  zip_path="${HOME}/Desktop/${ADDON_NAME}-${release_version}.zip"
+  zip_path="$ROOT/.release/${ADDON_NAME}-${release_version}.zip"
 
   check
 
@@ -142,7 +174,7 @@ Usage: tools/release.sh <command>
 
 Commands:
   check                 Validate TOCs, changelog, Lua syntax, fixtures, and localization.
-  zip [version]         Create ~/Desktop/Carpenter-[version].zip without hidden/dev/tools files.
+  zip [version]         Create .release/Carpenter-[version].zip without hidden/dev/tools files.
   update-worktrees [ref] Fast-forward main worktrees and update detached worktrees to ref.
 EOF
 }

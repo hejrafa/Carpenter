@@ -77,7 +77,7 @@ Some features (Micro Menu fade, Exp/Rep bar resize) are TBC-only.
 - `Localization/` - English defaults plus locale-specific overrides
 - `Modules/` - feature modules loaded by the Retail, Classic Era, and TBC TOCs
 - `tools/` - local validation, fixture, packaging, and worktree helper scripts
-- `CHANGELOG.md` - release notes used by the package workflow
+- `CHANGELOG.md` - source release notes; `tools/release.sh check` extracts the current version section into `.release/CHANGELOG.md` for publishing
 
 ## Release Publishing
 
@@ -102,4 +102,4 @@ git push origin main v1.6.3
 
 The tag must be strict `vMAJOR.MINOR.PATCH`, and the number must match `## Version:` in all TOC files. Platform project IDs stay in GitHub secrets; do not add `X-Curse-Project-ID` or `X-Wago-ID` to the TOCs.
 
-The package rules live in `.pkgmeta`; `.github`, `_Dev`, local tools, caches, and docs such as `README.md` and `DESCRIPTION.md` are excluded from release zips.
+The package rules live in `.pkgmeta`; `.github`, `_Dev`, local tools, caches, and docs such as `README.md` and `DESCRIPTION.md` are excluded from release zips. CurseForge and Wago receive only the latest version's extracted changelog section, not the full historical changelog.
