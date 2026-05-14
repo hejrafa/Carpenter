@@ -181,10 +181,9 @@ local function BuildConditionalPoisonLine(command, normalPoison, shiftPoison)
 end
 
 local function BuildMacroBody(normalPoison, shiftPoison, missingText)
-    local tooltipLine = BuildConditionalPoisonLine("#showtooltip", normalPoison, shiftPoison)
     local useLine = BuildConditionalPoisonLine("/use", normalPoison, shiftPoison)
-    if tooltipLine and useLine then
-        return tooltipLine .. "\n" .. useLine .. "\n/use [button:1] 16; [button:2] 17"
+    if useLine then
+        return "#showtooltip\n" .. useLine .. "\n/use [button:1] 16; [button:2] 17"
     end
 
     return "#showtooltip\n/run print(\"Carpenter: " .. missingText .. "\")"
