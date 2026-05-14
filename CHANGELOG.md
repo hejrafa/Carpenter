@@ -8,6 +8,7 @@
 - Improved Consumable Macros on Classic clients by refreshing bag scans when food, water, and consumables change.
 - Fixed duplicate merchant money summaries after selling items.
 - Simplified Chat Cleaner output by keeping player names the same color as the rest of each message, capitalizing level-up messages as `Reached Level`, and removing the unreliable guild recruitment filter.
+- Fixed Chat Cleaner loot messages so loot text is white, `Loot:` prefixes are stripped, and roll lines no longer leak `selected` wording or stray punctuation.
 - Tightened the draggable consumable macro icon spacing in the settings sidebar.
 
 ## 1.6.2
