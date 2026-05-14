@@ -237,8 +237,8 @@ function Sidebar.Create(context)
         sideContent:Show()
         if not _G["CP_PoisonPreview_Instant"] then
             local poisons = {
-                { key = "Instant", label = L.POISON_DAMAGE or "Damage", macro = "CarpenterInstant", icon = "Interface\\Icons\\Ability_Poisons" },
-                { key = "Crippling", label = L.POISON_UTILITY or "Utility", macro = "CarpenterCrippling", icon = "Interface\\Icons\\Ability_PoisonSting" },
+                { key = "Instant", label = L.POISON_DAMAGE or "Damage", macro = "CarpenterDamage", icon = "Interface\\Icons\\Ability_Poisons" },
+                { key = "Crippling", label = L.POISON_UTILITY or "Utility", macro = "CarpenterUtility", icon = "Interface\\Icons\\Ability_PoisonSting" },
             }
             local iconSize, spacing = 34, 12
             local totalWidth = (#poisons * iconSize) + ((#poisons - 1) * spacing)

@@ -45,14 +45,16 @@ local POISON_FAMILIES = {
 
 local POISON_MACROS = {
     {
-        macroName = "CarpenterInstant",
+        macroName = "CarpenterDamage",
+        legacyName = "CarpenterInstant",
         missingText = "No damage poison found.",
         icon = "Ability_Poisons",
         normalPriority = { "Deadly", "Instant" },
         shiftPriority = { "Wound", "Instant" },
     },
     {
-        macroName = "CarpenterCrippling",
+        macroName = "CarpenterUtility",
+        legacyName = "CarpenterCrippling",
         missingText = "No utility poison found.",
         icon = "Ability_PoisonSting",
         normalPriority = { "Crippling", "Mind" },
@@ -201,6 +203,14 @@ local function UpdateMacro(name, icon, body)
     end
 end
 
+local function DeleteMacroByName(name)
+    if not DeleteMacro or not name then return end
+    local macroIndex = GetMacroIndexByName(name)
+    if macroIndex and macroIndex ~= 0 then
+        DeleteMacro(macroIndex)
+    end
+end
+
 local lastBagFingerprint
 
 local function ProcessUpdate(forceRescan)
@@ -221,6 +231,7 @@ local function ProcessUpdate(forceRescan)
         local normalPoison = PickPoison(bestPoisons, config.normalPriority)
         local shiftPoison = PickPoison(bestPoisons, config.shiftPriority)
         UpdateMacro(config.macroName, config.icon, BuildMacroBody(normalPoison, shiftPoison, config.missingText))
+        DeleteMacroByName(config.legacyName)
     end
 
     if needsRetry then
