@@ -294,7 +294,7 @@ function Options.Create(context)
                     label = L.OPTION_POISON_MACROS or "Poison Macros",
                     description = Description("DESC_POISON_MACROS"),
                     sideLogic = ShowPoisonMacroPreviews,
-                    image = GetSettingsImage("warning.png"),
+                    image = GetSettingsImage("poisonmacro.png"),
                 },
                 {
                     key = "autoTrackQuestsEnabled",
