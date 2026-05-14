@@ -93,13 +93,16 @@ function PostProcess.Create(config)
     end
 
     local function Literal(text)
+        if text and type(text) == "string" then
+            text = text:gsub("^%s+", ""):gsub("%s+$", ""):gsub(":%s*$", "")
+        end
         if not text or text == "" then return "" end
         return colorLootLiteral .. text .. "|r"
     end
 
     local function SelectedRollText(typeWord)
         local rollType = typeWord and T("CHAT_ROLL_" .. typeWord:upper(), typeWord) or ""
-        return T("CHAT_SELECTED_ROLL", "selected %s:", rollType)
+        return rollType
     end
 
     local function FormatDirectLootWin(text)

@@ -142,6 +142,22 @@ function Loot.Create(config)
 
     local api = {}
 
+    local function IsRollPayload(text)
+        if not text or type(text) ~= "string" then return false end
+        local lower = text:lower()
+        return lower:find("has selected", 1, true) or
+            lower:find("have selected", 1, true) or
+            lower:find("selected ", 1, true) or
+            lower:find("passed on", 1, true) or
+            lower:find(" won", 1, true) or
+            lower:find("roll", 1, true)
+    end
+
+    local function CleanRollActionText(text)
+        if not text or text == "" then return "" end
+        return (text:gsub("^%s+", ""):gsub("%s+$", ""):gsub(":%s*$", ""))
+    end
+
     local function StripTrailingLoot(display)
         if not display or type(display) ~= "string" then return display end
         return display:gsub("%s+[Ll]oot%s*$", ""):gsub("|r%s*$", "|r")
@@ -183,6 +199,12 @@ function Loot.Create(config)
         local item = message:match("You receive loot: (.+)") or message:match("You create: (.+)") or
             message:match("You receive item: (.+)") or message:match("You receive items: (.+)") or
             message:match("You received item: (.+)") or message:match("You received items: (.+)")
+        if not item and (event == "CHAT_MSG_LOOT" or event == "CHAT_MSG_SYSTEM") then
+            local lootPayload = message:match("^%s*[Ll]oot:%s*(.+)$")
+            if lootPayload and not IsRollPayload(lootPayload) then
+                item = lootPayload
+            end
+        end
         if item then
             local display = formatReceivedDisplay(item, message)
             if display then return prefixPlus .. display end
@@ -277,6 +299,7 @@ function Loot.Create(config)
             return colorLootLiteral .. short .. "|r", false
         end
         local function RollLiteral(text)
+            text = CleanRollActionText(text)
             if not text or text == "" then return "" end
             return colorLootLiteral .. text .. "|r"
         end
@@ -305,7 +328,7 @@ function Loot.Create(config)
         end
         local function SelectedRollText(typeWord)
             local rollType = typeWord and T("CHAT_ROLL_" .. typeWord:upper(), typeWord) or ""
-            return T("CHAT_SELECTED_ROLL", "selected %s:", rollType)
+            return CleanRollActionText(rollType)
         end
 
         local looseYouType, looseYouItem = plainRoll:match("[Yy]ou%s+have%s+selected%s+(%S+).-[Ff]or%s*:?%s*(.+)$")

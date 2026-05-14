@@ -170,6 +170,25 @@ local fixtures = {
         rejectColor = "|cffc69b6d",
     },
     {
+        name = "loot prefix self item",
+        event = "CHAT_MSG_LOOT",
+        message = "Loot: Sentry's Gloves of the Monkey",
+        expectPlain = "+ Sentry's Gloves of the Monkey",
+    },
+    {
+        name = "loot roll selected compact",
+        event = "CHAT_MSG_LOOT",
+        message = "Loot: You have selected Greed for: Sentry's Gloves of the Monkey",
+        expectPlain = "You Greed Sentry's Gloves of the Monkey",
+        rejectPlain = "selected",
+    },
+    {
+        name = "loot roll won compact",
+        event = "CHAT_MSG_LOOT",
+        message = "Loot: You won: Sentry's Gloves of the Monkey",
+        expectPlain = "You won Sentry's Gloves of the Monkey",
+    },
+    {
         name = "self level up capitalization",
         event = "CHAT_MSG_SYSTEM",
         message = "Reached level 24.",
@@ -229,6 +248,8 @@ for _, fixture in ipairs(fixtures) do
         failures[#failures + 1] = fixture.name .. ": unexpectedly hidden"
     elseif outPlain ~= fixture.expectPlain then
         failures[#failures + 1] = fixture.name .. ": expected [" .. fixture.expectPlain .. "] got [" .. tostring(outPlain) .. "]"
+    elseif fixture.rejectPlain and outPlain and outPlain:find(fixture.rejectPlain, 1, true) then
+        failures[#failures + 1] = fixture.name .. ": output used rejected text " .. fixture.rejectPlain
     elseif fixture.rejectColor and out and out:find(fixture.rejectColor, 1, true) then
         failures[#failures + 1] = fixture.name .. ": output used rejected color " .. fixture.rejectColor
     end

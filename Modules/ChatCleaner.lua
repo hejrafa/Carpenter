@@ -10,10 +10,10 @@ local Colors = ns and ns.Private and ns.Private.Colors
 local ColorGray       = Colors and Colors.gray and Colors.gray.colorCode or "|cffc8c8c8"
 local ColorPlus       = ColorGray
 local ColorMinus      = ColorGray
-local ColorLootLiteral= ColorGray
 
 local ColorOffwhite   = Colors and Colors.offwhite and Colors.offwhite.colorCode or "|cfff0f0f0"
 local ColorWhite      = Colors and Colors.white and Colors.white.colorCode or "|cffffffff"
+local ColorLootLiteral= ColorWhite
 local ColorYellow     = "|cffffd200"
 local ColorGreen      = Colors and Colors.green and Colors.green.colorCode or "|cff00ff00"
 local ColorOrange     = Colors and Colors.quest and Colors.quest.orange and Colors.quest.orange.colorCode or "|cffff8000"
