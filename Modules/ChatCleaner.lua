@@ -97,6 +97,23 @@ local function GetPartyOrRaidMessageColor()
     return string.format("|cff%02x%02x%02x", r, g, b)
 end
 
+local function GetChannelMessageColor(event)
+    local chatTypeByEvent = {
+        CHAT_MSG_PARTY = "PARTY",
+        CHAT_MSG_PARTY_LEADER = "PARTY_LEADER",
+        CHAT_MSG_RAID = "RAID",
+        CHAT_MSG_RAID_LEADER = "RAID_LEADER",
+    }
+    local chatType = chatTypeByEvent[event]
+    local info = chatType and ChatTypeInfo and ChatTypeInfo[chatType]
+    if not info or not info.r then return ColorLootLiteral end
+
+    local r = math.floor((info.r or 1) * 255)
+    local g = math.floor((info.g or 1) * 255)
+    local b = math.floor((info.b or 1) * 255)
+    return string.format("|cff%02x%02x%02x", r, g, b)
+end
+
 local GroupLootPatterns = ChatCleanerLoot.BuildGroupLootPatterns and ChatCleanerLoot.BuildGroupLootPatterns() or {}
 local RollPatterns = ChatCleanerLoot.BuildRollPatterns and ChatCleanerLoot.BuildRollPatterns() or {}
 local RollPatternsFallback = ChatCleanerLoot.RollPatternsFallback or {}
@@ -115,6 +132,7 @@ local lootFormatter = ChatCleanerLoot.Create and ChatCleanerLoot.Create({
     RollPatternsFallback = RollPatternsFallback,
     ColorPlus = ColorPlus,
     ColorLootLiteral = ColorLootLiteral,
+    GetChannelMessageColor = GetChannelMessageColor,
 }) or {}
 local FormatSelfLootMessage = lootFormatter.FormatSelfLootMessage
 local FormatGroupLootMessage = lootFormatter.FormatGroupLootMessage

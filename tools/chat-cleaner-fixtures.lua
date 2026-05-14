@@ -176,6 +176,22 @@ local fixtures = {
         expectPlain = "+ Sentry's Gloves of the Monkey",
     },
     {
+        name = "party loot uses party color",
+        event = "CHAT_MSG_PARTY",
+        author = "Mirella",
+        message = "Mirella receives loot: Medium Leather.",
+        expectPlain = "Mirella: + Medium Leather",
+        requireColor = "|cffaaaaff",
+    },
+    {
+        name = "raid loot uses raid color",
+        event = "CHAT_MSG_RAID",
+        author = "Mirella",
+        message = "Mirella receives loot: Medium Leather.",
+        expectPlain = "Mirella: + Medium Leather",
+        requireColor = "|cffff7f00",
+    },
+    {
         name = "loot roll selected compact",
         event = "CHAT_MSG_LOOT",
         message = "Loot: You have selected Greed for: Sentry's Gloves of the Monkey",
@@ -250,6 +266,8 @@ for _, fixture in ipairs(fixtures) do
         failures[#failures + 1] = fixture.name .. ": expected [" .. fixture.expectPlain .. "] got [" .. tostring(outPlain) .. "]"
     elseif fixture.rejectPlain and outPlain and outPlain:find(fixture.rejectPlain, 1, true) then
         failures[#failures + 1] = fixture.name .. ": output used rejected text " .. fixture.rejectPlain
+    elseif fixture.requireColor and (not out or not out:find(fixture.requireColor, 1, true)) then
+        failures[#failures + 1] = fixture.name .. ": output did not include required color " .. fixture.requireColor
     elseif fixture.rejectColor and out and out:find(fixture.rejectColor, 1, true) then
         failures[#failures + 1] = fixture.name .. ": output used rejected color " .. fixture.rejectColor
     end

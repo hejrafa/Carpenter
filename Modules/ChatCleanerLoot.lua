@@ -126,6 +126,7 @@ function Loot.Create(config)
     local rollPatternsFallback = config.RollPatternsFallback or Loot.RollPatternsFallback
     local colorPlus = config.ColorPlus or "|cffc8c8c8"
     local colorLootLiteral = config.ColorLootLiteral or "|cffc8c8c8"
+    local getChannelMessageColor = config.GetChannelMessageColor or function() return colorLootLiteral end
     local L = config.L or (Carpenter and Carpenter.L) or {}
 
     local function T(key, fallback, ...)
@@ -235,9 +236,21 @@ function Loot.Create(config)
             event == "CHAT_MSG_RAID" or event == "CHAT_MSG_RAID_LEADER" or event == "CHAT_MSG_YELL"
         if not isGroupLootEvent then return nil end
 
+        local nameColor = getChannelMessageColor(event) or colorLootLiteral
         local function StyleGroupLoot(name, display)
             if not name or name == "" or name == "You" then return nil end
-            return spaceBeforeX(colorLootLiteral .. name .. ": " .. colorPlus .. "+|r " .. display)
+            return spaceBeforeX(nameColor .. name .. ": " .. colorPlus .. "+|r " .. display)
+        end
+        local function MatchGroupLoot(text)
+            local name, itemPart = text:match("^%s*(.-)%s+receives loot:%s*(.+)$")
+            if name then return name, itemPart end
+            name, itemPart = text:match("^%s*(.-)%s+receives item:%s*(.+)$")
+            if name then return name, itemPart end
+            name, itemPart = text:match("^%s*(.-)%s+creates:%s*(.+)$")
+            if name then return name, itemPart end
+            name, itemPart = text:match("^%s*(.-)%s+conjures:%s*(.+)$")
+            if name then return name, itemPart end
+            return nil, nil
         end
 
         local plainLoot = message:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("%s+", " ")
@@ -257,10 +270,7 @@ function Loot.Create(config)
             end
         end
 
-        local name, itemPart = plainLoot:match("^%s*(.-)%s+receives loot:%s*(.+)$") or
-            plainLoot:match("^%s*(.-)%s+receives item:%s*(.+)$") or
-            plainLoot:match("^%s*(.-)%s+creates:%s*(.+)$") or
-            plainLoot:match("^%s*(.-)%s+conjures:%s*(.+)$")
+        local name, itemPart = MatchGroupLoot(plainLoot)
         if name then
             name = name:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
             if name == "" and author and author ~= "" then name = author:gsub("%-.*$", "") end
