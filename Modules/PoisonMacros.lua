@@ -48,7 +48,6 @@ local POISON_MACROS = {
         macroName = "CarpenterDamage",
         legacyName = "CarpenterInstant",
         missingText = "No damage poison found.",
-        icon = "Ability_Poisons",
         normalPriority = { "Deadly", "Instant" },
         shiftPriority = { "Wound", "Instant" },
     },
@@ -56,7 +55,6 @@ local POISON_MACROS = {
         macroName = "CarpenterUtility",
         legacyName = "CarpenterCrippling",
         missingText = "No utility poison found.",
-        icon = "Ability_PoisonSting",
         normalPriority = { "Crippling", "Mind" },
         shiftPriority = { "Crippling", "Mind" },
     },
@@ -189,16 +187,23 @@ local function BuildMacroBody(normalPoison, shiftPoison, missingText)
     return "#showtooltip\n/run print(\"Carpenter: " .. missingText .. "\")"
 end
 
-local function UpdateMacro(name, icon, body)
+local DYNAMIC_MACRO_ICON = "INV_Misc_QuestionMark"
+
+local function IsDynamicMacroIcon(icon)
+    if type(icon) ~= "string" then return false end
+    return icon:lower():find("inv_misc_questionmark", 1, true) ~= nil
+end
+
+local function UpdateMacro(name, body)
     local macroIndex = GetMacroIndexByName(name)
     if macroIndex == 0 then
-        CreateMacro(name, icon or "INV_Misc_QuestionMark", body, 1)
+        CreateMacro(name, DYNAMIC_MACRO_ICON, body, 1)
         return
     end
 
-    local _, _, currentBody = GetMacroInfo(macroIndex)
-    if currentBody ~= body then
-        EditMacro(macroIndex, name, icon, body)
+    local _, currentIcon, currentBody = GetMacroInfo(macroIndex)
+    if currentBody ~= body or not IsDynamicMacroIcon(currentIcon) then
+        EditMacro(macroIndex, name, DYNAMIC_MACRO_ICON, body)
     end
 end
 
@@ -229,7 +234,7 @@ local function ProcessUpdate(forceRescan)
     for _, config in ipairs(POISON_MACROS) do
         local normalPoison = PickPoison(bestPoisons, config.normalPriority)
         local shiftPoison = PickPoison(bestPoisons, config.shiftPriority)
-        UpdateMacro(config.macroName, config.icon, BuildMacroBody(normalPoison, shiftPoison, config.missingText))
+        UpdateMacro(config.macroName, BuildMacroBody(normalPoison, shiftPoison, config.missingText))
         DeleteMacroByName(config.legacyName)
     end
 
