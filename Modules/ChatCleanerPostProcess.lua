@@ -121,6 +121,29 @@ function PostProcess.Create(config)
         return (prefix or "") .. nameOut .. " " .. Literal(T("CHAT_WON_LABEL", "won:")) .. " " .. item
     end
 
+    local function IsRollPayload(text)
+        if not text or type(text) ~= "string" then return false end
+        local lower = text:lower()
+        return lower:find("has selected", 1, true) or
+            lower:find("have selected", 1, true) or
+            lower:find("selected ", 1, true) or
+            lower:find("passed on", 1, true) or
+            lower:find(" won", 1, true) or
+            lower:find("roll", 1, true)
+    end
+
+    local function FormatBareLoot(text)
+        if not text or type(text) ~= "string" then return nil end
+
+        local item = text:match("^%s*[Ll]oot:%s*(.+)$")
+        if not item or IsRollPayload(item) then return nil end
+
+        item = Trim(item):gsub("%.+$", "")
+        if item == "" then return nil end
+
+        return colorLootLiteral .. "Loot|r " .. colorPlus .. "+|r " .. item
+    end
+
     local function StripColorCodes(text)
         if not text or type(text) ~= "string" then return "" end
         return text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
@@ -299,6 +322,11 @@ function PostProcess.Create(config)
         message = StyleLootRollNames(message)
 
         local plain = StripColorCodes(message)
+        local bareLootMessage = FormatBareLoot(message)
+        if bareLootMessage then
+            return originalAddMessage(frame, bareLootMessage, unpack(args))
+        end
+
         local hardcoreDeathMessage = FormatHardcoreDeathMessage(plain)
         if hardcoreDeathMessage then
             return originalAddMessage(frame, hardcoreDeathMessage, unpack(args))
