@@ -7,6 +7,7 @@
 - Renamed the generated poison macros to `CarpenterDamage` and `CarpenterUtility`.
 - Fixed poison macro tooltips and action bar icons so Shift-swapping changes the displayed poison instead of keeping a fixed icon.
 - Fixed remaining Chat Cleaner loot roll punctuation and colored loot item names inside party and raid loot messages.
+- Changed compact home-bind chat styling from `Home:` to `Hearthstone:`.
 - Updated release packaging so CurseForge and Wago receive only the latest version's changelog section.
 
 ## 1.6.3

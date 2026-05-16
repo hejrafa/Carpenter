@@ -127,7 +127,7 @@ function Social.Create(config)
         end
         local homeLocation = plainMsg:match("^(.+) is now your home%.?%s*$")
         if homeLocation and homeLocation ~= "" then
-            return colorWhite .. T("CHAT_HOME_LABEL", "Home:") .. " |r" .. colorQueue .. cleanPunctuation(homeLocation) .. "|r"
+            return colorWhite .. T("CHAT_HOME_LABEL", "Hearthstone:") .. " |r" .. colorQueue .. cleanPunctuation(homeLocation) .. "|r"
         end
 
         if plainMsg:find("Ready Check") and plainMsg:find("failed") then
