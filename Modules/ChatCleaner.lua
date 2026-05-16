@@ -105,6 +105,9 @@ local function GetChannelMessageColor(event)
         CHAT_MSG_RAID_LEADER = "RAID_LEADER",
     }
     local chatType = chatTypeByEvent[event]
+    if not chatType and (event == "CHAT_MSG_LOOT" or event == "CHAT_MSG_SYSTEM") and GetNumGroupMembers and GetNumGroupMembers() > 0 then
+        chatType = IsInRaid and IsInRaid() and "RAID" or "PARTY"
+    end
     local info = chatType and ChatTypeInfo and ChatTypeInfo[chatType]
     if not info or not info.r then return ColorLootLiteral end
 

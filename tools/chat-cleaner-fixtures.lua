@@ -67,11 +67,13 @@ _G.ChatFrame1EditBox = {
 
 local now = 1000
 local currentMoney = 0
+local groupMembers = 0
+local inRaid = false
 function GetTime() return now end
 function GetMoney() return currentMoney end
 function GetLocale() return "enUS" end
-function IsInRaid() return false end
-function GetNumGroupMembers() return 0 end
+function IsInRaid() return inRaid end
+function GetNumGroupMembers() return groupMembers end
 function UnitName(unit)
     if unit == "player" then return "Tester" end
     return nil
@@ -173,7 +175,32 @@ local fixtures = {
         name = "loot prefix self item",
         event = "CHAT_MSG_LOOT",
         message = "Loot: Sentry's Gloves of the Monkey",
-        expectPlain = "+ Sentry's Gloves of the Monkey",
+        expectPlain = "Loot + Sentry's Gloves of the Monkey",
+        requireColor = "|cffffffffLoot|r",
+    },
+    {
+        name = "bare loot prefix item",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Loot: Malachite",
+        expectPlain = "Loot + Malachite",
+        requireColor = "|cffffffffLoot|r",
+    },
+    {
+        name = "group loot channel uses party color",
+        event = "CHAT_MSG_LOOT",
+        groupMembers = 2,
+        message = "Malagas receives loot: Ruined Leather Scraps.",
+        expectPlain = "Malagas: + Ruined Leather Scraps",
+        requireColor = "|cffaaaaffMalagas:",
+    },
+    {
+        name = "raid loot channel uses raid color",
+        event = "CHAT_MSG_LOOT",
+        groupMembers = 10,
+        inRaid = true,
+        message = "Malagas receives loot: Ruined Leather Scraps.",
+        expectPlain = "Malagas: + Ruined Leather Scraps",
+        requireColor = "|cffff7f00Malagas:",
     },
     {
         name = "party loot uses party color",
@@ -181,7 +208,7 @@ local fixtures = {
         author = "Mirella",
         message = "Mirella receives loot: Medium Leather.",
         expectPlain = "Mirella: + Medium Leather",
-        requireColor = "|cffaaaaff",
+        requireColor = "|cffaaaaffMirella:",
     },
     {
         name = "raid loot uses raid color",
@@ -189,7 +216,7 @@ local fixtures = {
         author = "Mirella",
         message = "Mirella receives loot: Medium Leather.",
         expectPlain = "Mirella: + Medium Leather",
-        requireColor = "|cffff7f00",
+        requireColor = "|cffff7f00Mirella:",
     },
     {
         name = "loot roll selected compact",
@@ -197,6 +224,31 @@ local fixtures = {
         message = "Loot: You have selected Greed for: Sentry's Gloves of the Monkey",
         expectPlain = "You Greed Sentry's Gloves of the Monkey",
         rejectPlain = "selected",
+    },
+    {
+        name = "group loot roll selected uses party color",
+        event = "CHAT_MSG_LOOT",
+        groupMembers = 2,
+        message = "Loot: You have selected Greed for: Malachite",
+        expectPlain = "You Greed Malachite",
+        requireColor = "|cffaaaaffYou|r |cffaaaaffGreed|r",
+    },
+    {
+        name = "raid loot roll selected uses raid color",
+        event = "CHAT_MSG_LOOT",
+        groupMembers = 10,
+        inRaid = true,
+        message = "Loot: You have selected Greed for: Malachite",
+        expectPlain = "You Greed Malachite",
+        requireColor = "|cffff7f00You|r |cffff7f00Greed|r",
+    },
+    {
+        name = "group loot roll item uses party color",
+        event = "CHAT_MSG_LOOT",
+        groupMembers = 2,
+        message = "You rolls 80: Malachite",
+        expectPlain = "You roll 80 Malachite",
+        requireColor = "|cffaaaaffYou|r |cffaaaaffroll 80|r",
     },
     {
         name = "loot roll won compact",
@@ -249,6 +301,8 @@ local additionalChecks = 0
 
 for _, fixture in ipairs(fixtures) do
     local hidden, out
+    groupMembers = fixture.groupMembers or 0
+    inRaid = fixture.inRaid or false
     if fixture.path == "post" then
         local frame = {}
         local captured = nil

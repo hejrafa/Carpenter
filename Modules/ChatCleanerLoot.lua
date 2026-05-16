@@ -200,10 +200,11 @@ function Loot.Create(config)
         local item = message:match("You receive loot: (.+)") or message:match("You create: (.+)") or
             message:match("You receive item: (.+)") or message:match("You receive items: (.+)") or
             message:match("You received item: (.+)") or message:match("You received items: (.+)")
-        if not item and (event == "CHAT_MSG_LOOT" or event == "CHAT_MSG_SYSTEM") then
+        if not item then
             local lootPayload = message:match("^%s*[Ll]oot:%s*(.+)$")
             if lootPayload and not IsRollPayload(lootPayload) then
-                item = lootPayload
+                local display = formatReceivedDisplay(lootPayload, message)
+                if display then return colorLootLiteral .. "Loot|r " .. prefixPlus .. display end
             end
         end
         if item then
@@ -310,19 +311,20 @@ function Loot.Create(config)
                 :gsub("^%s+", "")
                 :gsub("%s+$", "")
         end
+        local rollPrefixColor = getChannelMessageColor(event) or colorLootLiteral
         local function NameOut(name)
             name = CleanRollName(name)
             local isYou = name:lower() == "you"
             if isYou then
-                return colorLootLiteral .. You() .. "|r", true
+                return rollPrefixColor .. You() .. "|r", true
             end
             local short = name:gsub("%-.*$", "")
-            return colorLootLiteral .. short .. "|r", false
+            return rollPrefixColor .. short .. "|r", false
         end
         local function RollLiteral(text)
             text = CleanRollActionText(text)
             if not text or text == "" then return "" end
-            return colorLootLiteral .. text .. "|r"
+            return rollPrefixColor .. text .. "|r"
         end
         local function RollLine(name, actionText, display)
             local nameOut = NameOut(name)
