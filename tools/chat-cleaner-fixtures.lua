@@ -157,6 +157,13 @@ local fixtures = {
         expectPlain = "Duckboisolo burned! Level 14",
     },
     {
+        name = "slain death keeps killer",
+        path = "post",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Hulksmash was slain by Baron Silverlaine in Shadowfang Keep! They were level 25",
+        expectPlain = "Hulksmash was slain by Baron Silverlaine! Level 25",
+    },
+    {
         name = "player links keep original color",
         path = "post",
         event = "CHAT_MSG_CHANNEL",

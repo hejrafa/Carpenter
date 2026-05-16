@@ -152,7 +152,11 @@ function PostProcess.Create(config)
             lowerCause:find("died of fatigue", 1, true) then
             causeLabel = T("CHAT_HARDCORE_DEATH_FATIGUE", "died from fatigue")
         elseif lowerCause:find("has been slain", 1, true) or lowerCause:find("was slain", 1, true) then
-            causeLabel = T("CHAT_HARDCORE_DEATH_SLAIN", "slain")
+            local killer = cause:match("[Hh]as been slain by%s+(.+)$") or cause:match("[Ww]as slain by%s+(.+)$")
+            if killer then
+                killer = Trim(killer):gsub("%s+in%s+.+$", "")
+            end
+            causeLabel = killer and killer ~= "" and T("CHAT_HARDCORE_DEATH_SLAIN_BY", "was slain by %s", killer) or T("CHAT_HARDCORE_DEATH_SLAIN", "slain")
         elseif lowerCause:find("was killed", 1, true) or lowerCause:find("died to", 1, true) or
             lowerCause:find("died from", 1, true) or lowerCause:find("died in", 1, true) then
             causeLabel = T("CHAT_HARDCORE_DEATH_DIED", "died")
