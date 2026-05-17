@@ -201,6 +201,22 @@ local fixtures = {
         requireColor = "|cffffffffLoot|r",
     },
     {
+        name = "colored bare loot post-process item",
+        path = "post",
+        event = "CHAT_MSG_LOOT",
+        message = "|cff00ff00Loot:|r Disciple's Robe of the Eagle",
+        expectPlain = "Loot + Disciple's Robe of the Eagle",
+        requireColor = "|cffffffffLoot|r",
+    },
+    {
+        name = "colored bare loot post-process line",
+        path = "post",
+        event = "CHAT_MSG_LOOT",
+        message = "|cff00ff00Loot: Disciple's Robe of the Eagle|r",
+        expectPlain = "Loot + Disciple's Robe of the Eagle",
+        requireColor = "|cffffffffLoot|r",
+    },
+    {
         name = "group loot channel uses party color",
         event = "CHAT_MSG_LOOT",
         groupMembers = 2,

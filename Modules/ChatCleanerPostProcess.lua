@@ -121,6 +121,11 @@ function PostProcess.Create(config)
         return (prefix or "") .. nameOut .. " " .. Literal(T("CHAT_WON_LABEL", "won:")) .. " " .. item
     end
 
+    local function StripColorCodes(text)
+        if not text or type(text) ~= "string" then return "" end
+        return text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
+    end
+
     local function IsRollPayload(text)
         if not text or type(text) ~= "string" then return false end
         local lower = text:lower()
@@ -132,21 +137,26 @@ function PostProcess.Create(config)
             lower:find("roll", 1, true)
     end
 
+    local function ExtractBareLootItem(text)
+        if not text or type(text) ~= "string" then return nil end
+
+        return text:match("^%s*[Ll]oot:%s*(.+)$") or
+            text:match("^%s*|c%x%x%x%x%x%x%x%x[Ll]oot:%s*|r%s*(.+)$") or
+            text:match("^%s*|c%x%x%x%x%x%x%x%x[Ll]oot|r:%s*(.+)$") or
+            text:match("^%s*|c%x%x%x%x%x%x%x%x[Ll]oot:%s*(.+)|r%s*$") or
+            StripColorCodes(text):match("^%s*[Ll]oot:%s*(.+)$")
+    end
+
     local function FormatBareLoot(text)
         if not text or type(text) ~= "string" then return nil end
 
-        local item = text:match("^%s*[Ll]oot:%s*(.+)$")
-        if not item or IsRollPayload(item) then return nil end
+        local item = ExtractBareLootItem(text)
+        if not item or IsRollPayload(StripColorCodes(item)) then return nil end
 
         item = Trim(item):gsub("%.+$", "")
         if item == "" then return nil end
 
         return colorLootLiteral .. "Loot|r " .. colorPlus .. "+|r " .. item
-    end
-
-    local function StripColorCodes(text)
-        if not text or type(text) ~= "string" then return "" end
-        return text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
     end
 
     local function FormatHardcoreDeathMessage(plainText)
