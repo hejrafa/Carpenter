@@ -204,7 +204,8 @@ function Loot.Create(config)
             local lootPayload = message:match("^%s*[Ll]oot:%s*(.+)$")
             if lootPayload and not IsRollPayload(lootPayload) then
                 local display = formatReceivedDisplay(lootPayload, message)
-                if display then return colorLootLiteral .. "Loot|r " .. prefixPlus .. display end
+                local lootLabelColor = getChannelMessageColor(event) or colorLootLiteral
+                if display then return lootLabelColor .. "Loot|r " .. prefixPlus .. display end
             end
         end
         if item then

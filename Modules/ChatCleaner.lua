@@ -228,6 +228,7 @@ local postProcessor = ChatCleanerPostProcess.Create and ChatCleanerPostProcess.C
     SpaceBeforeX = SpaceBeforeX,
     ColorPlus = ColorPlus,
     ColorLootLiteral = ColorLootLiteral,
+    GetChannelMessageColor = GetChannelMessageColor,
     ColorRed = ColorRed,
     HonorDelay = 3,
     JoinDedupDelay = 8,

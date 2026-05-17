@@ -61,6 +61,7 @@ function PostProcess.Create(config)
     local spaceBeforeX = config.SpaceBeforeX or function(text) return text end
     local colorPlus = config.ColorPlus or "|cffc8c8c8"
     local colorLootLiteral = config.ColorLootLiteral or "|cffc8c8c8"
+    local getChannelMessageColor = config.GetChannelMessageColor or function() return colorLootLiteral end
     local colorRed = config.ColorRed or "|cffff4040"
     local honorDelay = config.HonorDelay or 3
     local joinDedupDelay = config.JoinDedupDelay or 8
@@ -156,7 +157,8 @@ function PostProcess.Create(config)
         item = Trim(item):gsub("%.+$", "")
         if item == "" then return nil end
 
-        return colorLootLiteral .. "Loot|r " .. colorPlus .. "+|r " .. item
+        local lootLabelColor = getChannelMessageColor("CHAT_MSG_LOOT") or colorLootLiteral
+        return lootLabelColor .. "Loot|r " .. colorPlus .. "+|r " .. item
     end
 
     local function FormatHardcoreDeathMessage(plainText)
