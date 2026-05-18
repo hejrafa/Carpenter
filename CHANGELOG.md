@@ -5,7 +5,10 @@
 - Added Classic Era and TBC Rogue poison macros with automatic bag-based poison selection, PvE defaults, and Shift-held PvP priorities.
 - Added draggable settings previews and clearer labels for the generated poison macros.
 - Renamed the generated poison macros to `CarpenterDamage` and `CarpenterUtility`.
-- Added a Classic Era/TBC World Map Cleanup interface option that uses a Leatrix-style small map position, hides the fullscreen blackout, scales maximized maps to 85%, fades the map smoothly while moving unless hovered, hides continent town/city icons, and adds dungeon, raid, and same-faction travel pins.
+- Added a World Map Cleanup interface option that lowers the small map, hides the fullscreen blackout, scales maximized maps to 85%, fades the map smoothly while moving unless hovered, hides continent town/city icons, and adds dungeon, raid, and same-faction travel pins.
+- Refined World Map Cleanup visuals with dedicated settings art plus clearer travel and combined dungeon/raid map pin textures.
+- Fixed World Map Cleanup fullscreen positioning so the maximized map applies its scaled layout immediately instead of visibly hopping into place.
+- Cleaned up World Map Cleanup settings copy to avoid external-addon and game-version callouts.
 - Fixed poison macro tooltips and action bar icons so Shift-swapping changes the displayed poison instead of keeping a fixed icon.
 - Fixed remaining Chat Cleaner loot roll punctuation and colored loot item names inside party and raid loot messages.
 - Colored grouped loot and loot-roll prefixes with party or raid chat colors, including bare `Loot:` item messages.
