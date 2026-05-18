@@ -19,6 +19,7 @@ local defaults = {
     menuTransparencyEnabled = false,
     smallerExpBarEnabled = false,
     minimapClutterEnabled = false,
+    worldMapCleanupEnabled = false,
     enhanceTooltipEnabled = false,
     scaleExtraAbilityEnabled = false,
     -- Unit Frames

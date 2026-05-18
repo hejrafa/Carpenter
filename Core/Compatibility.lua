@@ -37,6 +37,7 @@ local classicFeatures = {
     actionBarRangeEnabled = true,
     hideStanceBarEnabled = true,
     minimapClutterEnabled = true,
+    worldMapCleanupEnabled = true,
     enhanceTooltipEnabled = true,
     classHealthColorsEnabled = true,
     threatIndicatorEnabled = true,

@@ -87,6 +87,16 @@ function Options.Create(context)
                     image = GetSettingsImage("minimapclutter.png"),
                 },
                 {
+                    key = "worldMapCleanupEnabled",
+                    label = L.OPTION_WORLD_MAP_CLEANUP or "World Map Cleanup",
+                    description = Description("DESC_WORLD_MAP_CLEANUP"),
+                    image = GetSettingsImage("minimapclutter.png"),
+                    requiresReload = false,
+                    onToggle = function()
+                        if Carpenter_ApplyWorldMapCleanup then Carpenter_ApplyWorldMapCleanup() end
+                    end,
+                },
+                {
                     key = "enhanceTooltipEnabled",
                     label = L.OPTION_ENHANCE_TOOLTIP or "Enhanced Tooltip",
                     description = Description("DESC_ENHANCE_TOOLTIP"),

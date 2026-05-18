@@ -1,0 +1,971 @@
+--[[ Carpenter - World Map Cleanup ]]
+-- Classic Era/TBC map tweaks: move the default map, reduce settlement markers,
+-- and add practical POIs for dungeons, raids, and same-faction travel.
+
+if Carpenter and Carpenter.Client and not Carpenter.Client.isClassic then return end
+
+local MAP_OFFSET_Y = -240
+local MAX_SCAN_DEPTH = 8
+local CUSTOM_PIN_TEMPLATE = "CPWorldMapCleanupPinTemplate"
+local FULLSCREEN_HEIGHT_RATIO = 0.86
+local FULLSCREEN_WIDTH_RATIO = 0.86
+local FULLSCREEN_ASPECT_RATIO = 1.42
+local MOVING_MAP_ALPHA = 0.5
+local MAP_FADE_UPDATE_INTERVAL = 0.1
+
+local frame = CreateFrame("Frame")
+local originalMapPoints = nil
+local originalFullscreenGeometry = nil
+local originalBlackoutAlpha = nil
+local originalMapAlpha = nil
+local hiddenMapObjects = {}
+local hookedWorldMap = false
+local customPOIProvider = nil
+local scheduleNonce = 0
+local fadeUpdateElapsed = 0
+
+local POI_ATLAS = {
+    Dungeon = "Dungeon",
+    Raid = "Raid",
+    Dunraid = "Dungeon",
+    FlightA = "TaxiNode_Alliance",
+    FlightH = "TaxiNode_Horde",
+    FlightN = "TaxiNode_Neutral",
+    TravelA = "TaxiNode_Alliance",
+    TravelH = "TaxiNode_Horde",
+    TravelN = "TaxiNode_Neutral",
+}
+
+local POI_DATA = {
+    [1411] = {
+        { "TravelH", 50.9, 13.9, "Zeppelin to Undercity, Tirisfal Glades", nil, "TaxiNode_Horde", nil, nil, 1420 },
+        { "TravelH", 50.6, 12.6, "Zeppelin to Grom'gol Base Camp, Stranglethorn Vale", nil, "TaxiNode_Horde", nil, nil, 1434 },
+    },
+    [1413] = {
+        { "Dungeon", 46, 36.4, "Wailing Caverns", "Dungeon", "Dungeon", 17, 24 },
+        { "Dungeon", 42.9, 90.2, "Razorfen Kraul", "Dungeon", "Dungeon", 29, 38 },
+        { "Dungeon", 49, 93.9, "Razorfen Downs", "Dungeon", "Dungeon", 37, 46 },
+        { "FlightN", 63.1, 37.2, "Ratchet, The Barrens", nil, "TaxiNode_Neutral" },
+        { "FlightH", 51.5, 30.3, "The Crossroads, The Barrens", nil, "TaxiNode_Horde" },
+        { "FlightH", 44.4, 59.2, "Camp Taurajo, The Barrens", nil, "TaxiNode_Horde" },
+        { "TravelN", 63.7, 38.6, "Boat to Booty Bay, Stranglethorn Vale", nil, "TaxiNode_Neutral", nil, nil, 1434 },
+    },
+    [1417] = {
+        { "FlightA", 45.8, 46.1, "Refuge Pointe, Arathi Highlands", nil, "TaxiNode_Alliance" },
+        { "FlightH", 73.1, 32.7, "Hammerfall, Arathi Highlands", nil, "TaxiNode_Horde" },
+    },
+    [1418] = {
+        { "Dungeon", 44.6, 12.1, "Uldaman", "Dungeon", "Dungeon", 41, 51 },
+        { "FlightH", 4, 44.8, "Kargath, Badlands", nil, "TaxiNode_Horde" },
+    },
+    [1419] = {
+        { "FlightA", 65.5, 24.3, "Nethergarde Keep, Blasted Lands", nil, "TaxiNode_Alliance" },
+    },
+    [1420] = {
+        { "Dungeon", 82.6, 33.8, "Scarlet Monastery", "Dungeon", "Dungeon", 34, 45 },
+        { "TravelH", 60.7, 58.8, "Zeppelin to Orgrimmar, Durotar", nil, "TaxiNode_Horde", nil, nil, 1411 },
+        { "TravelH", 61.9, 59.1, "Zeppelin to Grom'gol Base Camp, Stranglethorn Vale", nil, "TaxiNode_Horde", nil, nil, 1434 },
+    },
+    [1421] = {
+        { "Dungeon", 44.8, 67.8, "Shadowfang Keep", "Dungeon", "Dungeon", 22, 30 },
+        { "FlightH", 45.6, 42.6, "The Sepulcher, Silverpine Forest", nil, "TaxiNode_Horde" },
+    },
+    [1422] = {
+        { "Dungeon", 69.7, 73.2, "Scholomance", "Dungeon", "Dungeon", 58, 60 },
+        { "FlightA", 42.9, 85.1, "Chillwind Camp, Western Plaguelands", nil, "TaxiNode_Alliance" },
+    },
+    [1423] = {
+        { "Dungeon", 31.3, 15.7, "Stratholme (Main Gate)", "Dungeon", "Dungeon", 58, 60 },
+        { "Dungeon", 47.9, 23.9, "Stratholme (Service Gate)", "Dungeon", "Dungeon", 58, 60 },
+        { "Raid", 39.9, 25.9, "Naxxramas", "Raid", "Raid", 60, 60 },
+        { "FlightA", 81.6, 59.3, "Light's Hope Chapel, Eastern Plaguelands", nil, "TaxiNode_Alliance" },
+        { "FlightH", 80.2, 57, "Light's Hope Chapel, Eastern Plaguelands", nil, "TaxiNode_Horde" },
+    },
+    [1424] = {
+        { "FlightA", 49.3, 52.3, "Southshore, Hillsbrad Foothills", nil, "TaxiNode_Alliance" },
+        { "FlightH", 60.1, 18.6, "Tarren Mill, Hillsbrad Foothills", nil, "TaxiNode_Horde" },
+    },
+    [1425] = {
+        { "FlightA", 11.1, 46.2, "Aerie Peak, The Hinterlands", nil, "TaxiNode_Alliance" },
+        { "FlightH", 81.7, 81.8, "Revantusk Village, The Hinterlands", nil, "TaxiNode_Horde" },
+    },
+    [1426] = {
+        { "Dungeon", 24.3, 39.8, "Gnomeregan", "Dungeon", "Dungeon", 29, 38 },
+    },
+    [1427] = {
+        { "Dunraid", 34.8, 85.3, "Blackrock Mountain", "Blackrock Depths, Lower Blackrock Spire, Upper Blackrock Spire, |nMolten Core, Blackwing Lair", "Dungeon", 52, 60 },
+        { "FlightA", 37.9, 30.8, "Thorium Point, Searing Gorge", nil, "TaxiNode_Alliance" },
+        { "FlightH", 34.8, 30.9, "Thorium Point, Searing Gorge", nil, "TaxiNode_Horde" },
+    },
+    [1428] = {
+        { "Dunraid", 29.4, 38.3, "Blackrock Mountain", "Blackrock Depths, Lower Blackrock Spire, Upper Blackrock Spire, |nMolten Core, Blackwing Lair", "Dungeon", 52, 60 },
+        { "FlightA", 84.3, 68.3, "Morgan's Vigil, Burning Steppes", nil, "TaxiNode_Alliance" },
+        { "FlightH", 65.7, 24.2, "Flame Crest, Burning Steppes", nil, "TaxiNode_Horde" },
+    },
+    [1430] = {
+        { "Raid", 46.9, 74.7, "Karazhan", "Raid", "Raid", 70, 70 },
+    },
+    [1431] = {
+        { "FlightA", 77.5, 44.3, "Darkshire, Duskwood", nil, "TaxiNode_Alliance" },
+    },
+    [1432] = {
+        { "FlightA", 33.9, 50.9, "Thelsamar, Loch Modan", nil, "TaxiNode_Alliance" },
+    },
+    [1433] = {
+        { "FlightA", 30.6, 59.4, "Lake Everstill, Redridge Mountains", nil, "TaxiNode_Alliance" },
+    },
+    [1434] = {
+        { "Raid", 53.9, 17.6, "Zul'Gurub", "Raid", "Raid", 60, 60 },
+        { "FlightA", 27.5, 77.8, "Booty Bay, Stranglethorn Vale", nil, "TaxiNode_Alliance" },
+        { "FlightA", 38.2, 4, "Rebel Camp, Stranglethorn Vale", nil, "TaxiNode_Alliance" },
+        { "FlightH", 26.9, 77.1, "Booty Bay, Stranglethorn Vale", nil, "TaxiNode_Horde" },
+        { "FlightH", 32.5, 29.4, "Grom'gol Base Camp, Stranglethorn Vale", nil, "TaxiNode_Horde" },
+        { "TravelN", 25.9, 73.1, "Boat to Ratchet, The Barrens", nil, "TaxiNode_Neutral", nil, nil, 1413 },
+        { "TravelH", 31.4, 30.2, "Zeppelin to Orgrimmar, Durotar", nil, "TaxiNode_Horde", nil, nil, 1411 },
+        { "TravelH", 31.6, 29.1, "Zeppelin to Undercity, Tirisfal Glades", nil, "TaxiNode_Horde", nil, nil, 1420 },
+    },
+    [1435] = {
+        { "Dungeon", 69.9, 53.6, "Temple of Atal'Hakkar", "Dungeon", "Dungeon", 50, 60 },
+        { "FlightH", 46.1, 54.8, "Stonard, Swamp of Sorrows", nil, "TaxiNode_Horde" },
+    },
+    [1436] = {
+        { "Dungeon", 42.5, 71.7, "The Deadmines", "Dungeon", "Dungeon", 17, 26 },
+        { "FlightA", 56.6, 52.6, "Sentinel Hill, Westfall", nil, "TaxiNode_Alliance" },
+    },
+    [1437] = {
+        { "FlightA", 9.5, 59.7, "Menethil Harbor, Wetlands", nil, "TaxiNode_Alliance" },
+        { "TravelA", 5, 63.5, "Boat to Theramore Isle, Dustwallow Marsh", nil, "TaxiNode_Alliance", nil, nil, 1445 },
+        { "TravelA", 4.6, 57.1, "Boat to Auberdine, Darkshore", nil, "TaxiNode_Alliance", nil, nil, 1439 },
+    },
+    [1438] = {
+        { "FlightA", 58.4, 94, "Rut'theran Village, Teldrassil", nil, "TaxiNode_Alliance" },
+        { "TravelA", 54.9, 96.8, "Boat to Auberdine, Darkshore", nil, "TaxiNode_Alliance", nil, nil, 1439 },
+    },
+    [1439] = {
+        { "FlightA", 36.3, 45.6, "Auberdine, Darkshore", nil, "TaxiNode_Alliance" },
+        { "TravelA", 32.4, 43.8, "Boat to Menethil Harbor, Wetlands", nil, "TaxiNode_Alliance", nil, nil, 1437 },
+        { "TravelA", 33.2, 40.1, "Boat to Rut'theran Village, Teldrassil", nil, "TaxiNode_Alliance", nil, nil, 1438 },
+        { "TravelA", 30.7, 41, "Boat to Valaar's Berth, Azuremyst Isle", nil, "TaxiNode_Alliance", nil, nil, 1943 },
+    },
+    [1440] = {
+        { "Dungeon", 14.5, 14.2, "Blackfathom Deeps", "Dungeon", "Dungeon", 24, 32 },
+        { "FlightA", 34.4, 48, "Astranaar, Ashenvale", nil, "TaxiNode_Alliance" },
+        { "FlightA", 85, 43.4, "Forest Song, Ashenvale", nil, "TaxiNode_Alliance" },
+        { "FlightH", 73.2, 61.6, "Splintertree Post, Ashenvale", nil, "TaxiNode_Horde" },
+        { "FlightH", 12.2, 33.8, "Zoram'gar Outpost, Ashenvale", nil, "TaxiNode_Horde" },
+    },
+    [1441] = {
+        { "FlightH", 45.1, 49.1, "Freewind Post, Thousand Needles", nil, "TaxiNode_Horde" },
+    },
+    [1442] = {
+        { "FlightA", 36.4, 7.2, "Stonetalon Peak, Stonetalon Mountains", nil, "TaxiNode_Alliance" },
+        { "FlightH", 45.1, 59.8, "Sun Rock Retreat, Stonetalon Mountains", nil, "TaxiNode_Horde" },
+    },
+    [1443] = {
+        { "Dungeon", 29.1, 62.5, "Maraudon", "Dungeon", "Dungeon", 46, 55 },
+        { "FlightA", 64.7, 10.5, "Nijel's Point, Desolace", nil, "TaxiNode_Alliance" },
+        { "FlightH", 21.6, 74.1, "Shadowprey Village, Desolace", nil, "TaxiNode_Horde" },
+    },
+    [1444] = {
+        { "FlightA", 30.2, 43.2, "Feathermoon Stronghold, Feralas", nil, "TaxiNode_Alliance" },
+        { "FlightH", 75.4, 44.4, "Camp Mojache, Feralas", nil, "TaxiNode_Horde" },
+        { "FlightA", 89.5, 45.9, "Thalanaar, Feralas", nil, "TaxiNode_Alliance" },
+        { "Dungeon", 62.5, 24.9, "Dire Maul (North)", "Dungeon", "Dungeon", 56, 60 },
+        { "Dungeon", 60.3, 30.2, "Dire Maul (West)", "Dungeon", "Dungeon", 56, 60 },
+        { "Dungeon", 64.8, 30.2, "Dire Maul (East)", "Dungeon", "Dungeon", 56, 60 },
+        { "TravelA", 43.3, 42.8, "Boat to Feathermoon Stronghold, Feralas", nil, "TaxiNode_Alliance" },
+        { "TravelA", 31, 39.8, "Boat to The Forgotten Coast, Feralas", nil, "TaxiNode_Alliance" },
+    },
+    [1445] = {
+        { "Raid", 52.6, 76.8, "Onyxia's Lair", "Raid", "Raid", 60, 60 },
+        { "FlightA", 67.5, 51.3, "Theramore Isle, Dustwallow Marsh", nil, "TaxiNode_Alliance" },
+        { "FlightH", 35.6, 31.9, "Brackenwall Village, Dustwallow Marsh", nil, "TaxiNode_Horde" },
+        { "FlightN", 42.8, 72.5, "Mudsprocket, Dustwallow Marsh", nil, "TaxiNode_Neutral" },
+        { "TravelA", 71.6, 56.4, "Boat to Menethil Harbor, Wetlands", nil, "TaxiNode_Alliance", nil, nil, 1437 },
+    },
+    [1446] = {
+        { "Dungeon", 38.7, 20, "Zul'Farrak", "Dungeon", "Dungeon", 44, 54 },
+        { "Dunraid", 65.7, 49.9, "Caverns of Time", "Black Morass, Hyjal Summit, Old Hillsbrad", "Dungeon", 66, 70 },
+        { "FlightA", 51, 29.3, "Gadgetzan, Tanaris", nil, "TaxiNode_Alliance" },
+        { "FlightH", 51.6, 25.4, "Gadgetzan, Tanaris", nil, "TaxiNode_Horde" },
+    },
+    [1447] = {
+        { "FlightA", 11.9, 77.6, "Talrendis Point, Azshara", nil, "TaxiNode_Alliance" },
+        { "FlightH", 22, 49.6, "Valormok, Azshara", nil, "TaxiNode_Horde" },
+    },
+    [1448] = {
+        { "FlightA", 62.5, 24.2, "Talonbranch Glade, Felwood", nil, "TaxiNode_Alliance" },
+        { "FlightH", 34.4, 54, "Bloodvenom Post, Felwood", nil, "TaxiNode_Horde" },
+        { "FlightN", 51.4, 82.2, "Emerald Sanctuary, Felwood", nil, "TaxiNode_Neutral" },
+    },
+    [1449] = {
+        { "FlightN", 45.2, 5.8, "Marshal's Refuge, Un'Goro Crater", nil, "TaxiNode_Neutral" },
+    },
+    [1450] = {
+        { "FlightA", 48.1, 67.4, "Lake Elune'ara, Moonglade", nil, "TaxiNode_Alliance" },
+        { "FlightH", 32.1, 66.6, "Moonglade", nil, "TaxiNode_Horde" },
+    },
+    [1451] = {
+        { "Raid", 28.6, 92.4, "Ahn'Qiraj", "Ruins of Ahn'Qiraj, Temple of Ahn'Qiraj", "Raid", 60, 60 },
+        { "FlightA", 50.6, 34.5, "Cenarion Hold, Silithus", nil, "TaxiNode_Alliance" },
+        { "FlightH", 48.7, 36.7, "Cenarion Hold, Silithus", nil, "TaxiNode_Horde" },
+    },
+    [1452] = {
+        { "FlightA", 62.3, 36.6, "Everlook, Winterspring", nil, "TaxiNode_Alliance" },
+        { "FlightH", 60.5, 36.3, "Everlook, Winterspring", nil, "TaxiNode_Horde" },
+    },
+    [1453] = {
+        { "Dungeon", 42.3, 59, "The Stockade", "Dungeon", "Dungeon", 24, 32 },
+        { "FlightA", 66.3, 62.1, "Trade District, Stormwind", nil, "TaxiNode_Alliance" },
+        { "TravelA", 60.5, 12.4, "Tram to Tinker Town, Ironforge", nil, "TaxiNode_Alliance", nil, nil, 1455 },
+    },
+    [1454] = {
+        { "Dungeon", 52.6, 49, "Ragefire Chasm", "Dungeon", "Dungeon", 13, 18 },
+        { "FlightH", 45.1, 63.9, "Valley of Strength, Orgrimmar", nil, "TaxiNode_Horde" },
+    },
+    [1455] = {
+        { "FlightA", 55.5, 47.8, "The Great Forge, Ironforge", nil, "TaxiNode_Alliance" },
+        { "TravelA", 73, 50.2, "Tram to Dwarven District, Stormwind", nil, "TaxiNode_Alliance", nil, nil, 1453 },
+    },
+    [1456] = {
+        { "FlightH", 47, 49.8, "Central Mesa, Thunder Bluff", nil, "TaxiNode_Horde" },
+    },
+    [1458] = {
+        { "FlightH", 63.3, 48.5, "Trade Quarter, Undercity", nil, "TaxiNode_Horde" },
+        { "TravelH", 54.9, 11.3, "Silvermoon City", "Orb of Translocation", "TaxiNode_Horde" },
+    },
+    [1941] = {
+        { "FlightH", 54.4, 50.7, "Silvermoon City, Eversong Woods", nil, "TaxiNode_Horde" },
+    },
+    [1942] = {
+        { "FlightH", 45.4, 30.5, "Tranquillien, Ghostlands", nil, "TaxiNode_Horde" },
+        { "FlightN", 74.7, 67.1, "Zul'Aman, Ghostlands", nil, "TaxiNode_Neutral" },
+        { "Raid", 82.3, 64.3, "Zul'Aman", "Raid", "Raid", 70, 70 },
+    },
+    [1943] = {
+        { "FlightA", 31.9, 46.4, "The Exodar, Azuremyst Isle", nil, "TaxiNode_Alliance" },
+        { "TravelA", 20.3, 54.2, "Boat to Rut'theran Village, Teldrassil", nil, "TaxiNode_Alliance", nil, nil, 1439 },
+    },
+    [1944] = {
+        { "Dungeon", 47.7, 53.6, "Hellfire Ramparts", "Dungeon", "Dungeon", 58, 67 },
+        { "Dungeon", 47.7, 52, "The Shattered Halls", "Dungeon", "Dungeon", 69, 70 },
+        { "Dungeon", 46, 51.8, "The Blood Furnace", "Dungeon", "Dungeon", 61, 68 },
+        { "Raid", 46.6, 52.8, "Magtheridon's Lair", "Raid", "Raid", 70, 70 },
+        { "FlightA", 25.2, 37.2, "Temple of Telhamat, Hellfire Peninsula", nil, "TaxiNode_Alliance" },
+        { "FlightA", 54.6, 62.4, "Honor Hold, Hellfire Peninsula", nil, "TaxiNode_Alliance" },
+        { "FlightA", 87.4, 52.4, "The Dark Portal, Hellfire Peninsula", nil, "TaxiNode_Alliance" },
+        { "FlightA", 78.4, 34.9, "Shatter Point, Hellfire Peninsula", nil, "TaxiNode_Alliance" },
+        { "FlightH", 56.2, 36.2, "Thrallmar, Hellfire Peninsula", nil, "TaxiNode_Horde" },
+        { "FlightH", 27.8, 60, "Falcon Watch, Hellfire Peninsula", nil, "TaxiNode_Horde" },
+        { "FlightH", 87.4, 48.2, "The Dark Portal, Hellfire Peninsula", nil, "TaxiNode_Horde" },
+        { "FlightH", 61.6, 81.2, "Spinebreaker Ridge, Hellfire Peninsula", nil, "TaxiNode_Horde" },
+        { "TravelA", 88.6, 52.8, "Stormwind City", "Portal", "TaxiNode_Alliance", nil, nil, 1453 },
+        { "TravelH", 88.6, 47.7, "Orgrimmar", "Portal", "TaxiNode_Horde", nil, nil, 1454 },
+    },
+    [1946] = {
+        { "FlightA", 41.2, 28.8, "Orebor Harborage, Zangarmarsh", nil, "TaxiNode_Alliance" },
+        { "FlightA", 67.8, 51.4, "Telredor, Zangarmarsh", nil, "TaxiNode_Alliance" },
+        { "FlightH", 33, 51, "Zabra'jin, Zangarmarsh", nil, "TaxiNode_Horde" },
+        { "FlightH", 84.8, 55, "Swamprat Post, Zangarmarsh", nil, "TaxiNode_Horde" },
+    },
+    [1947] = {
+        { "FlightA", 68.5, 63.7, "The Exodar, Azuremyst Isle", nil, "TaxiNode_Alliance" },
+    },
+    [1948] = {
+        { "Raid", 71, 46.4, "Black Temple", "Raid", "Raid", 70, 70 },
+        { "FlightA", 37.6, 55.4, "Wildhammer Stronghold, Shadowmoon Valley", nil, "TaxiNode_Alliance" },
+        { "FlightH", 30.2, 29.2, "Shadowmoon Village, Shadowmoon Valley", nil, "TaxiNode_Horde" },
+        { "FlightN", 63.4, 30.4, "Altar of Sha'tar, Shadowmoon Valley", nil, "TaxiNode_Neutral" },
+        { "FlightN", 56.2, 57.8, "Sanctum of the Stars, Shadowmoon Valley", nil, "TaxiNode_Neutral" },
+    },
+    [1949] = {
+        { "Raid", 68.7, 24.3, "Gruul's Lair", "Raid", "Raid", 70, 70 },
+        { "FlightA", 37.8, 61.4, "Sylvanaar, Blade's Edge Mountains", nil, "TaxiNode_Alliance" },
+        { "FlightA", 61, 70.4, "Toshley's Station, Blade's Edge Mountains", nil, "TaxiNode_Alliance" },
+        { "FlightH", 52, 54.2, "Thunderlord Stronghold, Blade's Edge Mountains", nil, "TaxiNode_Horde" },
+        { "FlightH", 76.4, 65.8, "Mok'Nathal Village, Blade's Edge Mountains", nil, "TaxiNode_Horde" },
+        { "FlightN", 61.6, 39.6, "Evergrove, Blade's Edge Mountains", nil, "TaxiNode_Neutral" },
+    },
+    [1950] = {
+        { "FlightA", 57.7, 53.9, "Blood Watch, Bloodmyst Isle", nil, "TaxiNode_Alliance" },
+    },
+    [1951] = {
+        { "FlightA", 54.2, 75, "Telaar, Nagrand", nil, "TaxiNode_Alliance" },
+        { "FlightH", 57.2, 35.2, "Garadar, Nagrand", nil, "TaxiNode_Horde" },
+    },
+    [1952] = {
+        { "Dungeon", 43.2, 65.6, "Sethekk Halls", "Dungeon", "Dungeon", 67, 70 },
+        { "Dungeon", 36.1, 65.6, "Auchenai Crypts", "Dungeon", "Dungeon", 65, 70 },
+        { "Dungeon", 39.6, 71, "Shadow Labyrinth", "Dungeon", "Dungeon", 69, 70 },
+        { "Dungeon", 39.7, 60.2, "Mana-Tombs", "Dungeon", "Dungeon", 64, 70 },
+        { "FlightA", 59.4, 55.4, "Allerian Stronghold, Terokkar Forest", nil, "TaxiNode_Alliance" },
+        { "FlightH", 49.2, 43.4, "Stonebreaker Hold, Terokkar Forest", nil, "TaxiNode_Horde" },
+        { "FlightN", 33.1, 23.1, "Shattrath City, Terokkar Forest", nil, "TaxiNode_Neutral" },
+    },
+    [1953] = {
+        { "Dungeon", 71.7, 55, "The Botanica", "Dungeon", "Dungeon", 70, 70 },
+        { "Dungeon", 74.4, 57.7, "The Arcatraz", "Dungeon", "Dungeon", 70, 70 },
+        { "Dungeon", 70.6, 69.7, "The Mechanar", "Dungeon", "Dungeon", 70, 70 },
+        { "Raid", 73.7, 63.7, "The Eye", "Raid", "Raid", 70, 70 },
+        { "FlightN", 33.8, 64, "Area 52, Netherstorm", nil, "TaxiNode_Neutral" },
+        { "FlightN", 45.2, 34.8, "The Stormspire, Netherstorm", nil, "TaxiNode_Neutral" },
+        { "FlightN", 65.2, 66.6, "Cosmowrench, Netherstorm", nil, "TaxiNode_Neutral" },
+    },
+    [1954] = {
+        { "TravelH", 49.5, 14.8, "Undercity", "Orb of Translocation", "TaxiNode_Horde", nil, nil, 1458 },
+    },
+    [1955] = {
+        { "FlightN", 64.1, 41.1, "Shattrath City, Terokkar Forest", nil, "TaxiNode_Neutral" },
+        { "TravelN", 48.5, 42, "Isle of Quel'Danas", "Portal", "TaxiNode_Neutral", nil, nil, 1957 },
+        { "TravelA", 55.8, 36.5, "Alliance Cities", "Darnassus, Stormwind, Ironforge", "TaxiNode_Alliance" },
+        { "TravelH", 52.2, 52.9, "Horde Cities", "Thunder Bluff, Orgrimmar, Undercity", "TaxiNode_Horde" },
+        { "TravelA", 59.6, 46.7, "The Exodar", "Portal", "TaxiNode_Alliance" },
+        { "TravelH", 59.2, 48.4, "Silvermoon City", "Portal", "TaxiNode_Horde" },
+    },
+    [1957] = {
+        { "Dungeon", 61.2, 30.9, "Magisters' Terrace", "Dungeon", "Dungeon", 68, 70 },
+        { "Raid", 44.3, 45.6, "Sunwell Plateau", "Raid", "Raid", 70, 70 },
+        { "FlightA", 48.5, 25.2, "Shattered Sun Staging Area, Isle of Quel'Danas", nil, "TaxiNode_Alliance" },
+        { "FlightH", 48.4, 25.1, "Shattered Sun Staging Area, Isle of Quel'Danas", nil, "TaxiNode_Horde" },
+    },
+}
+
+local function IsEnabled()
+    return Carpenter and Carpenter:IsEnabled("worldMapCleanupEnabled")
+end
+
+local function SafeRegisterEvent(event)
+    if not event then return end
+    pcall(frame.RegisterEvent, frame, event)
+end
+
+local function CaptureMapPoints(mapFrame)
+    if originalMapPoints or not mapFrame or not mapFrame.GetNumPoints then return end
+
+    originalMapPoints = {}
+    local numPoints = mapFrame:GetNumPoints() or 0
+    for index = 1, numPoints do
+        local point, relativeTo, relativePoint, xOfs, yOfs = mapFrame:GetPoint(index)
+        originalMapPoints[#originalMapPoints + 1] = {
+            point = point,
+            relativeTo = relativeTo,
+            relativePoint = relativePoint,
+            xOfs = xOfs or 0,
+            yOfs = yOfs or 0,
+        }
+    end
+end
+
+local function CaptureFramePoints(frameToCapture)
+    if not frameToCapture or not frameToCapture.GetNumPoints then return nil end
+
+    local points = {}
+    local numPoints = frameToCapture:GetNumPoints() or 0
+    for index = 1, numPoints do
+        local point, relativeTo, relativePoint, xOfs, yOfs = frameToCapture:GetPoint(index)
+        points[#points + 1] = {
+            point = point,
+            relativeTo = relativeTo,
+            relativePoint = relativePoint,
+            xOfs = xOfs or 0,
+            yOfs = yOfs or 0,
+        }
+    end
+
+    return points
+end
+
+local function RestoreFramePoints(frameToRestore, points)
+    if not frameToRestore or not points or not frameToRestore.ClearAllPoints or not frameToRestore.SetPoint then return end
+
+    frameToRestore:ClearAllPoints()
+    for _, point in ipairs(points) do
+        if point.relativeTo then
+            frameToRestore:SetPoint(point.point, point.relativeTo, point.relativePoint, point.xOfs, point.yOfs)
+        else
+            frameToRestore:SetPoint(point.point, point.xOfs, point.yOfs)
+        end
+    end
+end
+
+local function SetMapPoint(mapFrame, point)
+    if point.relativeTo then
+        mapFrame:SetPoint(point.point, point.relativeTo, point.relativePoint, point.xOfs, point.yOfs + MAP_OFFSET_Y)
+    else
+        mapFrame:SetPoint(point.point, point.xOfs, point.yOfs + MAP_OFFSET_Y)
+    end
+end
+
+local function IsMapFullscreen(mapFrame)
+    if not mapFrame then return false end
+    if mapFrame.IsMaximized then
+        local ok, maximized = pcall(mapFrame.IsMaximized, mapFrame)
+        if ok then return maximized == true end
+    end
+    return mapFrame.isMaximized == true
+end
+
+local function UpdateMapSize(mapFrame)
+    if mapFrame and mapFrame.OnFrameSizeChanged then
+        pcall(mapFrame.OnFrameSizeChanged, mapFrame)
+    end
+end
+
+local function GetFullscreenMapSize()
+    local parentWidth = UIParent and UIParent.GetWidth and UIParent:GetWidth() or 1024
+    local parentHeight = UIParent and UIParent.GetHeight and UIParent:GetHeight() or 768
+    local height = parentHeight * FULLSCREEN_HEIGHT_RATIO
+    local width = math.min(parentWidth * FULLSCREEN_WIDTH_RATIO, height * FULLSCREEN_ASPECT_RATIO)
+
+    return width, height
+end
+
+local function CaptureFullscreenGeometry(mapFrame)
+    if originalFullscreenGeometry or not IsMapFullscreen(mapFrame) then return end
+
+    originalFullscreenGeometry = {
+        width = mapFrame.GetWidth and mapFrame:GetWidth() or nil,
+        height = mapFrame.GetHeight and mapFrame:GetHeight() or nil,
+        points = CaptureFramePoints(mapFrame),
+    }
+end
+
+local function HideMapBlackout()
+    local mapFrame = _G.WorldMapFrame
+    local blackout = mapFrame and mapFrame.BlackoutFrame
+    if not blackout then return end
+
+    if originalBlackoutAlpha == nil and blackout.GetAlpha then
+        originalBlackoutAlpha = blackout:GetAlpha()
+    end
+
+    if blackout.SetAlpha then blackout:SetAlpha(0) end
+    if blackout.Hide then blackout:Hide() end
+end
+
+local function RestoreMapBlackout()
+    local mapFrame = _G.WorldMapFrame
+    local blackout = mapFrame and mapFrame.BlackoutFrame
+    if not blackout then return end
+
+    if blackout.SetAlpha then blackout:SetAlpha(originalBlackoutAlpha or 1) end
+    if IsMapFullscreen(mapFrame) and blackout.Show then blackout:Show() end
+end
+
+local function IsMouseOverMap(mapFrame)
+    if not mapFrame then return false end
+    if mapFrame.IsMouseOver then
+        local ok, isMouseOver = pcall(mapFrame.IsMouseOver, mapFrame)
+        if ok then return isMouseOver == true end
+    end
+    if MouseIsOver then
+        local ok, isMouseOver = pcall(MouseIsOver, mapFrame)
+        if ok then return isMouseOver == true end
+    end
+    return false
+end
+
+local function CaptureMapAlpha(mapFrame)
+    if originalMapAlpha ~= nil or not mapFrame or not mapFrame.GetAlpha then return end
+    originalMapAlpha = mapFrame:GetAlpha() or 1
+end
+
+local function GetRestingMapAlpha()
+    return originalMapAlpha or 1
+end
+
+local function ApplyMovingMapFade()
+    local mapFrame = _G.WorldMapFrame
+    if not mapFrame or not mapFrame.SetAlpha then return end
+
+    CaptureMapAlpha(mapFrame)
+
+    if not IsEnabled() then
+        mapFrame:SetAlpha(GetRestingMapAlpha())
+        return
+    end
+
+    local moving = IsPlayerMoving and IsPlayerMoving()
+    local shouldFade = moving and not IsMouseOverMap(mapFrame)
+    mapFrame:SetAlpha(shouldFade and MOVING_MAP_ALPHA or GetRestingMapAlpha())
+end
+
+local function ApplyFullscreenMapLayout(mapFrame)
+    if not IsMapFullscreen(mapFrame) then return false end
+
+    CaptureFullscreenGeometry(mapFrame)
+    HideMapBlackout()
+
+    mapFrame.CP_WorldMapCleanupApplying = true
+    mapFrame:ClearAllPoints()
+    mapFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+
+    if mapFrame.SetSize then
+        local width, height = GetFullscreenMapSize()
+        mapFrame:SetSize(width, height)
+        UpdateMapSize(mapFrame)
+    end
+
+    mapFrame.CP_WorldMapCleanupApplying = false
+    return true
+end
+
+local function ApplyMapPosition()
+    local mapFrame = _G.WorldMapFrame
+    if not mapFrame or not mapFrame.ClearAllPoints or not mapFrame.SetPoint then return end
+
+    CaptureMapAlpha(mapFrame)
+
+    if IsMapFullscreen(mapFrame) then
+        CaptureFullscreenGeometry(mapFrame)
+    else
+        CaptureMapPoints(mapFrame)
+    end
+
+    if not IsEnabled() then return end
+
+    if ApplyFullscreenMapLayout(mapFrame) then return end
+
+    mapFrame.CP_WorldMapCleanupApplying = true
+    mapFrame:ClearAllPoints()
+
+    if originalMapPoints and #originalMapPoints > 0 then
+        for _, point in ipairs(originalMapPoints) do
+            SetMapPoint(mapFrame, point)
+        end
+    else
+        mapFrame:SetPoint("TOP", UIParent, "TOP", 0, MAP_OFFSET_Y)
+    end
+
+    mapFrame.CP_WorldMapCleanupApplying = false
+end
+
+local function RestoreMapPosition()
+    local mapFrame = _G.WorldMapFrame
+    if not mapFrame or not mapFrame.ClearAllPoints or not mapFrame.SetPoint then return end
+    if not originalMapPoints and not originalFullscreenGeometry then
+        RestoreMapBlackout()
+        return
+    end
+
+    mapFrame.CP_WorldMapCleanupApplying = true
+
+    if IsMapFullscreen(mapFrame) and originalFullscreenGeometry then
+        RestoreFramePoints(mapFrame, originalFullscreenGeometry.points)
+        if originalFullscreenGeometry.width and originalFullscreenGeometry.height and mapFrame.SetSize then
+            mapFrame:SetSize(originalFullscreenGeometry.width, originalFullscreenGeometry.height)
+            UpdateMapSize(mapFrame)
+        end
+    elseif originalMapPoints then
+        RestoreFramePoints(mapFrame, originalMapPoints)
+    end
+
+    mapFrame.CP_WorldMapCleanupApplying = false
+    RestoreMapBlackout()
+    ApplyMovingMapFade()
+end
+
+local function IsClassicClient()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isClassic
+end
+
+local function IsDungeonPOI(kind)
+    return kind == "Dungeon" or kind == "Raid" or kind == "Dunraid"
+end
+
+local function IsTravelPOI(kind)
+    return kind == "FlightA" or kind == "FlightH" or kind == "FlightN" or
+        kind == "TravelA" or kind == "TravelH" or kind == "TravelN"
+end
+
+local function ShouldShowPOI(kind)
+    if IsDungeonPOI(kind) then return true end
+    if kind == "FlightN" or kind == "TravelN" then return true end
+
+    local faction = UnitFactionGroup and UnitFactionGroup("player")
+    if faction == "Alliance" then
+        return kind == "FlightA" or kind == "TravelA"
+    elseif faction == "Horde" then
+        return kind == "FlightH" or kind == "TravelH"
+    end
+
+    return false
+end
+
+local function GetWorldMapID()
+    local mapFrame = _G.WorldMapFrame
+    if not mapFrame then return nil end
+
+    if mapFrame.GetMapID then
+        local mapID = mapFrame:GetMapID()
+        if mapID then return mapID end
+    end
+
+    return mapFrame.mapID
+end
+
+local function BuildPOIName(pinInfo)
+    local name = pinInfo[4] or ""
+    local minLevel = pinInfo[7]
+    local maxLevel = pinInfo[8]
+
+    if minLevel and maxLevel then
+        if minLevel == maxLevel then
+            name = name .. " (" .. maxLevel .. ")"
+        else
+            name = name .. " (" .. minLevel .. "-" .. maxLevel .. ")"
+        end
+    end
+
+    return name
+end
+
+local function BuildPOIInfo(pinInfo)
+    local kind = pinInfo[1]
+    return {
+        position = CreateVector2D(pinInfo[2] / 100, pinInfo[3] / 100),
+        name = BuildPOIName(pinInfo),
+        description = pinInfo[5],
+        atlasName = pinInfo[6] or POI_ATLAS[kind],
+        CPKind = kind,
+        CPTargetMapID = pinInfo[9],
+    }
+end
+
+local function EnsurePinMixin()
+    if _G.CPWorldMapCleanupPinMixin then return true end
+    if not BaseMapPoiPinMixin or not BaseMapPoiPinMixin.CreateSubPin then return false end
+
+    _G.CPWorldMapCleanupPinMixin = BaseMapPoiPinMixin:CreateSubPin("PIN_FRAME_LEVEL_DUNGEON_ENTRANCE")
+
+    function _G.CPWorldMapCleanupPinMixin:OnAcquired(info)
+        BaseMapPoiPinMixin.OnAcquired(self, info)
+        self.CPWorldMapCleanupPin = true
+        self.CPKind = info.CPKind
+        self.CPTargetMapID = info.CPTargetMapID
+
+        local size = IsTravelPOI(info.CPKind) and 18 or 22
+        if info.CPKind == "Dunraid" then size = 24 end
+
+        if self.Texture and self.Texture.SetSize then self.Texture:SetSize(size, size) end
+        if self.HighlightTexture and self.HighlightTexture.SetSize then self.HighlightTexture:SetSize(size, size) end
+    end
+
+    function _G.CPWorldMapCleanupPinMixin:OnMouseUp(button)
+        if button == "LeftButton" and self.CPTargetMapID and _G.WorldMapFrame and _G.WorldMapFrame.SetMapID then
+            _G.WorldMapFrame:SetMapID(self.CPTargetMapID)
+        elseif button == "RightButton" and _G.WorldMapFrame and _G.WorldMapFrame.NavigateToParentMap then
+            _G.WorldMapFrame:NavigateToParentMap()
+        end
+    end
+
+    return true
+end
+
+local function RemovePOIPins()
+    local mapFrame = _G.WorldMapFrame
+    if mapFrame and mapFrame.RemoveAllPinsByTemplate then
+        pcall(mapFrame.RemoveAllPinsByTemplate, mapFrame, CUSTOM_PIN_TEMPLATE)
+    end
+end
+
+local function EnsurePOIProvider()
+    if customPOIProvider then return true end
+
+    local mapFrame = _G.WorldMapFrame
+    if not IsClassicClient() or not mapFrame or not mapFrame.AddDataProvider then return false end
+    if not CreateFromMixins or not MapCanvasDataProviderMixin or not CreateVector2D then return false end
+    if not EnsurePinMixin() then return false end
+
+    local provider = CreateFromMixins(MapCanvasDataProviderMixin)
+
+    function provider:RefreshAllData()
+        local map = self.GetMap and self:GetMap()
+        if map and map.RemoveAllPinsByTemplate then
+            map:RemoveAllPinsByTemplate(CUSTOM_PIN_TEMPLATE)
+        end
+
+        if not IsEnabled() or not map then return end
+
+        local pins = POI_DATA[GetWorldMapID()]
+        if not pins then return end
+
+        for _, pinInfo in ipairs(pins) do
+            if ShouldShowPOI(pinInfo[1]) and POI_ATLAS[pinInfo[1]] then
+                pcall(map.AcquirePin, map, CUSTOM_PIN_TEMPLATE, BuildPOIInfo(pinInfo))
+            end
+        end
+    end
+
+    mapFrame:AddDataProvider(provider)
+    customPOIProvider = provider
+    return true
+end
+
+local function ApplyPOIPins()
+    if not IsEnabled() then
+        RemovePOIPins()
+        return
+    end
+
+    if EnsurePOIProvider() and customPOIProvider and customPOIProvider.RefreshAllData then
+        customPOIProvider:RefreshAllData()
+    end
+end
+
+local function StoreHiddenState(object)
+    if hiddenMapObjects[object] then return end
+
+    hiddenMapObjects[object] = {
+        shown = object.IsShown and object:IsShown() or nil,
+        alpha = object.GetAlpha and object:GetAlpha() or nil,
+        mouseEnabled = object.IsMouseEnabled and object:IsMouseEnabled() or nil,
+    }
+end
+
+local function HideMapObject(object)
+    if not object then return end
+
+    StoreHiddenState(object)
+    if object.Hide then object:Hide() end
+    if object.SetAlpha then object:SetAlpha(0) end
+    if object.EnableMouse then object:EnableMouse(false) end
+end
+
+local function RestoreMapObjects()
+    for object, state in pairs(hiddenMapObjects) do
+        if object then
+            if object.SetAlpha then object:SetAlpha(state.alpha or 1) end
+            if object.EnableMouse and state.mouseEnabled ~= nil then object:EnableMouse(state.mouseEnabled) end
+            if object.Show and state.shown then
+                object:Show()
+            elseif object.Hide and state.shown == false then
+                object:Hide()
+            end
+        end
+    end
+    hiddenMapObjects = {}
+end
+
+local function TextContainsTownOrCity(text)
+    if not text or type(text) ~= "string" then return false end
+
+    local lower = text:lower()
+    return lower:find("town", 1, true) ~= nil or lower:find("city", 1, true) ~= nil
+end
+
+local function TextLooksLikeTownOrCityIcon(text)
+    if not TextContainsTownOrCity(text) then return false end
+
+    local lower = text:lower()
+    return lower == "town" or lower == "city" or
+        lower:find("poi", 1, true) ~= nil or
+        lower:find("pin", 1, true) ~= nil or
+        lower:find("mapicon", 1, true) ~= nil or
+        lower:find("map%-icon") ~= nil
+end
+
+local function ObjectTextLooksLikeTownOrCity(object)
+    if not object then return false end
+
+    if object.GetName and TextLooksLikeTownOrCityIcon(object:GetName()) then return true end
+    if object.GetAtlas and TextContainsTownOrCity(object:GetAtlas()) then return true end
+
+    if object.GetTexture then
+        local texture = object:GetTexture()
+        if TextLooksLikeTownOrCityIcon(texture) then return true end
+    end
+
+    local directFields = { "atlas", "atlasName", "poiType", "type", "name", "description" }
+    for _, field in ipairs(directFields) do
+        if TextContainsTownOrCity(object[field]) then return true end
+    end
+
+    local iconFields = { "texture", "textureKit" }
+    for _, field in ipairs(iconFields) do
+        if TextLooksLikeTownOrCityIcon(object[field]) then return true end
+    end
+
+    local tableFields = { "poiInfo", "pinInfo", "areaPoiInfo", "poiData", "data", "info" }
+    local nestedFields = { "atlas", "atlasName", "poiType", "type", "name", "description" }
+    for _, tableField in ipairs(tableFields) do
+        local value = object[tableField]
+        if type(value) == "table" then
+            for _, nestedField in ipairs(nestedFields) do
+                if TextContainsTownOrCity(value[nestedField]) then return true end
+            end
+            for _, nestedField in ipairs(iconFields) do
+                if TextLooksLikeTownOrCityIcon(value[nestedField]) then return true end
+            end
+        end
+    end
+
+    return false
+end
+
+local function FrameLooksLikeTownOrCity(frameToScan)
+    if frameToScan and frameToScan.CPWorldMapCleanupPin then return false end
+    if ObjectTextLooksLikeTownOrCity(frameToScan) then return true end
+
+    if not frameToScan.GetRegions then return false end
+    for index = 1, frameToScan:GetNumRegions() do
+        local region = select(index, frameToScan:GetRegions())
+        if ObjectTextLooksLikeTownOrCity(region) then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function ScanForTownCityIcons(frameToScan, depth)
+    if not frameToScan or (depth or 0) > MAX_SCAN_DEPTH then return end
+
+    if FrameLooksLikeTownOrCity(frameToScan) then
+        HideMapObject(frameToScan)
+        return
+    end
+
+    if not frameToScan.GetChildren then return end
+    for index = 1, frameToScan:GetNumChildren() do
+        ScanForTownCityIcons(select(index, frameToScan:GetChildren()), (depth or 0) + 1)
+    end
+end
+
+local function ApplyTownCityIcons()
+    RestoreMapObjects()
+    if not IsEnabled() or not _G.WorldMapFrame then return end
+
+    ScanForTownCityIcons(_G.WorldMapFrame, 0)
+end
+
+local function ApplyWorldMapCleanup()
+    ApplyMapPosition()
+    ApplyTownCityIcons()
+    ApplyPOIPins()
+    ApplyMovingMapFade()
+end
+
+frame:SetScript("OnUpdate", function(_, elapsed)
+    if not IsEnabled() then return end
+
+    fadeUpdateElapsed = fadeUpdateElapsed + (elapsed or 0)
+    if fadeUpdateElapsed < MAP_FADE_UPDATE_INTERVAL then return end
+    fadeUpdateElapsed = 0
+
+    local mapFrame = _G.WorldMapFrame
+    if mapFrame and mapFrame.IsShown and mapFrame:IsShown() then
+        ApplyMovingMapFade()
+    end
+end)
+
+local function ScheduleApply(delay)
+    if Carpenter and Carpenter.Defer then
+        scheduleNonce = scheduleNonce + 1
+        Carpenter:Defer("WorldMapCleanup:apply:" .. scheduleNonce, delay or 0, ApplyWorldMapCleanup)
+    elseif C_Timer and C_Timer.After then
+        C_Timer.After(delay or 0, ApplyWorldMapCleanup)
+    else
+        ApplyWorldMapCleanup()
+    end
+end
+
+local function HookWorldMap()
+    local mapFrame = _G.WorldMapFrame
+    if hookedWorldMap or not mapFrame then return end
+
+    EnsurePOIProvider()
+
+    if mapFrame.HookScript then
+        mapFrame:HookScript("OnShow", function()
+            ScheduleApply(0)
+            ScheduleApply(0.15)
+        end)
+    end
+
+    if mapFrame.BlackoutFrame and mapFrame.BlackoutFrame.HookScript then
+        mapFrame.BlackoutFrame:HookScript("OnShow", function()
+            if IsEnabled() then HideMapBlackout() end
+        end)
+    end
+
+    if hooksecurefunc then
+        if mapFrame.RefreshAllData then hooksecurefunc(mapFrame, "RefreshAllData", function() ScheduleApply(0) end) end
+        if mapFrame.OnMapChanged then hooksecurefunc(mapFrame, "OnMapChanged", function() ScheduleApply(0) end) end
+        if mapFrame.Maximize then
+            hooksecurefunc(mapFrame, "Maximize", function()
+                ScheduleApply(0)
+                ScheduleApply(0.1)
+            end)
+        end
+        if mapFrame.Minimize then
+            hooksecurefunc(mapFrame, "Minimize", function()
+                ScheduleApply(0)
+                ScheduleApply(0.1)
+            end)
+        end
+        if mapFrame.SynchronizeDisplayState then
+            hooksecurefunc(mapFrame, "SynchronizeDisplayState", function()
+                ScheduleApply(0)
+                ScheduleApply(0.1)
+            end)
+        end
+    end
+
+    hookedWorldMap = true
+end
+
+frame:SetScript("OnEvent", function(_, event, addOnName)
+    if event == "ADDON_LOADED" and addOnName ~= "Blizzard_WorldMap" then return end
+
+    HookWorldMap()
+    ScheduleApply(0)
+    ScheduleApply(0.2)
+end)
+
+local feature = {}
+
+function feature:Enable()
+    SafeRegisterEvent("ADDON_LOADED")
+    SafeRegisterEvent("PLAYER_LOGIN")
+    SafeRegisterEvent("PLAYER_ENTERING_WORLD")
+    SafeRegisterEvent("PLAYER_LEVEL_UP")
+    SafeRegisterEvent("PLAYER_STARTED_MOVING")
+    SafeRegisterEvent("PLAYER_STOPPED_MOVING")
+    SafeRegisterEvent("WORLD_MAP_UPDATE")
+    SafeRegisterEvent("AREA_POIS_UPDATED")
+
+    HookWorldMap()
+    ScheduleApply(0)
+    if Carpenter and Carpenter.DeferMany then
+        Carpenter:DeferMany("WorldMapCleanup:startup", { 0.2, 1, 3 }, ApplyWorldMapCleanup)
+    else
+        ScheduleApply(0.2)
+        ScheduleApply(1)
+        ScheduleApply(3)
+    end
+end
+
+function feature:Disable()
+    frame:UnregisterAllEvents()
+    RestoreMapObjects()
+    RemovePOIPins()
+    RestoreMapPosition()
+    ApplyMovingMapFade()
+end
+
+function Carpenter_ApplyWorldMapCleanup()
+    HookWorldMap()
+    if IsEnabled() then
+        ApplyWorldMapCleanup()
+    else
+        RestoreMapObjects()
+        RemovePOIPins()
+        RestoreMapPosition()
+        ApplyMovingMapFade()
+    end
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("worldMapCleanupEnabled", feature)
+end

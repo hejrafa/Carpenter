@@ -36,6 +36,8 @@ Modules\ActionBarRange.lua
 
 # Interface
 Modules\MinimapClutter.lua
+Modules\WorldMapCleanup.xml
+Modules\WorldMapCleanup.lua
 Modules\EnhanceTooltip.lua
 
 # Unit Frames
