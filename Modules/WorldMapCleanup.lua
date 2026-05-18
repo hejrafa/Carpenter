@@ -4,25 +4,24 @@
 
 if Carpenter and Carpenter.Client and not Carpenter.Client.isClassic then return end
 
-local MAP_OFFSET_Y = -240
-local MAX_SCAN_DEPTH = 8
 local CUSTOM_PIN_TEMPLATE = "CPWorldMapCleanupPinTemplate"
-local FULLSCREEN_HEIGHT_RATIO = 0.86
-local FULLSCREEN_WIDTH_RATIO = 0.86
-local FULLSCREEN_ASPECT_RATIO = 1.42
+local LEATRIX_SMALL_MAP_X = 16
+local LEATRIX_SMALL_MAP_Y = -104
+local FULLSCREEN_MAP_SCALE = 0.85
 local MOVING_MAP_ALPHA = 0.5
-local MAP_FADE_UPDATE_INTERVAL = 0.1
+local MAP_FADE_DURATION = 0.25
 
 local frame = CreateFrame("Frame")
-local originalMapPoints = nil
 local originalFullscreenGeometry = nil
 local originalBlackoutAlpha = nil
 local originalMapAlpha = nil
+local originalMapScale = nil
+local originalScreenAnchorPoints = nil
 local hiddenMapObjects = {}
 local hookedWorldMap = false
+local hookedTownCityPins = false
 local customPOIProvider = nil
 local scheduleNonce = 0
-local fadeUpdateElapsed = 0
 
 local POI_ATLAS = {
     Dungeon = "Dungeon",
@@ -339,23 +338,6 @@ local function SafeRegisterEvent(event)
     pcall(frame.RegisterEvent, frame, event)
 end
 
-local function CaptureMapPoints(mapFrame)
-    if originalMapPoints or not mapFrame or not mapFrame.GetNumPoints then return end
-
-    originalMapPoints = {}
-    local numPoints = mapFrame:GetNumPoints() or 0
-    for index = 1, numPoints do
-        local point, relativeTo, relativePoint, xOfs, yOfs = mapFrame:GetPoint(index)
-        originalMapPoints[#originalMapPoints + 1] = {
-            point = point,
-            relativeTo = relativeTo,
-            relativePoint = relativePoint,
-            xOfs = xOfs or 0,
-            yOfs = yOfs or 0,
-        }
-    end
-end
-
 local function CaptureFramePoints(frameToCapture)
     if not frameToCapture or not frameToCapture.GetNumPoints then return nil end
 
@@ -388,12 +370,14 @@ local function RestoreFramePoints(frameToRestore, points)
     end
 end
 
-local function SetMapPoint(mapFrame, point)
-    if point.relativeTo then
-        mapFrame:SetPoint(point.point, point.relativeTo, point.relativePoint, point.xOfs, point.yOfs + MAP_OFFSET_Y)
-    else
-        mapFrame:SetPoint(point.point, point.xOfs, point.yOfs + MAP_OFFSET_Y)
-    end
+local function CaptureMapScale(mapFrame)
+    if originalMapScale ~= nil or not mapFrame or not mapFrame.GetScale then return end
+    originalMapScale = mapFrame:GetScale() or 1
+end
+
+local function CaptureSmallMapAnchor()
+    if originalScreenAnchorPoints or not _G.WorldMapScreenAnchor then return end
+    originalScreenAnchorPoints = CaptureFramePoints(_G.WorldMapScreenAnchor)
 end
 
 local function IsMapFullscreen(mapFrame)
@@ -405,27 +389,10 @@ local function IsMapFullscreen(mapFrame)
     return mapFrame.isMaximized == true
 end
 
-local function UpdateMapSize(mapFrame)
-    if mapFrame and mapFrame.OnFrameSizeChanged then
-        pcall(mapFrame.OnFrameSizeChanged, mapFrame)
-    end
-end
-
-local function GetFullscreenMapSize()
-    local parentWidth = UIParent and UIParent.GetWidth and UIParent:GetWidth() or 1024
-    local parentHeight = UIParent and UIParent.GetHeight and UIParent:GetHeight() or 768
-    local height = parentHeight * FULLSCREEN_HEIGHT_RATIO
-    local width = math.min(parentWidth * FULLSCREEN_WIDTH_RATIO, height * FULLSCREEN_ASPECT_RATIO)
-
-    return width, height
-end
-
 local function CaptureFullscreenGeometry(mapFrame)
     if originalFullscreenGeometry or not IsMapFullscreen(mapFrame) then return end
 
     originalFullscreenGeometry = {
-        width = mapFrame.GetWidth and mapFrame:GetWidth() or nil,
-        height = mapFrame.GetHeight and mapFrame:GetHeight() or nil,
         points = CaptureFramePoints(mapFrame),
     }
 end
@@ -474,20 +441,36 @@ local function GetRestingMapAlpha()
     return originalMapAlpha or 1
 end
 
-local function ApplyMovingMapFade()
+local function ApplyMovingMapFade(elapsed, immediate)
     local mapFrame = _G.WorldMapFrame
-    if not mapFrame or not mapFrame.SetAlpha then return end
+    if not mapFrame or not mapFrame.SetAlpha or not mapFrame.GetAlpha then return end
 
     CaptureMapAlpha(mapFrame)
 
-    if not IsEnabled() then
-        mapFrame:SetAlpha(GetRestingMapAlpha())
+    local desiredAlpha = GetRestingMapAlpha()
+    if IsEnabled() then
+        local moving = IsPlayerMoving and IsPlayerMoving()
+        if moving and not IsMouseOverMap(mapFrame) then
+            desiredAlpha = MOVING_MAP_ALPHA
+        end
+    end
+
+    if immediate then
+        mapFrame:SetAlpha(desiredAlpha)
         return
     end
 
-    local moving = IsPlayerMoving and IsPlayerMoving()
-    local shouldFade = moving and not IsMouseOverMap(mapFrame)
-    mapFrame:SetAlpha(shouldFade and MOVING_MAP_ALPHA or GetRestingMapAlpha())
+    local currentAlpha = mapFrame:GetAlpha() or desiredAlpha
+    local alphaDiff = desiredAlpha - currentAlpha
+    if math.abs(alphaDiff) < 0.01 then
+        mapFrame:SetAlpha(desiredAlpha)
+        return
+    end
+
+    local progress = math.min(1, (elapsed or 0) / MAP_FADE_DURATION)
+    if progress <= 0 then return end
+
+    mapFrame:SetAlpha(currentAlpha + (alphaDiff * progress))
 end
 
 local function ApplyFullscreenMapLayout(mapFrame)
@@ -497,16 +480,28 @@ local function ApplyFullscreenMapLayout(mapFrame)
     HideMapBlackout()
 
     mapFrame.CP_WorldMapCleanupApplying = true
-    mapFrame:ClearAllPoints()
-    mapFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-
-    if mapFrame.SetSize then
-        local width, height = GetFullscreenMapSize()
-        mapFrame:SetSize(width, height)
-        UpdateMapSize(mapFrame)
+    if mapFrame.ClearAllPoints and mapFrame.SetPoint and UIParent then
+        mapFrame:ClearAllPoints()
+        mapFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     end
-
+    if mapFrame.SetScale then mapFrame:SetScale(FULLSCREEN_MAP_SCALE) end
     mapFrame.CP_WorldMapCleanupApplying = false
+    return true
+end
+
+local function RestoreMapScale(mapFrame)
+    if mapFrame and mapFrame.SetScale and originalMapScale then
+        mapFrame:SetScale(originalMapScale)
+    end
+end
+
+local function ApplySmallMapAnchor()
+    local anchor = _G.WorldMapScreenAnchor
+    if not anchor or not anchor.ClearAllPoints or not anchor.SetPoint then return false end
+
+    CaptureSmallMapAnchor()
+    anchor:ClearAllPoints()
+    anchor:SetPoint("TOPLEFT", UIParent, "TOPLEFT", LEATRIX_SMALL_MAP_X, LEATRIX_SMALL_MAP_Y)
     return true
 end
 
@@ -515,35 +510,26 @@ local function ApplyMapPosition()
     if not mapFrame or not mapFrame.ClearAllPoints or not mapFrame.SetPoint then return end
 
     CaptureMapAlpha(mapFrame)
+    CaptureMapScale(mapFrame)
 
     if IsMapFullscreen(mapFrame) then
         CaptureFullscreenGeometry(mapFrame)
     else
-        CaptureMapPoints(mapFrame)
+        CaptureSmallMapAnchor()
     end
 
     if not IsEnabled() then return end
 
     if ApplyFullscreenMapLayout(mapFrame) then return end
 
-    mapFrame.CP_WorldMapCleanupApplying = true
-    mapFrame:ClearAllPoints()
-
-    if originalMapPoints and #originalMapPoints > 0 then
-        for _, point in ipairs(originalMapPoints) do
-            SetMapPoint(mapFrame, point)
-        end
-    else
-        mapFrame:SetPoint("TOP", UIParent, "TOP", 0, MAP_OFFSET_Y)
-    end
-
-    mapFrame.CP_WorldMapCleanupApplying = false
+    RestoreMapScale(mapFrame)
+    ApplySmallMapAnchor()
 end
 
 local function RestoreMapPosition()
     local mapFrame = _G.WorldMapFrame
     if not mapFrame or not mapFrame.ClearAllPoints or not mapFrame.SetPoint then return end
-    if not originalMapPoints and not originalFullscreenGeometry then
+    if not originalScreenAnchorPoints and not originalFullscreenGeometry then
         RestoreMapBlackout()
         return
     end
@@ -552,17 +538,14 @@ local function RestoreMapPosition()
 
     if IsMapFullscreen(mapFrame) and originalFullscreenGeometry then
         RestoreFramePoints(mapFrame, originalFullscreenGeometry.points)
-        if originalFullscreenGeometry.width and originalFullscreenGeometry.height and mapFrame.SetSize then
-            mapFrame:SetSize(originalFullscreenGeometry.width, originalFullscreenGeometry.height)
-            UpdateMapSize(mapFrame)
-        end
-    elseif originalMapPoints then
-        RestoreFramePoints(mapFrame, originalMapPoints)
+    elseif originalScreenAnchorPoints then
+        RestoreFramePoints(_G.WorldMapScreenAnchor, originalScreenAnchorPoints)
     end
 
+    RestoreMapScale(mapFrame)
     mapFrame.CP_WorldMapCleanupApplying = false
     RestoreMapBlackout()
-    ApplyMovingMapFade()
+    ApplyMovingMapFade(0, true)
 end
 
 local function IsClassicClient()
@@ -639,8 +622,8 @@ local function EnsurePinMixin()
     _G.CPWorldMapCleanupPinMixin = BaseMapPoiPinMixin:CreateSubPin("PIN_FRAME_LEVEL_DUNGEON_ENTRANCE")
 
     function _G.CPWorldMapCleanupPinMixin:OnAcquired(info)
-        BaseMapPoiPinMixin.OnAcquired(self, info)
         self.CPWorldMapCleanupPin = true
+        BaseMapPoiPinMixin.OnAcquired(self, info)
         self.CPKind = info.CPKind
         self.CPTargetMapID = info.CPTargetMapID
 
@@ -747,88 +730,67 @@ local function RestoreMapObjects()
     hiddenMapObjects = {}
 end
 
-local function TextContainsTownOrCity(text)
-    if not text or type(text) ~= "string" then return false end
-
-    local lower = text:lower()
-    return lower:find("town", 1, true) ~= nil or lower:find("city", 1, true) ~= nil
+local function IsContinentMapID(mapID)
+    return mapID == 1414 or mapID == 1415 or mapID == 1945 or mapID == 947 or
+        mapID == 12 or mapID == 13 or mapID == 1467
 end
 
-local function TextLooksLikeTownOrCityIcon(text)
-    if not TextContainsTownOrCity(text) then return false end
+local function TextureCoordsMatch(texture, a, b, c, d, e, f, g, h)
+    if not texture or not texture.GetTexCoord then return false end
 
-    local lower = text:lower()
-    return lower == "town" or lower == "city" or
-        lower:find("poi", 1, true) ~= nil or
-        lower:find("pin", 1, true) ~= nil or
-        lower:find("mapicon", 1, true) ~= nil or
-        lower:find("map%-icon") ~= nil
+    local ta, tb, tc, td, te, tf, tg, th = texture:GetTexCoord()
+    return math.abs((ta or 0) - a) < 0.0001 and
+        math.abs((tb or 0) - b) < 0.0001 and
+        math.abs((tc or 0) - c) < 0.0001 and
+        math.abs((td or 0) - d) < 0.0001 and
+        math.abs((te or 0) - e) < 0.0001 and
+        math.abs((tf or 0) - f) < 0.0001 and
+        math.abs((tg or 0) - g) < 0.0001 and
+        math.abs((th or 0) - h) < 0.0001
 end
 
-local function ObjectTextLooksLikeTownOrCity(object)
-    if not object then return false end
+local function TextureIsTownOrCity(texture)
+    if not texture or not texture.GetTexture then return false end
 
-    if object.GetName and TextLooksLikeTownOrCityIcon(object:GetName()) then return true end
-    if object.GetAtlas and TextContainsTownOrCity(object:GetAtlas()) then return true end
-
-    if object.GetTexture then
-        local texture = object:GetTexture()
-        if TextLooksLikeTownOrCityIcon(texture) then return true end
+    local textureID = texture:GetTexture()
+    if textureID ~= 136441 and textureID ~= "Interface\\Minimap\\POIIcons" and textureID ~= "Interface\\MINIMAP\\POIIcons" then
+        return false
     end
 
-    local directFields = { "atlas", "atlasName", "poiType", "type", "name", "description" }
-    for _, field in ipairs(directFields) do
-        if TextContainsTownOrCity(object[field]) then return true end
-    end
+    return TextureCoordsMatch(texture, 0.5, 0, 0.5, 0.125, 0.625, 0, 0.625, 0.125) or
+        TextureCoordsMatch(texture, 0.625, 0, 0.625, 0.125, 0.75, 0, 0.75, 0.125)
+end
 
-    local iconFields = { "texture", "textureKit" }
-    for _, field in ipairs(iconFields) do
-        if TextLooksLikeTownOrCityIcon(object[field]) then return true end
-    end
+local function HideTownCityPin(pin)
+    if not IsEnabled() or not pin or pin.CPWorldMapCleanupPin then return end
+    if not IsContinentMapID(GetWorldMapID()) then return end
 
-    local tableFields = { "poiInfo", "pinInfo", "areaPoiInfo", "poiData", "data", "info" }
-    local nestedFields = { "atlas", "atlasName", "poiType", "type", "name", "description" }
-    for _, tableField in ipairs(tableFields) do
-        local value = object[tableField]
-        if type(value) == "table" then
-            for _, nestedField in ipairs(nestedFields) do
-                if TextContainsTownOrCity(value[nestedField]) then return true end
-            end
-            for _, nestedField in ipairs(iconFields) do
-                if TextLooksLikeTownOrCityIcon(value[nestedField]) then return true end
-            end
+    if pin.Texture and TextureIsTownOrCity(pin.Texture) then
+        HideMapObject(pin)
+    end
+end
+
+local function HookTownCityPins()
+    if hookedTownCityPins or not hooksecurefunc or not BaseMapPoiPinMixin then return end
+
+    hooksecurefunc(BaseMapPoiPinMixin, "OnAcquired", function(pin)
+        HideTownCityPin(pin)
+    end)
+    hookedTownCityPins = true
+end
+
+local function ApplyExistingTownCityPins()
+    local mapFrame = _G.WorldMapFrame
+    if not mapFrame then return end
+
+    if mapFrame.EnumerateAllPins then
+        for pin in mapFrame:EnumerateAllPins() do
+            HideTownCityPin(pin)
         end
-    end
-
-    return false
-end
-
-local function FrameLooksLikeTownOrCity(frameToScan)
-    if frameToScan and frameToScan.CPWorldMapCleanupPin then return false end
-    if ObjectTextLooksLikeTownOrCity(frameToScan) then return true end
-
-    if not frameToScan.GetRegions then return false end
-    for index = 1, frameToScan:GetNumRegions() do
-        local region = select(index, frameToScan:GetRegions())
-        if ObjectTextLooksLikeTownOrCity(region) then
-            return true
+    elseif mapFrame.EnumeratePinsByTemplate then
+        for pin in mapFrame:EnumeratePinsByTemplate("BaseMapPoiPinTemplate") do
+            HideTownCityPin(pin)
         end
-    end
-
-    return false
-end
-
-local function ScanForTownCityIcons(frameToScan, depth)
-    if not frameToScan or (depth or 0) > MAX_SCAN_DEPTH then return end
-
-    if FrameLooksLikeTownOrCity(frameToScan) then
-        HideMapObject(frameToScan)
-        return
-    end
-
-    if not frameToScan.GetChildren then return end
-    for index = 1, frameToScan:GetNumChildren() do
-        ScanForTownCityIcons(select(index, frameToScan:GetChildren()), (depth or 0) + 1)
     end
 end
 
@@ -836,26 +798,21 @@ local function ApplyTownCityIcons()
     RestoreMapObjects()
     if not IsEnabled() or not _G.WorldMapFrame then return end
 
-    ScanForTownCityIcons(_G.WorldMapFrame, 0)
+    HookTownCityPins()
+    ApplyExistingTownCityPins()
 end
 
 local function ApplyWorldMapCleanup()
     ApplyMapPosition()
     ApplyTownCityIcons()
     ApplyPOIPins()
-    ApplyMovingMapFade()
+    ApplyMovingMapFade(0, false)
 end
 
 frame:SetScript("OnUpdate", function(_, elapsed)
-    if not IsEnabled() then return end
-
-    fadeUpdateElapsed = fadeUpdateElapsed + (elapsed or 0)
-    if fadeUpdateElapsed < MAP_FADE_UPDATE_INTERVAL then return end
-    fadeUpdateElapsed = 0
-
     local mapFrame = _G.WorldMapFrame
     if mapFrame and mapFrame.IsShown and mapFrame:IsShown() then
-        ApplyMovingMapFade()
+        ApplyMovingMapFade(elapsed, false)
     end
 end)
 
@@ -875,6 +832,7 @@ local function HookWorldMap()
     if hookedWorldMap or not mapFrame then return end
 
     EnsurePOIProvider()
+    HookTownCityPins()
 
     if mapFrame.HookScript then
         mapFrame:HookScript("OnShow", function()
@@ -951,7 +909,7 @@ function feature:Disable()
     RestoreMapObjects()
     RemovePOIPins()
     RestoreMapPosition()
-    ApplyMovingMapFade()
+    ApplyMovingMapFade(0, true)
 end
 
 function Carpenter_ApplyWorldMapCleanup()
@@ -962,7 +920,7 @@ function Carpenter_ApplyWorldMapCleanup()
         RestoreMapObjects()
         RemovePOIPins()
         RestoreMapPosition()
-        ApplyMovingMapFade()
+        ApplyMovingMapFade(0, true)
     end
 end
 
