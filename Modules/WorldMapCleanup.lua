@@ -10,6 +10,7 @@ local LEATRIX_SMALL_MAP_Y = -104
 local FULLSCREEN_MAP_SCALE = 0.85
 local MOVING_MAP_ALPHA = 0.5
 local MAP_FADE_DURATION = 0.25
+local LEATRIX_MAP_TEXTURE = "Interface\\AddOns\\Leatrix_Maps\\Leatrix_Maps.blp"
 
 local frame = CreateFrame("Frame")
 local originalFullscreenGeometry = nil
@@ -22,6 +23,14 @@ local hookedWorldMap = false
 local hookedTownCityPins = false
 local customPOIProvider = nil
 local scheduleNonce = 0
+local hasLeatrixMapTexture = nil
+
+local LEATRIX_POI_TEX_COORDS = {
+    TravelA = { 0, 0.25, 0.75, 1 },
+    TravelH = { 0.25, 0.5, 0.75, 1 },
+    TravelN = { 0.5, 0.75, 0.75, 1 },
+    Dunraid = { 0.75, 1, 0.75, 1 },
+}
 
 local POI_ATLAS = {
     Dungeon = "Dungeon",
@@ -561,6 +570,27 @@ local function IsTravelPOI(kind)
         kind == "TravelA" or kind == "TravelH" or kind == "TravelN"
 end
 
+local function IsLeatrixPOIOverride(kind)
+    return LEATRIX_POI_TEX_COORDS[kind] ~= nil
+end
+
+local function HasLeatrixMapTexture()
+    if hasLeatrixMapTexture ~= nil then return hasLeatrixMapTexture end
+
+    hasLeatrixMapTexture = false
+    if _G.Leatrix_Maps then
+        hasLeatrixMapTexture = true
+    elseif C_AddOns and C_AddOns.GetAddOnInfo then
+        local ok, name = pcall(C_AddOns.GetAddOnInfo, "Leatrix_Maps")
+        hasLeatrixMapTexture = ok and name ~= nil
+    elseif GetAddOnInfo then
+        local ok, name = pcall(GetAddOnInfo, "Leatrix_Maps")
+        hasLeatrixMapTexture = ok and name ~= nil
+    end
+
+    return hasLeatrixMapTexture
+end
+
 local function ShouldShowPOI(kind)
     if IsDungeonPOI(kind) then return true end
     if kind == "FlightN" or kind == "TravelN" then return true end
@@ -611,8 +641,26 @@ local function BuildPOIInfo(pinInfo)
         description = pinInfo[5],
         atlasName = pinInfo[6] or POI_ATLAS[kind],
         CPKind = kind,
+        CPUseLeatrixPOITexture = IsLeatrixPOIOverride(kind),
         CPTargetMapID = pinInfo[9],
     }
+end
+
+local function ApplyLeatrixPOITexture(pin, kind)
+    local texCoords = LEATRIX_POI_TEX_COORDS[kind]
+    if not texCoords or not HasLeatrixMapTexture() then return false end
+
+    local textures = { pin.Texture, pin.HighlightTexture }
+    for _, texture in ipairs(textures) do
+        if texture and texture.SetTexture and texture.SetTexCoord and texture.SetSize then
+            texture:SetTexture(LEATRIX_MAP_TEXTURE)
+            texture:SetTexCoord(texCoords[1], texCoords[2], texCoords[3], texCoords[4])
+            texture:SetSize(32, 32)
+            if texture.SetRotation then texture:SetRotation(0) end
+        end
+    end
+
+    return true
 end
 
 local function EnsurePinMixin()
@@ -626,6 +674,8 @@ local function EnsurePinMixin()
         BaseMapPoiPinMixin.OnAcquired(self, info)
         self.CPKind = info.CPKind
         self.CPTargetMapID = info.CPTargetMapID
+
+        if info.CPUseLeatrixPOITexture and ApplyLeatrixPOITexture(self, info.CPKind) then return end
 
         local size = IsTravelPOI(info.CPKind) and 18 or 22
         if info.CPKind == "Dunraid" then size = 24 end
@@ -809,6 +859,10 @@ local function ApplyWorldMapCleanup()
     ApplyMovingMapFade(0, false)
 end
 
+local function ApplyWorldMapCleanupImmediately()
+    if IsEnabled() then ApplyWorldMapCleanup() end
+end
+
 frame:SetScript("OnUpdate", function(_, elapsed)
     local mapFrame = _G.WorldMapFrame
     if mapFrame and mapFrame.IsShown and mapFrame:IsShown() then
@@ -836,7 +890,7 @@ local function HookWorldMap()
 
     if mapFrame.HookScript then
         mapFrame:HookScript("OnShow", function()
-            ScheduleApply(0)
+            ApplyWorldMapCleanupImmediately()
             ScheduleApply(0.15)
         end)
     end
@@ -852,19 +906,19 @@ local function HookWorldMap()
         if mapFrame.OnMapChanged then hooksecurefunc(mapFrame, "OnMapChanged", function() ScheduleApply(0) end) end
         if mapFrame.Maximize then
             hooksecurefunc(mapFrame, "Maximize", function()
-                ScheduleApply(0)
+                ApplyWorldMapCleanupImmediately()
                 ScheduleApply(0.1)
             end)
         end
         if mapFrame.Minimize then
             hooksecurefunc(mapFrame, "Minimize", function()
-                ScheduleApply(0)
+                ApplyWorldMapCleanupImmediately()
                 ScheduleApply(0.1)
             end)
         end
         if mapFrame.SynchronizeDisplayState then
             hooksecurefunc(mapFrame, "SynchronizeDisplayState", function()
-                ScheduleApply(0)
+                ApplyWorldMapCleanupImmediately()
                 ScheduleApply(0.1)
             end)
         end
@@ -877,7 +931,7 @@ frame:SetScript("OnEvent", function(_, event, addOnName)
     if event == "ADDON_LOADED" and addOnName ~= "Blizzard_WorldMap" then return end
 
     HookWorldMap()
-    ScheduleApply(0)
+    ApplyWorldMapCleanupImmediately()
     ScheduleApply(0.2)
 end)
 
@@ -894,7 +948,7 @@ function feature:Enable()
     SafeRegisterEvent("AREA_POIS_UPDATED")
 
     HookWorldMap()
-    ScheduleApply(0)
+    ApplyWorldMapCleanupImmediately()
     if Carpenter and Carpenter.DeferMany then
         Carpenter:DeferMany("WorldMapCleanup:startup", { 0.2, 1, 3 }, ApplyWorldMapCleanup)
     else

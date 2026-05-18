@@ -90,7 +90,7 @@ function Options.Create(context)
                     key = "worldMapCleanupEnabled",
                     label = L.OPTION_WORLD_MAP_CLEANUP or "World Map Cleanup",
                     description = Description("DESC_WORLD_MAP_CLEANUP"),
-                    image = GetSettingsImage("minimapclutter.png"),
+                    image = GetSettingsImage("map.png"),
                     requiresReload = false,
                     onToggle = function()
                         if Carpenter_ApplyWorldMapCleanup then Carpenter_ApplyWorldMapCleanup() end
