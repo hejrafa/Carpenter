@@ -10,7 +10,6 @@ local LEATRIX_SMALL_MAP_Y = -104
 local FULLSCREEN_MAP_SCALE = 0.85
 local MOVING_MAP_ALPHA = 0.5
 local MAP_FADE_DURATION = 0.25
-local LEATRIX_MAP_TEXTURE = "Interface\\AddOns\\Leatrix_Maps\\Leatrix_Maps.blp"
 
 local frame = CreateFrame("Frame")
 local originalFullscreenGeometry = nil
@@ -23,25 +22,17 @@ local hookedWorldMap = false
 local hookedTownCityPins = false
 local customPOIProvider = nil
 local scheduleNonce = 0
-local hasLeatrixMapTexture = nil
-
-local LEATRIX_POI_TEX_COORDS = {
-    TravelA = { 0, 0.25, 0.75, 1 },
-    TravelH = { 0.25, 0.5, 0.75, 1 },
-    TravelN = { 0.5, 0.75, 0.75, 1 },
-    Dunraid = { 0.75, 1, 0.75, 1 },
-}
 
 local POI_ICON_SIZES = {
-    Dungeon = 20,
-    Raid = 20,
-    Dunraid = 24,
-    FlightA = 16,
-    FlightH = 16,
-    FlightN = 16,
-    TravelA = 24,
-    TravelH = 24,
-    TravelN = 24,
+    Dungeon = 18,
+    Raid = 18,
+    Dunraid = 20,
+    FlightA = 14,
+    FlightH = 14,
+    FlightN = 14,
+    TravelA = 18,
+    TravelH = 18,
+    TravelN = 18,
 }
 
 local POI_ATLAS = {
@@ -582,27 +573,6 @@ local function IsTravelPOI(kind)
         kind == "TravelA" or kind == "TravelH" or kind == "TravelN"
 end
 
-local function IsLeatrixPOIOverride(kind)
-    return LEATRIX_POI_TEX_COORDS[kind] ~= nil
-end
-
-local function HasLeatrixMapTexture()
-    if hasLeatrixMapTexture ~= nil then return hasLeatrixMapTexture end
-
-    hasLeatrixMapTexture = false
-    if _G.Leatrix_Maps then
-        hasLeatrixMapTexture = true
-    elseif C_AddOns and C_AddOns.GetAddOnInfo then
-        local ok, name = pcall(C_AddOns.GetAddOnInfo, "Leatrix_Maps")
-        hasLeatrixMapTexture = ok and name ~= nil
-    elseif GetAddOnInfo then
-        local ok, name = pcall(GetAddOnInfo, "Leatrix_Maps")
-        hasLeatrixMapTexture = ok and name ~= nil
-    end
-
-    return hasLeatrixMapTexture
-end
-
 local function ShouldShowPOI(kind)
     if IsDungeonPOI(kind) then return true end
     if kind == "FlightN" or kind == "TravelN" then return true end
@@ -664,7 +634,6 @@ local function BuildPOIInfo(pinInfo)
         description = pinInfo[5],
         atlasName = pinInfo[6] or POI_ATLAS[kind],
         CPKind = kind,
-        CPUseLeatrixPOITexture = IsLeatrixPOIOverride(kind),
         CPTargetMapID = pinInfo[9],
     }
 end
@@ -673,22 +642,22 @@ local function GetPOIIconSize(kind)
     return POI_ICON_SIZES[kind] or 20
 end
 
-local function ApplyLeatrixPOITexture(pin, kind)
-    local texCoords = LEATRIX_POI_TEX_COORDS[kind]
-    if not texCoords or not HasLeatrixMapTexture() then return false end
-
-    local size = GetPOIIconSize(kind)
+local function ApplyPOIIconVisuals(pin, info)
+    local size = GetPOIIconSize(info.CPKind)
     local textures = { pin.Texture, pin.HighlightTexture }
+
+    if pin.SetSize then pin:SetSize(size, size) end
+
     for _, texture in ipairs(textures) do
-        if texture and texture.SetTexture and texture.SetTexCoord and texture.SetSize then
-            texture:SetTexture(LEATRIX_MAP_TEXTURE)
-            texture:SetTexCoord(texCoords[1], texCoords[2], texCoords[3], texCoords[4])
-            texture:SetSize(size, size)
+        if texture then
+            if texture.SetAtlas and info.atlasName then
+                pcall(texture.SetAtlas, texture, info.atlasName, false)
+            end
+            if texture.SetScale then texture:SetScale(1) end
             if texture.SetRotation then texture:SetRotation(0) end
+            if texture.SetSize then texture:SetSize(size, size) end
         end
     end
-
-    return true
 end
 
 local function EnsurePinMixin()
@@ -703,12 +672,7 @@ local function EnsurePinMixin()
         self.CPKind = info.CPKind
         self.CPTargetMapID = info.CPTargetMapID
 
-        if info.CPUseLeatrixPOITexture and ApplyLeatrixPOITexture(self, info.CPKind) then return end
-
-        local size = GetPOIIconSize(info.CPKind)
-
-        if self.Texture and self.Texture.SetSize then self.Texture:SetSize(size, size) end
-        if self.HighlightTexture and self.HighlightTexture.SetSize then self.HighlightTexture:SetSize(size, size) end
+        ApplyPOIIconVisuals(self, info)
     end
 
     function _G.CPWorldMapCleanupPinMixin:OnMouseUp(button)
