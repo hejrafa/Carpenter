@@ -32,6 +32,18 @@ local LEATRIX_POI_TEX_COORDS = {
     Dunraid = { 0.75, 1, 0.75, 1 },
 }
 
+local POI_ICON_SIZES = {
+    Dungeon = 20,
+    Raid = 20,
+    Dunraid = 24,
+    FlightA = 16,
+    FlightH = 16,
+    FlightN = 16,
+    TravelA = 24,
+    TravelH = 24,
+    TravelN = 24,
+}
+
 local POI_ATLAS = {
     Dungeon = "Dungeon",
     Raid = "Raid",
@@ -617,6 +629,17 @@ local function GetWorldMapID()
     return mapFrame.mapID
 end
 
+local function GetMapCanvasID(map)
+    if not map then return nil end
+
+    if map.GetMapID then
+        local mapID = map:GetMapID()
+        if mapID then return mapID end
+    end
+
+    return map.mapID
+end
+
 local function BuildPOIName(pinInfo)
     local name = pinInfo[4] or ""
     local minLevel = pinInfo[7]
@@ -646,16 +669,21 @@ local function BuildPOIInfo(pinInfo)
     }
 end
 
+local function GetPOIIconSize(kind)
+    return POI_ICON_SIZES[kind] or 20
+end
+
 local function ApplyLeatrixPOITexture(pin, kind)
     local texCoords = LEATRIX_POI_TEX_COORDS[kind]
     if not texCoords or not HasLeatrixMapTexture() then return false end
 
+    local size = GetPOIIconSize(kind)
     local textures = { pin.Texture, pin.HighlightTexture }
     for _, texture in ipairs(textures) do
         if texture and texture.SetTexture and texture.SetTexCoord and texture.SetSize then
             texture:SetTexture(LEATRIX_MAP_TEXTURE)
             texture:SetTexCoord(texCoords[1], texCoords[2], texCoords[3], texCoords[4])
-            texture:SetSize(32, 32)
+            texture:SetSize(size, size)
             if texture.SetRotation then texture:SetRotation(0) end
         end
     end
@@ -677,8 +705,7 @@ local function EnsurePinMixin()
 
         if info.CPUseLeatrixPOITexture and ApplyLeatrixPOITexture(self, info.CPKind) then return end
 
-        local size = IsTravelPOI(info.CPKind) and 18 or 22
-        if info.CPKind == "Dunraid" then size = 24 end
+        local size = GetPOIIconSize(info.CPKind)
 
         if self.Texture and self.Texture.SetSize then self.Texture:SetSize(size, size) end
         if self.HighlightTexture and self.HighlightTexture.SetSize then self.HighlightTexture:SetSize(size, size) end
@@ -720,7 +747,7 @@ local function EnsurePOIProvider()
 
         if not IsEnabled() or not map then return end
 
-        local pins = POI_DATA[GetWorldMapID()]
+        local pins = POI_DATA[GetMapCanvasID(map)]
         if not pins then return end
 
         for _, pinInfo in ipairs(pins) do
