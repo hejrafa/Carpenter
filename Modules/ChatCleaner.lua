@@ -361,7 +361,7 @@ local function ChatFilterImpl(self, event, msg, author, ...)
         return false, reputationMessage, author, ...
     end
 
-    local queueNotice = FormatQueueNotice and FormatQueueNotice(msg)
+    local queueNotice = FormatQueueNotice and FormatQueueNotice(msg, event)
     if queueNotice == true then
         return true
     elseif queueNotice then

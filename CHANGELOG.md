@@ -9,6 +9,7 @@
 - Fixed remaining Chat Cleaner loot roll punctuation and colored loot item names inside party and raid loot messages.
 - Colored grouped loot and loot-roll prefixes with party or raid chat colors, including bare `Loot:` item messages.
 - Styled bare `Loot:` item lines that arrive through chat-frame post-processing, including first visible loot messages with a party- or raid-colored `Loot` label.
+- Stopped battleground-result cleanup from hiding player chat that happens to contain story titles such as `Lost in Battle`.
 - Changed compact home-bind chat styling from `Home:` to `Hearthstone:`.
 - Kept the enemy name in compact Hardcore `was slain by` death messages.
 - Updated release packaging so CurseForge and Wago receive only the latest version's changelog section.

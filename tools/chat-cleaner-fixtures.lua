@@ -172,6 +172,26 @@ local fixtures = {
         rejectColor = "|cffc69b6d",
     },
     {
+        name = "story mode say lost in battle passes",
+        event = "CHAT_MSG_SAY",
+        author = "Kohji",
+        message = "[Kohji] says: [Gutterspeak] [Story Mode: Lost in Battle]",
+        expectPlain = "[Kohji] says: [Gutterspeak] [Story Mode: Lost in Battle]",
+    },
+    {
+        name = "story mode say arugal passes",
+        event = "CHAT_MSG_SAY",
+        author = "Kohji",
+        message = "[Kohji] says: [Gutterspeak] [Story Mode: Arugal and Shadowfang Keep]",
+        expectPlain = "[Kohji] says: [Gutterspeak] [Story Mode: Arugal and Shadowfang Keep]",
+    },
+    {
+        name = "system battle loss stays hidden",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Your team lost the battle.",
+        expectHidden = true,
+    },
+    {
         name = "loot roll range",
         event = "CHAT_MSG_LOOT",
         message = "Yantiparazi rolls 40 (1-100)",

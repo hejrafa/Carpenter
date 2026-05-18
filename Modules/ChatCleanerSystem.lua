@@ -235,8 +235,16 @@ function System.Create(config)
         return nil
     end
 
-    function api.FormatQueueNotice(message)
+    local function IsQueueNoticeEvent(event)
+        return not event or event == "CHAT_MSG_SYSTEM" or
+            event == "CHAT_MSG_BG_SYSTEM_ALLIANCE" or
+            event == "CHAT_MSG_BG_SYSTEM_HORDE" or
+            event == "CHAT_MSG_BG_SYSTEM_NEUTRAL"
+    end
+
+    function api.FormatQueueNotice(message, event)
         if not message or type(message) ~= "string" then return nil end
+        if not IsQueueNoticeEvent(event) then return nil end
 
         local queueMsg = message:lower()
         if queueMsg:find("joined the queue") or queueMsg:find("joined queue") or
