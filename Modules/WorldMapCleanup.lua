@@ -10,6 +10,7 @@ local LEATRIX_SMALL_MAP_Y = -104
 local FULLSCREEN_MAP_SCALE = 0.85
 local MOVING_MAP_ALPHA = 0.5
 local MAP_FADE_DURATION = 0.25
+local POI_TBC_ONLY = "tbc"
 
 local frame = CreateFrame("Frame")
 local originalFullscreenGeometry = nil
@@ -114,7 +115,7 @@ local POI_DATA = {
         { "FlightH", 65.7, 24.2, "Flame Crest, Burning Steppes", nil, "TaxiNode_Horde" },
     },
     [1430] = {
-        { "Raid", 46.9, 74.7, "Karazhan", "Raid", "Raid", 70, 70 },
+        { "Raid", 46.9, 74.7, "Karazhan", "Raid", "Raid", 70, 70, nil, POI_TBC_ONLY },
     },
     [1431] = {
         { "FlightA", 77.5, 44.3, "Darkshire, Duskwood", nil, "TaxiNode_Alliance" },
@@ -128,7 +129,7 @@ local POI_DATA = {
     [1434] = {
         { "Raid", 53.9, 17.6, "Zul'Gurub", "Raid", "Raid", 60, 60 },
         { "FlightA", 27.5, 77.8, "Booty Bay, Stranglethorn Vale", nil, "TaxiNode_Alliance" },
-        { "FlightA", 38.2, 4, "Rebel Camp, Stranglethorn Vale", nil, "TaxiNode_Alliance" },
+        { "FlightA", 38.2, 4, "Rebel Camp, Stranglethorn Vale", nil, "TaxiNode_Alliance", nil, nil, nil, POI_TBC_ONLY },
         { "FlightH", 26.9, 77.1, "Booty Bay, Stranglethorn Vale", nil, "TaxiNode_Horde" },
         { "FlightH", 32.5, 29.4, "Grom'gol Base Camp, Stranglethorn Vale", nil, "TaxiNode_Horde" },
         { "TravelN", 25.9, 73.1, "Boat to Ratchet, The Barrens", nil, "TaxiNode_Neutral", nil, nil, 1413 },
@@ -156,12 +157,12 @@ local POI_DATA = {
         { "FlightA", 36.3, 45.6, "Auberdine, Darkshore", nil, "TaxiNode_Alliance" },
         { "TravelA", 32.4, 43.8, "Boat to Menethil Harbor, Wetlands", nil, "TaxiNode_Alliance", nil, nil, 1437 },
         { "TravelA", 33.2, 40.1, "Boat to Rut'theran Village, Teldrassil", nil, "TaxiNode_Alliance", nil, nil, 1438 },
-        { "TravelA", 30.7, 41, "Boat to Valaar's Berth, Azuremyst Isle", nil, "TaxiNode_Alliance", nil, nil, 1943 },
+        { "TravelA", 30.7, 41, "Boat to Valaar's Berth, Azuremyst Isle", nil, "TaxiNode_Alliance", nil, nil, 1943, POI_TBC_ONLY },
     },
     [1440] = {
         { "Dungeon", 14.5, 14.2, "Blackfathom Deeps", "Dungeon", "Dungeon", 24, 32 },
         { "FlightA", 34.4, 48, "Astranaar, Ashenvale", nil, "TaxiNode_Alliance" },
-        { "FlightA", 85, 43.4, "Forest Song, Ashenvale", nil, "TaxiNode_Alliance" },
+        { "FlightA", 85, 43.4, "Forest Song, Ashenvale", nil, "TaxiNode_Alliance", nil, nil, nil, POI_TBC_ONLY },
         { "FlightH", 73.2, 61.6, "Splintertree Post, Ashenvale", nil, "TaxiNode_Horde" },
         { "FlightH", 12.2, 33.8, "Zoram'gar Outpost, Ashenvale", nil, "TaxiNode_Horde" },
     },
@@ -191,12 +192,12 @@ local POI_DATA = {
         { "Raid", 52.6, 76.8, "Onyxia's Lair", "Raid", "Raid", 60, 60 },
         { "FlightA", 67.5, 51.3, "Theramore Isle, Dustwallow Marsh", nil, "TaxiNode_Alliance" },
         { "FlightH", 35.6, 31.9, "Brackenwall Village, Dustwallow Marsh", nil, "TaxiNode_Horde" },
-        { "FlightN", 42.8, 72.5, "Mudsprocket, Dustwallow Marsh", nil, "TaxiNode_Neutral" },
+        { "FlightN", 42.8, 72.5, "Mudsprocket, Dustwallow Marsh", nil, "TaxiNode_Neutral", nil, nil, nil, POI_TBC_ONLY },
         { "TravelA", 71.6, 56.4, "Boat to Menethil Harbor, Wetlands", nil, "TaxiNode_Alliance", nil, nil, 1437 },
     },
     [1446] = {
         { "Dungeon", 38.7, 20, "Zul'Farrak", "Dungeon", "Dungeon", 44, 54 },
-        { "Dunraid", 65.7, 49.9, "Caverns of Time", "Black Morass, Hyjal Summit, Old Hillsbrad", "Dungeon", 66, 70 },
+        { "Dunraid", 65.7, 49.9, "Caverns of Time", "Black Morass, Hyjal Summit, Old Hillsbrad", "Dungeon", 66, 70, nil, POI_TBC_ONLY },
         { "FlightA", 51, 29.3, "Gadgetzan, Tanaris", nil, "TaxiNode_Alliance" },
         { "FlightH", 51.6, 25.4, "Gadgetzan, Tanaris", nil, "TaxiNode_Horde" },
     },
@@ -207,7 +208,7 @@ local POI_DATA = {
     [1448] = {
         { "FlightA", 62.5, 24.2, "Talonbranch Glade, Felwood", nil, "TaxiNode_Alliance" },
         { "FlightH", 34.4, 54, "Bloodvenom Post, Felwood", nil, "TaxiNode_Horde" },
-        { "FlightN", 51.4, 82.2, "Emerald Sanctuary, Felwood", nil, "TaxiNode_Neutral" },
+        { "FlightN", 51.4, 82.2, "Emerald Sanctuary, Felwood", nil, "TaxiNode_Neutral", nil, nil, nil, POI_TBC_ONLY },
     },
     [1449] = {
         { "FlightN", 45.2, 5.8, "Marshal's Refuge, Un'Goro Crater", nil, "TaxiNode_Neutral" },
@@ -243,7 +244,7 @@ local POI_DATA = {
     },
     [1458] = {
         { "FlightH", 63.3, 48.5, "Trade Quarter, Undercity", nil, "TaxiNode_Horde" },
-        { "TravelH", 54.9, 11.3, "Silvermoon City", "Orb of Translocation", "TaxiNode_Horde" },
+        { "TravelH", 54.9, 11.3, "Silvermoon City", "Orb of Translocation", "TaxiNode_Horde", nil, nil, nil, POI_TBC_ONLY },
     },
     [1941] = {
         { "FlightH", 54.4, 50.7, "Silvermoon City, Eversong Woods", nil, "TaxiNode_Horde" },
@@ -323,7 +324,7 @@ local POI_DATA = {
         { "FlightN", 65.2, 66.6, "Cosmowrench, Netherstorm", nil, "TaxiNode_Neutral" },
     },
     [1954] = {
-        { "TravelH", 49.5, 14.8, "Undercity", "Orb of Translocation", "TaxiNode_Horde", nil, nil, 1458 },
+        { "TravelH", 49.5, 14.8, "Undercity", "Orb of Translocation", "TaxiNode_Horde", nil, nil, 1458, POI_TBC_ONLY },
     },
     [1955] = {
         { "FlightN", 64.1, 41.1, "Shattrath City, Terokkar Forest", nil, "TaxiNode_Neutral" },
@@ -587,6 +588,14 @@ local function ShouldShowPOI(kind)
     return false
 end
 
+local function IsPOIAvailableForClient(pinInfo)
+    if pinInfo[10] == POI_TBC_ONLY then
+        return Carpenter and Carpenter.Client and Carpenter.Client.isTBC
+    end
+
+    return true
+end
+
 local function GetWorldMapID()
     local mapFrame = _G.WorldMapFrame
     if not mapFrame then return nil end
@@ -731,7 +740,7 @@ local function EnsurePOIProvider()
         if not pins then return end
 
         for _, pinInfo in ipairs(pins) do
-            if ShouldShowPOI(pinInfo[1]) and POI_ATLAS[pinInfo[1]] then
+            if IsPOIAvailableForClient(pinInfo) and ShouldShowPOI(pinInfo[1]) and POI_ATLAS[pinInfo[1]] then
                 pcall(map.AcquirePin, map, CUSTOM_PIN_TEMPLATE, BuildPOIInfo(pinInfo))
             end
         end
