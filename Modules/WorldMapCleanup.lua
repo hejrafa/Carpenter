@@ -30,9 +30,9 @@ local POI_ICON_SIZES = {
     FlightA = 14,
     FlightH = 14,
     FlightN = 14,
-    TravelA = 18,
-    TravelH = 18,
-    TravelN = 18,
+    TravelA = 14,
+    TravelH = 14,
+    TravelN = 14,
 }
 
 local POI_ATLAS = {
