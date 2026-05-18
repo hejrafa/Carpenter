@@ -591,12 +591,14 @@ local function GetWorldMapID()
     local mapFrame = _G.WorldMapFrame
     if not mapFrame then return nil end
 
+    if mapFrame.mapID then return mapFrame.mapID end
+
     if mapFrame.GetMapID then
         local mapID = mapFrame:GetMapID()
         if mapID then return mapID end
     end
 
-    return mapFrame.mapID
+    return nil
 end
 
 local function GetMapCanvasID(map)
@@ -608,6 +610,10 @@ local function GetMapCanvasID(map)
     end
 
     return map.mapID
+end
+
+local function GetPOIMapID(map)
+    return GetWorldMapID() or GetMapCanvasID(map)
 end
 
 local function BuildPOIName(pinInfo)
@@ -686,10 +692,21 @@ local function EnsurePinMixin()
     return true
 end
 
+local function RemovePOIPinsFromMap(map)
+    if map and map.RemoveAllPinsByTemplate then
+        pcall(map.RemoveAllPinsByTemplate, map, CUSTOM_PIN_TEMPLATE)
+    end
+end
+
 local function RemovePOIPins()
     local mapFrame = _G.WorldMapFrame
-    if mapFrame and mapFrame.RemoveAllPinsByTemplate then
-        pcall(mapFrame.RemoveAllPinsByTemplate, mapFrame, CUSTOM_PIN_TEMPLATE)
+    RemovePOIPinsFromMap(mapFrame)
+
+    if customPOIProvider and customPOIProvider.GetMap then
+        local providerMap = customPOIProvider:GetMap()
+        if providerMap ~= mapFrame then
+            RemovePOIPinsFromMap(providerMap)
+        end
     end
 end
 
@@ -705,13 +722,12 @@ local function EnsurePOIProvider()
 
     function provider:RefreshAllData()
         local map = self.GetMap and self:GetMap()
-        if map and map.RemoveAllPinsByTemplate then
-            map:RemoveAllPinsByTemplate(CUSTOM_PIN_TEMPLATE)
-        end
+        RemovePOIPinsFromMap(map)
+        if map ~= _G.WorldMapFrame then RemovePOIPinsFromMap(_G.WorldMapFrame) end
 
         if not IsEnabled() or not map then return end
 
-        local pins = POI_DATA[GetMapCanvasID(map)]
+        local pins = POI_DATA[GetPOIMapID(map)]
         if not pins then return end
 
         for _, pinInfo in ipairs(pins) do
