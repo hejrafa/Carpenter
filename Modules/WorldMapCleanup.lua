@@ -407,7 +407,26 @@ local function CaptureFullscreenGeometry(mapFrame)
 
     originalFullscreenGeometry = {
         points = CaptureFramePoints(mapFrame),
+        width = mapFrame.GetWidth and mapFrame:GetWidth() or nil,
+        height = mapFrame.GetHeight and mapFrame:GetHeight() or nil,
     }
+end
+
+local function RestoreFullscreenSize(mapFrame)
+    if not mapFrame or not mapFrame.SetSize or not originalFullscreenGeometry then return end
+    if not originalFullscreenGeometry.width or not originalFullscreenGeometry.height then return end
+
+    mapFrame:SetSize(originalFullscreenGeometry.width, originalFullscreenGeometry.height)
+end
+
+local function ApplyFullscreenSize(mapFrame)
+    if not mapFrame or not mapFrame.SetSize or not originalFullscreenGeometry then return end
+
+    local width = originalFullscreenGeometry.width
+    local height = originalFullscreenGeometry.height
+    if not width or not height or width <= 0 or height <= 0 then return end
+
+    mapFrame:SetSize(width * FULLSCREEN_MAP_SCALE, height * FULLSCREEN_MAP_SCALE)
 end
 
 local function HideMapBlackout()
@@ -493,11 +512,12 @@ local function ApplyFullscreenMapLayout(mapFrame)
     HideMapBlackout()
 
     mapFrame.CP_WorldMapCleanupApplying = true
+    if mapFrame.SetScale and originalMapScale then mapFrame:SetScale(originalMapScale) end
     if mapFrame.ClearAllPoints and mapFrame.SetPoint and UIParent then
         mapFrame:ClearAllPoints()
         mapFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     end
-    if mapFrame.SetScale then mapFrame:SetScale(FULLSCREEN_MAP_SCALE) end
+    ApplyFullscreenSize(mapFrame)
     mapFrame.CP_WorldMapCleanupApplying = false
     return true
 end
@@ -550,6 +570,7 @@ local function RestoreMapPosition()
     mapFrame.CP_WorldMapCleanupApplying = true
 
     if IsMapFullscreen(mapFrame) and originalFullscreenGeometry then
+        RestoreFullscreenSize(mapFrame)
         RestoreFramePoints(mapFrame, originalFullscreenGeometry.points)
     elseif originalScreenAnchorPoints then
         RestoreFramePoints(_G.WorldMapScreenAnchor, originalScreenAnchorPoints)
