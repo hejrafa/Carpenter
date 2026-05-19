@@ -11,6 +11,7 @@ local FULLSCREEN_MAP_SCALE = 0.85
 local MOVING_MAP_ALPHA = 0.5
 local MAP_FADE_DURATION = 0.25
 local GROUP_MEMBER_PIN_SIZE = 20
+local GROUP_MEMBER_PIN_TEXTURE = "Interface\\AddOns\\Carpenter\\Art\\Icons\\GroupMemberPin.tga"
 local POI_TBC_ONLY = "tbc"
 
 local frame = CreateFrame("Frame")
@@ -1031,8 +1032,30 @@ local function CaptureGroupMemberPinSizes(pin)
     }
 end
 
+local function SetGroupMemberPinTexture(pin)
+    if not pin or not pin.SetPinTexture then return end
+
+    pcall(pin.SetPinTexture, pin, "party", GROUP_MEMBER_PIN_TEXTURE)
+    pcall(pin.SetPinTexture, pin, "raid", GROUP_MEMBER_PIN_TEXTURE)
+end
+
+local function HookGroupMemberPinAppearance(pin)
+    if not pin or pin.CP_WorldMapCleanupGroupPinHooked or not hooksecurefunc then return end
+    if not pin.UpdateAppearanceData then return end
+
+    hooksecurefunc(pin, "UpdateAppearanceData", function(self)
+        if IsEnabled() then SetGroupMemberPinTexture(self) end
+    end)
+    pin.CP_WorldMapCleanupGroupPinHooked = true
+end
+
 local function SetGroupMemberPinAppearance(pin, enabled)
     if not pin then return end
+
+    if enabled then
+        HookGroupMemberPinAppearance(pin)
+        SetGroupMemberPinTexture(pin)
+    end
 
     if pin.SetAppearanceField then
         pcall(pin.SetAppearanceField, pin, "party", "useClassColor", enabled == true)
