@@ -10,6 +10,7 @@ local LEATRIX_SMALL_MAP_Y = -104
 local FULLSCREEN_MAP_SCALE = 0.85
 local MOVING_MAP_ALPHA = 0.5
 local MAP_FADE_DURATION = 0.25
+local GROUP_MEMBER_PIN_SIZE = 20
 local POI_TBC_ONLY = "tbc"
 
 local frame = CreateFrame("Frame")
@@ -28,6 +29,8 @@ local originalWorldMapGetNormalizedCursorPosition = nil
 local customPOIProvider = nil
 local scheduleNonce = 0
 local centeredMapCanvasKey = nil
+local originalGroupMemberPinSizes = nil
+local hookedGroupMemberPins = false
 
 local POI_ICON_SIZES = {
     Dungeon = 18,
@@ -1015,10 +1018,98 @@ local function ApplyTownCityIcons()
     ApplyExistingTownCityPins()
 end
 
+local function CaptureGroupMemberPinSizes(pin)
+    if originalGroupMemberPinSizes or not pin or not pin.dataProvider then return end
+    if not pin.dataProvider.GetUnitPinSizesTable then return end
+
+    local sizes = pin.dataProvider:GetUnitPinSizesTable()
+    if not sizes then return end
+
+    originalGroupMemberPinSizes = {
+        party = sizes.party,
+        raid = sizes.raid,
+    }
+end
+
+local function SetGroupMemberPinAppearance(pin, enabled)
+    if not pin then return end
+
+    if pin.SetAppearanceField then
+        pcall(pin.SetAppearanceField, pin, "party", "useClassColor", enabled == true)
+        pcall(pin.SetAppearanceField, pin, "raid", "useClassColor", enabled == true)
+    end
+
+    if enabled and pin.SetAppearanceField then
+        pcall(pin.SetAppearanceField, pin, "party", "sublevel", 0)
+        pcall(pin.SetAppearanceField, pin, "raid", "sublevel", 0)
+    end
+
+    if pin.dataProvider and pin.dataProvider.GetUnitPinSizesTable then
+        local sizes = pin.dataProvider:GetUnitPinSizesTable()
+        if sizes then
+            if enabled then
+                CaptureGroupMemberPinSizes(pin)
+                sizes.party = GROUP_MEMBER_PIN_SIZE
+                sizes.raid = GROUP_MEMBER_PIN_SIZE
+            elseif originalGroupMemberPinSizes then
+                sizes.party = originalGroupMemberPinSizes.party
+                sizes.raid = originalGroupMemberPinSizes.raid
+            end
+        end
+    end
+
+    if pin.UpdateShownUnits then pcall(pin.UpdateShownUnits, pin) end
+    if pin.SynchronizePinSizes then pcall(pin.SynchronizePinSizes, pin) end
+end
+
+local function ForEachGroupMemberPin(callback)
+    local mapFrame = _G.WorldMapFrame
+    if not mapFrame or not callback then return end
+
+    if mapFrame.EnumeratePinsByTemplate then
+        for pin in mapFrame:EnumeratePinsByTemplate("GroupMembersPinTemplate") do
+            callback(pin)
+        end
+    elseif mapFrame.EnumerateAllPins then
+        for pin in mapFrame:EnumerateAllPins() do
+            if pin and pin.SetAppearanceField and pin.dataProvider and pin.SynchronizePinSizes then
+                callback(pin)
+            end
+        end
+    end
+end
+
+local function ApplyGroupMemberPins()
+    if not IsEnabled() then return end
+
+    ForEachGroupMemberPin(function(pin)
+        SetGroupMemberPinAppearance(pin, true)
+    end)
+end
+
+local function RestoreGroupMemberPins()
+    ForEachGroupMemberPin(function(pin)
+        SetGroupMemberPinAppearance(pin, false)
+    end)
+    originalGroupMemberPinSizes = nil
+end
+
+local function HookGroupMemberPins()
+    if hookedGroupMemberPins or not hooksecurefunc or not _G.GroupMembersPinMixin then return end
+    if not _G.GroupMembersPinMixin.OnAcquired then return end
+
+    hooksecurefunc(_G.GroupMembersPinMixin, "OnAcquired", function()
+        ApplyGroupMemberPins()
+    end)
+    hookedGroupMemberPins = true
+end
+
 local function ApplyWorldMapCleanup()
     ApplyMapPosition()
     CenterMapCanvasForCurrentMap()
     ApplyTownCityIcons()
+    HookGroupMemberPins()
+    ApplyGroupMemberPins()
     ApplyPOIPins()
     ApplyMovingMapFade(0, false)
 end
@@ -1130,6 +1221,7 @@ end
 function feature:Disable()
     frame:UnregisterAllEvents()
     centeredMapCanvasKey = nil
+    RestoreGroupMemberPins()
     RestoreMapObjects()
     RemovePOIPins()
     RestoreScaledMapCursor()
@@ -1143,6 +1235,7 @@ function Carpenter_ApplyWorldMapCleanup()
         ApplyWorldMapCleanup()
     else
         centeredMapCanvasKey = nil
+        RestoreGroupMemberPins()
         RestoreMapObjects()
         RemovePOIPins()
         RestoreScaledMapCursor()
