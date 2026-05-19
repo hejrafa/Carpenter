@@ -27,6 +27,7 @@ local originalScrollContainerGetNormalizedCursorPosition = nil
 local originalWorldMapGetNormalizedCursorPosition = nil
 local customPOIProvider = nil
 local scheduleNonce = 0
+local centeredMapCanvasKey = nil
 
 local POI_ICON_SIZES = {
     Dungeon = 18,
@@ -725,6 +726,52 @@ local function GetPOIMapID(map)
     return GetWorldMapID() or GetMapCanvasID(map)
 end
 
+local function GetMapCanvasCenterKey(mapFrame, scrollContainer, mapID)
+    if not mapID or not scrollContainer then return nil end
+
+    local width = scrollContainer.GetWidth and scrollContainer:GetWidth() or 0
+    local height = scrollContainer.GetHeight and scrollContainer:GetHeight() or 0
+    if width <= 0 or height <= 0 then return nil end
+
+    local mode = IsMapFullscreen(mapFrame) and "fullscreen" or "windowed"
+    return tostring(mapID) .. ":" .. mode .. ":" .. math.floor(width + 0.5) .. "x" .. math.floor(height + 0.5)
+end
+
+local function GetMapCanvasBaseScale(scrollContainer)
+    if scrollContainer.zoomLevels and scrollContainer.zoomLevels[1] and scrollContainer.zoomLevels[1].scale then
+        return scrollContainer.zoomLevels[1].scale
+    end
+
+    if scrollContainer.GetScaleForMinZoom then
+        local ok, scale = pcall(scrollContainer.GetScaleForMinZoom, scrollContainer)
+        if ok then return scale end
+    end
+
+    return nil
+end
+
+local function CenterMapCanvasForCurrentMap()
+    local mapFrame = _G.WorldMapFrame
+    local scrollContainer = mapFrame and mapFrame.ScrollContainer
+    if not IsEnabled() or not mapFrame or not scrollContainer then return end
+
+    local mapID = GetWorldMapID()
+    local centerKey = GetMapCanvasCenterKey(mapFrame, scrollContainer, mapID)
+    if not centerKey or centeredMapCanvasKey == centerKey then return end
+
+    local baseScale = GetMapCanvasBaseScale(scrollContainer)
+    if baseScale and scrollContainer.InstantPanAndZoom then
+        local ok = pcall(scrollContainer.InstantPanAndZoom, scrollContainer, baseScale, 0.5, 0.5, true)
+        if not ok then return end
+    elseif scrollContainer.SetPanTarget then
+        pcall(scrollContainer.SetPanTarget, scrollContainer, 0.5, 0.5)
+    else
+        return
+    end
+
+    centeredMapCanvasKey = centerKey
+end
+
 local function BuildPOIName(pinInfo)
     local name = pinInfo[4] or ""
     local minLevel = pinInfo[7]
@@ -970,6 +1017,7 @@ end
 
 local function ApplyWorldMapCleanup()
     ApplyMapPosition()
+    CenterMapCanvasForCurrentMap()
     ApplyTownCityIcons()
     ApplyPOIPins()
     ApplyMovingMapFade(0, false)
@@ -1019,7 +1067,12 @@ local function HookWorldMap()
 
     if hooksecurefunc then
         if mapFrame.RefreshAllData then hooksecurefunc(mapFrame, "RefreshAllData", function() ScheduleApply(0) end) end
-        if mapFrame.OnMapChanged then hooksecurefunc(mapFrame, "OnMapChanged", function() ScheduleApply(0) end) end
+        if mapFrame.OnMapChanged then
+            hooksecurefunc(mapFrame, "OnMapChanged", function()
+                CenterMapCanvasForCurrentMap()
+                ScheduleApply(0)
+            end)
+        end
         if mapFrame.Maximize then
             hooksecurefunc(mapFrame, "Maximize", function()
                 ApplyWorldMapCleanupImmediately()
@@ -1076,6 +1129,7 @@ end
 
 function feature:Disable()
     frame:UnregisterAllEvents()
+    centeredMapCanvasKey = nil
     RestoreMapObjects()
     RemovePOIPins()
     RestoreScaledMapCursor()
@@ -1088,6 +1142,7 @@ function Carpenter_ApplyWorldMapCleanup()
     if IsEnabled() then
         ApplyWorldMapCleanup()
     else
+        centeredMapCanvasKey = nil
         RestoreMapObjects()
         RemovePOIPins()
         RestoreScaledMapCursor()
