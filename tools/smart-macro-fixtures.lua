@@ -79,11 +79,14 @@ local function loadAddonFile(path)
 end
 
 loadAddonFile("Modules/SmartMacroData.lua")
+loadAddonFile("Modules/SmartMacroClassifier.lua")
 loadAddonFile("Modules/SmartMacroScanner.lua")
 loadAddonFile("Modules/SmartMacros.lua")
 
 local failures = {}
+local fixtureCount = 0
 local scanner = ns.Private.SmartMacroScanner
+local classifier = ns.Private.SmartMacroClassifier
 local firstFingerprint = scanner.GetBagFingerprint()
 
 bagSlots[0][1] = {
@@ -104,6 +107,23 @@ end
 if firstFingerprint == secondFingerprint then
     failures[#failures + 1] = "fingerprint fallback: expected bag content change to alter fingerprint"
 end
+fixtureCount = fixtureCount + 2
+
+local rawFood = { name = "Raw Brilliant Smallfish", itemID = 9001 }
+local cookedFood = { name = "Brilliant Smallfish", itemID = 1001 }
+local crawdadFood = { name = "Spicy Crawdad", itemID = 9002 }
+local plainFood = { name = "Plain Food", itemID = 1002 }
+
+if classifier.IsBetterItem(rawFood, 100, cookedFood, 100, "Food") then
+    failures[#failures + 1] = "raw food tie-break: expected cooked food to beat raw food with matching score"
+end
+if not classifier.IsBetterItem(rawFood, 101, cookedFood, 100, "Food") then
+    failures[#failures + 1] = "raw food tie-break: expected higher-scoring raw food to remain eligible"
+end
+if not classifier.IsBetterItem(crawdadFood, 100, plainFood, 100, "Food") then
+    failures[#failures + 1] = "raw food tie-break: expected crawdad to avoid matching the standalone raw word"
+end
+fixtureCount = fixtureCount + 3
 
 local feature = registeredFeatures.smartMacrosEnabled
 if not feature or type(feature.Enable) ~= "function" then
@@ -115,10 +135,11 @@ else
         failures[#failures + 1] = "smart macro feature did not register BAG_UPDATE"
     end
 end
+fixtureCount = fixtureCount + 1
 
 if #failures > 0 then
     io.stderr:write(table.concat(failures, "\n") .. "\n")
     os.exit(1)
 end
 
-print("smart-macro fixtures: 2 passed")
+print("smart-macro fixtures: " .. fixtureCount .. " passed")

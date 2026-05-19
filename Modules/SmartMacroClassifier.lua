@@ -369,9 +369,28 @@ local function GetStableItemKey(item)
     return "name:" .. (item.name or "")
 end
 
-local function IsBetterItem(item, score, bestItem, bestScore)
+local function IsRawFoodName(item)
+    local name = item and item.name and item.name:lower() or ""
+    return name:find("%f[%a]raw%f[%A]") ~= nil
+end
+
+local function CompareRawFoodPreference(item, bestItem)
+    local itemIsRaw = IsRawFoodName(item)
+    local bestIsRaw = IsRawFoodName(bestItem)
+    if itemIsRaw ~= bestIsRaw then
+        return not itemIsRaw
+    end
+    return nil
+end
+
+local function IsBetterItem(item, score, bestItem, bestScore, category)
     if not bestItem then return true end
     if score ~= bestScore then return score > bestScore end
+
+    if category == "Food" then
+        local rawPreference = CompareRawFoodPreference(item, bestItem)
+        if rawPreference ~= nil then return rawPreference end
+    end
 
     return GetStableItemKey(item) > GetStableItemKey(bestItem)
 end

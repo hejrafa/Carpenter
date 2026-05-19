@@ -153,7 +153,7 @@ local function GetBestItems(debugOutput)
                                     tooltipData.useText or "?"
                                 ))
                             end
-                            if Classifier.IsBetterItem and Classifier.IsBetterItem(item, score, bestItems[category], bestScores[category] or -1) then
+                            if Classifier.IsBetterItem and Classifier.IsBetterItem(item, score, bestItems[category], bestScores[category] or -1, category) then
                                 bestScores[category] = score
                                 bestItems[category] = item
                             end
