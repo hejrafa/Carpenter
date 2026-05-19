@@ -417,6 +417,7 @@ local function RestoreFullscreenSize(mapFrame)
     if not originalFullscreenGeometry.width or not originalFullscreenGeometry.height then return end
 
     mapFrame:SetSize(originalFullscreenGeometry.width, originalFullscreenGeometry.height)
+    if mapFrame.OnFrameSizeChanged then mapFrame:OnFrameSizeChanged() end
 end
 
 local function ApplyFullscreenSize(mapFrame)
@@ -427,6 +428,7 @@ local function ApplyFullscreenSize(mapFrame)
     if not width or not height or width <= 0 or height <= 0 then return end
 
     mapFrame:SetSize(width * FULLSCREEN_MAP_SCALE, height * FULLSCREEN_MAP_SCALE)
+    if mapFrame.OnFrameSizeChanged then mapFrame:OnFrameSizeChanged() end
 end
 
 local function HideMapBlackout()
