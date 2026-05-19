@@ -23,6 +23,8 @@ local hookedWorldMap = false
 local hookedTownCityPins = false
 local hookedCursorScale = false
 local originalScrollContainerGetCursorPosition = nil
+local originalScrollContainerGetNormalizedCursorPosition = nil
+local originalWorldMapGetNormalizedCursorPosition = nil
 local customPOIProvider = nil
 local scheduleNonce = 0
 
@@ -417,9 +419,27 @@ end
 local function RestoreFullscreenSize(mapFrame)
     if not mapFrame or not mapFrame.SetSize or not originalFullscreenGeometry then return end
     if not originalFullscreenGeometry.width or not originalFullscreenGeometry.height then return end
+    if mapFrame.GetWidth and mapFrame.GetHeight then
+        local currentWidth = mapFrame:GetWidth() or 0
+        local currentHeight = mapFrame:GetHeight() or 0
+        if math.abs(currentWidth - originalFullscreenGeometry.width) < 1 and
+            math.abs(currentHeight - originalFullscreenGeometry.height) < 1 then
+            return
+        end
+    end
 
     mapFrame:SetSize(originalFullscreenGeometry.width, originalFullscreenGeometry.height)
     if mapFrame.OnFrameSizeChanged then mapFrame:OnFrameSizeChanged() end
+end
+
+local function GetScaledMapCursorPosition(container, mapFrame)
+    local x, y = MapCanvasScrollControllerMixin.GetCursorPosition(container)
+    if not x or not y then return x, y end
+
+    local scale = mapFrame and mapFrame.GetScale and mapFrame:GetScale() or 1
+    if scale == 0 then return x, y end
+
+    return x / scale, y / scale
 end
 
 local function HookScaledMapCursor()
@@ -431,27 +451,57 @@ local function HookScaledMapCursor()
 
     originalScrollContainerGetCursorPosition = scrollContainer.GetCursorPosition
     scrollContainer.GetCursorPosition = function(container)
-        local x, y = MapCanvasScrollControllerMixin.GetCursorPosition(container)
-        if not x or not y then return x, y end
+        return GetScaledMapCursorPosition(container, mapFrame)
+    end
 
-        local scale = 1
-        if mapFrame.GetScale then scale = scale * (mapFrame:GetScale() or 1) end
-        if UIParent and UIParent.GetEffectiveScale then scale = scale * (UIParent:GetEffectiveScale() or 1) end
-        if scale == 0 then return x, y end
+    originalScrollContainerGetNormalizedCursorPosition = scrollContainer.GetNormalizedCursorPosition
+    if originalScrollContainerGetNormalizedCursorPosition then
+        scrollContainer.GetNormalizedCursorPosition = function(container)
+            if MapCanvasScrollControllerMixin.GetNormalizedCursorPosition then
+                return MapCanvasScrollControllerMixin.GetNormalizedCursorPosition(container)
+            end
 
-        return x / scale, y / scale
+            local x, y = container:GetCursorPosition()
+            if not x or not y then return x, y end
+
+            local width = container.GetWidth and container:GetWidth() or 0
+            local height = container.GetHeight and container:GetHeight() or 0
+            if width == 0 or height == 0 then return nil, nil end
+
+            return x / width, y / height
+        end
+    end
+
+    originalWorldMapGetNormalizedCursorPosition = mapFrame.GetNormalizedCursorPosition
+    if originalWorldMapGetNormalizedCursorPosition then
+        mapFrame.GetNormalizedCursorPosition = function(frame)
+            local container = frame.ScrollContainer
+            if container and container.GetNormalizedCursorPosition then
+                return container:GetNormalizedCursorPosition()
+            end
+            return originalWorldMapGetNormalizedCursorPosition(frame)
+        end
     end
 
     hookedCursorScale = true
 end
 
 local function RestoreScaledMapCursor()
-    local scrollContainer = _G.WorldMapFrame and _G.WorldMapFrame.ScrollContainer
+    local mapFrame = _G.WorldMapFrame
+    local scrollContainer = mapFrame and mapFrame.ScrollContainer
     if scrollContainer and originalScrollContainerGetCursorPosition then
         scrollContainer.GetCursorPosition = originalScrollContainerGetCursorPosition
     end
+    if scrollContainer and originalScrollContainerGetNormalizedCursorPosition then
+        scrollContainer.GetNormalizedCursorPosition = originalScrollContainerGetNormalizedCursorPosition
+    end
+    if mapFrame and originalWorldMapGetNormalizedCursorPosition then
+        mapFrame.GetNormalizedCursorPosition = originalWorldMapGetNormalizedCursorPosition
+    end
 
     originalScrollContainerGetCursorPosition = nil
+    originalScrollContainerGetNormalizedCursorPosition = nil
+    originalWorldMapGetNormalizedCursorPosition = nil
     hookedCursorScale = false
 end
 
@@ -544,7 +594,9 @@ local function ApplyFullscreenMapLayout(mapFrame)
         mapFrame:ClearAllPoints()
         mapFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     end
-    if mapFrame.SetScale then mapFrame:SetScale(FULLSCREEN_MAP_SCALE) end
+    if mapFrame.SetScale and (not mapFrame.GetScale or math.abs((mapFrame:GetScale() or 1) - FULLSCREEN_MAP_SCALE) > 0.001) then
+        mapFrame:SetScale(FULLSCREEN_MAP_SCALE)
+    end
     mapFrame.CP_WorldMapCleanupApplying = false
     return true
 end
