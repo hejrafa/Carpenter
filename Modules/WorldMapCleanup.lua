@@ -10,7 +10,7 @@ local LEATRIX_SMALL_MAP_Y = -104
 local FULLSCREEN_MAP_SCALE = 0.85
 local MOVING_MAP_ALPHA = 0.5
 local MAP_FADE_DURATION = 0.25
-local GROUP_MEMBER_PIN_SIZE = 20
+local GROUP_MEMBER_PIN_SIZE = 8
 local GROUP_MEMBER_PIN_TEXTURE = "Interface\\AddOns\\Carpenter\\Art\\Icons\\GroupMemberPin.tga"
 local POI_TBC_ONLY = "tbc"
 

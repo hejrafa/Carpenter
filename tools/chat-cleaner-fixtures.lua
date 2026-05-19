@@ -349,6 +349,18 @@ local fixtures = {
         rejectColor = "|cffc69b6d",
     },
     {
+        name = "other player level up keeps name",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Mirella has reached level 13.",
+        expectPlain = "Mirella reached level 13",
+    },
+    {
+        name = "nameless level up stays unchanged",
+        event = "CHAT_MSG_SYSTEM",
+        message = "has reached level 13.",
+        expectPlain = "has reached level 13.",
+    },
+    {
         name = "guild join",
         event = "CHAT_MSG_SYSTEM",
         message = "Uzaemon has joined the guild.",

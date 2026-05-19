@@ -76,7 +76,10 @@ function System.Create(config)
         local function FormatOtherPlayerLevel(name, levelNum)
             name = TrimName(name)
             if not name or not levelNum then return nil end
-            if name:lower() == "you" then return nil end
+            local lowerName = name:lower()
+            if lowerName == "you" or lowerName == "has" or lowerName == "have" or lowerName == "reached" or lowerName == "reach" or lowerName == "congratulations" then
+                return nil
+            end
 
             if tonumber(levelNum) == 60 then
                 return colorYellow .. T("CHAT_REACHED_LEVEL", "%s reached level %s", name, levelNum) .. "|r"
@@ -98,10 +101,11 @@ function System.Create(config)
         styledOther = FormatOtherPlayerLevel(otherName, otherLevel)
         if styledOther then return styledOther end
 
-        local levelNum = plainText:match("[Rr]eached%s+level%s+(%d+)") or plainText:match("[Rr]each%s+level%s+(%d+)") or
-            plainText:match("[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
-        if levelNum and plainLower:find("level") and (plainLower:find("reached") or plainLower:find("reach") or plainLower:find("congratulations")) then
-            return levelColor .. T("CHAT_REACHED_LEVEL_NO_NAME", "Reached level %s", levelNum) .. "|r"
+        local selfLevel = plainText:match("^%s*[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$") or
+            plainText:match("^%s*[Yy]ou%s+[Hh]ave%s+[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$") or
+            plainText:match("^%s*[Yy]ou%s+[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
+        if selfLevel then
+            return levelColor .. T("CHAT_REACHED_LEVEL_NO_NAME", "Reached level %s", selfLevel) .. "|r"
         end
 
         local hitAmount = plainText:match("[Yy]ou%s+have%s+gained%s+(%d+)%s+[Hh]it [Pp]oint") or
