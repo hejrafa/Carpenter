@@ -247,7 +247,7 @@ function Loot.Create(config)
         local nameColor = getChannelMessageColor(event) or colorLootLiteral
         local function StyleGroupLoot(name, display)
             if not name or name == "" or name == "You" then return nil end
-            return spaceBeforeX(nameColor .. name .. ": " .. colorPlus .. "+|r " .. display)
+            return spaceBeforeX(nameColor .. name .. " " .. colorPlus .. "+|r " .. display)
         end
         local function MatchGroupLoot(text)
             local name, itemPart = text:match("^%s*(.-)%s+receives loot:%s*(.+)$")
