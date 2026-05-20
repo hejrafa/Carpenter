@@ -91,10 +91,11 @@ check() {
   while IFS= read -r file; do
     files+=("$file")
   done < <(lua_files)
-  luac -p "${files[@]}" "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT/tools/check-localization.lua"
+  luac -p "${files[@]}" "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT/tools/check-localization.lua" "$ROOT/tools/check-assets.lua"
   lua "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT"
   lua "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT"
   lua "$ROOT/tools/check-localization.lua" "$ROOT"
+  lua "$ROOT/tools/check-assets.lua" "$ROOT"
 
   echo "release: checks passed"
 }
@@ -173,7 +174,7 @@ usage() {
 Usage: tools/release.sh <command>
 
 Commands:
-  check                 Validate TOCs, changelog, Lua syntax, fixtures, and localization.
+  check                 Validate TOCs, changelog, Lua syntax, fixtures, localization, and assets.
   zip [version]         Create .release/Carpenter-[version].zip without hidden/dev/tools files.
   update-worktrees [ref] Fast-forward main worktrees and update detached worktrees to ref.
 EOF

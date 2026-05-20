@@ -1,5 +1,6 @@
 #!/usr/bin/env lua
--- Checks that every locale defines the same L.* keys as enUS.
+-- Checks that every locale defines the same L.* keys as enUS and that
+-- statically referenced localization keys exist in enUS.
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then
@@ -7,6 +8,10 @@ if repo:sub(-1) == "/" then
 end
 
 local locales = { "deDE", "esES", "frFR", "ptBR", "ruRU" }
+
+local function shellQuote(value)
+    return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+end
 
 local function readFile(path)
     local file, err = io.open(path, "rb")
@@ -21,6 +26,60 @@ local function collectKeys(path)
     local text = readFile(path)
     for key in text:gmatch("L%.([A-Z0-9_]+)%s*=") do
         keys[key] = true
+    end
+    return keys
+end
+
+local function collectLuaFiles()
+    local files = {}
+    local command = table.concat({
+        "find",
+        shellQuote(repo),
+        "-path",
+        shellQuote(repo .. "/.git"),
+        "-prune",
+        "-o",
+        "-path",
+        shellQuote(repo .. "/Localization"),
+        "-prune",
+        "-o",
+        "-path",
+        shellQuote(repo .. "/tools"),
+        "-prune",
+        "-o",
+        "-name '*.lua'",
+        "-print",
+    }, " ")
+    local pipe = assert(io.popen(command, "r"))
+    for path in pipe:lines() do
+        files[#files + 1] = path
+    end
+    pipe:close()
+    return files
+end
+
+local function collectStaticCodeKeys()
+    local keys = {}
+    local function addKey(key)
+        if key and not key:match("_$") then
+            keys[key] = true
+        end
+    end
+
+    for _, path in ipairs(collectLuaFiles()) do
+        local text = readFile(path)
+        for key in text:gmatch("L%.([A-Z0-9_]+)") do
+            addKey(key)
+        end
+        for key in text:gmatch("L%[%s*[\"']([A-Z0-9_]+)[\"']%s*%]") do
+            addKey(key)
+        end
+        for key in text:gmatch("T%(%s*[\"']([A-Z0-9_]+)[\"']") do
+            addKey(key)
+        end
+        for key in text:gmatch("Description%(%s*[\"']([A-Z0-9_]+)[\"']") do
+            addKey(key)
+        end
     end
     return keys
 end
@@ -65,9 +124,21 @@ for _, locale in ipairs(locales) do
     end
 end
 
+local used = collectStaticCodeKeys()
+local missingFromBase = {}
+for key in pairs(used) do
+    if not base[key] then
+        missingFromBase[#missingFromBase + 1] = key
+    end
+end
+table.sort(missingFromBase)
+if #missingFromBase > 0 then
+    failures[#failures + 1] = "enUS missing statically referenced keys: " .. table.concat(missingFromBase, ", ")
+end
+
 if #failures > 0 then
     io.stderr:write(table.concat(failures, "\n") .. "\n")
     os.exit(1)
 end
 
-print("localization parity: " .. tostring(#sortedKeys(base)) .. " keys across " .. tostring(#locales + 1) .. " locales")
+print("localization parity: " .. tostring(#sortedKeys(base)) .. " keys across " .. tostring(#locales + 1) .. " locales; static key usage covered")

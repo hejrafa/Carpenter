@@ -28,6 +28,42 @@ function Options.Create(context)
         return Description(client and client.isVanilla and "DESC_MOUNT_SPEED_TRINKET_CLASSIC" or "DESC_MOUNT_SPEED_TRINKET")
     end
 
+    local function RunGlobal(globalName)
+        local callback = _G[globalName]
+        if callback then callback() end
+    end
+
+    local function OnToggleGlobal(globalName)
+        return function()
+            RunGlobal(globalName)
+        end
+    end
+
+    local function SyncUnitFrameCombatText(configKey)
+        if Carpenter and Carpenter.IsEnabled and Carpenter:IsEnabled(configKey) then
+            RunGlobal("Carpenter_ApplyUnitFrameCombatText")
+        else
+            RunGlobal("Carpenter_RestoreUnitFrameCombatText")
+        end
+    end
+
+    local function OnToggleUnitFrameCombatText(configKey)
+        return function()
+            SyncUnitFrameCombatText(configKey)
+        end
+    end
+
+    local function OnToggleRetailUnitFrames()
+        return OnToggleGlobal("Carpenter_ApplyRetailUnitFrameCleaner")
+    end
+
+    local function OnToggleRetailUnitFramesAndCombatText(configKey)
+        return function()
+            RunGlobal("Carpenter_ApplyRetailUnitFrameCleaner")
+            SyncUnitFrameCombatText(configKey)
+        end
+    end
+
     local sections = {
         {
             title = L.SECTION_ACTION_BARS or "Action Bars",
@@ -92,9 +128,7 @@ function Options.Create(context)
                     description = Description("DESC_WORLD_MAP_CLEANUP"),
                     image = GetSettingsImage("map.png"),
                     requiresReload = false,
-                    onToggle = function()
-                        if Carpenter_ApplyWorldMapCleanup then Carpenter_ApplyWorldMapCleanup() end
-                    end,
+                    onToggle = OnToggleGlobal("Carpenter_ApplyWorldMapCleanup"),
                 },
                 {
                     key = "enhanceTooltipEnabled",
@@ -108,9 +142,7 @@ function Options.Create(context)
                     description = Description("DESC_SCALE_EXTRA_ABILITY"),
                     image = GetSettingsImage("actionbar.png"),
                     requiresReload = false,
-                    onToggle = function()
-                        if Carpenter_ApplyExtraAbilityScale then Carpenter_ApplyExtraAbilityScale() end
-                    end,
+                    onToggle = OnToggleGlobal("Carpenter_ApplyExtraAbilityScale"),
                 },
                 {
                     key = "hideBossFramesEnabled",
@@ -118,9 +150,7 @@ function Options.Create(context)
                     description = Description("DESC_HIDE_BOSS_FRAMES"),
                     image = GetSettingsImage("unitnumbers.png"),
                     requiresReload = false,
-                    onToggle = function()
-                        if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
-                    end,
+                    onToggle = OnToggleRetailUnitFrames(),
                 },
             },
         },
@@ -145,9 +175,7 @@ function Options.Create(context)
                     description = Description("DESC_TARGET_HEALTH_PERCENT"),
                     image = GetSettingsImage("targetpercentage.png"),
                     requiresReload = false,
-                    onToggle = function()
-                        if Carpenter_UpdateTargetHealthPercent then Carpenter_UpdateTargetHealthPercent() end
-                    end,
+                    onToggle = OnToggleGlobal("Carpenter_UpdateTargetHealthPercent"),
                 },
                 {
                     key = "unitFrameDebuffsEnabled",
@@ -161,9 +189,7 @@ function Options.Create(context)
                     description = Description("DESC_UNIT_FRAME_BUFFS"),
                     image = GetSettingsImage("unitbuff.png"),
                     requiresReload = false,
-                    onToggle = function()
-                        if Carpenter_UpdateUnitFrameAuras then Carpenter_UpdateUnitFrameAuras() end
-                    end,
+                    onToggle = OnToggleGlobal("Carpenter_UpdateUnitFrameAuras"),
                 },
                 {
                     key = "unitFrameClassIconEnabled",
@@ -177,13 +203,7 @@ function Options.Create(context)
                     description = Description("DESC_HIDE_UNIT_FRAME_COMBAT_TEXT"),
                     image = GetSettingsImage("unitnumbers.png"),
                     requiresReload = false,
-                    onToggle = function()
-                        if Carpenter:IsEnabled("hideUnitFrameCombatTextEnabled") then
-                            if Carpenter_ApplyUnitFrameCombatText then Carpenter_ApplyUnitFrameCombatText() end
-                        else
-                            if Carpenter_RestoreUnitFrameCombatText then Carpenter_RestoreUnitFrameCombatText() end
-                        end
-                    end,
+                    onToggle = OnToggleUnitFrameCombatText("hideUnitFrameCombatTextEnabled"),
                 },
                 {
                     key = "cleanUpUnitFramesEnabled",
@@ -191,14 +211,7 @@ function Options.Create(context)
                     description = Description("DESC_CLEAN_UP_UNIT_FRAMES"),
                     image = GetSettingsImage("unitnumbers.png"),
                     requiresReload = false,
-                    onToggle = function()
-                        if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
-                        if Carpenter:IsEnabled("cleanUpUnitFramesEnabled") then
-                            if Carpenter_ApplyUnitFrameCombatText then Carpenter_ApplyUnitFrameCombatText() end
-                        else
-                            if Carpenter_RestoreUnitFrameCombatText then Carpenter_RestoreUnitFrameCombatText() end
-                        end
-                    end,
+                    onToggle = OnToggleRetailUnitFramesAndCombatText("cleanUpUnitFramesEnabled"),
                 },
                 {
                     key = "hideUnitFramePowerBarEnabled",
@@ -206,9 +219,7 @@ function Options.Create(context)
                     description = Description("DESC_HIDE_POWER_BAR"),
                     image = GetSettingsImage("nameplatecombo.png"),
                     requiresReload = false,
-                    onToggle = function()
-                        if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
-                    end,
+                    onToggle = OnToggleRetailUnitFrames(),
                 },
                 {
                     key = "hideGroupIndicatorEnabled",
@@ -216,9 +227,7 @@ function Options.Create(context)
                     description = Description("DESC_HIDE_GROUP_INDICATOR"),
                     image = GetSettingsImage("unitnumbers.png"),
                     requiresReload = false,
-                    onToggle = function()
-                        if Carpenter_ApplyRetailUnitFrameCleaner then Carpenter_ApplyRetailUnitFrameCleaner() end
-                    end,
+                    onToggle = OnToggleRetailUnitFrames(),
                 },
             },
         },
@@ -354,9 +363,7 @@ function Options.Create(context)
                     description = Description("DESC_SETTINGS_PRESET"),
                     image = GetSettingsImage("preset.png"),
                     requiresReload = false,
-                    onToggle = function()
-                        if Carpenter_ApplyClassicSettingsPreset then Carpenter_ApplyClassicSettingsPreset() end
-                    end,
+                    onToggle = OnToggleGlobal("Carpenter_ApplyClassicSettingsPreset"),
                 },
             },
         },
@@ -369,9 +376,7 @@ function Options.Create(context)
                     description = Description("DESC_ACTION_CAM"),
                     image = GetSettingsImage("actioncam.png"),
                     requiresReload = false,
-                    onToggle = function()
-                        if Carpenter_ApplyActionCam then Carpenter_ApplyActionCam() end
-                    end,
+                    onToggle = OnToggleGlobal("Carpenter_ApplyActionCam"),
                 },
             },
         },
