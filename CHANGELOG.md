@@ -5,6 +5,7 @@
 - Added Classic Era and TBC Rogue poison macros with automatic bag-based poison selection, PvE defaults, and Shift-held PvP priorities.
 - Added draggable settings previews and clearer labels for the generated poison macros.
 - Renamed the generated poison macros to `CarpenterDamage` and `CarpenterUtility`.
+- Updated the Carpenter logo artwork.
 - Added a World Map Cleanup interface option that lowers the small map, hides the fullscreen blackout, scales maximized maps to 85%, fades the map smoothly while moving unless hovered, hides continent town/city icons, and adds dungeon, raid, and same-faction travel pins.
 - Refined World Map Cleanup visuals with dedicated settings art plus clearer travel and combined dungeon/raid map pin textures.
 - Fixed World Map Cleanup fullscreen positioning so the maximized map applies its scaled layout immediately instead of visibly hopping into place.
