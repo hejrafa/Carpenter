@@ -1,10 +1,44 @@
 # Carpenter
 
-Carpenter is a modular quality-of-life addon for WoW Classic. It cleans up noisy UI elements, improves combat readability, restyles chat feedback, and adds small automations that remove repetitive chores without changing how the game plays.
+Make WoW's default UI quieter without replacing it. Carpenter trims visual noise, cleans up chat, improves combat readability, and adds small automations that save clicks.
 
-Every feature is optional and disabled by default. Open `/carpenter` or `/cp`, turn on the pieces you want, and leave the rest alone.
+It is built for players who like Blizzard's UI, but want it calmer, sharper, and less fussy.
 
-Carpenter ships dedicated TOCs for Retail/Mainline, Classic Era, and TBC. Retail currently loads only the shared shell and settings panel so future Retail work has a safe place to land.
+Every feature is optional and disabled by default. Open `/carpenter` or `/cp`, enable what you like, reload when prompted, and leave the rest alone.
+
+## Why Carpenter?
+
+- No full UI replacement, just focused cleanup toggles.
+- Every feature is optional and off by default.
+- Works across Retail/Mainline, Classic Era, and TBC with flavor-specific options.
+- Keeps Blizzard's UI recognizable while making common information easier to scan.
+- Adds quality-of-life automation without changing how the game plays.
+
+## What It Fixes
+
+### Chat Gets Readable Again
+
+Carpenter restyles loot, XP, reputation, money, rolls, repairs, auctions, learned skills, level-ups, and other system messages into compact, color-coded lines. It also filters common bot spam, gambling messages, and duplicate chat lines.
+
+### Combat Information Is Easier To Scan
+
+Class-colored health bars, nameplate cast names, combo points, crowd-control tracking, threat percentage, class-icon portraits, and cleaner unit frames help important information stand out faster.
+
+### The Default UI Stops Shouting
+
+Hide macro names, hotkey labels, minimap clutter, chat buttons, stance bars, frame decoration, combat text on unit frames, error spam, and other visual noise that builds up around the default UI.
+
+### Small Chores Disappear
+
+Auto sell junk, auto repair, auto track newly accepted quests, swap mount-speed trinkets, generate consumable macros, and generate Rogue poison macros that follow your bags.
+
+## Best For
+
+Players who like Blizzard's UI but want it cleaner, quieter, and easier to read.
+
+## Not For
+
+Players looking for a full UI replacement, custom layout framework, or complete unit-frame suite.
 
 ## Features
 
@@ -18,46 +52,82 @@ Carpenter ships dedicated TOCs for Retail/Mainline, Classic Era, and TBC. Retail
 
 ### Interface
 
-- **Fade Micro Menu & Bags** - Hide the micro menu and bag bar until you hover them. TBC only.
-- **Resize Exp & Rep Bars** - Make experience and reputation bars smaller and transparent. TBC only.
+- **Fade Micro Menu & Bags** - Hide the micro menu and bag bar until you hover.
+- **Resize Exp & Rep Bars** - Make experience and reputation bars smaller and less visually loud.
 - **Remove Minimap Clutter** - Hide minimap zoom buttons, day/night icon, and zone text.
-- **Enhanced Tooltip** - Clean up unit tooltips with clearer health, level, and target-of-target information.
+- **World Map Cleanup** - Lower the small map, remove fullscreen blackout, fade while moving, hide continent city clutter, and add dungeon, raid, and same-faction travel pins.
+- **Enhanced Tooltip** - Clean up unit tooltips with clearer health, level, and target information.
+- **Scale Extra Ability** - Reduce oversized Retail extra action and zone ability buttons.
 
 ### Unit Frames
 
-- **Class Colored Health** - Use class colors for player health bars instead of default green.
+- **Class Colored Health** - Use class colors for player, target, focus, and party health bars where class information is available.
 - **Threat Percentage** - Show your threat percentage on the target frame.
-- **Debuffs** - Highlight important crowd control and debuffs on player and target frames.
+- **Target Percentages** - Show compact health and resource percentages on target frames.
+- **Debuffs** - Highlight important crowd control effects on player and target unit frames.
+- **Buffs** - Highlight important player buffs on the player unit frame.
 - **Class Icon Portrait** - Replace unit portraits with class icons.
-- **Hide Combat Text** - Remove floating combat numbers from unit frames.
+- **Hide Unit Frame Combat Text** - Remove floating combat numbers and state text from unit frames.
+- **Clean Unit Frame** - Hide Retail frame clutter such as PvP icons, rest animation, health-loss effects, realm indicators, party title text, and related decoration.
+- **Hide Boss Frames** - Fade Retail boss frames and disable mouse interaction.
+- **Hide Combo/Power Bar** - Hide Retail class resource widgets.
+- **Hide Group Indicator** - Hide the small group marker on the player frame.
 
 ### Nameplates
 
-- **Debuffs** - Show important crowd control and debuffs above enemy nameplates.
-- **Combo Points** - Display combo points on your target's nameplate.
-- **Spell Names** - Show spell names on nameplate cast bars.
+- **Debuffs** - Show important crowd control effects above enemy nameplates.
+- **Combo Points** - Display combo points on the target nameplate.
+- **Cast Bar** - Show spell icons, names, progress, and interrupt feedback under enemy nameplates.
 - **Class Colored Health** - Use class colors for enemy player nameplate health bars.
-- **Raid Target Icon Aligned** - Align raid target icons cleanly with the nameplate.
+- **Raid Target Icon Aligned** - Move raid target icons closer to the nameplate they belong to.
 
 ### Chat
 
-- **Filter** - Block trade bots, gambling messages, and duplicates.
-- **Cleaner** - Restyle system, loot, experience, reputation, money, and level-up messages.
-- **Hide Chat Buttons** - Hide Social, Channels, and Voice buttons until hover.
+- **Filter** - Block common bot spam, gambling messages, and duplicate lines.
+- **Cleaner** - Restyle system, loot, experience, reputation, money, skill, level-up, currency, repair, auction, and roll messages.
+- **Hide Chat Buttons** - Hide Social, Channels, Voice, scroll, and minimize buttons until hover.
 
 ### Automations
 
 - **Mount Speed Trinket** - Equip Carrot on a Stick in Classic Era, or Riding Crop/Carrot in TBC, when mounting.
-- **Consumable Macros** - Create macros that track your best food, water, health potion, mana potion, and bandage.
+- **Consumable Macros** - Create draggable macros that track your best food, water, health potion, mana potion, and supported bandage.
+- **Poison Macros** - Create Rogue poison macros with PvE priorities by default and PvP priorities while holding Shift.
 - **Auto Track Quests** - Add newly accepted quests to the objective tracker.
 - **Auto Sell Junk** - Sell grey items at vendors. Hold Shift to skip.
 - **Auto Repair** - Repair gear at vendors. Hold Shift to skip.
 
 ### Text
 
-- **Poison Warning** - Alert when your weapon buff is about to expire or has fallen off.
+- **Poison Warning** - Alert when your weapon buff is missing or about to expire.
 - **Hide Error Messages** - Silence common spam like "Out of range" and "Not enough energy" while keeping useful errors visible.
+
+### Settings
+
+- **Classic Settings Preset** - Apply a quick Classic baseline for auto loot, nameplates, health percentages, and extra action bars.
 
 ### Immersion
 
 - **Action Cam** - Enable an over-the-shoulder cinematic camera.
+
+## Compatibility
+
+- Retail / Mainline
+- WoW Classic Era / Anniversary
+- WoW Classic TBC
+
+Some options are only available on specific game flavors. Carpenter hides unsupported settings automatically.
+
+## Configuration
+
+Type `/carpenter` or `/cp` in-game to open the settings panel.
+
+## Gallery Ideas
+
+When updating the CurseForge gallery, the strongest screenshots would be:
+
+- A before/after chat cleanup example.
+- The settings panel with a hovered option preview.
+- World Map Cleanup before/after.
+- Nameplate combat readability with cast names, combo points, or CC tracking.
+- Consumable or poison macro sidebar previews.
+- A clean hero image with the line: "Default UI, cleaned up."
