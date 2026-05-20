@@ -135,6 +135,7 @@ local lootFormatter = ChatCleanerLoot.Create and ChatCleanerLoot.Create({
     RollPatternsFallback = RollPatternsFallback,
     ColorPlus = ColorPlus,
     ColorLootLiteral = ColorLootLiteral,
+    ColorGreen = ColorGreen,
     GetChannelMessageColor = GetChannelMessageColor,
 }) or {}
 local FormatSelfLootMessage = lootFormatter.FormatSelfLootMessage
@@ -228,6 +229,7 @@ local postProcessor = ChatCleanerPostProcess.Create and ChatCleanerPostProcess.C
     SpaceBeforeX = SpaceBeforeX,
     ColorPlus = ColorPlus,
     ColorLootLiteral = ColorLootLiteral,
+    ColorGreen = ColorGreen,
     GetChannelMessageColor = GetChannelMessageColor,
     ColorRed = ColorRed,
     HonorDelay = 3,

@@ -126,6 +126,7 @@ function Loot.Create(config)
     local rollPatternsFallback = config.RollPatternsFallback or Loot.RollPatternsFallback
     local colorPlus = config.ColorPlus or "|cffc8c8c8"
     local colorLootLiteral = config.ColorLootLiteral or "|cffc8c8c8"
+    local colorGreen = config.ColorGreen or "|cff00ff00"
     local getChannelMessageColor = config.GetChannelMessageColor or function() return colorLootLiteral end
     local L = config.L or (Carpenter and Carpenter.L) or {}
 
@@ -142,6 +143,11 @@ function Loot.Create(config)
     end
 
     local api = {}
+
+    local function StyleBareLootDisplay(display)
+        if not display or display == "" or display:find("|Hitem:", 1, true) then return display end
+        return colorGreen .. display .. "|r"
+    end
 
     local function IsRollPayload(text)
         if not text or type(text) ~= "string" then return false end
@@ -205,7 +211,7 @@ function Loot.Create(config)
             if lootPayload and not IsRollPayload(lootPayload) then
                 local display = formatReceivedDisplay(lootPayload, message)
                 local lootLabelColor = getChannelMessageColor(event) or colorLootLiteral
-                if display then return lootLabelColor .. "Loot|r " .. prefixPlus .. display end
+                if display then return lootLabelColor .. "Loot|r " .. prefixPlus .. StyleBareLootDisplay(display) end
             end
         end
         if item then

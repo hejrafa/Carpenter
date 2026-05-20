@@ -203,14 +203,14 @@ local fixtures = {
         event = "CHAT_MSG_LOOT",
         message = "Loot: Sentry's Gloves of the Monkey",
         expectPlain = "Loot + Sentry's Gloves of the Monkey",
-        requireColor = "|cffffffffLoot|r",
+        requireColors = { "|cffffffffLoot|r", "|cff00ff00Sentry's Gloves of the Monkey|r" },
     },
     {
         name = "bare loot prefix item",
         event = "CHAT_MSG_SYSTEM",
         message = "Loot: Malachite",
         expectPlain = "Loot + Malachite",
-        requireColor = "|cffffffffLoot|r",
+        requireColors = { "|cffffffffLoot|r", "|cff00ff00Malachite|r" },
     },
     {
         name = "group bare loot prefix item uses party color",
@@ -218,7 +218,7 @@ local fixtures = {
         groupMembers = 2,
         message = "Loot: Malachite",
         expectPlain = "Loot + Malachite",
-        requireColor = "|cffaaaaffLoot|r",
+        requireColors = { "|cffaaaaffLoot|r", "|cff00ff00Malachite|r" },
     },
     {
         name = "bare loot post-process item",
@@ -226,7 +226,7 @@ local fixtures = {
         event = "CHAT_MSG_LOOT",
         message = "Loot: Disciple's Robe of the Eagle",
         expectPlain = "Loot + Disciple's Robe of the Eagle",
-        requireColor = "|cffffffffLoot|r",
+        requireColors = { "|cffffffffLoot|r", "|cff00ff00Disciple's Robe of the Eagle|r" },
     },
     {
         name = "group bare loot post-process item uses party color",
@@ -235,7 +235,7 @@ local fixtures = {
         groupMembers = 2,
         message = "|cff00ff00Loot:|r Disciple's Robe of the Eagle",
         expectPlain = "Loot + Disciple's Robe of the Eagle",
-        requireColor = "|cffaaaaffLoot|r",
+        requireColors = { "|cffaaaaffLoot|r", "|cff00ff00Disciple's Robe of the Eagle|r" },
     },
     {
         name = "raid bare loot post-process item uses raid color",
@@ -245,7 +245,7 @@ local fixtures = {
         inRaid = true,
         message = "|cff00ff00Loot:|r Disciple's Robe of the Eagle",
         expectPlain = "Loot + Disciple's Robe of the Eagle",
-        requireColor = "|cffff7f00Loot|r",
+        requireColors = { "|cffff7f00Loot|r", "|cff00ff00Disciple's Robe of the Eagle|r" },
     },
     {
         name = "colored bare loot post-process item",
@@ -253,7 +253,7 @@ local fixtures = {
         event = "CHAT_MSG_LOOT",
         message = "|cff00ff00Loot:|r Disciple's Robe of the Eagle",
         expectPlain = "Loot + Disciple's Robe of the Eagle",
-        requireColor = "|cffffffffLoot|r",
+        requireColors = { "|cffffffffLoot|r", "|cff00ff00Disciple's Robe of the Eagle|r" },
     },
     {
         name = "colored bare loot post-process line",
@@ -261,7 +261,7 @@ local fixtures = {
         event = "CHAT_MSG_LOOT",
         message = "|cff00ff00Loot: Disciple's Robe of the Eagle|r",
         expectPlain = "Loot + Disciple's Robe of the Eagle",
-        requireColor = "|cffffffffLoot|r",
+        requireColors = { "|cffffffffLoot|r", "|cff00ff00Disciple's Robe of the Eagle|r" },
     },
     {
         name = "group loot channel uses party color",
@@ -419,6 +419,13 @@ for _, fixture in ipairs(fixtures) do
         failures[#failures + 1] = fixture.name .. ": output used rejected text " .. fixture.rejectPlain
     elseif fixture.requireColor and (not out or not out:find(fixture.requireColor, 1, true)) then
         failures[#failures + 1] = fixture.name .. ": output did not include required color " .. fixture.requireColor
+    elseif fixture.requireColors then
+        for _, requiredColor in ipairs(fixture.requireColors) do
+            if not out or not out:find(requiredColor, 1, true) then
+                failures[#failures + 1] = fixture.name .. ": output did not include required color " .. requiredColor
+                break
+            end
+        end
     elseif fixture.rejectColor and out and out:find(fixture.rejectColor, 1, true) then
         failures[#failures + 1] = fixture.name .. ": output used rejected color " .. fixture.rejectColor
     end
