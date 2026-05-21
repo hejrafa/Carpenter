@@ -3,7 +3,7 @@
 -- with a smooth transition, just like the micromenu.
 
 local HIDDEN_OPACITY = 0
-local HOVER_OPACITY = 0.65 -- 65% transparent when visible as requested
+local HOVER_OPACITY = 1
 local FADE_IN_SPEED = 0.25
 local FADE_OUT_SPEED = 0.08
 local UPDATE_INTERVAL = 0.05
@@ -129,11 +129,17 @@ for _, group in ipairs({chatButtons, arrowButtons, minimizeButtons}) do
 end
 
 local chatTabs = {}
+local chatFrames = {}
 
-local function RefreshChatTabs()
+local function RefreshChatFrames()
     chatTabs = {}
+    chatFrames = {}
     for i = 1, NUM_CHAT_WINDOWS or 10 do
+        local chatFrame = _G["ChatFrame" .. i]
         local tab = _G["ChatFrame" .. i .. "Tab"]
+        if chatFrame then
+            table.insert(chatFrames, chatFrame)
+        end
         if tab then
             HookManagedFrame(tab)
             table.insert(chatTabs, tab)
@@ -175,10 +181,19 @@ hoverFrame:SetScript("OnUpdate", function(self, elapsed)
     
     -- Also check each button individually
     if not mouseOverButtons then
-        RefreshChatTabs()
+        RefreshChatFrames()
         for _, buttonName in ipairs(allChatButtons) do
             local button = _G[buttonName]
             if button and MouseIsOver(button) then
+                mouseOverButtons = true
+                break
+            end
+        end
+    end
+
+    if not mouseOverButtons then
+        for _, chatFrame in ipairs(chatFrames) do
+            if chatFrame and MouseIsOver(chatFrame) then
                 mouseOverButtons = true
                 break
             end
@@ -219,25 +234,25 @@ local frame = CreateFrame("Frame")
 
 local function ApplyStartupState()
     currentAlpha = HIDDEN_OPACITY
-    RefreshChatTabs()
+    RefreshChatFrames()
     ApplyTransparency(HIDDEN_OPACITY)
     if IsEnabled() then hoverFrame:Show() else hoverFrame:Hide() end
 
     -- Secondary enforcement after a small delay to catch lazy-loading buttons
     if Carpenter and Carpenter.DeferMany then
         Carpenter:DeferMany("HideChatButtons:startup", { 2, 5 }, function()
-            RefreshChatTabs()
+            RefreshChatFrames()
             ApplyTransparency(currentAlpha)
             if IsEnabled() then hoverFrame:Show() else hoverFrame:Hide() end
         end)
     else
         C_Timer.After(2, function()
-            RefreshChatTabs()
+            RefreshChatFrames()
             ApplyTransparency(currentAlpha)
             if IsEnabled() then hoverFrame:Show() else hoverFrame:Hide() end
         end)
         C_Timer.After(5, function()
-            RefreshChatTabs()
+            RefreshChatFrames()
             ApplyTransparency(currentAlpha)
             if IsEnabled() then hoverFrame:Show() else hoverFrame:Hide() end
         end)

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.5
+
+- Fixed hidden chat buttons so hovering the chat area restores them to full opacity.
+
 ## 1.6.4
 
 - Added Classic Era and TBC Rogue poison macros with automatic bag-based poison selection, PvE defaults, and Shift-held PvP priorities.
