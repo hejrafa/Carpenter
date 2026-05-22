@@ -1,6 +1,6 @@
 --[[ Carpenter - World Map Cleanup ]]
 -- Classic Era/TBC map tweaks: move the default map, reduce settlement markers,
--- and add practical POIs for dungeons, raids, and same-faction travel.
+-- and optionally add practical POIs for dungeons, raids, and same-faction travel.
 
 if Carpenter and Carpenter.Client and not Carpenter.Client.isClassic then return end
 
@@ -353,6 +353,10 @@ local POI_DATA = {
 
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("worldMapCleanupEnabled")
+end
+
+local function ShouldShowMapPOIIcons()
+    return IsEnabled() and CarpenterDB and CarpenterDB.worldMapPOIIconsEnabled == true
 end
 
 local function SafeRegisterEvent(event)
@@ -885,7 +889,7 @@ local function EnsurePOIProvider()
         RemovePOIPinsFromMap(map)
         if map ~= _G.WorldMapFrame then RemovePOIPinsFromMap(_G.WorldMapFrame) end
 
-        if not IsEnabled() or not map then return end
+        if not ShouldShowMapPOIIcons() or not map then return end
 
         local pins = POI_DATA[GetPOIMapID(map)]
         if not pins then return end
@@ -903,7 +907,7 @@ local function EnsurePOIProvider()
 end
 
 local function ApplyPOIPins()
-    if not IsEnabled() then
+    if not ShouldShowMapPOIIcons() then
         RemovePOIPins()
         return
     end

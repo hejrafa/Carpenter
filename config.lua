@@ -320,6 +320,7 @@ local OPTION_SECTIONS = ConfigOptions.Create and ConfigOptions.Create({
     ShowMacroPreviews = sidebarApi.ShowMacroPreviews,
     ShowPoisonMacroPreviews = sidebarApi.ShowPoisonMacroPreviews,
     ShowSellJunkOptions = sidebarApi.ShowSellJunkOptions,
+    ShowWorldMapOptions = sidebarApi.ShowWorldMapOptions,
 }) or {}
 
 local function IsOptionAvailable(option)

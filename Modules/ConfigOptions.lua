@@ -16,6 +16,7 @@ function Options.Create(context)
     local ShowMacroPreviews = context.ShowMacroPreviews
     local ShowPoisonMacroPreviews = context.ShowPoisonMacroPreviews
     local ShowSellJunkOptions = context.ShowSellJunkOptions
+    local ShowWorldMapOptions = context.ShowWorldMapOptions
 
     local function Description(key)
         local text = L[key] or key
@@ -126,6 +127,7 @@ function Options.Create(context)
                     key = "worldMapCleanupEnabled",
                     label = L.OPTION_WORLD_MAP_CLEANUP or "World Map Cleanup",
                     description = Description("DESC_WORLD_MAP_CLEANUP"),
+                    sideLogic = ShowWorldMapOptions,
                     image = GetSettingsImage("map.png"),
                     requiresReload = false,
                     onToggle = OnToggleGlobal("Carpenter_ApplyWorldMapCleanup"),

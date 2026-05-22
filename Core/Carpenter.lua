@@ -20,6 +20,7 @@ local defaults = {
     smallerExpBarEnabled = false,
     minimapClutterEnabled = false,
     worldMapCleanupEnabled = false,
+    worldMapPOIIconsEnabled = false,
     enhanceTooltipEnabled = false,
     scaleExtraAbilityEnabled = false,
     -- Unit Frames

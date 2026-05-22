@@ -114,7 +114,9 @@ function Sidebar.Create(context)
         for _, name in ipairs(filters) do
             if _G[name] then _G[name]:Hide() end
         end
-        
+        if _G["CP_WorldMap_POIIcons"] then
+            _G["CP_WorldMap_POIIcons"]:Hide()
+        end
     end
 
     local function IsRetailClient()
@@ -272,6 +274,36 @@ function Sidebar.Create(context)
         sideContent:Show()
     end
 
+    local function ShowWorldMapOptions()
+        HideAllSideContent()
+        sideContent:ClearAllPoints()
+        sideContent:SetPoint("TOPLEFT", sideDesc, "BOTTOMLEFT", 0, -SIDE_GAP)
+        sideContent:Show()
+
+        if not _G["CP_WorldMap_POIIcons"] then
+            local cb = CreateFrame("CheckButton", "CP_WorldMap_POIIcons", sideContent, "InterfaceOptionsCheckButtonTemplate")
+            cb:SetPoint("TOPLEFT", 0, 0)
+            _G[cb:GetName() .. "Text"]:SetText(L.OPTION_WORLD_MAP_POI_ICONS or "Show Map POI Icons")
+            _G[cb:GetName() .. "Text"]:SetFontObject("GameFontHighlight")
+            _G[cb:GetName() .. "Text"]:SetTextColor(0.67, 0.67, 0.67, 1)
+            cb:SetScript("OnClick", function(self)
+                if CarpenterDB then
+                    CarpenterDB.worldMapPOIIconsEnabled = self:GetChecked()
+                    UpdateReloadButton()
+                    if Carpenter_ApplyWorldMapCleanup then
+                        Carpenter_ApplyWorldMapCleanup()
+                    end
+                end
+            end)
+        end
+
+        local checkbox = _G["CP_WorldMap_POIIcons"]
+        if checkbox then
+            checkbox:Show()
+            checkbox:SetChecked(CarpenterDB and CarpenterDB.worldMapPOIIconsEnabled)
+        end
+    end
+
     local function ShowFilterOptions()
         HideAllSideContent()
         sideContent:ClearAllPoints()
@@ -319,6 +351,7 @@ function Sidebar.Create(context)
         ShowMacroPreviews = ShowMacroPreviews,
         ShowPoisonMacroPreviews = ShowPoisonMacroPreviews,
         ShowSellJunkOptions = ShowSellJunkOptions,
+        ShowWorldMapOptions = ShowWorldMapOptions,
         ShowFilterOptions = ShowFilterOptions,
         SideGap = SIDE_GAP,
     }

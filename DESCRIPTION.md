@@ -55,7 +55,7 @@ Players looking for a full UI replacement, custom layout framework, or complete 
 - **Fade Micro Menu & Bags** - Hide the micro menu and bag bar until you hover.
 - **Resize Exp & Rep Bars** - Make experience and reputation bars smaller and less visually loud.
 - **Remove Minimap Clutter** - Hide minimap zoom buttons, day/night icon, and zone text.
-- **World Map Cleanup** - Lower the small map, remove fullscreen blackout, fade while moving, hide continent city clutter, and add dungeon, raid, and same-faction travel pins.
+- **World Map Cleanup** - Lower the small map, remove fullscreen blackout, fade while moving, hide continent city clutter, and optionally show dungeon, raid, and same-faction travel pins.
 - **Enhanced Tooltip** - Clean up unit tooltips with clearer health, level, and target information.
 - **Scale Extra Ability** - Reduce oversized Retail extra action and zone ability buttons.
 
