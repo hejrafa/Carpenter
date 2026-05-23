@@ -3,9 +3,11 @@
 
 local frame = CreateFrame("Frame")
 local fallbackMemory = { order = {}, quests = {} }
+local nativeWatchMemory = { order = {}, quests = {} }
 local hookedQuestWatchUpdate = false
 local hookedQuestLogUpdate = false
 local originalQuestLogTitleButton_OnClick = nil
+local AddQuestToWatch
 
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("autoTrackQuestsEnabled")
@@ -62,6 +64,26 @@ local function GetFallbackState()
     return state
 end
 
+local function GetNativeWatchState()
+    if type(CarpenterDB) ~= "table" then
+        return nativeWatchMemory
+    end
+
+    local state = CarpenterDB.autoTrackQuestWatches
+    if type(state) ~= "table" then
+        state = {}
+        CarpenterDB.autoTrackQuestWatches = state
+    end
+    if type(state.order) ~= "table" then
+        state.order = {}
+    end
+    if type(state.quests) ~= "table" then
+        state.quests = {}
+    end
+
+    return state
+end
+
 local function MakeQuestKey(questID, questName)
     if questID and questID > 0 then
         return tostring(questID)
@@ -73,8 +95,63 @@ local function MakeQuestKey(questID, questName)
 end
 
 local function GetQuestDisplayTitle(index, fallbackTitle)
+    if not index then
+        return CleanQuestText(fallbackTitle)
+    end
+
     local _, title = GetQuestInfo(index)
     return CleanQuestText(title) or CleanQuestText(fallbackTitle)
+end
+
+local function RemoveQuestStateEntry(state, key)
+    if not state or not key then return false end
+
+    local removed = false
+    if state.quests and state.quests[key] ~= nil then
+        state.quests[key] = nil
+        removed = true
+    end
+    if type(state.order) == "table" then
+        for index = #state.order, 1, -1 do
+            if state.order[index] == key then
+                tremove(state.order, index)
+                removed = true
+            end
+        end
+    end
+
+    return removed
+end
+
+local function RememberNativeQuestWatch(index, questID, questName)
+    local logQuestID, title, isHeader
+    if index then
+        logQuestID, title, isHeader = GetQuestInfo(index)
+        if isHeader then return false end
+    end
+
+    questID = questID or logQuestID
+    questName = GetQuestDisplayTitle(index, questName or title)
+
+    local key = MakeQuestKey(questID, questName)
+    if not key then return false end
+
+    local state = GetNativeWatchState()
+    if not state.quests[key] then
+        tinsert(state.order, key)
+    end
+
+    state.quests[key] = {
+        questID = questID,
+        title = questName,
+    }
+
+    return true
+end
+
+local function RemoveNativeQuestWatch(questID, questName)
+    local key = MakeQuestKey(questID, questName)
+    return RemoveQuestStateEntry(GetNativeWatchState(), key)
 end
 
 local function GetQuestObjectiveText(index, fallbackText)
@@ -114,6 +191,39 @@ local function QuestHasTrackableObjectives(index)
     return numObjectives > 0
 end
 
+local function IsQuestCurrentlyWatched(index, questID)
+    if C_QuestLog and C_QuestLog.IsQuestWatched and questID then
+        local ok, watched = pcall(C_QuestLog.IsQuestWatched, questID)
+        if ok and watched ~= nil then
+            return watched == true
+        end
+    end
+
+    if IsQuestWatched and index then
+        local watched = IsQuestWatched(index)
+        return watched == true or watched == 1
+    end
+
+    if GetNumQuestWatches and GetQuestIndexForWatch and index then
+        for watchIndex = 1, GetNumQuestWatches() do
+            if GetQuestIndexForWatch(watchIndex) == index then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+local function CanAddNativeQuestWatch(index, questID)
+    if IsQuestCurrentlyWatched(index, questID) then return true end
+    if GetNumQuestWatches then
+        local maxWatches = MAX_WATCHABLE_QUESTS or 5
+        return (GetNumQuestWatches() or 0) < maxWatches
+    end
+    return true
+end
+
 local function FindQuestLogIndex(questID, questName)
     local numEntries = GetQuestLogSize()
     for index = 1, numEntries do
@@ -137,18 +247,7 @@ end
 
 local function RemoveFallbackQuestWatch(questID, questName)
     local key = MakeQuestKey(questID, questName)
-    if not key then return false end
-
-    local state = GetFallbackState()
-    if not state.quests[key] then return false end
-
-    state.quests[key] = nil
-    for index = #state.order, 1, -1 do
-        if state.order[index] == key then
-            tremove(state.order, index)
-        end
-    end
-    return true
+    return RemoveQuestStateEntry(GetFallbackState(), key)
 end
 
 local function RefreshQuestTracker()
@@ -170,6 +269,10 @@ local function RefreshQuestTracker()
     if QuestLog_Update then
         QuestLog_Update()
     end
+end
+
+local function SafeRegisterEvent(event)
+    pcall(frame.RegisterEvent, frame, event)
 end
 
 local function AddFallbackQuestWatch(index, questID, questName, objectiveText, quiet)
@@ -221,10 +324,18 @@ local function PruneFallbackQuestWatches()
         local watch = state.quests[key]
         local questIndex = watch and FindQuestLogIndex(watch.questID, watch.title)
 
-        if not watch or not questIndex or QuestHasTrackableObjectives(questIndex) then
+        if not watch or not questIndex then
             if watch then
                 state.quests[key] = nil
             end
+            tremove(state.order, index)
+            changed = true
+        elseif QuestHasTrackableObjectives(questIndex) then
+            local logQuestID, title = GetQuestInfo(questIndex)
+            if AddQuestToWatch and AddQuestToWatch(questIndex, logQuestID or watch.questID, true) then
+                RememberNativeQuestWatch(questIndex, logQuestID or watch.questID, title or watch.title)
+            end
+            state.quests[key] = nil
             tremove(state.order, index)
             changed = true
         else
@@ -250,26 +361,83 @@ local function IsValidQuestLogIndex(index, questID, questName)
     return true
 end
 
-local function AddQuestToWatch(index, questID)
+AddQuestToWatch = function(index, questID, skipRefresh)
     if index and not QuestHasTrackableObjectives(index) then
         return false
+    end
+
+    if not CanAddNativeQuestWatch(index, questID) then
+        return false
+    end
+
+    local function Finish()
+        if not skipRefresh then
+            RefreshQuestTracker()
+        end
+        return true
+    end
+
+    if IsQuestCurrentlyWatched(index, questID) then
+        return Finish()
     end
 
     if C_QuestLog and C_QuestLog.AddQuestWatch and questID then
         local watched = C_QuestLog.AddQuestWatch(questID)
         if watched ~= false then
-            RefreshQuestTracker()
-            return true
+            return Finish()
         end
     end
 
     if AddQuestWatch and index then
         AddQuestWatch(index)
-        RefreshQuestTracker()
-        return true
+        return Finish()
     end
 
     return false
+end
+
+local function RememberCurrentNativeQuestWatches()
+    if not GetNumQuestWatches or not GetQuestIndexForWatch then return end
+
+    for watchIndex = 1, GetNumQuestWatches() do
+        local questIndex = GetQuestIndexForWatch(watchIndex)
+        if questIndex and QuestHasTrackableObjectives(questIndex) then
+            local questID, title, isHeader = GetQuestInfo(questIndex)
+            if not isHeader then
+                RememberNativeQuestWatch(questIndex, questID, title)
+            end
+        end
+    end
+end
+
+local function RestoreNativeQuestWatches()
+    local state = GetNativeWatchState()
+    local changed = false
+    local index = 1
+
+    while index <= #state.order do
+        local key = state.order[index]
+        local watch = state.quests[key]
+        local questIndex = watch and FindQuestLogIndex(watch.questID, watch.title)
+
+        if not watch or not questIndex then
+            RemoveQuestStateEntry(state, key)
+            changed = true
+        elseif not QuestHasTrackableObjectives(questIndex) then
+            index = index + 1
+        else
+            local logQuestID, title = GetQuestInfo(questIndex)
+            watch.questID = watch.questID or logQuestID
+            watch.title = GetQuestDisplayTitle(questIndex, title or watch.title)
+
+            if not IsQuestCurrentlyWatched(questIndex, watch.questID) and AddQuestToWatch(questIndex, watch.questID, true) then
+                changed = true
+            end
+            index = index + 1
+        end
+    end
+
+    return changed
 end
 
 local function GetNativeQuestWatchLineIndex()
@@ -443,11 +611,17 @@ local function HookQuestWatchUpdates()
     if not originalQuestLogTitleButton_OnClick and QuestLogTitleButton_OnClick then
         originalQuestLogTitleButton_OnClick = QuestLogTitleButton_OnClick
         QuestLogTitleButton_OnClick = function(self, button)
+            local nativeQuestIndex, nativeQuestID, nativeQuestTitle, wasNativeWatched
+
             if IsEnabled() and IsShiftKeyDown() and self and not self.isHeader then
                 if not (IsModifiedClick and IsModifiedClick("CHATLINK") and ChatEdit_GetActiveWindow and ChatEdit_GetActiveWindow()) then
                     local offset = QuestLogListScrollFrame and FauxScrollFrame_GetOffset and FauxScrollFrame_GetOffset(QuestLogListScrollFrame) or 0
                     local questIndex = self:GetID() + offset
-                    if questIndex and not QuestHasTrackableObjectives(questIndex) then
+                    if questIndex and QuestHasTrackableObjectives(questIndex) then
+                        nativeQuestIndex = questIndex
+                        nativeQuestID, nativeQuestTitle = GetQuestInfo(questIndex)
+                        wasNativeWatched = IsQuestCurrentlyWatched(questIndex, nativeQuestID)
+                    elseif questIndex then
                         local questID, title = GetQuestInfo(questIndex)
                         if IsFallbackQuestWatched(questID, title) then
                             RemoveFallbackQuestWatch(questID, title)
@@ -466,7 +640,17 @@ local function HookQuestWatchUpdates()
                 end
             end
 
-            return originalQuestLogTitleButton_OnClick(self, button)
+            local results = { originalQuestLogTitleButton_OnClick(self, button) }
+
+            if nativeQuestIndex then
+                if IsQuestCurrentlyWatched(nativeQuestIndex, nativeQuestID) then
+                    RememberNativeQuestWatch(nativeQuestIndex, nativeQuestID, nativeQuestTitle)
+                elseif wasNativeWatched then
+                    RemoveNativeQuestWatch(nativeQuestID, nativeQuestTitle)
+                end
+            end
+
+            return unpack(results)
         end
     end
 end
@@ -480,6 +664,7 @@ local function TrackQuest(questLogIndex, questID, questName, objectiveText)
     end
 
     if AddQuestToWatch(index, questID) then
+        RememberNativeQuestWatch(index, questID, questName)
         RemoveFallbackQuestWatch(questID, questName)
         return
     end
@@ -491,14 +676,17 @@ end
 
 HookQuestWatchUpdates()
 
-frame:RegisterEvent("QUEST_ACCEPTED")
-frame:RegisterEvent("QUEST_LOG_UPDATE")
-frame:RegisterEvent("PLAYER_LOGIN")
+SafeRegisterEvent("QUEST_ACCEPTED")
+SafeRegisterEvent("QUEST_LOG_UPDATE")
+SafeRegisterEvent("QUEST_WATCH_UPDATE")
+SafeRegisterEvent("PLAYER_LOGIN")
 frame:SetScript("OnEvent", function(_, event, questLogIndex, questID)
     HookQuestWatchUpdates()
 
-    if event == "QUEST_LOG_UPDATE" or event == "PLAYER_LOGIN" then
+    if event == "QUEST_LOG_UPDATE" or event == "QUEST_WATCH_UPDATE" or event == "PLAYER_LOGIN" then
         PruneFallbackQuestWatches()
+        RememberCurrentNativeQuestWatches()
+        RestoreNativeQuestWatches()
         if Carpenter and Carpenter.After then
             Carpenter:After(0, function()
                 if QuestWatch_Update then

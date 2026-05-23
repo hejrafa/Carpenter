@@ -82,7 +82,7 @@ Auto sell junk, auto repair, auto track newly accepted quests, swap mount-speed 
 - **Mount Speed Trinket** - Equip Carrot on a Stick in Classic Era, or Riding Crop/Carrot in TBC, when mounting.
 - **Consumable Macros** - Create draggable macros that track your best food, water, health potion, mana potion, and supported bandage.
 - **Poison Macros** - Create Rogue poison macros with PvE priorities by default and PvP priorities while holding Shift.
-- **Auto Track Quests** - Add newly accepted quests to the objective tracker.
+- **Auto Track Quests** - Add newly accepted quests to the objective tracker and keep tracked quests pinned after Classic's temporary auto-watch expires.
 - **Auto Sell Junk** - Sell grey items at vendors. Hold Shift to skip.
 - **Auto Repair** - Repair gear at vendors. Hold Shift to skip.
 
