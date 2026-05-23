@@ -53,12 +53,24 @@ local IMPORTANT_DEBUFFS = {
     ["Scatter Shot"] = true,
 }
 
+local NAMEPLATE_ONLY_DEBUFF_TYPES = {
+    ["Deep Wounds"] = "Bleed",
+    ["Garrote"] = "Bleed",
+    ["Lacerate"] = "Bleed",
+    ["Pounce Bleed"] = "Bleed",
+    ["Rake"] = "Bleed",
+    ["Rend"] = "Bleed",
+    ["Rip"] = "Bleed",
+    ["Rupture"] = "Bleed",
+}
+
 -- Blizzard Debuff Type Colors
 local DEBUFF_COLORS = {
     ["Magic"]   = { r = 0.20, g = 0.60, b = 1.00 },
     ["Curse"]   = { r = 0.60, g = 0.00, b = 1.00 },
     ["Disease"] = { r = 0.60, g = 0.40, b = 0 },
     ["Poison"]  = { r = 0.00, g = 0.60, b = 0 },
+    ["Bleed"]   = { r = 0.85, g = 0.05, b = 0.02 },
     ["none"]    = { r = 0.80, g = 0, b = 0 },    -- Default red
 }
 
@@ -154,6 +166,32 @@ end
 
 local function IsUnitFrameBuffsEnabled()
     return Carpenter and Carpenter:IsEnabled("unitFrameBuffsEnabled")
+end
+
+local function IsImportantNameplateDebuff(name, spellId)
+    if IMPORTANT_DEBUFFS[name] then
+        return true, nil
+    end
+
+    local nameplateOnlyType = NAMEPLATE_ONLY_DEBUFF_TYPES[name]
+    if nameplateOnlyType then
+        return true, nameplateOnlyType
+    end
+
+    if spellId and CarpenterSpellData then
+        if CarpenterSpellData.IsImportantNameplateDebuff and CarpenterSpellData.IsImportantNameplateDebuff(spellId) then
+            if CarpenterSpellData.IsBleedDebuff and CarpenterSpellData.IsBleedDebuff(spellId) then
+                return true, "Bleed"
+            end
+            return true, nil
+        end
+
+        if CarpenterSpellData.IsImportantDebuff and CarpenterSpellData.IsImportantDebuff(spellId) then
+            return true, nil
+        end
+    end
+
+    return false, nil
 end
 
 -- =========================================================
@@ -430,14 +468,11 @@ local function OnNameplateUpdate(self)
     for i = 1, 40 do
         local name, icon, _, debuffType, duration, expirationTime, _, _, _, spellId = UnitDebuff(self.unit, i)
         if not name then break end
-        local isImportant = IMPORTANT_DEBUFFS[name]
-        if not isImportant and spellId and CarpenterSpellData and CarpenterSpellData.IsImportantDebuff then
-            isImportant = CarpenterSpellData.IsImportantDebuff(spellId)
-        end
+        local isImportant, typeOverride = IsImportantNameplateDebuff(name, spellId)
         if isImportant then
             table.insert(activeDebuffs, {
                 icon = icon,
-                type = debuffType,
+                type = typeOverride or debuffType,
                 dur = duration,
                 exp = expirationTime
             })

@@ -11,6 +11,7 @@ local BUFF_OTHER = "buffs_other"
 local INTERRUPT = "interrupts"
 local CROWD_CONTROL = "cc"
 local ROOT = "roots"
+local BLEED = "bleeds"
 local IMMUNITY = "immunities"
 local IMMUNITY_SPELL = "immunities_spells"
 
@@ -360,6 +361,23 @@ addon.Spells = {
     [19675] = { type = ROOT }, -- Feral Charge Effect
         [45334] = { parent = 19675 },
     [17116] = { type = BUFF_DEFENSIVE }, -- Nature's Swiftness
+    [1822] = { type = BLEED }, -- Rake
+        [1823] = { parent = 1822 },
+        [1824] = { parent = 1822 },
+        [9904] = { parent = 1822 },
+        [27003] = { parent = 1822 },
+    [1079] = { type = BLEED }, -- Rip
+        [9492] = { parent = 1079 },
+        [9493] = { parent = 1079 },
+        [9752] = { parent = 1079 },
+        [9894] = { parent = 1079 },
+        [9896] = { parent = 1079 },
+        [27008] = { parent = 1079 },
+    [9007] = { type = BLEED }, -- Pounce Bleed
+        [9824] = { parent = 9007 },
+        [9826] = { parent = 9007 },
+        [27007] = { parent = 9007 },
+    [33745] = { type = BLEED }, -- Lacerate
 
     -- Mage
 
@@ -437,6 +455,21 @@ addon.Spells = {
     [14278] = { type = BUFF_DEFENSIVE }, -- Ghostly Strike
     [3409] = { type = ROOT }, -- Crippling Poison
         [11201] = { parent = 3409 },
+    [703] = { type = BLEED }, -- Garrote
+        [8631] = { parent = 703 },
+        [8632] = { parent = 703 },
+        [8633] = { parent = 703 },
+        [11289] = { parent = 703 },
+        [11290] = { parent = 703 },
+        [26839] = { parent = 703 },
+        [26884] = { parent = 703 },
+    [1943] = { type = BLEED }, -- Rupture
+        [8639] = { parent = 1943 },
+        [8640] = { parent = 1943 },
+        [11273] = { parent = 1943 },
+        [11274] = { parent = 1943 },
+        [11275] = { parent = 1943 },
+        [26867] = { parent = 1943 },
     [1330] = { type = CROWD_CONTROL }, -- Garrote Silence
     [31224] = { type = IMMUNITY_SPELL }, -- Cloak of Shadows
     [45182] = { type = BUFF_DEFENSIVE }, -- Cheating Death
@@ -472,6 +505,17 @@ addon.Spells = {
         [21553] = { parent = 12294 },
         [25248] = { parent = 12294 },
         [30330] = { parent = 12294 },
+    [772] = { type = BLEED }, -- Rend
+        [6546] = { parent = 772 },
+        [6547] = { parent = 772 },
+        [6548] = { parent = 772 },
+        [11572] = { parent = 772 },
+        [11573] = { parent = 772 },
+        [11574] = { parent = 772 },
+        [25208] = { parent = 772 },
+    [12834] = { type = BLEED }, -- Deep Wounds
+        [12849] = { parent = 12834 },
+        [12867] = { parent = 12834 },
 
 }
 
@@ -501,6 +545,15 @@ end
 function addon.IsImportantDebuff(spellId)
     local t = addon.GetSpellInfo(spellId)
     return t == CROWD_CONTROL or t == ROOT
+end
+
+function addon.IsBleedDebuff(spellId)
+    return addon.GetSpellInfo(spellId) == BLEED
+end
+
+function addon.IsImportantNameplateDebuff(spellId)
+    local t = addon.GetSpellInfo(spellId)
+    return t == CROWD_CONTROL or t == ROOT or t == BLEED
 end
 
 -- True if this spell ID should be shown as an important player buff

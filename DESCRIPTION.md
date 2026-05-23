@@ -46,7 +46,7 @@ Players looking for a full UI replacement, custom layout framework, or complete 
 
 - **Hide Macro Names** - Remove macro text from action buttons.
 - **Hide Keybind Text** - Remove hotkey labels from action buttons.
-- **Fade Extra Action Bars** - Fade bars 7 and 8 until you hover them.
+- **Fade Extra Action Bars** - In TBC, fade bars 7 and 8 until you hover them.
 - **Out of Range Tint** - Darken abilities when your target is out of range.
 - **Hide Stance Bar** - Hide the stance, form, and stealth bar.
 
@@ -75,7 +75,7 @@ Players looking for a full UI replacement, custom layout framework, or complete 
 
 ### Nameplates
 
-- **Debuffs** - Show important crowd control effects above enemy nameplates.
+- **Debuffs** - Show important crowd control effects and bleeds above enemy nameplates.
 - **Combo Points** - Display combo points on the target nameplate.
 - **Cast Bar** - Show spell icons, names, progress, and interrupt feedback under enemy nameplates.
 - **Class Colored Health** - Use class colors for enemy player nameplate health bars.
