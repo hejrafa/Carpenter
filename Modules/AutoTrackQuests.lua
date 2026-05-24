@@ -8,6 +8,10 @@ local hookedQuestWatchUpdate = false
 local hookedQuestLogUpdate = false
 local originalQuestLogTitleButton_OnClick = nil
 local AddQuestToWatch
+local QUEST_WATCH_WRAP_WIDTH = 230
+local QUEST_WATCH_MIN_LINE_HEIGHT = 13
+local QUEST_WATCH_SECTION_GAP = 4
+local QUEST_WATCH_FRAME_PADDING = 10
 
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("autoTrackQuestsEnabled")
@@ -457,9 +461,137 @@ local function GetNativeQuestWatchLineIndex()
     return watchTextIndex
 end
 
+local function ConfigureQuestWatchLine(line)
+    if not line then return end
+    if line.SetWidth then
+        line:SetWidth(QUEST_WATCH_WRAP_WIDTH)
+    end
+    if line.SetWordWrap then
+        line:SetWordWrap(true)
+    end
+    if line.SetNonSpaceWrap then
+        line:SetNonSpaceWrap(true)
+    end
+    if line.SetJustifyH then
+        line:SetJustifyH("LEFT")
+    end
+end
+
+local function GetQuestWatchLineHeight(line)
+    if not line then return QUEST_WATCH_MIN_LINE_HEIGHT end
+
+    local height
+    if line.GetStringHeight then
+        height = line:GetStringHeight()
+    end
+    if not height or height <= 0 then
+        height = line.GetHeight and line:GetHeight()
+    end
+
+    return math.max(QUEST_WATCH_MIN_LINE_HEIGHT, height or QUEST_WATCH_MIN_LINE_HEIGHT)
+end
+
+local function GetQuestWatchLineWidth(line)
+    if not line then return 0 end
+
+    local width
+    if line.GetStringWidth then
+        width = line:GetStringWidth()
+    end
+    if not width or width <= 0 then
+        width = line.GetWidth and line:GetWidth()
+    end
+
+    width = width or 0
+    if width > QUEST_WATCH_WRAP_WIDTH then
+        return QUEST_WATCH_WRAP_WIDTH
+    end
+    return width
+end
+
+local function ClearQuestWatchLineMetadata()
+    local maxLines = MAX_QUESTWATCH_LINES or 30
+    for index = 1, maxLines do
+        local line = _G["QuestWatchLine" .. index]
+        if line then
+            line._CarpenterQuestWatchFallbackLine = nil
+            line._CarpenterQuestWatchGapBefore = nil
+        end
+    end
+end
+
+local function GetNativeQuestWatchLineGaps()
+    local gaps = {}
+    local lineIndex = 1
+    if not GetNumQuestWatches or not GetQuestIndexForWatch then
+        return gaps
+    end
+
+    for index = 1, GetNumQuestWatches() do
+        local questIndex = GetQuestIndexForWatch(index)
+        local numObjectives = GetNumQuestObjectives(questIndex) or 0
+        if questIndex and numObjectives > 0 then
+            gaps[lineIndex] = lineIndex > 1
+            lineIndex = lineIndex + 1 + numObjectives
+        end
+    end
+
+    return gaps
+end
+
+local function LayoutQuestWatchLines()
+    if not IsEnabled() or not QuestWatchFrame then return end
+
+    local anchor = QuestWatchQuestName or QuestWatchFrame
+    local anchorPoint = QuestWatchQuestName and "BOTTOMLEFT" or "TOPLEFT"
+    local nativeGaps = GetNativeQuestWatchLineGaps()
+    local maxLines = MAX_QUESTWATCH_LINES or 30
+    local offsetY = 0
+    local maxWidth = 0
+    local visibleLines = 0
+
+    for index = 1, maxLines do
+        local line = _G["QuestWatchLine" .. index]
+        if line and line:IsShown() and (not line.GetText or line:GetText() ~= "") then
+            ConfigureQuestWatchLine(line)
+
+            local gapBefore = line._CarpenterQuestWatchFallbackLine and line._CarpenterQuestWatchGapBefore or nativeGaps[index]
+            if gapBefore and visibleLines > 0 then
+                offsetY = offsetY + QUEST_WATCH_SECTION_GAP
+            end
+
+            line:ClearAllPoints()
+            line:SetPoint("TOPLEFT", anchor, anchorPoint, 0, -offsetY)
+
+            local height = GetQuestWatchLineHeight(line)
+            if line.SetHeight then
+                line:SetHeight(height)
+            end
+            offsetY = offsetY + height
+
+            maxWidth = math.max(maxWidth, GetQuestWatchLineWidth(line))
+            visibleLines = visibleLines + 1
+        end
+    end
+
+    if visibleLines == 0 then return end
+
+    QuestWatchFrame:SetHeight(offsetY + QUEST_WATCH_FRAME_PADDING)
+    QuestWatchFrame:SetWidth(maxWidth + QUEST_WATCH_FRAME_PADDING)
+    QuestWatchFrame:Show()
+
+    if UIParent_ManageFramePositions then
+        UIParent_ManageFramePositions()
+    end
+end
+
 local function SetQuestWatchLine(lineIndex, text, r, g, b, gapBefore)
     local line = _G["QuestWatchLine" .. lineIndex]
     if not line then return nil end
+
+    ConfigureQuestWatchLine(line)
+    line._CarpenterQuestWatchFallbackLine = true
+    line._CarpenterQuestWatchGapBefore = gapBefore and true or false
 
     line:ClearAllPoints()
     if lineIndex == 1 then
@@ -472,24 +604,7 @@ local function SetQuestWatchLine(lineIndex, text, r, g, b, gapBefore)
     line:SetTextColor(r, g, b)
     line:Show()
 
-    if line.GetStringWidth then
-        return line:GetStringWidth()
-    end
-    return line:GetWidth()
-end
-
-local function GetCurrentQuestWatchWidth(lastNativeLine)
-    local maxWidth = 0
-    for index = 1, lastNativeLine do
-        local line = _G["QuestWatchLine" .. index]
-        if line and line:IsShown() then
-            local width = line.GetStringWidth and line:GetStringWidth() or line:GetWidth()
-            if width and width > maxWidth then
-                maxWidth = width
-            end
-        end
-    end
-    return maxWidth
+    return GetQuestWatchLineWidth(line)
 end
 
 local function PositionQuestLogWatchCheck(row, button, check, title)
@@ -528,7 +643,6 @@ local function RenderFallbackQuestWatches()
 
     local maxLines = MAX_QUESTWATCH_LINES or 30
     local lineIndex = GetNativeQuestWatchLineIndex()
-    local maxWidth = GetCurrentQuestWatchWidth(lineIndex - 1)
     local rendered = 0
 
     for _, key in ipairs(state.order) do
@@ -536,17 +650,11 @@ local function RenderFallbackQuestWatches()
         local questIndex = watch and FindQuestLogIndex(watch.questID, watch.title)
         if watch and questIndex and not QuestHasTrackableObjectives(questIndex) and lineIndex + 1 <= maxLines then
             watch.title = GetQuestDisplayTitle(questIndex, watch.title)
-            local titleWidth = SetQuestWatchLine(lineIndex, watch.title or "", 0.75, 0.61, 0, lineIndex > 1)
-            if titleWidth and titleWidth > maxWidth then
-                maxWidth = titleWidth
-            end
+            SetQuestWatchLine(lineIndex, watch.title or "", 0.75, 0.61, 0, lineIndex > 1)
             lineIndex = lineIndex + 1
 
             local objective = " - " .. (watch.objectiveText or watch.title or "")
-            local objectiveWidth = SetQuestWatchLine(lineIndex, objective, 0.8, 0.8, 0.8, false)
-            if objectiveWidth and objectiveWidth > maxWidth then
-                maxWidth = objectiveWidth
-            end
+            SetQuestWatchLine(lineIndex, objective, 0.8, 0.8, 0.8, false)
             lineIndex = lineIndex + 1
             rendered = rendered + 1
         end
@@ -562,15 +670,16 @@ local function RenderFallbackQuestWatches()
     end
 
     QuestWatchFrame:Show()
-    QuestWatchFrame:SetHeight(lineIndex * 13)
-    QuestWatchFrame:SetWidth(maxWidth + 10)
 
     if QuestLogTrackTracking then
         QuestLogTrackTracking:SetVertexColor(0, 1.0, 0)
     end
-    if UIParent_ManageFramePositions then
-        UIParent_ManageFramePositions()
-    end
+end
+
+local function UpdateQuestWatchLayout()
+    ClearQuestWatchLineMetadata()
+    RenderFallbackQuestWatches()
+    LayoutQuestWatchLines()
 end
 
 local function UpdateQuestLogWatchIndicators()
@@ -599,7 +708,7 @@ end
 
 local function HookQuestWatchUpdates()
     if not hookedQuestWatchUpdate and hooksecurefunc and QuestWatch_Update then
-        hooksecurefunc("QuestWatch_Update", RenderFallbackQuestWatches)
+        hooksecurefunc("QuestWatch_Update", UpdateQuestWatchLayout)
         hookedQuestWatchUpdate = true
     end
 
@@ -692,12 +801,12 @@ frame:SetScript("OnEvent", function(_, event, questLogIndex, questID)
                 if QuestWatch_Update then
                     QuestWatch_Update()
                 else
-                    RenderFallbackQuestWatches()
+                    UpdateQuestWatchLayout()
                 end
                 UpdateQuestLogWatchIndicators()
             end)
         else
-            RenderFallbackQuestWatches()
+            UpdateQuestWatchLayout()
             UpdateQuestLogWatchIndicators()
         end
         return
