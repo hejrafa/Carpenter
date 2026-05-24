@@ -2,6 +2,9 @@
 -- When nameplates are enabled, the default raid target icons float too high.
 -- This module re-anchors them: vertically centered on the nameplate bar, to the left of it.
 
+local _, ns = ...
+local Nameplates = ns and ns.Private and ns.Private.Nameplates or {}
+
 local function isEnabled()
     return Carpenter and Carpenter:IsEnabled("raidTargetIconAlignedEnabled")
 end
@@ -60,7 +63,7 @@ frame:SetScript("OnEvent", function(self, event, unit)
     if not isEnabled() then return end
     if event == "PLAYER_ENTERING_WORLD" then
         C_Timer.After(0.5, function()
-            for _, plate in pairs(C_NamePlate.GetNamePlates()) do
+            for _, plate in pairs((Nameplates.GetAll and Nameplates.GetAll()) or {}) do
                 local plateUnit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
                 if plateUnit then
                     setupPlate(plate, plateUnit)
@@ -68,14 +71,14 @@ frame:SetScript("OnEvent", function(self, event, unit)
             end
         end)
     elseif event == "NAME_PLATE_UNIT_ADDED" then
-        local plate = C_NamePlate.GetNamePlateForUnit(unit)
+        local plate = Nameplates.GetForUnit and Nameplates.GetForUnit(unit)
         if plate then
             setupPlate(plate, unit)
         end
     elseif event == "RAID_TARGET_UPDATE" then
         -- Blizzard may reposition when marks change; re-apply alignment
         C_Timer.After(0, function()
-            for _, plate in pairs(C_NamePlate.GetNamePlates()) do
+            for _, plate in pairs((Nameplates.GetAll and Nameplates.GetAll()) or {}) do
                 if plate:IsShown() then
                     alignRaidTargetIcon(plate)
                 end

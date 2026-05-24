@@ -4,6 +4,7 @@ ns.Private = ns.Private or {}
 
 local Targets = ns.Private.RetailUnitFrameCleanerTargets or {}
 ns.Private.RetailUnitFrameCleanerTargets = Targets
+local Nameplates = ns.Private.Nameplates or {}
 
 local function AddFrame(frames, frame)
     if frame then
@@ -202,14 +203,11 @@ function Targets.GetRealmIndicatorNameStrings()
         Targets.AddNameString(strings, _G["CompactRaidFrame" .. i .. "Name"])
     end
 
-    if C_NamePlate and C_NamePlate.GetNamePlates then
-        local plates = C_NamePlate.GetNamePlates()
-        for _, plate in ipairs(plates or {}) do
-            if plate.UnitFrame then
-                Targets.AddNameString(strings, plate.UnitFrame.name)
-                Targets.AddNameString(strings, plate.UnitFrame.Name)
-                Targets.AddNameString(strings, plate.UnitFrame.NameText)
-            end
+    for _, plate in ipairs((Nameplates.GetAll and Nameplates.GetAll()) or {}) do
+        if plate.UnitFrame then
+            Targets.AddNameString(strings, plate.UnitFrame.name)
+            Targets.AddNameString(strings, plate.UnitFrame.Name)
+            Targets.AddNameString(strings, plate.UnitFrame.NameText)
         end
     end
 
@@ -217,8 +215,5 @@ function Targets.GetRealmIndicatorNameStrings()
 end
 
 function Targets.CanQueryNamePlateForUnit(unit)
-    if not unit then return false end
-    if unit == "target" or unit == "focus" or unit == "mouseover" then return true end
-    if unit:match("^nameplate%d+$") then return true end
-    return false
+    return Nameplates.CanQueryUnit and Nameplates.CanQueryUnit(unit) or false
 end

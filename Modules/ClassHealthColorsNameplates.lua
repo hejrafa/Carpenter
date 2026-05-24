@@ -5,6 +5,7 @@ ns = ns or {}
 ns.Private = ns.Private or {}
 
 local ClassHealth = ns.Private.ClassHealthColors or {}
+local Nameplates = ns.Private.Nameplates or {}
 
 local function GetNameplateHealthBar(plate)
     return plate
@@ -63,8 +64,7 @@ local function ColorNameplateForUnit(plate, unit)
 end
 
 local function RefreshAllNameplates()
-    if not C_NamePlate or not C_NamePlate.GetNamePlates then return end
-    for _, plate in pairs(C_NamePlate.GetNamePlates()) do
+    for _, plate in pairs((Nameplates.GetAll and Nameplates.GetAll()) or {}) do
         local unit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
         if unit then
             ColorNameplateForUnit(plate, unit)
@@ -82,8 +82,8 @@ local function HandleNameplateEvent(self, event, unit)
     end
     self:Show()
 
-    if event == "NAME_PLATE_UNIT_ADDED" and unit and C_NamePlate and C_NamePlate.GetNamePlateForUnit then
-        local plate = C_NamePlate.GetNamePlateForUnit(unit)
+    if event == "NAME_PLATE_UNIT_ADDED" and unit then
+        local plate = Nameplates.GetForUnit and Nameplates.GetForUnit(unit)
         if plate then
             ColorNameplateForUnit(plate, unit)
         end

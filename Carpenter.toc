@@ -25,6 +25,7 @@ Localization\ptBR.lua
 Localization\ruRU.lua
 Core\Carpenter.lua
 Core\Unit.lua
+Core\Nameplates.lua
 
 # Settings
 Modules\ConfigSidebar.lua

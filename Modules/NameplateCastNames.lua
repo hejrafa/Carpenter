@@ -12,6 +12,7 @@ local activeCasts = {}
 -- Single OnUpdate driver for smooth bar progress across all nameplates
 local _, ns = ...
 local L = ns and ns.L or {}
+local Nameplates = ns and ns.Private and ns.Private.Nameplates or {}
 local driver = CreateFrame("Frame")
 driver:Hide()
 
@@ -248,7 +249,7 @@ local frame = CreateFrame("Frame")
 frame:SetScript("OnEvent", function(self, event, unit)
     if not IsEnabled() then
         if event == "NAME_PLATE_UNIT_REMOVED" then
-            local plate = C_NamePlate.GetNamePlateForUnit(unit)
+            local plate = Nameplates.GetForUnit and Nameplates.GetForUnit(unit)
             if plate then HideBar(plate) end
         end
         return
@@ -256,23 +257,23 @@ frame:SetScript("OnEvent", function(self, event, unit)
 
     if event == "PLAYER_ENTERING_WORLD" then
         pcall(SetCVar, "nameplateShowEnemyCastBars", "0")
-        for _, plate in pairs(C_NamePlate.GetNamePlates()) do
+        for _, plate in pairs((Nameplates.GetAll and Nameplates.GetAll()) or {}) do
             local u = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
             if u then SetupPlate(plate, u) end
         end
 
     elseif event == "NAME_PLATE_UNIT_ADDED" then
-        local plate = C_NamePlate.GetNamePlateForUnit(unit)
+        local plate = Nameplates.GetForUnit and Nameplates.GetForUnit(unit)
         if plate then SetupPlate(plate, unit) end
 
     elseif event == "NAME_PLATE_UNIT_REMOVED" then
-        local plate = C_NamePlate.GetNamePlateForUnit(unit)
+        local plate = Nameplates.GetForUnit and Nameplates.GetForUnit(unit)
         if plate then HideBar(plate) end
 
     elseif event == "UNIT_SPELLCAST_INTERRUPTED" then
-        local plate = C_NamePlate.GetNamePlateForUnit(unit)
+        local plate = Nameplates.GetForUnit and Nameplates.GetForUnit(unit)
         if not plate and unit == "target" then
-            for _, p in pairs(C_NamePlate.GetNamePlates()) do
+            for _, p in pairs((Nameplates.GetAll and Nameplates.GetAll()) or {}) do
                 local u = p.namePlateUnitToken or (p.UnitFrame and p.UnitFrame.unit)
                 if u and UnitExists("target") and UnitIsUnit(u, "target") then
                     plate = p; unit = u; break
@@ -303,7 +304,7 @@ frame:SetScript("OnEvent", function(self, event, unit)
         end
 
     elseif event:find("UNIT_SPELLCAST") then
-        local plate = C_NamePlate.GetNamePlateForUnit(unit)
+        local plate = Nameplates.GetForUnit and Nameplates.GetForUnit(unit)
         if plate then UpdateCast(plate, unit) end
     end
 end)
@@ -315,7 +316,7 @@ local function StartSafetyTicker()
     if safetyTicker then return end
     local function Tick()
         if not IsEnabled() then return end
-        for _, plate in pairs(C_NamePlate.GetNamePlates()) do
+        for _, plate in pairs((Nameplates.GetAll and Nameplates.GetAll()) or {}) do
             local unit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
             if unit then
                 local casting    = UnitCastingInfo(unit)

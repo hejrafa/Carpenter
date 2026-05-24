@@ -6,6 +6,7 @@ local Realm = ns.Private.RetailUnitFrameCleanerRealm or {}
 ns.Private.RetailUnitFrameCleanerRealm = Realm
 
 local Targets = ns.Private.RetailUnitFrameCleanerTargets or {}
+local Nameplates = ns.Private.Nameplates or {}
 
 local function StripRealmIndicator(text)
     if type(text) ~= "string" then return text, false end
@@ -69,8 +70,8 @@ function Realm.ApplyForUnit(unit, predicate)
         Targets.AddNameString(strings, _G["CompactRaidFrame" .. index .. "Name"])
     end
 
-    if Targets.CanQueryNamePlateForUnit(unit) and C_NamePlate and C_NamePlate.GetNamePlateForUnit then
-        local plate = C_NamePlate.GetNamePlateForUnit(unit)
+    do
+        local plate = Nameplates.GetForUnit and Nameplates.GetForUnit(unit)
         if plate and plate.UnitFrame then
             Targets.AddNameString(strings, plate.UnitFrame.name)
             Targets.AddNameString(strings, plate.UnitFrame.Name)

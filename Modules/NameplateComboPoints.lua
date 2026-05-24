@@ -1,6 +1,8 @@
 --[[ Carpenter - NameplateComboPoints ]]
 -- Shows Rogue TargetFrame-style combo points under CURRENT TARGET's nameplate.
 
+local _, ns = ...
+local Nameplates = ns and ns.Private and ns.Private.Nameplates or {}
 local addonFrame = CreateFrame("Frame")
 local resourceFrame
 local resourcePoints = {
@@ -108,7 +110,7 @@ local function update()
     end
 
     -- 2. Find Nameplate
-    local plate = C_NamePlate.GetNamePlateForUnit("target")
+    local plate = Nameplates.GetForUnit and Nameplates.GetForUnit("target")
     if not plate then
         if resourceFrame then resourceFrame:Hide() end
         if StopFollowTicker then StopFollowTicker() end

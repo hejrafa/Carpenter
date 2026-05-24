@@ -5,6 +5,7 @@ local addonName, ns = ...
 ns = ns or {}
 ns.Private = ns.Private or {}
 local Unit = ns.Private.Unit or {}
+local Nameplates = ns.Private.Nameplates or {}
 
 -- Slows / movement debuffs: show on nameplates but NOT on unit frame portraits (root spell IDs)
 local DEBUFFS_HIDDEN_ON_UNIT_FRAME = {
@@ -564,7 +565,7 @@ frame:SetScript("OnEvent", function(self, event, unit)
     if not IsNameplateEnabled() and not IsUnitFrameEnabled() and not IsUnitFrameBuffsEnabled() then return end
 
     if event == "NAME_PLATE_UNIT_ADDED" then
-        local plate = C_NamePlate.GetNamePlateForUnit(unit)
+        local plate = Nameplates.GetForUnit and Nameplates.GetForUnit(unit)
         if plate and plate.UnitFrame then
             OnNameplateUpdate(plate.UnitFrame)
         end
@@ -575,7 +576,7 @@ frame:SetScript("OnEvent", function(self, event, unit)
         if IsPartyUnit(unit) then
             UpdateUnitPortraitDebuff(unit)
         end
-        local plate = C_NamePlate.GetNamePlateForUnit(unit)
+        local plate = Nameplates.GetForUnit and Nameplates.GetForUnit(unit)
         if plate and plate.UnitFrame then
             OnNameplateUpdate(plate.UnitFrame)
         end
@@ -609,8 +610,8 @@ local function RefreshEventSubscriptions()
     end
 
     Carpenter_UpdateUnitFrameAuras()
-    if IsNameplateEnabled() and C_NamePlate and C_NamePlate.GetNamePlates then
-        for _, plate in pairs(C_NamePlate.GetNamePlates()) do
+    if IsNameplateEnabled() then
+        for _, plate in pairs((Nameplates.GetAll and Nameplates.GetAll()) or {}) do
             if plate and plate.UnitFrame then
                 OnNameplateUpdate(plate.UnitFrame)
             end
