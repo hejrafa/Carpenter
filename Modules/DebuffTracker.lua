@@ -74,8 +74,14 @@ local DEBUFF_COLORS = {
     ["none"]    = { r = 0.80, g = 0, b = 0 },    -- Default red
 }
 
-local NAMEPLATE_COOLDOWN_TEXT_SIZE = 16
+local NAMEPLATE_COOLDOWN_TEXT_SIZE = 12
 local UNIT_FRAME_COOLDOWN_TEXT_SIZE = 24
+local EXTERNAL_COOLDOWN_COUNT_ADDONS = {
+    "OmniCC",
+    "tullaCC",
+    "tdCooldown2",
+    "CooldownCount",
+}
 
 local function GetDebuffColor(debuffType)
     local color = DEBUFF_COLORS[debuffType] or DEBUFF_COLORS["none"]
@@ -103,12 +109,14 @@ local function FormatCooldownTime(remaining)
 end
 
 local function HasExternalCooldownCount()
-    if _G.OmniCC then return true end
-    if C_AddOns and C_AddOns.IsAddOnLoaded then
-        return C_AddOns.IsAddOnLoaded("OmniCC")
-    end
-    if IsAddOnLoaded then
-        return IsAddOnLoaded("OmniCC")
+    for _, addonName in ipairs(EXTERNAL_COOLDOWN_COUNT_ADDONS) do
+        if _G[addonName] then return true end
+        if C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded(addonName) then
+            return true
+        end
+        if IsAddOnLoaded and IsAddOnLoaded(addonName) then
+            return true
+        end
     end
     return false
 end
@@ -222,6 +230,7 @@ local function CreateBaseIcon(parent, isNameplate)
         f.cooldown = CreateFrame("Cooldown", nil, f, "CooldownFrameTemplate")
         f.cooldown:SetAllPoints(f.icon)
         f.cooldown:SetReverse(true)
+        -- Keep Blizzard's native text hidden while allowing cooldown-count addons to attach.
         f.cooldown:SetHideCountdownNumbers(true)
         f.cooldown:SetFrameLevel(f:GetFrameLevel())
 
@@ -258,6 +267,7 @@ local function CreateBaseIcon(parent, isNameplate)
         end
         f.cooldown:SetDrawSwipe(true)
         f.cooldown:SetSwipeColor(0, 0, 0, 0.6)
+        -- Keep Blizzard's native text hidden while allowing cooldown-count addons to attach.
         f.cooldown:SetHideCountdownNumbers(true)
 
         f.cooldownText = container:CreateFontString(nil, "OVERLAY")
