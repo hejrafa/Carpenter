@@ -81,25 +81,8 @@ local function GetDebuffColor(debuffType)
     return color.r, color.g, color.b
 end
 
-local function GetCooldownTextRegion(cooldown)
-    if not cooldown or not cooldown.GetRegions then return nil end
-    if cooldown.Text and cooldown.Text.SetFont then return cooldown.Text end
-
-    local regions = { cooldown:GetRegions() }
-    for _, region in ipairs(regions) do
-        if region and region.SetFont then
-            cooldown.Text = region
-            return region
-        end
-    end
-
-    return nil
-end
-
-local function ApplyCooldownTextStyle(cooldown)
-    local text = GetCooldownTextRegion(cooldown)
+local function StyleCooldownText(text)
     if not text then return end
-
     text:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", COOLDOWN_TEXT_SIZE, "OUTLINE")
     text:SetTextColor(1, 1, 1)
     text:SetShadowColor(0, 0, 0, 0.9)
@@ -238,9 +221,12 @@ local function CreateBaseIcon(parent, isNameplate)
         f.cooldown = CreateFrame("Cooldown", nil, f, "CooldownFrameTemplate")
         f.cooldown:SetAllPoints(f.icon)
         f.cooldown:SetReverse(true)
-        f.cooldown:SetHideCountdownNumbers(false)
+        f.cooldown:SetHideCountdownNumbers(true)
         f.cooldown:SetFrameLevel(f:GetFrameLevel())
-        ApplyCooldownTextStyle(f.cooldown)
+
+        f.cooldownText = f:CreateFontString(nil, "OVERLAY")
+        f.cooldownText:SetPoint("CENTER", f, "CENTER", 0, 0)
+        StyleCooldownText(f.cooldownText)
 
         -- Border always on top
         f.border = f:CreateTexture(nil, "OVERLAY", nil, 7)
@@ -275,10 +261,7 @@ local function CreateBaseIcon(parent, isNameplate)
 
         f.cooldownText = container:CreateFontString(nil, "OVERLAY")
         f.cooldownText:SetPoint("CENTER", container, "CENTER", 0, 0)
-        f.cooldownText:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", 24, "OUTLINE")
-        f.cooldownText:SetTextColor(1, 1, 1)
-        f.cooldownText:SetShadowColor(0, 0, 0, 0.9)
-        f.cooldownText:SetShadowOffset(1, -1)
+        StyleCooldownText(f.cooldownText)
 
         -- Mask the icon so it stays circular like the portrait
         if container.CreateMaskTexture then
