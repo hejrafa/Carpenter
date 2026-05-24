@@ -23,6 +23,7 @@ Localization\ruRU.lua
 Core\Carpenter.lua
 Core\Unit.lua
 Core\Nameplates.lua
+Core\ErrorTrace.lua
 
 # Settings & Data
 Modules\ConfigSidebar.lua

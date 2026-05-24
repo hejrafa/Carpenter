@@ -70,6 +70,7 @@ local defaults = {
     actionCamEnabled = false,
     -- Settings
     classicSettingsPresetEnabled = false,
+    blankLuaErrorTraceEnabled = false,
 }
 
 Carpenter.Defaults = defaults
