@@ -14,6 +14,7 @@ local QUEST_WATCH_MIN_LINE_HEIGHT = 13
 local QUEST_WATCH_MEASURE_HEIGHT = 240
 local QUEST_WATCH_SECTION_GAP = 4
 local QUEST_WATCH_FRAME_PADDING = 10
+local QUEST_WATCH_FRAME_WIDTH = QUEST_WATCH_WRAP_WIDTH + QUEST_WATCH_FRAME_PADDING
 
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("autoTrackQuestsEnabled")
@@ -626,7 +627,6 @@ local function LayoutQuestWatchLines()
     local nativeGaps = GetNativeQuestWatchLineGaps()
     local maxLines = MAX_QUESTWATCH_LINES or 30
     local offsetY = 0
-    local maxWidth = 0
     local visibleLines = 0
 
     for index = 1, maxLines do
@@ -649,7 +649,6 @@ local function LayoutQuestWatchLines()
             end
             offsetY = offsetY + height
 
-            maxWidth = math.max(maxWidth, GetQuestWatchLineWidth(line))
             visibleLines = visibleLines + 1
         end
     end
@@ -657,7 +656,7 @@ local function LayoutQuestWatchLines()
     if visibleLines == 0 then return end
 
     QuestWatchFrame:SetHeight(offsetY + QUEST_WATCH_FRAME_PADDING)
-    QuestWatchFrame:SetWidth(maxWidth + QUEST_WATCH_FRAME_PADDING)
+    QuestWatchFrame:SetWidth(QUEST_WATCH_FRAME_WIDTH)
     QuestWatchFrame:Show()
 
     if UIParent_ManageFramePositions then

@@ -7,6 +7,7 @@
 - Adjusted nameplate debuff countdown text for small icons while letting cooldown-count addons take over.
 - Added Classic/TBC no-objective quest tracking fallback so quests such as simple "speak with" quests can still appear in the default tracker.
 - Wrapped long Classic/TBC objective tracker quest lines with aligned bullet continuations and reflowed the tracker height so long objective text no longer stretches awkwardly across the screen.
+- Kept the Classic/TBC objective tracker at a stable width so shorter watched quests do not shrink the tracker.
 - Kept Classic/TBC auto-tracked quests pinned after Blizzard's temporary auto-watch expires, while still respecting manual Shift-click untracking.
 - Added a nested World Map Cleanup option to show or hide Carpenter's dungeon, raid, flight, and travel POI pins so Classic exploration can stay unspoiled by default.
 - Added Classic/TBC bleed tracking to enemy nameplate debuffs for Rend, Deep Wounds, Garrote, Rupture, Rake, Rip, Pounce Bleed, and Lacerate without adding bleeds to unit-frame portrait debuffs.
