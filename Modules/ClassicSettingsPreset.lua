@@ -34,6 +34,14 @@ local function ApplyActionBarToggles()
     end
 end
 
+local function ApplyRaidFrameToggles()
+    SetCVarValue("raidFramesDisplayClassColor", "1")
+
+    if type(CompactUnitFrameProfiles_ApplyCurrentSettings) == "function" then
+        pcall(CompactUnitFrameProfiles_ApplyCurrentSettings)
+    end
+end
+
 local function Apply()
     if not IsEnabled() then return end
 
@@ -46,6 +54,7 @@ local function Apply()
     SetCVarValue("statusText", "1")
     SetCVarValue("statusTextDisplay", "PERCENT")
     ApplyActionBarToggles()
+    ApplyRaidFrameToggles()
 end
 
 Carpenter_ApplyClassicSettingsPreset = Apply
