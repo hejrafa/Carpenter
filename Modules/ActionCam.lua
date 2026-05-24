@@ -39,6 +39,8 @@ local MOUNT_ZOOM_TRANSITION_TIME = 1
 local ZOOM_TICK_INTERVAL = 0.05
 local NARCISSUS_VIEW_RESTORE_DELAY = 0.2
 local NARCISSUS_CVAR_RESTORE_DELAYS = { 1.05, 1.35 }
+local UI_VISIBILITY_VIEW_RESTORE_DELAY = 0
+local UI_VISIBILITY_CVAR_RESTORE_DELAYS = { 0.15, 0.5, 1.0 }
 
 local lastMounted = nil   -- last mount state we actually acted on (so we only act on transition)
 local preMountZoom = nil
@@ -47,6 +49,8 @@ local zoomInProgress = false  -- prevent overlapping zoom sequences
 local zoomCheckScheduled = false
 local spellOverlayHooked = false
 local spellOverlayApplying = false
+local uiParentVisibilityHooked = false
+local uiParentHiddenForActionCam = false
 local narcissusHooks = {}
 local HookSpellOverlay
 local UpdateSpellOverlayOffset
@@ -232,6 +236,18 @@ local function RestoreActionCamAfterNarcissus(restoreView)
 
     if restoreView and SetView then
         pcall(SetView, 5)
+        lastMounted = nil
+    end
+
+    UpdateCameraSettings()
+end
+
+local function RestoreActionCamAfterUIVisibility(restoreView)
+    if not IsEnabled() then return end
+
+    if restoreView and SetView then
+        pcall(SetView, 5)
+        lastMounted = nil
     end
 
     UpdateCameraSettings()
@@ -256,6 +272,25 @@ local function ScheduleNarcissusActionCamRestore()
     end
 end
 
+local function ScheduleUIVisibilityActionCamRestore()
+    if not IsEnabled() then return end
+
+    if not C_Timer or not C_Timer.After then
+        RestoreActionCamAfterUIVisibility(true)
+        return
+    end
+
+    C_Timer.After(UI_VISIBILITY_VIEW_RESTORE_DELAY, function()
+        RestoreActionCamAfterUIVisibility(true)
+    end)
+
+    for _, delay in ipairs(UI_VISIBILITY_CVAR_RESTORE_DELAYS) do
+        C_Timer.After(delay, function()
+            RestoreActionCamAfterUIVisibility(false)
+        end)
+    end
+end
+
 local function OnNarcissusToggle()
     ScheduleNarcissusActionCamRestore()
 end
@@ -272,6 +307,24 @@ end
 local function HookNarcissusCamera()
     HookNarcissusFunction("Narci_Open")
     HookNarcissusFunction("Narci_OpenGroupPhoto")
+end
+
+local function HookUIParentVisibility()
+    if uiParentVisibilityHooked or not UIParent or not UIParent.HookScript then return end
+
+    UIParent:HookScript("OnHide", function()
+        if IsEnabled() then
+            uiParentHiddenForActionCam = true
+        end
+    end)
+
+    UIParent:HookScript("OnShow", function()
+        if not uiParentHiddenForActionCam then return end
+        uiParentHiddenForActionCam = false
+        ScheduleUIVisibilityActionCamRestore()
+    end)
+
+    uiParentVisibilityHooked = true
 end
 
 local frame = CreateFrame("Frame")
@@ -295,11 +348,13 @@ local function HandleActionCamEvent(self, event, addon, unit)
         ScheduleSpellOverlayOffset(0)
         ScheduleSpellOverlayOffset(0.1)
     elseif event == "PLAYER_LOGIN" then
+        HookUIParentVisibility()
         HookNarcissusCamera()
         UpdateCameraSettings()
         ScheduleSpellOverlayOffset(0)
         ScheduleSpellOverlayOffset(0.1)
     elseif event == "PLAYER_ENTERING_WORLD" then
+        HookUIParentVisibility()
         -- Also reset on entering world if disabled (in case CVars were set by another addon)
         if not IsEnabled() then
             ResetCameraCVarsToDefaults()
