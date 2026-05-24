@@ -6,6 +6,8 @@ local fallbackMemory = { order = {}, quests = {} }
 local nativeWatchMemory = { order = {}, quests = {} }
 local hookedQuestWatchUpdate = false
 local hookedQuestLogUpdate = false
+local hookedRemoveQuestWatch = false
+local hookedCQuestLogRemoveQuestWatch = false
 local questWatchLayoutRefreshScheduled = false
 local originalQuestLogTitleButton_OnClick = nil
 local AddQuestToWatch
@@ -130,6 +132,17 @@ local function RemoveQuestStateEntry(state, key)
     return removed
 end
 
+local function RemoveQuestWatchFromState(state, questID, questName)
+    local key = MakeQuestKey(questID, questName)
+    local removed = RemoveQuestStateEntry(state, key)
+
+    if questID and questID > 0 and questName then
+        removed = RemoveQuestStateEntry(state, MakeQuestKey(nil, questName)) or removed
+    end
+
+    return removed
+end
+
 local function RememberNativeQuestWatch(index, questID, questName)
     local logQuestID, title, isHeader
     if index then
@@ -157,8 +170,7 @@ local function RememberNativeQuestWatch(index, questID, questName)
 end
 
 local function RemoveNativeQuestWatch(questID, questName)
-    local key = MakeQuestKey(questID, questName)
-    return RemoveQuestStateEntry(GetNativeWatchState(), key)
+    return RemoveQuestWatchFromState(GetNativeWatchState(), questID, questName)
 end
 
 local function GetQuestObjectiveText(index, fallbackText)
@@ -253,8 +265,7 @@ local function IsFallbackQuestWatched(questID, questName)
 end
 
 local function RemoveFallbackQuestWatch(questID, questName)
-    local key = MakeQuestKey(questID, questName)
-    return RemoveQuestStateEntry(GetFallbackState(), key)
+    return RemoveQuestWatchFromState(GetFallbackState(), questID, questName)
 end
 
 local function RefreshQuestTracker()
@@ -804,6 +815,26 @@ local function UpdateQuestLogWatchIndicators()
     end
 end
 
+local function ForgetQuestWatch(questIndex, questID)
+    local title, isHeader
+
+    if questIndex then
+        local logQuestID
+        logQuestID, title, isHeader = GetQuestInfo(questIndex)
+        questID = questID or logQuestID
+    elseif questID then
+        questIndex = FindQuestLogIndex(questID)
+        if questIndex then
+            questID, title, isHeader = GetQuestInfo(questIndex)
+        end
+    end
+
+    if isHeader then return end
+
+    RemoveNativeQuestWatch(questID, title)
+    RemoveFallbackQuestWatch(questID, title)
+end
+
 local function HookQuestWatchUpdates()
     if not hookedQuestWatchUpdate and hooksecurefunc and QuestWatch_Update then
         hooksecurefunc("QuestWatch_Update", UpdateQuestWatchLayout)
@@ -813,6 +844,20 @@ local function HookQuestWatchUpdates()
     if not hookedQuestLogUpdate and hooksecurefunc and QuestLog_Update then
         hooksecurefunc("QuestLog_Update", UpdateQuestLogWatchIndicators)
         hookedQuestLogUpdate = true
+    end
+
+    if not hookedRemoveQuestWatch and hooksecurefunc and RemoveQuestWatch then
+        hooksecurefunc("RemoveQuestWatch", function(questIndex)
+            ForgetQuestWatch(questIndex)
+        end)
+        hookedRemoveQuestWatch = true
+    end
+
+    if not hookedCQuestLogRemoveQuestWatch and hooksecurefunc and C_QuestLog and C_QuestLog.RemoveQuestWatch then
+        hooksecurefunc(C_QuestLog, "RemoveQuestWatch", function(questID)
+            ForgetQuestWatch(nil, questID)
+        end)
+        hookedCQuestLogRemoveQuestWatch = true
     end
 
     if not originalQuestLogTitleButton_OnClick and QuestLogTitleButton_OnClick then
