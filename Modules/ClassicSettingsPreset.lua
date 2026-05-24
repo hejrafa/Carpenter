@@ -5,7 +5,19 @@ local function IsEnabled()
     return Carpenter and Carpenter.Client and Carpenter.Client.isClassic and Carpenter:IsEnabled("classicSettingsPresetEnabled")
 end
 
+local function GetCVarValue(name)
+    if type(C_CVar) == "table" and type(C_CVar.GetCVar) == "function" then
+        local ok, value = pcall(C_CVar.GetCVar, name)
+        if ok then return value end
+    end
+    if type(GetCVar) == "function" then
+        local ok, value = pcall(GetCVar, name)
+        if ok then return value end
+    end
+end
+
 local function SetCVarValue(name, value)
+    if GetCVarValue(name) == nil then return end
     if type(SetCVar) == "function" then
         pcall(SetCVar, name, value)
     end
@@ -36,10 +48,6 @@ end
 
 local function ApplyRaidFrameToggles()
     SetCVarValue("raidFramesDisplayClassColor", "1")
-
-    if type(CompactUnitFrameProfiles_ApplyCurrentSettings) == "function" then
-        pcall(CompactUnitFrameProfiles_ApplyCurrentSettings)
-    end
 end
 
 local function Apply()
