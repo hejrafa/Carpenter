@@ -74,16 +74,17 @@ local DEBUFF_COLORS = {
     ["none"]    = { r = 0.80, g = 0, b = 0 },    -- Default red
 }
 
-local COOLDOWN_TEXT_SIZE = 24
+local NAMEPLATE_COOLDOWN_TEXT_SIZE = 16
+local UNIT_FRAME_COOLDOWN_TEXT_SIZE = 24
 
 local function GetDebuffColor(debuffType)
     local color = DEBUFF_COLORS[debuffType] or DEBUFF_COLORS["none"]
     return color.r, color.g, color.b
 end
 
-local function StyleCooldownText(text)
+local function StyleCooldownText(text, size)
     if not text then return end
-    text:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", COOLDOWN_TEXT_SIZE, "OUTLINE")
+    text:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", size, "OUTLINE")
     text:SetTextColor(1, 1, 1)
     text:SetShadowColor(0, 0, 0, 0.9)
     text:SetShadowOffset(1, -1)
@@ -226,7 +227,7 @@ local function CreateBaseIcon(parent, isNameplate)
 
         f.cooldownText = f:CreateFontString(nil, "OVERLAY")
         f.cooldownText:SetPoint("CENTER", f, "CENTER", 0, 0)
-        StyleCooldownText(f.cooldownText)
+        StyleCooldownText(f.cooldownText, NAMEPLATE_COOLDOWN_TEXT_SIZE)
 
         -- Border always on top
         f.border = f:CreateTexture(nil, "OVERLAY", nil, 7)
@@ -261,7 +262,7 @@ local function CreateBaseIcon(parent, isNameplate)
 
         f.cooldownText = container:CreateFontString(nil, "OVERLAY")
         f.cooldownText:SetPoint("CENTER", container, "CENTER", 0, 0)
-        StyleCooldownText(f.cooldownText)
+        StyleCooldownText(f.cooldownText, UNIT_FRAME_COOLDOWN_TEXT_SIZE)
 
         -- Mask the icon so it stays circular like the portrait
         if container.CreateMaskTexture then
