@@ -8,6 +8,7 @@ local hookedQuestWatchUpdate = false
 local hookedQuestLogUpdate = false
 local hookedRemoveQuestWatch = false
 local hookedCQuestLogRemoveQuestWatch = false
+local questWatchRemoveInProgress = false
 local questWatchLayoutRefreshScheduled = false
 local originalQuestLogTitleButton_OnClick = nil
 local AddQuestToWatch
@@ -266,6 +267,20 @@ end
 
 local function RemoveFallbackQuestWatch(questID, questName)
     return RemoveQuestWatchFromState(GetFallbackState(), questID, questName)
+end
+
+local function GetNumNativeQuestWatches()
+    if GetNumQuestWatches then
+        return GetNumQuestWatches() or 0
+    end
+    if C_QuestLog and C_QuestLog.GetNumQuestWatches then
+        return C_QuestLog.GetNumQuestWatches() or 0
+    end
+    return 0
+end
+
+local function HasQuestWatches()
+    return GetNumNativeQuestWatches() > 0 or #GetFallbackState().order > 0
 end
 
 local function RefreshQuestTracker()
@@ -607,7 +622,30 @@ local function ClearQuestWatchLineMetadata()
         if line then
             line._CarpenterQuestWatchFallbackLine = nil
             line._CarpenterQuestWatchGapBefore = nil
+            line._CarpenterQuestWatchRawText = nil
+            line._CarpenterQuestWatchWrappedText = nil
         end
+    end
+end
+
+local function HideQuestWatchFrame()
+    local maxLines = MAX_QUESTWATCH_LINES or 30
+    for index = 1, maxLines do
+        local line = _G["QuestWatchLine" .. index]
+        if line then
+            if line.SetText then
+                line:SetText("")
+            end
+            line:Hide()
+        end
+    end
+
+    if QuestWatchFrame then
+        QuestWatchFrame:Hide()
+    end
+
+    if UIParent_ManageFramePositions then
+        UIParent_ManageFramePositions()
     end
 end
 
@@ -632,6 +670,10 @@ end
 
 local function LayoutQuestWatchLines()
     if not IsEnabled() or not QuestWatchFrame then return end
+    if not HasQuestWatches() then
+        HideQuestWatchFrame()
+        return
+    end
 
     local anchor = QuestWatchQuestName or QuestWatchFrame
     local anchorPoint = QuestWatchQuestName and "BOTTOMLEFT" or "TOPLEFT"
@@ -664,7 +706,15 @@ local function LayoutQuestWatchLines()
         end
     end
 
-    if visibleLines == 0 then return end
+    if visibleLines == 0 then
+        if not HasQuestWatches() then
+            QuestWatchFrame:Hide()
+            if UIParent_ManageFramePositions then
+                UIParent_ManageFramePositions()
+            end
+        end
+        return
+    end
 
     QuestWatchFrame:SetHeight(offsetY + QUEST_WATCH_FRAME_PADDING)
     QuestWatchFrame:SetWidth(QUEST_WATCH_FRAME_WIDTH)
@@ -831,8 +881,22 @@ local function ForgetQuestWatch(questIndex, questID)
 
     if isHeader then return end
 
-    RemoveNativeQuestWatch(questID, title)
-    RemoveFallbackQuestWatch(questID, title)
+    local removed = RemoveNativeQuestWatch(questID, title)
+    removed = RemoveFallbackQuestWatch(questID, title) or removed
+
+    return removed, questIndex, questID
+end
+
+local function KeepQuestWatchRemoved(questIndex, questID)
+    if questWatchRemoveInProgress or not IsQuestCurrentlyWatched(questIndex, questID) then return end
+
+    questWatchRemoveInProgress = true
+    if C_QuestLog and C_QuestLog.RemoveQuestWatch and questID then
+        pcall(C_QuestLog.RemoveQuestWatch, questID)
+    elseif RemoveQuestWatch and questIndex then
+        pcall(RemoveQuestWatch, questIndex)
+    end
+    questWatchRemoveInProgress = false
 end
 
 local function HookQuestWatchUpdates()
@@ -848,14 +912,26 @@ local function HookQuestWatchUpdates()
 
     if not hookedRemoveQuestWatch and hooksecurefunc and RemoveQuestWatch then
         hooksecurefunc("RemoveQuestWatch", function(questIndex)
-            ForgetQuestWatch(questIndex)
+            if questWatchRemoveInProgress then return end
+
+            local removed, resolvedIndex, resolvedQuestID = ForgetQuestWatch(questIndex)
+            KeepQuestWatchRemoved(resolvedIndex or questIndex, resolvedQuestID)
+            if removed or not IsQuestCurrentlyWatched(resolvedIndex or questIndex, resolvedQuestID) then
+                RefreshQuestTracker()
+            end
         end)
         hookedRemoveQuestWatch = true
     end
 
     if not hookedCQuestLogRemoveQuestWatch and hooksecurefunc and C_QuestLog and C_QuestLog.RemoveQuestWatch then
         hooksecurefunc(C_QuestLog, "RemoveQuestWatch", function(questID)
-            ForgetQuestWatch(nil, questID)
+            if questWatchRemoveInProgress then return end
+
+            local removed, resolvedIndex, resolvedQuestID = ForgetQuestWatch(nil, questID)
+            KeepQuestWatchRemoved(resolvedIndex, resolvedQuestID or questID)
+            if removed or not IsQuestCurrentlyWatched(resolvedIndex, resolvedQuestID or questID) then
+                RefreshQuestTracker()
+            end
         end)
         hookedCQuestLogRemoveQuestWatch = true
     end
