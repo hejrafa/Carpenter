@@ -41,6 +41,7 @@ Modules\MinimapClutter.lua
 Modules\WorldMapCleanup.xml
 Modules\WorldMapCleanup.lua
 Modules\EnhanceTooltip.lua
+Modules\ReadyCheckCompat.lua
 
 # Unit Frames
 Modules\ClassHealthColorsShared.lua
