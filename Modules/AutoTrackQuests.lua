@@ -517,6 +517,77 @@ local function GetQuestWatchLineWidth(line)
     return width
 end
 
+local function GetQuestWatchTextWidth(line, text)
+    if not line or not text then return 0 end
+
+    local originalText = line.GetText and line:GetText()
+    line:SetText(text)
+    local width = line.GetStringWidth and line:GetStringWidth() or line:GetWidth()
+    line:SetText(originalText or "")
+
+    return width or 0
+end
+
+local function GetQuestWatchRawLineText(line)
+    if not line or not line.GetText then return nil end
+
+    local text = line:GetText()
+    if text == line._CarpenterQuestWatchWrappedText and line._CarpenterQuestWatchRawText then
+        return line._CarpenterQuestWatchRawText
+    end
+
+    line._CarpenterQuestWatchRawText = text
+    line._CarpenterQuestWatchWrappedText = nil
+    return text
+end
+
+local function BuildIndentedObjectiveLine(line, text)
+    if type(text) ~= "string" then return text end
+
+    local prefix, body = text:match("^(%s*%-%s+)(.+)$")
+    if not prefix or not body then return text end
+
+    body = body:gsub("[\r\n]+", " "):gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+    if body == "" then return text end
+
+    local continuationIndent = prefix:gsub("%S", " ")
+    local lines = {}
+    local current = prefix
+
+    for word in body:gmatch("%S+") do
+        local candidate
+        if current == prefix or current == continuationIndent then
+            candidate = current .. word
+        else
+            candidate = current .. " " .. word
+        end
+
+        if current ~= prefix and current ~= continuationIndent and GetQuestWatchTextWidth(line, candidate) > QUEST_WATCH_WRAP_WIDTH then
+            tinsert(lines, current)
+            current = continuationIndent .. word
+        else
+            current = candidate
+        end
+    end
+
+    if current and current ~= prefix and current ~= continuationIndent then
+        tinsert(lines, current)
+    end
+
+    return table.concat(lines, "\n")
+end
+
+local function ApplyQuestWatchLineText(line)
+    local rawText = GetQuestWatchRawLineText(line)
+    if type(rawText) ~= "string" or rawText == "" then return end
+
+    local wrappedText = BuildIndentedObjectiveLine(line, rawText)
+    if wrappedText ~= rawText then
+        line._CarpenterQuestWatchWrappedText = wrappedText
+        line:SetText(wrappedText)
+    end
+end
+
 local function ClearQuestWatchLineMetadata()
     local maxLines = MAX_QUESTWATCH_LINES or 30
     for index = 1, maxLines do
@@ -562,6 +633,7 @@ local function LayoutQuestWatchLines()
         local line = _G["QuestWatchLine" .. index]
         if line and line:IsShown() and (not line.GetText or line:GetText() ~= "") then
             ConfigureQuestWatchLine(line)
+            ApplyQuestWatchLineText(line)
 
             local gapBefore = line._CarpenterQuestWatchFallbackLine and line._CarpenterQuestWatchGapBefore or nativeGaps[index]
             if gapBefore and visibleLines > 0 then
