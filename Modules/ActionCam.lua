@@ -37,6 +37,8 @@ local SPELL_OVERLAY_OFFSET_Y = 0
 local MOUNT_ZOOM_VALUE = 10
 local MOUNT_ZOOM_TRANSITION_TIME = 1
 local ZOOM_TICK_INTERVAL = 0.05
+local NARCISSUS_VIEW_RESTORE_DELAY = 0.2
+local NARCISSUS_CVAR_RESTORE_DELAYS = { 1.05, 1.35 }
 
 local lastMounted = nil   -- last mount state we actually acted on (so we only act on transition)
 local preMountZoom = nil
@@ -45,6 +47,7 @@ local zoomInProgress = false  -- prevent overlapping zoom sequences
 local zoomCheckScheduled = false
 local spellOverlayHooked = false
 local spellOverlayApplying = false
+local narcissusHooks = {}
 local HookSpellOverlay
 local UpdateSpellOverlayOffset
 
@@ -220,6 +223,57 @@ local function UpdateCameraSettings()
     end
 end
 
+local function IsNarcissusActive()
+    return _G.Narci and _G.Narci.isActive
+end
+
+local function RestoreActionCamAfterNarcissus(restoreView)
+    if not IsEnabled() or IsNarcissusActive() then return end
+
+    if restoreView and SetView then
+        pcall(SetView, 5)
+    end
+
+    UpdateCameraSettings()
+end
+
+local function ScheduleNarcissusActionCamRestore()
+    if not IsEnabled() or IsNarcissusActive() then return end
+
+    if not C_Timer or not C_Timer.After then
+        RestoreActionCamAfterNarcissus(true)
+        return
+    end
+
+    C_Timer.After(NARCISSUS_VIEW_RESTORE_DELAY, function()
+        RestoreActionCamAfterNarcissus(true)
+    end)
+
+    for _, delay in ipairs(NARCISSUS_CVAR_RESTORE_DELAYS) do
+        C_Timer.After(delay, function()
+            RestoreActionCamAfterNarcissus(false)
+        end)
+    end
+end
+
+local function OnNarcissusToggle()
+    ScheduleNarcissusActionCamRestore()
+end
+
+local function HookNarcissusFunction(name)
+    if narcissusHooks[name] or type(_G[name]) ~= "function" or not hooksecurefunc then return end
+
+    local ok = pcall(hooksecurefunc, name, OnNarcissusToggle)
+    if ok then
+        narcissusHooks[name] = true
+    end
+end
+
+local function HookNarcissusCamera()
+    HookNarcissusFunction("Narci_Open")
+    HookNarcissusFunction("Narci_OpenGroupPhoto")
+end
+
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
@@ -235,10 +289,13 @@ local function HandleActionCamEvent(self, event, addon, unit)
             ResetCameraCVarsToDefaults()
         end
         C_Timer.After(0.1, UpdateCameraSettings)
+    elseif event == "ADDON_LOADED" and addon == "Narcissus" then
+        HookNarcissusCamera()
     elseif event == "ADDON_LOADED" and addon == "Blizzard_SpellActivationOverlay" then
         ScheduleSpellOverlayOffset(0)
         ScheduleSpellOverlayOffset(0.1)
     elseif event == "PLAYER_LOGIN" then
+        HookNarcissusCamera()
         UpdateCameraSettings()
         ScheduleSpellOverlayOffset(0)
         ScheduleSpellOverlayOffset(0.1)

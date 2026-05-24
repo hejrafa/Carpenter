@@ -3,6 +3,7 @@
 ## 1.6.5
 
 - Fixed hidden chat buttons so hovering the chat area restores them to full opacity.
+- Restored Carpenter Action Cam after closing the Narcissus AFK screen so its delayed camera reset does not leave the camera at Blizzard defaults.
 - Adjusted nameplate debuff countdown text for small icons while letting cooldown-count addons take over.
 - Added Classic/TBC no-objective quest tracking fallback so quests such as simple "speak with" quests can still appear in the default tracker.
 - Kept Classic/TBC auto-tracked quests pinned after Blizzard's temporary auto-watch expires, while still respecting manual Shift-click untracking.
