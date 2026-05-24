@@ -6,10 +6,12 @@ local fallbackMemory = { order = {}, quests = {} }
 local nativeWatchMemory = { order = {}, quests = {} }
 local hookedQuestWatchUpdate = false
 local hookedQuestLogUpdate = false
+local questWatchLayoutRefreshScheduled = false
 local originalQuestLogTitleButton_OnClick = nil
 local AddQuestToWatch
 local QUEST_WATCH_WRAP_WIDTH = 230
 local QUEST_WATCH_MIN_LINE_HEIGHT = 13
+local QUEST_WATCH_MEASURE_HEIGHT = 240
 local QUEST_WATCH_SECTION_GAP = 4
 local QUEST_WATCH_FRAME_PADDING = 10
 
@@ -466,6 +468,9 @@ local function ConfigureQuestWatchLine(line)
     if line.SetWidth then
         line:SetWidth(QUEST_WATCH_WRAP_WIDTH)
     end
+    if line.SetMaxLines then
+        pcall(line.SetMaxLines, line, 0)
+    end
     if line.SetWordWrap then
         line:SetWordWrap(true)
     end
@@ -474,6 +479,9 @@ local function ConfigureQuestWatchLine(line)
     end
     if line.SetJustifyH then
         line:SetJustifyH("LEFT")
+    end
+    if line.SetHeight then
+        line:SetHeight(QUEST_WATCH_MEASURE_HEIGHT)
     end
 end
 
@@ -585,6 +593,24 @@ local function LayoutQuestWatchLines()
     end
 end
 
+local function ScheduleQuestWatchLayoutRefresh()
+    if questWatchLayoutRefreshScheduled then return end
+
+    questWatchLayoutRefreshScheduled = true
+    local function RefreshLayout()
+        questWatchLayoutRefreshScheduled = false
+        LayoutQuestWatchLines()
+    end
+
+    if Carpenter and Carpenter.After then
+        Carpenter:After(0, RefreshLayout)
+    elseif C_Timer and C_Timer.After then
+        C_Timer.After(0, RefreshLayout)
+    else
+        questWatchLayoutRefreshScheduled = false
+    end
+end
+
 local function SetQuestWatchLine(lineIndex, text, r, g, b, gapBefore)
     local line = _G["QuestWatchLine" .. lineIndex]
     if not line then return nil end
@@ -680,6 +706,7 @@ local function UpdateQuestWatchLayout()
     ClearQuestWatchLineMetadata()
     RenderFallbackQuestWatches()
     LayoutQuestWatchLines()
+    ScheduleQuestWatchLayoutRefresh()
 end
 
 local function UpdateQuestLogWatchIndicators()
