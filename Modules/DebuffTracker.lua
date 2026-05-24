@@ -203,6 +203,9 @@ local function IsImportantNameplateDebuff(name, spellId)
             if CarpenterSpellData.IsBleedDebuff and CarpenterSpellData.IsBleedDebuff(spellId) then
                 return true, "Bleed"
             end
+            if CarpenterSpellData.IsPoisonDebuff and CarpenterSpellData.IsPoisonDebuff(spellId) then
+                return true, "Poison"
+            end
             return true, nil
         end
 

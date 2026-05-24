@@ -12,6 +12,7 @@ local INTERRUPT = "interrupts"
 local CROWD_CONTROL = "cc"
 local ROOT = "roots"
 local BLEED = "bleeds"
+local POISON = "poisons"
 local IMMUNITY = "immunities"
 local IMMUNITY_SPELL = "immunities_spells"
 
@@ -455,6 +456,13 @@ addon.Spells = {
     [14278] = { type = BUFF_DEFENSIVE }, -- Ghostly Strike
     [3409] = { type = ROOT }, -- Crippling Poison
         [11201] = { parent = 3409 },
+    [2818] = { type = POISON }, -- Deadly Poison
+        [2819] = { parent = 2818 },
+        [11353] = { parent = 2818 },
+        [11354] = { parent = 2818 },
+        [25349] = { parent = 2818 },
+        [26968] = { parent = 2818 },
+        [27187] = { parent = 2818 },
     [703] = { type = BLEED }, -- Garrote
         [8631] = { parent = 703 },
         [8632] = { parent = 703 },
@@ -551,9 +559,13 @@ function addon.IsBleedDebuff(spellId)
     return addon.GetSpellInfo(spellId) == BLEED
 end
 
+function addon.IsPoisonDebuff(spellId)
+    return addon.GetSpellInfo(spellId) == POISON
+end
+
 function addon.IsImportantNameplateDebuff(spellId)
     local t = addon.GetSpellInfo(spellId)
-    return t == CROWD_CONTROL or t == ROOT or t == BLEED
+    return t == CROWD_CONTROL or t == ROOT or t == BLEED or t == POISON
 end
 
 -- True if this spell ID should be shown as an important player buff
