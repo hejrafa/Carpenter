@@ -18,6 +18,7 @@ local QUEST_WATCH_MEASURE_HEIGHT = 240
 local QUEST_WATCH_SECTION_GAP = 4
 local QUEST_WATCH_FRAME_PADDING = 10
 local QUEST_WATCH_FRAME_WIDTH = QUEST_WATCH_WRAP_WIDTH + QUEST_WATCH_FRAME_PADDING
+local QUEST_WATCH_FALLBACK_OBJECTIVE_INDENT = "   "
 
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("autoTrackQuestsEnabled")
@@ -572,12 +573,22 @@ local function BuildIndentedObjectiveLine(line, text)
     if type(text) ~= "string" then return text end
 
     local prefix, body = text:match("^(%s*%-%s+)(.+)$")
-    if not prefix or not body then return text end
+    local continuationIndent
+    local wrapIndent = line and line._CarpenterQuestWatchWrapIndent
+
+    if type(wrapIndent) == "string" and wrapIndent ~= "" then
+        prefix = wrapIndent
+        continuationIndent = wrapIndent
+        body = text
+    elseif prefix and body then
+        continuationIndent = prefix:gsub("%S", " ")
+    else
+        return text
+    end
 
     body = body:gsub("[\r\n]+", " "):gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
     if body == "" then return text end
 
-    local continuationIndent = prefix:gsub("%S", " ")
     local lines = {}
     local current = prefix
 
@@ -622,6 +633,7 @@ local function ClearQuestWatchLineMetadata()
         if line then
             line._CarpenterQuestWatchFallbackLine = nil
             line._CarpenterQuestWatchGapBefore = nil
+            line._CarpenterQuestWatchWrapIndent = nil
             line._CarpenterQuestWatchRawText = nil
             line._CarpenterQuestWatchWrappedText = nil
         end
@@ -743,13 +755,14 @@ local function ScheduleQuestWatchLayoutRefresh()
     end
 end
 
-local function SetQuestWatchLine(lineIndex, text, r, g, b, gapBefore)
+local function SetQuestWatchLine(lineIndex, text, r, g, b, gapBefore, wrapIndent)
     local line = _G["QuestWatchLine" .. lineIndex]
     if not line then return nil end
 
     ConfigureQuestWatchLine(line)
     line._CarpenterQuestWatchFallbackLine = true
     line._CarpenterQuestWatchGapBefore = gapBefore and true or false
+    line._CarpenterQuestWatchWrapIndent = wrapIndent
 
     line:ClearAllPoints()
     if lineIndex == 1 then
@@ -812,7 +825,7 @@ local function RenderFallbackQuestWatches()
             lineIndex = lineIndex + 1
 
             local objective = watch.objectiveText or watch.title or ""
-            SetQuestWatchLine(lineIndex, objective, 0.8, 0.8, 0.8, false)
+            SetQuestWatchLine(lineIndex, objective, 0.8, 0.8, 0.8, false, QUEST_WATCH_FALLBACK_OBJECTIVE_INDENT)
             lineIndex = lineIndex + 1
             rendered = rendered + 1
         end
