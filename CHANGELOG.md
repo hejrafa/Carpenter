@@ -4,13 +4,20 @@
 
 - Fixed hidden chat buttons so hovering the chat area restores them to full opacity.
 - Restored Carpenter Action Cam after closing the Narcissus AFK screen so its delayed camera reset does not leave the camera at Blizzard defaults.
+- Restored Carpenter Action Cam after hiding and showing the full UI so the camera perspective does not fall back to Blizzard defaults.
 - Adjusted nameplate debuff countdown text for small icons while letting cooldown-count addons take over.
+- Added Rogue Deadly Poison to enemy nameplate debuff tracking, including stack counters on nameplate debuff icons.
+- Stabilized enemy nameplate debuff refreshing on recycled and combat-created nameplates so tracked debuffs keep appearing.
 - Added Classic/TBC no-objective quest tracking fallback so quests such as simple "speak with" quests can still appear in the default tracker.
 - Wrapped long Classic/TBC objective tracker quest lines with aligned bullet continuations and reflowed the tracker height so long objective text no longer stretches awkwardly across the screen.
 - Kept the Classic/TBC objective tracker at a stable width so shorter watched quests do not shrink the tracker.
 - Kept Classic/TBC auto-tracked quests pinned after Blizzard's temporary auto-watch expires, while still respecting manual Shift-click untracking.
+- Cleared the Classic/TBC objective tracker correctly after the final watched quest is manually untracked.
 - Added a nested World Map Cleanup option to show or hide Carpenter's dungeon, raid, flight, and travel POI pins so Classic exploration can stay unspoiled by default.
 - Added Classic/TBC bleed tracking to enemy nameplate debuffs for Rend, Deep Wounds, Garrote, Rupture, Rake, Rip, Pounce Bleed, and Lacerate without adding bleeds to unit-frame portrait debuffs.
+- Enabled the Classic Settings Preset on TBC/Anniversary clients.
+- Hardened Classic/TBC ready checks and raid frame class-color preset application against client API edge cases.
+- Added a blank Lua error trace helper for diagnosing empty Lua error popups.
 - Removed Fade Extra Action Bars from Classic Era availability and kept it TBC-only.
 
 ## 1.6.4
