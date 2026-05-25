@@ -175,10 +175,7 @@ local function RemoveNativeQuestWatch(questID, questName)
     return RemoveQuestWatchFromState(GetNativeWatchState(), questID, questName)
 end
 
-local function GetQuestObjectiveText(index, fallbackText)
-    local text = CleanQuestText(fallbackText)
-    if text then return text end
-
+local function GetQuestObjectiveText(index)
     if not index or not GetQuestLogQuestText then return nil end
 
     local selectedIndex = GetQuestLogSelection and GetQuestLogSelection()
@@ -309,7 +306,7 @@ local function SafeRegisterEvent(event)
     pcall(frame.RegisterEvent, frame, event)
 end
 
-local function AddFallbackQuestWatch(index, questID, questName, objectiveText, quiet)
+local function AddFallbackQuestWatch(index, questID, questName, quiet)
     if not index then return false end
 
     local logQuestID, title, isHeader = GetQuestInfo(index)
@@ -321,7 +318,7 @@ local function AddFallbackQuestWatch(index, questID, questName, objectiveText, q
     local key = MakeQuestKey(questID, questName)
     if not key then return false end
 
-    objectiveText = GetQuestObjectiveText(index, objectiveText) or questName
+    objectiveText = GetQuestObjectiveText(index) or questName
     objectiveText = CleanQuestText(objectiveText)
     if not objectiveText then return false end
 
@@ -376,7 +373,7 @@ local function PruneFallbackQuestWatches()
             local logQuestID, title = GetQuestInfo(questIndex)
             watch.questID = watch.questID or logQuestID
             watch.title = GetQuestDisplayTitle(questIndex, title or watch.title)
-            watch.objectiveText = GetQuestObjectiveText(questIndex, watch.objectiveText) or watch.objectiveText
+            watch.objectiveText = GetQuestObjectiveText(questIndex) or watch.title
             index = index + 1
         end
     end
@@ -968,7 +965,7 @@ local function HookQuestWatchUpdates()
                             RemoveFallbackQuestWatch(questID, title)
                             RefreshQuestTracker()
                         else
-                            AddFallbackQuestWatch(questIndex, questID, title, nil, false)
+                            AddFallbackQuestWatch(questIndex, questID, title, false)
                         end
                         if QuestLog_SetSelection then
                             QuestLog_SetSelection(questIndex)
@@ -996,7 +993,7 @@ local function HookQuestWatchUpdates()
     end
 end
 
-local function TrackQuest(questLogIndex, questID, questName, objectiveText)
+local function TrackQuest(questLogIndex, questID, questName)
     if not IsEnabled() then return end
 
     local index = questLogIndex
@@ -1011,7 +1008,7 @@ local function TrackQuest(questLogIndex, questID, questName, objectiveText)
     end
 
     if index and not QuestHasTrackableObjectives(index) then
-        AddFallbackQuestWatch(index, questID, questName, objectiveText, true)
+        AddFallbackQuestWatch(index, questID, questName, true)
     end
 end
 
@@ -1045,12 +1042,11 @@ frame:SetScript("OnEvent", function(_, event, questLogIndex, questID)
     end
 
     local questName = GetTitleText and GetTitleText()
-    local objectiveText = GetObjectiveText and GetObjectiveText()
     if Carpenter and Carpenter.After then
         Carpenter:After(0, function()
-            TrackQuest(questLogIndex, questID, questName, objectiveText)
+            TrackQuest(questLogIndex, questID, questName)
         end)
     else
-        TrackQuest(questLogIndex, questID, questName, objectiveText)
+        TrackQuest(questLogIndex, questID, questName)
     end
 end)
