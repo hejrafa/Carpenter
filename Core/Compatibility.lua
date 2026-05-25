@@ -72,7 +72,6 @@ local featureSupport = {
         menuTransparencyEnabled = true,
         smallerExpBarEnabled = true,
         targetHealthPercentEnabled = false,
-        classicSettingsPresetEnabled = false,
     }, { __index = classicFeatures }),
     retail = {
         hideMacroNamesEnabled = true,
