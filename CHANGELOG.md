@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.6
+
+- Updated the release workflow to use the current GitHub checkout action runtime.
+- Removed the synthetic `- ` prefix from Classic/TBC no-objective quest tracker fallback text so wrapped fallback lines align cleanly.
+
 ## 1.6.5
 
 - Fixed hidden chat buttons so hovering the chat area restores them to full opacity.

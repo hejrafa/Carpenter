@@ -811,7 +811,7 @@ local function RenderFallbackQuestWatches()
             SetQuestWatchLine(lineIndex, watch.title or "", 0.75, 0.61, 0, lineIndex > 1)
             lineIndex = lineIndex + 1
 
-            local objective = " - " .. (watch.objectiveText or watch.title or "")
+            local objective = watch.objectiveText or watch.title or ""
             SetQuestWatchLine(lineIndex, objective, 0.8, 0.8, 0.8, false)
             lineIndex = lineIndex + 1
             rendered = rendered + 1
