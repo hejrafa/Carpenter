@@ -97,6 +97,14 @@ local function StyleCooldownText(text, size)
     text:SetShadowOffset(1, -1)
 end
 
+local function StyleStackText(text)
+    if not text then return end
+    text:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", 11, "OUTLINE")
+    text:SetTextColor(1, 1, 1)
+    text:SetShadowColor(0, 0, 0, 0.9)
+    text:SetShadowOffset(1, -1)
+end
+
 local function FormatCooldownTime(remaining)
     if not remaining or remaining <= 0 then return "" end
     if remaining < 10 then
@@ -241,6 +249,10 @@ local function CreateBaseIcon(parent, isNameplate)
         f.cooldownText = f:CreateFontString(nil, "OVERLAY")
         f.cooldownText:SetPoint("CENTER", f, "CENTER", 0, 0)
         StyleCooldownText(f.cooldownText, NAMEPLATE_COOLDOWN_TEXT_SIZE)
+
+        f.stackText = f:CreateFontString(nil, "OVERLAY")
+        f.stackText:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)
+        StyleStackText(f.stackText)
 
         -- Border always on top
         f.border = f:CreateTexture(nil, "OVERLAY", nil, 7)
@@ -492,12 +504,13 @@ local function OnNameplateUpdate(self)
     local activeDebuffs = {}
 
     for i = 1, 40 do
-        local name, icon, _, debuffType, duration, expirationTime, _, _, _, spellId = UnitDebuff(self.unit, i)
+        local name, icon, count, debuffType, duration, expirationTime, _, _, _, spellId = UnitDebuff(self.unit, i)
         if not name then break end
         local isImportant, typeOverride = IsImportantNameplateDebuff(name, spellId)
         if isImportant then
             table.insert(activeDebuffs, {
                 icon = icon,
+                count = count,
                 type = typeOverride or debuffType,
                 dur = duration,
                 exp = expirationTime
@@ -531,6 +544,9 @@ local function OnNameplateUpdate(self)
         f:SetPoint("CENTER", container, "CENTER", offset, 0)
 
         f.icon:SetTexture(data.icon)
+        if f.stackText then
+            f.stackText:SetText((data.count and data.count > 1) and data.count or "")
+        end
         local r, g, b = GetDebuffColor(data.type)
         f.border:SetVertexColor(r, g, b)
         if data.dur and data.dur > 0 and data.exp and data.exp > 0 then
