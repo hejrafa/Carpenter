@@ -105,6 +105,12 @@ local function StyleStackText(text)
     text:SetShadowOffset(1, -1)
 end
 
+local function SetStackText(frame, count)
+    if not frame or not frame.stackText then return end
+    count = tonumber(count) or 0
+    frame.stackText:SetText(count > 1 and tostring(count) or "")
+end
+
 local function FormatCooldownTime(remaining)
     if not remaining or remaining <= 0 then return "" end
     if remaining < 10 then
@@ -251,7 +257,7 @@ local function CreateBaseIcon(parent, isNameplate)
         StyleCooldownText(f.cooldownText, NAMEPLATE_COOLDOWN_TEXT_SIZE)
 
         f.stackText = f:CreateFontString(nil, "OVERLAY")
-        f.stackText:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)
+        f.stackText:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 2, -2)
         StyleStackText(f.stackText)
 
         -- Border always on top
@@ -474,37 +480,51 @@ end
 -- =========================================================
 
 local function GetNameplateContainer(self)
+    if not self then return nil end
     if not self.CP_DebuffContainer then
-        -- Do not create new frames while in combat from secure nameplate callbacks,
-        -- as this can trigger forbidden/taint errors. We will try again later.
-        if InCombatLockdown and InCombatLockdown() then
-            return nil
-        end
-        local container = CreateFrame("Frame", nil, self)
+        local parent = (self.GetParent and self:GetParent()) or self
+        local container = CreateFrame("Frame", nil, parent)
         container:SetSize(1, 26)
         container:SetPoint("BOTTOM", self, "TOP", 0, 4)
         self.CP_DebuffContainer = container
         self.CP_DebuffIcons = {}
     end
+    self.CP_DebuffIcons = self.CP_DebuffIcons or {}
+    if self.CP_DebuffContainer.SetFrameLevel and self.GetFrameLevel then
+        self.CP_DebuffContainer:SetFrameLevel((self:GetFrameLevel() or 0) + 30)
+    end
     return self.CP_DebuffContainer
 end
 
-local function OnNameplateUpdate(self)
+local function HideNameplateDebuffs(self)
+    if not self then return end
+    if self.CP_DebuffIcons then
+        for _, iconFrame in ipairs(self.CP_DebuffIcons) do
+            SetIconCooldown(iconFrame, 0, 0, nil)
+            SetStackText(iconFrame, 0)
+            iconFrame:Hide()
+        end
+    end
+    if self.CP_DebuffContainer then
+        self.CP_DebuffContainer:Hide()
+    end
+end
+
+local function OnNameplateUpdate(self, unit)
+    unit = unit or (self and self.unit)
+
     -- Respect Nameplate-specific setting
-    if not IsNameplateEnabled() or not self.unit then
-        if self.CP_DebuffContainer then self.CP_DebuffContainer:Hide() end
+    if not IsNameplateEnabled() or not unit or not UnitExists(unit) then
+        HideNameplateDebuffs(self)
         return
     end
 
     local container = GetNameplateContainer(self)
-    if not container then
-        -- Could not safely create container (likely in combat); skip this update
-        return
-    end
+    if not container then return end
     local activeDebuffs = {}
 
     for i = 1, 40 do
-        local name, icon, count, debuffType, duration, expirationTime, _, _, _, spellId = UnitDebuff(self.unit, i)
+        local name, icon, count, debuffType, duration, expirationTime, _, _, _, spellId = UnitDebuff(unit, i)
         if not name then break end
         local isImportant, typeOverride = IsImportantNameplateDebuff(name, spellId)
         if isImportant then
@@ -523,7 +543,7 @@ local function OnNameplateUpdate(self)
     end
 
     if #activeDebuffs == 0 then
-        container:Hide()
+        HideNameplateDebuffs(self)
         return
     end
 
@@ -544,9 +564,7 @@ local function OnNameplateUpdate(self)
         f:SetPoint("CENTER", container, "CENTER", offset, 0)
 
         f.icon:SetTexture(data.icon)
-        if f.stackText then
-            f.stackText:SetText((data.count and data.count > 1) and data.count or "")
-        end
+        SetStackText(f, data.count)
         local r, g, b = GetDebuffColor(data.type)
         f.border:SetVertexColor(r, g, b)
         if data.dur and data.dur > 0 and data.exp and data.exp > 0 then
@@ -557,6 +575,49 @@ local function OnNameplateUpdate(self)
         -- Explicitly push border to OVERLAY to stay on top
         f.border:SetDrawLayer("OVERLAY", 7)
         f:Show()
+    end
+end
+
+local function UpdateNameplateForUnit(unit)
+    local plate = Nameplates.GetForUnit and Nameplates.GetForUnit(unit)
+    if plate and plate.UnitFrame then
+        OnNameplateUpdate(plate.UnitFrame, unit)
+    end
+end
+
+local function RefreshAllNameplates()
+    if not IsNameplateEnabled() then return end
+    for _, plate in pairs((Nameplates.GetAll and Nameplates.GetAll()) or {}) do
+        local unit = plate and (plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit))
+        if unit and plate.UnitFrame then
+            OnNameplateUpdate(plate.UnitFrame, unit)
+        end
+    end
+end
+
+local function HideAllNameplateDebuffs()
+    for _, plate in pairs((Nameplates.GetAll and Nameplates.GetAll()) or {}) do
+        if plate and plate.UnitFrame then
+            HideNameplateDebuffs(plate.UnitFrame)
+        end
+    end
+end
+
+local nameplateRefreshTickerActive = false
+
+local function StartNameplateRefreshTicker()
+    if nameplateRefreshTickerActive then return end
+    nameplateRefreshTickerActive = true
+    if Carpenter and Carpenter.StartTicker then
+        Carpenter:StartTicker("DebuffTracker:nameplates", 0.2, RefreshAllNameplates)
+    end
+end
+
+local function StopNameplateRefreshTicker()
+    if not nameplateRefreshTickerActive then return end
+    nameplateRefreshTickerActive = false
+    if Carpenter and Carpenter.StopTicker then
+        Carpenter:StopTicker("DebuffTracker:nameplates")
     end
 end
 
@@ -584,10 +645,7 @@ frame:SetScript("OnEvent", function(self, event, unit)
     if not IsNameplateEnabled() and not IsUnitFrameEnabled() and not IsUnitFrameBuffsEnabled() then return end
 
     if event == "NAME_PLATE_UNIT_ADDED" then
-        local plate = Nameplates.GetForUnit and Nameplates.GetForUnit(unit)
-        if plate and plate.UnitFrame then
-            OnNameplateUpdate(plate.UnitFrame)
-        end
+        UpdateNameplateForUnit(unit)
     elseif event == "UNIT_AURA" then
         if unit == "target" or unit == "player" then
             UpdateUnitPortraitDebuff(unit)
@@ -595,10 +653,7 @@ frame:SetScript("OnEvent", function(self, event, unit)
         if IsPartyUnit(unit) then
             UpdateUnitPortraitDebuff(unit)
         end
-        local plate = Nameplates.GetForUnit and Nameplates.GetForUnit(unit)
-        if plate and plate.UnitFrame then
-            OnNameplateUpdate(plate.UnitFrame)
-        end
+        UpdateNameplateForUnit(unit)
     elseif event == "PLAYER_TARGET_CHANGED" then
         UpdateUnitPortraitDebuff("target")
     elseif event == "GROUP_ROSTER_UPDATE" then
@@ -615,6 +670,11 @@ end)
 
 local function RefreshEventSubscriptions()
     frame:UnregisterAllEvents()
+    if not IsNameplateEnabled() then
+        StopNameplateRefreshTicker()
+        HideAllNameplateDebuffs()
+    end
+
     if not IsNameplateEnabled() and not IsUnitFrameEnabled() and not IsUnitFrameBuffsEnabled() then
         return
     end
@@ -626,16 +686,11 @@ local function RefreshEventSubscriptions()
 
     if IsNameplateEnabled() then
         frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+        StartNameplateRefreshTicker()
     end
 
     Carpenter_UpdateUnitFrameAuras()
-    if IsNameplateEnabled() then
-        for _, plate in pairs((Nameplates.GetAll and Nameplates.GetAll()) or {}) do
-            if plate and plate.UnitFrame then
-                OnNameplateUpdate(plate.UnitFrame)
-            end
-        end
-    end
+    RefreshAllNameplates()
 end
 
 local function CreateAuraFeature()
@@ -667,6 +722,6 @@ end
 
 hooksecurefunc("CompactUnitFrame_UpdateAuras", function(self)
     if IsNameplateEnabled() and self.unit and self.unit:find("nameplate") then
-        OnNameplateUpdate(self)
+        OnNameplateUpdate(self, self.unit)
     end
 end)
