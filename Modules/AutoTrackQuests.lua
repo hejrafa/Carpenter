@@ -554,6 +554,12 @@ local function GetQuestWatchTextWidth(line, text)
     return width or 0
 end
 
+local function GetQuestWatchPrefixWidth(line, prefix)
+    if not line or type(prefix) ~= "string" or prefix == "" then return 0 end
+    local probe = "X"
+    return math.max(0, GetQuestWatchTextWidth(line, prefix .. probe) - GetQuestWatchTextWidth(line, probe))
+end
+
 local function GetQuestWatchRawLineText(line)
     if not line or not line.GetText then return nil end
 
@@ -750,7 +756,7 @@ local function SetQuestWatchLine(lineIndex, text, r, g, b, gapBefore, offsetText
     ConfigureQuestWatchLine(line)
     line._CarpenterQuestWatchFallbackLine = true
     line._CarpenterQuestWatchGapBefore = gapBefore and true or false
-    line._CarpenterQuestWatchOffsetX = offsetText and GetQuestWatchTextWidth(line, offsetText) or nil
+    line._CarpenterQuestWatchOffsetX = offsetText and GetQuestWatchPrefixWidth(line, offsetText) or nil
     ConfigureQuestWatchLine(line)
 
     line:ClearAllPoints()
