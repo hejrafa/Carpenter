@@ -18,7 +18,7 @@ local QUEST_WATCH_MEASURE_HEIGHT = 240
 local QUEST_WATCH_SECTION_GAP = 4
 local QUEST_WATCH_FRAME_PADDING = 10
 local QUEST_WATCH_FRAME_WIDTH = QUEST_WATCH_WRAP_WIDTH + QUEST_WATCH_FRAME_PADDING
-local QUEST_WATCH_OBJECTIVE_PREFIX = "- "
+local QUEST_WATCH_OBJECTIVE_PREFIX = " - "
 
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("autoTrackQuestsEnabled")
