@@ -18,7 +18,7 @@ local QUEST_WATCH_MEASURE_HEIGHT = 240
 local QUEST_WATCH_SECTION_GAP = 4
 local QUEST_WATCH_FRAME_PADDING = 10
 local QUEST_WATCH_FRAME_WIDTH = QUEST_WATCH_WRAP_WIDTH + QUEST_WATCH_FRAME_PADDING
-local QUEST_WATCH_FALLBACK_OBJECTIVE_INDENT = "    "
+local QUEST_WATCH_OBJECTIVE_PREFIX = "- "
 
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("autoTrackQuestsEnabled")
@@ -490,8 +490,9 @@ end
 
 local function ConfigureQuestWatchLine(line)
     if not line then return end
+    local offsetX = line._CarpenterQuestWatchOffsetX or 0
     if line.SetWidth then
-        line:SetWidth(QUEST_WATCH_WRAP_WIDTH)
+        line:SetWidth(math.max(1, QUEST_WATCH_WRAP_WIDTH - offsetX))
     end
     if line.SetMaxLines then
         pcall(line.SetMaxLines, line, 0)
@@ -570,22 +571,12 @@ local function BuildIndentedObjectiveLine(line, text)
     if type(text) ~= "string" then return text end
 
     local prefix, body = text:match("^(%s*%-%s+)(.+)$")
-    local continuationIndent
-    local wrapIndent = line and line._CarpenterQuestWatchWrapIndent
-
-    if type(wrapIndent) == "string" and wrapIndent ~= "" then
-        prefix = wrapIndent
-        continuationIndent = wrapIndent
-        body = text
-    elseif prefix and body then
-        continuationIndent = prefix:gsub("%S", " ")
-    else
-        return text
-    end
+    if not prefix or not body then return text end
 
     body = body:gsub("[\r\n]+", " "):gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
     if body == "" then return text end
 
+    local continuationIndent = prefix:gsub("%S", " ")
     local lines = {}
     local current = prefix
 
@@ -630,7 +621,7 @@ local function ClearQuestWatchLineMetadata()
         if line then
             line._CarpenterQuestWatchFallbackLine = nil
             line._CarpenterQuestWatchGapBefore = nil
-            line._CarpenterQuestWatchWrapIndent = nil
+            line._CarpenterQuestWatchOffsetX = nil
             line._CarpenterQuestWatchRawText = nil
             line._CarpenterQuestWatchWrappedText = nil
         end
@@ -703,7 +694,7 @@ local function LayoutQuestWatchLines()
             end
 
             line:ClearAllPoints()
-            line:SetPoint("TOPLEFT", anchor, anchorPoint, 0, -offsetY)
+            line:SetPoint("TOPLEFT", anchor, anchorPoint, line._CarpenterQuestWatchOffsetX or 0, -offsetY)
 
             local height = GetQuestWatchLineHeight(line)
             if line.SetHeight then
@@ -752,20 +743,21 @@ local function ScheduleQuestWatchLayoutRefresh()
     end
 end
 
-local function SetQuestWatchLine(lineIndex, text, r, g, b, gapBefore, wrapIndent)
+local function SetQuestWatchLine(lineIndex, text, r, g, b, gapBefore, offsetText)
     local line = _G["QuestWatchLine" .. lineIndex]
     if not line then return nil end
 
     ConfigureQuestWatchLine(line)
     line._CarpenterQuestWatchFallbackLine = true
     line._CarpenterQuestWatchGapBefore = gapBefore and true or false
-    line._CarpenterQuestWatchWrapIndent = wrapIndent
+    line._CarpenterQuestWatchOffsetX = offsetText and GetQuestWatchTextWidth(line, offsetText) or nil
+    ConfigureQuestWatchLine(line)
 
     line:ClearAllPoints()
     if lineIndex == 1 then
-        line:SetPoint("TOPLEFT", QuestWatchQuestName or QuestWatchFrame, QuestWatchQuestName and "BOTTOMLEFT" or "TOPLEFT", 0, 0)
+        line:SetPoint("TOPLEFT", QuestWatchQuestName or QuestWatchFrame, QuestWatchQuestName and "BOTTOMLEFT" or "TOPLEFT", line._CarpenterQuestWatchOffsetX or 0, 0)
     else
-        line:SetPoint("TOPLEFT", _G["QuestWatchLine" .. (lineIndex - 1)], "BOTTOMLEFT", 0, gapBefore and -4 or 0)
+        line:SetPoint("TOPLEFT", _G["QuestWatchLine" .. (lineIndex - 1)], "BOTTOMLEFT", line._CarpenterQuestWatchOffsetX or 0, gapBefore and -4 or 0)
     end
 
     line:SetText(text)
@@ -822,7 +814,7 @@ local function RenderFallbackQuestWatches()
             lineIndex = lineIndex + 1
 
             local objective = watch.objectiveText or watch.title or ""
-            SetQuestWatchLine(lineIndex, objective, 0.8, 0.8, 0.8, false, QUEST_WATCH_FALLBACK_OBJECTIVE_INDENT)
+            SetQuestWatchLine(lineIndex, objective, 0.8, 0.8, 0.8, false, QUEST_WATCH_OBJECTIVE_PREFIX)
             lineIndex = lineIndex + 1
             rendered = rendered + 1
         end

@@ -3,7 +3,7 @@
 ## 1.6.6
 
 - Updated the release workflow to use the current GitHub checkout action runtime.
-- Replaced the visible synthetic `- ` prefix on Classic/TBC no-objective quest tracker fallback text with matching indentation for the first and wrapped lines.
+- Replaced the visible synthetic `- ` prefix on Classic/TBC no-objective quest tracker fallback text with a measured objective-text offset for exact first-line and wrapped-line alignment.
 - Read Classic/TBC no-objective quest tracker fallback text from the accepted quest's log entry so another quest on the same NPC cannot leak into the tracker.
 
 ## 1.6.5
