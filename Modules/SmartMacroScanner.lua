@@ -142,7 +142,7 @@ local function GetBestItems(debugOutput)
                     for category in pairs(GetScanCategories()) do
                         if Classifier.MatchesCategory and Classifier.MatchesCategory(item, tooltipData, spellText, category) then
                             local score = Classifier.ScoreItem(item, tooltipData, spellText, category)
-                            if debugOutput and (category == "Food" or category == "Water") then
+                            if debugOutput and (category == "Food" or category == "WellFed" or category == "Water") then
                                 print(string.format(
                                     "|cff00aaffCarpenter %s candidate:|r %s id=%s score=%s conjured=%s use=%s",
                                     category,
@@ -165,7 +165,7 @@ local function GetBestItems(debugOutput)
     end
 
     if debugOutput then
-        for _, category in ipairs({ "Food", "Water" }) do
+        for _, category in ipairs({ "Food", "WellFed", "Water" }) do
             local item = bestItems[category]
             print(string.format("|cff00aaffCarpenter best %s:|r %s score=%s", category, item and item.name or "none", tostring(bestScores[category] or "none")))
         end

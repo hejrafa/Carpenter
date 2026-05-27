@@ -62,6 +62,8 @@ end
 
 function GetTime() return 1000 end
 function InCombatLockdown() return false end
+function UnitHealthMax() return 1000 end
+function UnitPowerMax() return 1000 end
 
 C_Timer = { After = function(_, callback) callback() end }
 
@@ -124,6 +126,46 @@ if not classifier.IsBetterItem(crawdadFood, 100, plainFood, 100, "Food") then
     failures[#failures + 1] = "raw food tie-break: expected crawdad to avoid matching the standalone raw word"
 end
 fixtureCount = fixtureCount + 3
+
+local foodItem = {
+    name = "Roasted Quail",
+    itemID = 8952,
+    itemLevel = 45,
+    reqLevel = 35,
+    itemType = "Consumable",
+    itemSubType = "Food & Drink",
+    classID = ns.Private.SmartMacroData.ConsumableClassID,
+    subClassID = ns.Private.SmartMacroData.FoodDrinkSubclassID,
+}
+local normalFoodTooltip = {
+    text = "use: restores 874 health over 27 sec. must remain seated while eating.",
+    useText = "use: restores 874 health over 27 sec.",
+    isFoodAndDrink = true,
+}
+local weakBuffTooltip = {
+    text = "use: restores 874 health over 27 sec. must remain seated while eating. if you spend at least 10 seconds eating you will become well fed and gain 8 stamina and spirit for 15 min.",
+    useText = "use: restores 874 health over 27 sec.",
+    isFoodAndDrink = true,
+}
+local strongBuffTooltip = {
+    text = "use: restores 874 health over 27 sec. must remain seated while eating. if you spend at least 10 seconds eating you will become well fed and gain 20 stamina and spirit for 15 min.",
+    useText = "use: restores 874 health over 27 sec.",
+    isFoodAndDrink = true,
+}
+
+if classifier.MatchesCategory(foodItem, normalFoodTooltip, "", "WellFed") then
+    failures[#failures + 1] = "well fed category: expected plain recovery food to be excluded"
+end
+if classifier.MatchesCategory(foodItem, weakBuffTooltip, "", "Food") then
+    failures[#failures + 1] = "food category: expected buff food to stay out of the recovery food macro"
+end
+if not classifier.MatchesCategory(foodItem, weakBuffTooltip, "", "WellFed") then
+    failures[#failures + 1] = "well fed category: expected buff food to match"
+end
+if classifier.ScoreItem(foodItem, strongBuffTooltip, "", "WellFed") <= classifier.ScoreItem(foodItem, weakBuffTooltip, "", "WellFed") then
+    failures[#failures + 1] = "well fed scoring: expected stronger buff food to beat weaker buff food"
+end
+fixtureCount = fixtureCount + 4
 
 local feature = registeredFeatures.smartMacrosEnabled
 if not feature or type(feature.Enable) ~= "function" then

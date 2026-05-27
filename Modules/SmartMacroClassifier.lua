@@ -200,9 +200,54 @@ end
 local function IsWellFedFood(tooltipData, spellText)
     local text = ((tooltipData and tooltipData.text) or "") .. " " .. (spellText or "")
     text = text:lower()
-    return text:find("well fed", 1, true) ~= nil
-        or text:find("gut genährt", 1, true) ~= nil
-        or text:find("satt", 1, true) ~= nil
+    return ContainsAny(text, TOOLTIP_KEYWORDS.wellFed)
+end
+
+local function StripWellFedTiming(text)
+    if not text or text == "" then return "" end
+
+    text = text:gsub("at least%s+[%d%,%.]+%s*seconds?", "")
+    text = text:gsub("at least%s+[%d%,%.]+%s*sec", "")
+    text = text:gsub("mindestens%s+[%d%,%.]+%s*sekunden?", "")
+    text = text:gsub("[%d%,%.]+%s*seconds?", "")
+    text = text:gsub("[%d%,%.]+%s*sec", "")
+    text = text:gsub("[%d%,%.]+%s*sekunden?", "")
+    text = text:gsub("[%d%,%.]+%s*minutes?", "")
+    text = text:gsub("[%d%,%.]+%s*mins?", "")
+    text = text:gsub("[%d%,%.]+%s*min", "")
+    text = text:gsub("[%d%,%.]+%s*stunden?", "")
+    text = text:gsub("[%d%,%.]+%s*hours?", "")
+    text = text:gsub("[%d%,%.]+%s*hrs?", "")
+
+    return text
+end
+
+local function ExtractWellFedBuffValue(tooltipData, spellText)
+    local text = ((tooltipData and tooltipData.text) or "") .. " " .. (spellText or "")
+    text = text:lower()
+
+    local best = 0
+    for _, keyword in ipairs(TOOLTIP_KEYWORDS.wellFed or {}) do
+        local searchStart = 1
+        while true do
+            local foundStart = text:find(keyword, searchStart, true)
+            if not foundStart then break end
+
+            local segment = StripWellFedTiming(text:sub(foundStart, foundStart + 260))
+            local total = 0
+            for rawValue in segment:gmatch("[%+%-]?%d[%d%,%.]*") do
+                local value = NormalizeTooltipNumber(rawValue:gsub("^%+", ""))
+                if value > 0 then
+                    total = total + value
+                end
+            end
+            if total > best then best = total end
+
+            searchStart = foundStart + #keyword
+        end
+    end
+
+    return best
 end
 
 local function IsPotionItem(item)
@@ -326,13 +371,14 @@ local function ScoreItem(item, tooltipData, spellText, category)
 
     if category == "Food" then
         score = ExtractRestoreValue(GetRestoreText(tooltipData), TOOLTIP_KEYWORDS.health, UnitHealthMax("player") or 0)
-        if not IsWellFedFood(tooltipData, spellText) then
-            score = score + 2000000000
-        end
         if IsConjuredFoodOrWater(item, tooltipData, category) then
             score = score + 1000000000
         end
         return score
+    elseif category == "WellFed" then
+        local buffValue = ExtractWellFedBuffValue(tooltipData, spellText)
+        local restoreValue = ExtractRestoreValue(GetRestoreText(tooltipData), TOOLTIP_KEYWORDS.health, UnitHealthMax("player") or 0)
+        return (buffValue * 1000000) + restoreValue + ((item.itemLevel or 0) * 100) + (item.reqLevel or 0)
     elseif category == "Water" then
         score = ExtractRestoreValue(GetRestoreText(tooltipData), TOOLTIP_KEYWORDS.mana, UnitPowerMax("player", Enum and Enum.PowerType and Enum.PowerType.Mana or 0) or 0)
         if IsConjuredFoodOrWater(item, tooltipData, category) then
@@ -398,7 +444,9 @@ end
 local function MatchesCategory(item, tooltipData, spellText, category)
     local tooltip = tooltipData.text
     if category == "Food" then
-        return IsFood(item, tooltipData, spellText)
+        return IsFood(item, tooltipData, spellText) and not IsWellFedFood(tooltipData, spellText)
+    elseif category == "WellFed" then
+        return IsFood(item, tooltipData, spellText) and IsWellFedFood(tooltipData, spellText)
     elseif category == "Water" then
         return IsWater(item, tooltipData, spellText)
     elseif category == "Pot" then

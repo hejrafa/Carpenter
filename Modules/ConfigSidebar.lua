@@ -101,7 +101,7 @@ function Sidebar.Create(context)
             _G["CP_CarrotSlot_14"]:Hide()
         end
         if _G["CP_Preview_Food"] then
-            for _, n in ipairs({ "Food", "Water", "Pot", "Mana", "Band" }) do
+            for _, n in ipairs({ "Food", "WellFed", "Water", "Pot", "Mana", "Band" }) do
                 if _G["CP_Preview_" .. n] then _G["CP_Preview_" .. n]:Hide() end
             end
         end
@@ -125,9 +125,9 @@ function Sidebar.Create(context)
 
     local function GetSmartMacroPreviewOrder()
         if IsRetailClient() then
-            return { "Food", "Water", "Pot", "Mana" }
+            return { "Food", "WellFed", "Water", "Pot", "Mana" }
         end
-        return { "Food", "Water", "Pot", "Mana", "Band" }
+        return { "Food", "WellFed", "Water", "Pot", "Mana", "Band" }
     end
 
     local function StyleMacroPreviewButton(button, iconTexture)
@@ -198,12 +198,12 @@ function Sidebar.Create(context)
         sideContent:SetPoint("TOPLEFT", sideDesc, "BOTTOMLEFT", 0, -SIDE_GAP)
         sideContent:Show()
         if not _G["CP_Preview_Food"] then
-            local icons = { Food = "Interface\\Icons\\Inv_Misc_Food_15", Water = "Interface\\Icons\\Inv_Drink_07", Pot =
+            local icons = { Food = "Interface\\Icons\\Inv_Misc_Food_15", WellFed = "Interface\\Icons\\Inv_Misc_Food_66", Water = "Interface\\Icons\\Inv_Drink_07", Pot =
             "Interface\\Icons\\Inv_Potion_51", Mana = "Interface\\Icons\\Inv_Potion_76", Band =
             "Interface\\Icons\\Inv_Misc_Bandage_08" }
             local order = GetSmartMacroPreviewOrder()
-            local labels = { Food = L.FOOD or "Food", Water = L.WATER or "Water", Pot = L.HEALTH or "Health", Mana = L.MANA or "Mana", Band = L.BANDAGE or "Bandage" }
-            local iconSize, spacing = 34, 8
+            local labels = { Food = L.FOOD or "Food", WellFed = L.WELL_FED or "Buff", Water = L.WATER or "Water", Pot = L.HEALTH or "Health", Mana = L.MANA or "Mana", Band = L.BANDAGE or "Bandage" }
+            local iconSize, spacing = #order > 5 and 30 or 34, #order > 5 and 5 or 8
             local totalWidth = (#order * iconSize) + ((#order - 1) * spacing)
             local startX = -(totalWidth / 2) + (iconSize / 2)
             local function CreatePreview(name, labelText, index)
@@ -213,8 +213,9 @@ function Sidebar.Create(context)
                 p:SetPoint("CENTER", sideContent, "TOP", xOffset, -iconSize / 2)
                 StyleMacroPreviewButton(p, icons[name])
                 local l = p:CreateFontString(nil, "OVERLAY")
-                l:SetFont("Fonts\\FRIZQT__.TTF", 9, "OUTLINE")
+                l:SetFont("Fonts\\FRIZQT__.TTF", #order > 5 and 8 or 9, "OUTLINE")
                 l:SetPoint("TOP", p, "BOTTOM", 0, -4)
+                l:SetWidth(44)
                 l:SetTextColor(0.67, 0.67, 0.67, 1)
                 l:SetText(labelText)
                 p:RegisterForDrag("LeftButton")
@@ -226,7 +227,7 @@ function Sidebar.Create(context)
             end
             for i, name in ipairs(order) do CreatePreview(name, labels[name], i) end
         end
-        for _, n in ipairs({ "Food", "Water", "Pot", "Mana", "Band" }) do
+        for _, n in ipairs({ "Food", "WellFed", "Water", "Pot", "Mana", "Band" }) do
             if _G["CP_Preview_" .. n] then _G["CP_Preview_" .. n]:Hide() end
         end
         for _, n in ipairs(GetSmartMacroPreviewOrder()) do _G["CP_Preview_" .. n]:Show() end

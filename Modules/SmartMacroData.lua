@@ -7,6 +7,7 @@ ns.Private.SmartMacroData = Data
 
 Data.Items = {
     Food = { name = "CarpenterFood", legacyName = "ClassicFood" },
+    WellFed = { name = "CarpenterWellFed" },
     Water = { name = "CarpenterWater", legacyName = "ClassicWater" },
     Pot = { name = "CarpenterHP", legacyName = "ClassicHP" },
     Mana = { name = "CarpenterMana", legacyName = "ClassicMana" },
@@ -15,6 +16,7 @@ Data.Items = {
 
 Data.RetailItems = {
     Food = Data.Items.Food,
+    WellFed = Data.Items.WellFed,
     Water = Data.Items.Water,
     Pot = Data.Items.Pot,
     Mana = Data.Items.Mana,
@@ -48,6 +50,7 @@ Data.TooltipKeywords = {
     health = { "health", "gesundheit" },
     healthstone = { "healthstone", "gesundheitsstein" },
     mana = { "mana" },
+    wellFed = { "well fed", "gut genährt", "gut genaehrt", "satt" },
     foodAndDrink = { "remain seated while", "sitzen bleiben" },
     conjured = { "conjured item", "conjured", "mana bun", "mana strudel", "mana biscuit", "mana cake", "mana pie", "herbeigezauberter gegenstand", "herbeigezaubert" },
 }

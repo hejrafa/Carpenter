@@ -6,6 +6,7 @@
 - Replaced the visible synthetic `- ` prefix on Classic/TBC no-objective quest tracker fallback text with a measured objective-text offset for exact first-line and wrapped-line alignment.
 - Read Classic/TBC no-objective quest tracker fallback text from the accepted quest's log entry so another quest on the same NPC cannot leak into the tracker.
 - Restored Retail player unit-frame class colors while resetting Carpenter's tint back to Blizzard's neutral health-bar texture for NPC and totem targets.
+- Added a separate `CarpenterWellFed` smart macro that picks the best available Well Fed buff food while keeping buff food out of the normal recovery food macro.
 
 ## 1.6.5
 
