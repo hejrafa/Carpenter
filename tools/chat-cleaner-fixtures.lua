@@ -355,6 +355,15 @@ local fixtures = {
         expectPlain = "Mirella reached level 13",
     },
     {
+        name = "guild chat level mention keeps channel color",
+        path = "post",
+        event = "CHAT_MSG_GUILD",
+        message = "|cff40ff40G Durlock: Durlock the Warlock reached level 10|r",
+        expectPlain = "G Durlock: Durlock the Warlock reached level 10",
+        requireColor = "|cff40ff40",
+        rejectColor = "|cffffffff",
+    },
+    {
         name = "nameless level up stays unchanged",
         event = "CHAT_MSG_SYSTEM",
         message = "has reached level 13.",

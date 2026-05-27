@@ -133,6 +133,12 @@ function PostProcess.Create(config)
         return text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
     end
 
+    local function HasChatChannelPrefix(plainText)
+        if not plainText or type(plainText) ~= "string" then return false end
+        return plainText:match("^%s*[PGROI!][%s:][^:]+:") ~= nil
+            or plainText:match("^%s*%d+%.[^:]+:") ~= nil
+    end
+
     local function IsRollPayload(text)
         if not text or type(text) ~= "string" then return false end
         local lower = text:lower()
@@ -350,9 +356,11 @@ function PostProcess.Create(config)
             return originalAddMessage(frame, hardcoreDeathMessage, unpack(args))
         end
 
-        local styledLevelReward = formatLevelUpRewardMessage(plain)
-        if styledLevelReward then
-            return originalAddMessage(frame, styledLevelReward, unpack(args))
+        if not HasChatChannelPrefix(plain) then
+            local styledLevelReward = formatLevelUpRewardMessage(plain)
+            if styledLevelReward then
+                return originalAddMessage(frame, styledLevelReward, unpack(args))
+            end
         end
 
         if parseRetailMoneyGain(plain) then
