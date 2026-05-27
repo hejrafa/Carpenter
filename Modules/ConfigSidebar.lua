@@ -203,17 +203,21 @@ function Sidebar.Create(context)
             "Interface\\Icons\\Inv_Misc_Bandage_08" }
             local order = GetSmartMacroPreviewOrder()
             local labels = { Food = L.FOOD or "Food", WellFed = L.WELL_FED or "Buff", Water = L.WATER or "Water", Pot = L.HEALTH or "Health", Mana = L.MANA or "Mana", Band = L.BANDAGE or "Bandage" }
-            local iconSize, spacing = #order > 5 and 30 or 34, #order > 5 and 5 or 8
-            local totalWidth = (#order * iconSize) + ((#order - 1) * spacing)
-            local startX = -(totalWidth / 2) + (iconSize / 2)
+            local iconSize, spacing, rowGap = 34, 12, 58
             local function CreatePreview(name, labelText, index)
                 local p = CreateFrame("Button", "CP_Preview_" .. name, sideContent)
                 p:SetSize(iconSize, iconSize)
-                local xOffset = startX + ((index - 1) * (iconSize + spacing))
-                p:SetPoint("CENTER", sideContent, "TOP", xOffset, -iconSize / 2)
+                local row = math.floor((index - 1) / 3) + 1
+                local col = ((index - 1) % 3) + 1
+                local rowStartIndex = ((row - 1) * 3) + 1
+                local itemsInRow = math.min(3, #order - rowStartIndex + 1)
+                local rowWidth = (itemsInRow * iconSize) + ((itemsInRow - 1) * spacing)
+                local startX = -(rowWidth / 2) + (iconSize / 2)
+                local xOffset = startX + ((col - 1) * (iconSize + spacing))
+                p:SetPoint("CENTER", sideContent, "TOP", xOffset, (-iconSize / 2) - ((row - 1) * rowGap))
                 StyleMacroPreviewButton(p, icons[name])
                 local l = p:CreateFontString(nil, "OVERLAY")
-                l:SetFont("Fonts\\FRIZQT__.TTF", #order > 5 and 8 or 9, "OUTLINE")
+                l:SetFont("Fonts\\FRIZQT__.TTF", 9, "OUTLINE")
                 l:SetPoint("TOP", p, "BOTTOM", 0, -4)
                 l:SetWidth(44)
                 l:SetTextColor(0.67, 0.67, 0.67, 1)
