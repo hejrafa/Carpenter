@@ -6,14 +6,23 @@ ns.Private = ns.Private or {}
 
 local ClassHealth = ns.Private.ClassHealthColors or {}
 
+local function IsRetailClient()
+    return ClassHealth.IsRetail and ClassHealth.IsRetail()
+end
+
 local function RestoreDefaultUnitColor(bar, unit, force)
-    if not bar or not unit or not ClassHealth.UnitExists(unit) then return end
+    if not bar then return end
     if not force and not bar._Carpenter_IsUnitClassColored then return end
 
-    ClassHealth.ClearBarState(bar)
-    -- Retail unit-frame bars can hold protected health values; leave their default
-    -- repainting to Blizzard instead of calling back into protected update paths.
-    if ClassHealth.IsRetail and ClassHealth.IsRetail() then return end
+    local wasClassColored = ClassHealth.ClearBarState(bar)
+    if IsRetailClient() then
+        if wasClassColored or force then
+            bar:SetStatusBarColor(1, 1, 1)
+        end
+        return
+    end
+
+    if not unit or not ClassHealth.UnitExists(unit) then return end
 
     if UnitFrameHealthBar_Update then
         bar._CarpenterRestoringDefault = true
@@ -77,9 +86,21 @@ local function GetUnitFrameHealthBar(unit)
 end
 
 local function UpdateHealthBarColor(bar, unit)
+    if not bar then return end
     if not ClassHealth.IsUnitFrameEnabled() then return end
+    if not unit or not ClassHealth.UnitExists(unit) then
+        RestoreDefaultUnitColor(bar, unit, true)
+        return
+    end
     if not ClassHealth.IsPlayerUnit(unit) then
         RestoreDefaultUnitColor(bar, unit, true)
+        return
+    end
+
+    if IsRetailClient() then
+        if not ClassHealth.ApplyUnitFrameClassColor(bar, unit) then
+            RestoreDefaultUnitColor(bar, unit, true)
+        end
         return
     end
 
@@ -172,6 +193,18 @@ function unitFrameFeature:Enable()
 end
 
 function unitFrameFeature:Disable()
+    RestoreDefaultUnitColor(GetUnitFrameHealthBar("player"), "player", true)
+    RestoreDefaultUnitColor(GetUnitFrameHealthBar("target"), "target", true)
+    RestoreDefaultUnitColor(GetUnitFrameHealthBar("targettarget"), "targettarget", true)
+    RestoreDefaultUnitColor(GetUnitFrameHealthBar("focus"), "focus", true)
+
+    for i = 1, 4 do
+        local partyMember = PartyFrame and PartyFrame["MemberFrame" .. i]
+        local partyBar = (partyMember and partyMember.HealthBarContainer and partyMember.HealthBarContainer.HealthBar)
+            or _G["PartyMemberFrame" .. i .. "HealthBar"]
+        RestoreDefaultUnitColor(partyBar, "party" .. i, true)
+    end
+
     unitFrameDriver:UnregisterAllEvents()
     unitFrameDriver:Hide()
 end
