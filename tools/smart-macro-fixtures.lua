@@ -156,16 +156,19 @@ local strongBuffTooltip = {
 if classifier.MatchesCategory(foodItem, normalFoodTooltip, "", "WellFed") then
     failures[#failures + 1] = "well fed category: expected plain recovery food to be excluded"
 end
-if classifier.MatchesCategory(foodItem, weakBuffTooltip, "", "Food") then
-    failures[#failures + 1] = "food category: expected buff food to stay out of the recovery food macro"
+if not classifier.MatchesCategory(foodItem, weakBuffTooltip, "", "Food") then
+    failures[#failures + 1] = "food category: expected buff food to remain available as recovery fallback"
 end
 if not classifier.MatchesCategory(foodItem, weakBuffTooltip, "", "WellFed") then
     failures[#failures + 1] = "well fed category: expected buff food to match"
 end
+if classifier.ScoreItem(foodItem, weakBuffTooltip, "", "Food") >= classifier.ScoreItem(foodItem, normalFoodTooltip, "", "Food") then
+    failures[#failures + 1] = "food scoring: expected normal recovery food to beat buff food when both are available"
+end
 if classifier.ScoreItem(foodItem, strongBuffTooltip, "", "WellFed") <= classifier.ScoreItem(foodItem, weakBuffTooltip, "", "WellFed") then
     failures[#failures + 1] = "well fed scoring: expected stronger buff food to beat weaker buff food"
 end
-fixtureCount = fixtureCount + 4
+fixtureCount = fixtureCount + 5
 
 local feature = registeredFeatures.smartMacrosEnabled
 if not feature or type(feature.Enable) ~= "function" then

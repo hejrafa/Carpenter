@@ -371,6 +371,9 @@ local function ScoreItem(item, tooltipData, spellText, category)
 
     if category == "Food" then
         score = ExtractRestoreValue(GetRestoreText(tooltipData), TOOLTIP_KEYWORDS.health, UnitHealthMax("player") or 0)
+        if not IsWellFedFood(tooltipData, spellText) then
+            score = score + 2000000000
+        end
         if IsConjuredFoodOrWater(item, tooltipData, category) then
             score = score + 1000000000
         end
@@ -444,7 +447,7 @@ end
 local function MatchesCategory(item, tooltipData, spellText, category)
     local tooltip = tooltipData.text
     if category == "Food" then
-        return IsFood(item, tooltipData, spellText) and not IsWellFedFood(tooltipData, spellText)
+        return IsFood(item, tooltipData, spellText)
     elseif category == "WellFed" then
         return IsFood(item, tooltipData, spellText) and IsWellFedFood(tooltipData, spellText)
     elseif category == "Water" then
