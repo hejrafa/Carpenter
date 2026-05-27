@@ -229,6 +229,7 @@ function System.Create(config)
         end
 
         local repFaction, repAmount = message:match("Your reputation with (.-) has decreased by (%d+)")
+        if not repFaction then repFaction, repAmount = message:match("Your (.-) reputation has decreased by (%d+)") end
         if not repFaction then repFaction, repAmount = message:match("Reputation with (.-) decreased by (%d+)") end
         if not repFaction then repAmount, repFaction = message:match("(%d+) reputation with (.-) lost") end
         if not repFaction then repFaction, repAmount = message:match("(.-) reputation decreased by (%d+)") end

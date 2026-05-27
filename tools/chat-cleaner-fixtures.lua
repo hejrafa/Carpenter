@@ -364,6 +364,12 @@ local fixtures = {
         rejectColor = "|cffffffff",
     },
     {
+        name = "possessive reputation loss",
+        event = "CHAT_MSG_COMBAT_FACTION_CHANGE",
+        message = "Your Bloodsail Buccaneers reputation has decreased by 125.",
+        expectPlain = "- 125 Reputation: Bloodsail Buccaneers",
+    },
+    {
         name = "nameless level up stays unchanged",
         event = "CHAT_MSG_SYSTEM",
         message = "has reached level 13.",
