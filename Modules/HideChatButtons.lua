@@ -15,6 +15,10 @@ local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("hideChatButtonsEnabled")
 end
 
+local function ShouldManageSocialButtons()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isClassic
+end
+
 -- =========================
 -- Core Logic: Hover Fading
 -- =========================
@@ -91,6 +95,12 @@ local chatButtons = {
     "ChatFrameToggleButton"
 }
 
+local socialButtons = {
+    "QuickJoinToastButton",
+    "ChatSocialButton",
+    "FriendsMicroButton",
+}
+
 -- Chat minimize and other buttons
 local minimizeButtons = {
     "ChatFrame1MinimizeButton",
@@ -128,6 +138,18 @@ for _, group in ipairs({chatButtons, arrowButtons, minimizeButtons}) do
     end
 end
 
+local allChatButtonsWithSocial = {}
+for _, btn in ipairs(allChatButtons) do
+    table.insert(allChatButtonsWithSocial, btn)
+end
+for _, btn in ipairs(socialButtons) do
+    table.insert(allChatButtonsWithSocial, btn)
+end
+
+local function GetManagedChatButtons()
+    return ShouldManageSocialButtons() and allChatButtonsWithSocial or allChatButtons
+end
+
 local chatTabs = {}
 local chatFrames = {}
 
@@ -148,13 +170,15 @@ local function RefreshChatFrames()
 end
 
 local function ApplyTransparency(alpha)
+    local managedChatButtons = GetManagedChatButtons()
+
     if not IsEnabled() then
-        SetGroupAlpha(allChatButtons, 1.0)
+        SetGroupAlpha(managedChatButtons, 1.0)
         SetFramesAlpha(chatTabs, 1.0)
         return
     end
 
-    SetGroupAlpha(allChatButtons, alpha)
+    SetGroupAlpha(managedChatButtons, alpha)
     SetFramesAlpha(chatTabs, alpha)
     
 end
@@ -182,7 +206,7 @@ hoverFrame:SetScript("OnUpdate", function(self, elapsed)
     -- Also check each button individually
     if not mouseOverButtons then
         RefreshChatFrames()
-        for _, buttonName in ipairs(allChatButtons) do
+        for _, buttonName in ipairs(GetManagedChatButtons()) do
             local button = _G[buttonName]
             if button and MouseIsOver(button) then
                 mouseOverButtons = true
