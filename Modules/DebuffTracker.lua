@@ -235,36 +235,60 @@ end
 -- Icon Creation & Management
 -- =========================================================
 
+local function SyncNameplateIconLayers(frame)
+    if not frame or not frame.GetFrameLevel then return end
+
+    local baseLevel = frame:GetFrameLevel() or 0
+    if frame.cooldown and frame.cooldown.SetFrameLevel then
+        frame.cooldown:SetFrameLevel(baseLevel + 1)
+    end
+    if frame.overlay and frame.overlay.SetFrameLevel then
+        frame.overlay:SetFrameLevel(baseLevel + 2)
+    end
+end
+
 local function CreateBaseIcon(parent, isNameplate)
     local f = CreateFrame("Frame", nil, parent)
 
     if isNameplate then
         f:SetSize(26, 26)
-        f.icon = f:CreateTexture(nil, "ARTWORK")
+        f.icon = f:CreateTexture(nil, "BACKGROUND", nil, 1)
         f.icon:SetPoint("TOPLEFT", f, "TOPLEFT", 1, -1)
         f.icon:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)
 
-        -- Cooldown frame for nameplates - set to a low level
+        -- Keep the swipe above the icon, with text/border on a separate overlay above it.
         f.cooldown = CreateFrame("Cooldown", nil, f, "CooldownFrameTemplate")
         f.cooldown:SetAllPoints(f.icon)
         f.cooldown:SetReverse(true)
+        if f.cooldown.SetDrawSwipe then
+            f.cooldown:SetDrawSwipe(true)
+        end
+        if f.cooldown.SetSwipeColor then
+            f.cooldown:SetSwipeColor(0, 0, 0, 0.6)
+        end
+        if f.cooldown.SetBlingTexture then
+            f.cooldown:SetBlingTexture("", 0, 0, 0, 0)
+        end
         -- Keep Blizzard's native text hidden while allowing cooldown-count addons to attach.
         f.cooldown:SetHideCountdownNumbers(true)
-        f.cooldown:SetFrameLevel(f:GetFrameLevel())
 
-        f.cooldownText = f:CreateFontString(nil, "OVERLAY")
+        f.overlay = CreateFrame("Frame", nil, f)
+        f.overlay:SetAllPoints(f)
+
+        f.cooldownText = f.overlay:CreateFontString(nil, "OVERLAY")
         f.cooldownText:SetPoint("CENTER", f, "CENTER", 0, 0)
         StyleCooldownText(f.cooldownText, NAMEPLATE_COOLDOWN_TEXT_SIZE)
 
-        f.stackText = f:CreateFontString(nil, "OVERLAY")
+        f.stackText = f.overlay:CreateFontString(nil, "OVERLAY")
         f.stackText:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 2, -2)
         StyleStackText(f.stackText)
 
         -- Border always on top
-        f.border = f:CreateTexture(nil, "OVERLAY", nil, 7)
+        f.border = f.overlay:CreateTexture(nil, "OVERLAY", nil, 7)
         f.border:SetTexture("Interface\\Buttons\\UI-Debuff-Overlays")
         f.border:SetAllPoints(f)
         f.border:SetTexCoord(0.296875, 0.5703125, 0, 0.515625)
+        SyncNameplateIconLayers(f)
     else
         f:SetSize(64, 64)
         f:SetFrameLevel(0)
@@ -559,6 +583,10 @@ local function OnNameplateUpdate(self, unit)
         end
 
         local f = self.CP_DebuffIcons[i]
+        if f.SetFrameLevel and container.GetFrameLevel then
+            f:SetFrameLevel((container:GetFrameLevel() or 0) + 1)
+        end
+        SyncNameplateIconLayers(f)
         f:ClearAllPoints()
         local offset = ((i - 1) * (iconSize + spacing)) - (totalWidth / 2) + (iconSize / 2)
         f:SetPoint("CENTER", container, "CENTER", offset, 0)
