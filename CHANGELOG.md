@@ -7,6 +7,12 @@
 - Read Classic/TBC no-objective quest tracker fallback text from the accepted quest's log entry so another quest on the same NPC cannot leak into the tracker.
 - Restored Retail player unit-frame class colors while resetting Carpenter's tint back to Blizzard's neutral health-bar texture for NPC and totem targets.
 - Added a separate `CarpenterWellFed` smart macro that picks the best available Well Fed buff food while the normal food macro still falls back to buff food after regular food is gone.
+- Kept guild chat level mentions in their channel color instead of restyling them as Carpenter level-up messages.
+- Styled possessive reputation-loss messages such as Bloodsail Buccaneers reputation decreases.
+- Let Classic/TBC Hide Chat Buttons fade the Social chat buttons again while leaving Retail social and toast buttons untouched.
+- Raised enemy nameplate debuff cooldown swipes above the icon while keeping borders, timers, and stack counters on top.
+- Raised Classic/TBC target and focus aura stack counts above Blizzard cooldown swipes when Unit Frame Debuffs is enabled.
+- Restored Classic/TBC watched quests when Blizzard silently drops temporary auto-tracked quests, while still respecting manual Shift-click untracking.
 
 ## 1.6.5
 
