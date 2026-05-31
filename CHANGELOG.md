@@ -12,6 +12,7 @@
 - Let Classic/TBC Hide Chat Buttons fade the Social chat buttons again while leaving Retail social and toast buttons untouched.
 - Raised enemy nameplate debuff cooldown swipes above the icon while keeping borders, timers, and stack counters on top.
 - Raised Classic/TBC target and focus aura stack counts above Blizzard cooldown swipes when Unit Frame Debuffs is enabled.
+- Fixed a Classic/TBC Unit Frame Debuffs Lua error by clamping Blizzard aura overlay draw-layer sublevels to valid client limits.
 - Restored Classic/TBC watched quests when Blizzard silently drops temporary auto-tracked quests, while still respecting manual Shift-click untracking.
 
 ## 1.6.5
