@@ -539,7 +539,8 @@ local function SetManagedAuraRegion(region, parent, drawLayer, subLevel)
         region:SetParent(parent)
     end
     if region.SetDrawLayer then
-        region:SetDrawLayer(drawLayer or "OVERLAY", subLevel or 7)
+        subLevel = math.max(-8, math.min(7, subLevel or 7))
+        region:SetDrawLayer(drawLayer or "OVERLAY", subLevel)
     end
 end
 
@@ -588,9 +589,9 @@ local function SetBlizzardAuraButtonLayers(aura, topLevel)
         overlay:Show()
     end
 
-    SetManagedAuraRegion(GetAuraPart(aura, "Border", { "Border", "border", "DebuffBorder", "debuffBorder" }), overlay, "OVERLAY", 7)
-    SetManagedAuraRegion(GetAuraPart(aura, "Count", { "Count", "count", "CountText", "countText" }), overlay, "OVERLAY", 8)
-    SetManagedAuraRegion(GetAuraPart(aura, "Stealable", { "Stealable", "stealable" }), overlay, "OVERLAY", 8)
+    SetManagedAuraRegion(GetAuraPart(aura, "Border", { "Border", "border", "DebuffBorder", "debuffBorder" }), overlay, "OVERLAY", 6)
+    SetManagedAuraRegion(GetAuraPart(aura, "Count", { "Count", "count", "CountText", "countText" }), overlay, "OVERLAY", 7)
+    SetManagedAuraRegion(GetAuraPart(aura, "Stealable", { "Stealable", "stealable" }), overlay, "OVERLAY", 7)
 end
 
 local function RestoreBlizzardAuraButtonLayers(aura)
