@@ -10,6 +10,8 @@ local hookedRemoveQuestWatch = false
 local hookedCQuestLogRemoveQuestWatch = false
 local questWatchRemoveInProgress = false
 local questWatchLayoutRefreshScheduled = false
+local questWatchRestoreScheduled = false
+local manualQuestWatchRemovalDepth = 0
 local originalQuestLogTitleButton_OnClick = nil
 local AddQuestToWatch
 local QUEST_WATCH_WRAP_WIDTH = 230
@@ -895,6 +897,25 @@ local function ForgetQuestWatch(questIndex, questID)
     return removed, questIndex, questID
 end
 
+local function ScheduleRestoreNativeQuestWatches()
+    if questWatchRestoreScheduled or not IsEnabled() then return end
+    questWatchRestoreScheduled = true
+
+    local function Restore()
+        questWatchRestoreScheduled = false
+        if not IsEnabled() then return end
+
+        RestoreNativeQuestWatches()
+        RefreshQuestTracker()
+    end
+
+    if Carpenter and Carpenter.After then
+        Carpenter:After(0, Restore)
+    else
+        Restore()
+    end
+end
+
 local function KeepQuestWatchRemoved(questIndex, questID)
     if questWatchRemoveInProgress or not IsQuestCurrentlyWatched(questIndex, questID) then return end
 
@@ -905,6 +926,25 @@ local function KeepQuestWatchRemoved(questIndex, questID)
         pcall(RemoveQuestWatch, questIndex)
     end
     questWatchRemoveInProgress = false
+end
+
+local function IsManualQuestWatchRemoval()
+    return manualQuestWatchRemovalDepth > 0 or (IsEnabled() and IsShiftKeyDown and IsShiftKeyDown())
+end
+
+local function HandleQuestWatchRemoved(questIndex, questID)
+    if questWatchRemoveInProgress then return end
+
+    if not IsEnabled() or IsManualQuestWatchRemoval() then
+        local removed, resolvedIndex, resolvedQuestID = ForgetQuestWatch(questIndex, questID)
+        KeepQuestWatchRemoved(resolvedIndex or questIndex, resolvedQuestID or questID)
+        if removed or not IsQuestCurrentlyWatched(resolvedIndex or questIndex, resolvedQuestID or questID) then
+            RefreshQuestTracker()
+        end
+        return
+    end
+
+    ScheduleRestoreNativeQuestWatches()
 end
 
 local function HookQuestWatchUpdates()
@@ -920,26 +960,14 @@ local function HookQuestWatchUpdates()
 
     if not hookedRemoveQuestWatch and hooksecurefunc and RemoveQuestWatch then
         hooksecurefunc("RemoveQuestWatch", function(questIndex)
-            if questWatchRemoveInProgress then return end
-
-            local removed, resolvedIndex, resolvedQuestID = ForgetQuestWatch(questIndex)
-            KeepQuestWatchRemoved(resolvedIndex or questIndex, resolvedQuestID)
-            if removed or not IsQuestCurrentlyWatched(resolvedIndex or questIndex, resolvedQuestID) then
-                RefreshQuestTracker()
-            end
+            HandleQuestWatchRemoved(questIndex, nil)
         end)
         hookedRemoveQuestWatch = true
     end
 
     if not hookedCQuestLogRemoveQuestWatch and hooksecurefunc and C_QuestLog and C_QuestLog.RemoveQuestWatch then
         hooksecurefunc(C_QuestLog, "RemoveQuestWatch", function(questID)
-            if questWatchRemoveInProgress then return end
-
-            local removed, resolvedIndex, resolvedQuestID = ForgetQuestWatch(nil, questID)
-            KeepQuestWatchRemoved(resolvedIndex, resolvedQuestID or questID)
-            if removed or not IsQuestCurrentlyWatched(resolvedIndex, resolvedQuestID or questID) then
-                RefreshQuestTracker()
-            end
+            HandleQuestWatchRemoved(nil, questID)
         end)
         hookedCQuestLogRemoveQuestWatch = true
     end
@@ -976,7 +1004,13 @@ local function HookQuestWatchUpdates()
                 end
             end
 
+            if nativeQuestIndex and wasNativeWatched then
+                manualQuestWatchRemovalDepth = manualQuestWatchRemovalDepth + 1
+            end
             local results = { originalQuestLogTitleButton_OnClick(self, button) }
+            if nativeQuestIndex and wasNativeWatched then
+                manualQuestWatchRemovalDepth = math.max(0, manualQuestWatchRemovalDepth - 1)
+            end
 
             if nativeQuestIndex then
                 if IsQuestCurrentlyWatched(nativeQuestIndex, nativeQuestID) then
