@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.7
+
+- Added the Classic/TBC Looking for Group minimap button to Remove Minimap Clutter's hover fade.
+- Added the TBC minimap tracking/finding button to the same hover fade.
+
 ## 1.6.6
 
 - Updated the release workflow to use the current GitHub checkout action runtime.

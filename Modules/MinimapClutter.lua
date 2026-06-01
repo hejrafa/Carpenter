@@ -23,6 +23,21 @@ local MINIMAP_FRAMES = {
     "MinimapToggleButton",    -- Old-style plus/minus minimap toggle button
 }
 
+local LFG_MINIMAP_BUTTONS = {
+    "MiniMapLFGFrame",
+    "MinimapLFGFrame",
+    "LFGMinimapFrame",
+    "LFGMinimapButton",
+    "LookingForGroupMinimapButton",
+    "QueueStatusMinimapButton",
+}
+
+local TBC_TRACKING_MINIMAP_BUTTONS = {
+    "MiniMapTracking",
+    "MiniMapTrackingFrame",
+    "MiniMapTrackingButton",
+}
+
 local function HideMinimapFrame(frame)
     if not frame then return end
 
@@ -38,6 +53,10 @@ local function HideMinimapFrame(frame)
         end)
         frame.IsCPMinimapHooked = true
     end
+end
+
+local function IsTBCClient()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isTBC
 end
 
 -- Some clients (like the Anniversary/TBC hybrid) group the minimap into MinimapCluster
@@ -98,53 +117,74 @@ local function RegisterAddonButton(btn)
     table.insert(CP_AddonButtons, btn)
 end
 
+local function SetupFadedMinimapButton(button, enabled)
+    if not button or button == Minimap or not button.SetAlpha or not button.SetScript then return end
+
+    if enabled then
+        if not button.CP_MinimapFadeHooked then
+            button.CP_OrigOnEnter = button:GetScript("OnEnter")
+            button.CP_OrigOnLeave = button:GetScript("OnLeave")
+            button.CP_MinimapFadeHooked = true
+        end
+
+        RegisterAddonButton(button)
+        if CP_FaderFrame then CP_FaderFrame:Show() end
+
+        button.CP_CurrentAlpha = button.CP_CurrentAlpha or 0
+        button.CP_TargetAlpha = 0
+        button:SetAlpha(button.CP_CurrentAlpha)
+        button:EnableMouse(true)
+
+        button:SetScript("OnEnter", function(self)
+            self.CP_TargetAlpha = 1
+            if CP_FaderFrame then CP_FaderFrame:Show() end
+            if self.CP_OrigOnEnter then
+                self.CP_OrigOnEnter(self)
+            end
+        end)
+
+        button:SetScript("OnLeave", function(self)
+            self.CP_TargetAlpha = 0
+            if CP_FaderFrame then CP_FaderFrame:Show() end
+            if self.CP_OrigOnLeave then
+                self.CP_OrigOnLeave(self)
+            end
+        end)
+    else
+        button.CP_TargetAlpha = nil
+        button.CP_CurrentAlpha = nil
+        button:SetAlpha(1)
+        if button.CP_MinimapFadeHooked or button.CP_OrigOnEnter or button.CP_OrigOnLeave then
+            button:SetScript("OnEnter", button.CP_OrigOnEnter)
+            button:SetScript("OnLeave", button.CP_OrigOnLeave)
+        end
+        button.CP_MinimapFadeHooked = nil
+    end
+end
+
+local function ApplyNamedMinimapButtonClutter(enabled)
+    for _, name in ipairs(LFG_MINIMAP_BUTTONS) do
+        SetupFadedMinimapButton(_G[name], enabled)
+    end
+
+    if IsTBCClient() then
+        for _, name in ipairs(TBC_TRACKING_MINIMAP_BUTTONS) do
+            SetupFadedMinimapButton(_G[name], enabled)
+        end
+    end
+end
+
 local function ApplyAddonButtonClutter(enabled)
     if not Minimap or not Minimap.GetChildren then return end
 
     for i = 1, Minimap:GetNumChildren() do
         local child = select(i, Minimap:GetChildren())
         if IsAddonMinimapButton(child) then
-            if enabled then
-                if not child.CP_OrigOnEnter then
-                    child.CP_OrigOnEnter = child:GetScript("OnEnter")
-                    child.CP_OrigOnLeave = child:GetScript("OnLeave")
-                end
-
-                RegisterAddonButton(child)
-                if CP_FaderFrame then CP_FaderFrame:Show() end
-
-                child.CP_CurrentAlpha = child.CP_CurrentAlpha or 0
-                child.CP_TargetAlpha = 0
-                child:SetAlpha(child.CP_CurrentAlpha)
-                child:EnableMouse(true)
-
-                child:SetScript("OnEnter", function(self)
-                    self.CP_TargetAlpha = 1
-                    if CP_FaderFrame then CP_FaderFrame:Show() end
-                    if self.CP_OrigOnEnter then
-                        self.CP_OrigOnEnter(self)
-                    end
-                end)
-
-                child:SetScript("OnLeave", function(self)
-                    self.CP_TargetAlpha = 0
-                    if CP_FaderFrame then CP_FaderFrame:Show() end
-                    if self.CP_OrigOnLeave then
-                        self.CP_OrigOnLeave(self)
-                    end
-                end)
-            else
-                -- Restore when clutter option is disabled
-                child.CP_TargetAlpha = nil
-                child.CP_CurrentAlpha = nil
-                child:SetAlpha(1)
-                if child.CP_OrigOnEnter or child.CP_OrigOnLeave then
-                    child:SetScript("OnEnter", child.CP_OrigOnEnter)
-                    child:SetScript("OnLeave", child.CP_OrigOnLeave)
-                end
-            end
+            SetupFadedMinimapButton(child, enabled)
         end
     end
+
+    ApplyNamedMinimapButtonClutter(enabled)
 end
 
 -- Smooth fader that lerps addon button alpha toward target over time
@@ -249,11 +289,18 @@ f:SetScript("OnEvent", function()
 end)
 CP_FaderFrame:Hide()
 
+local function RegisterEventSafe(event)
+    pcall(f.RegisterEvent, f, event)
+end
+
 local feature = {}
 
 function feature:Enable()
-    f:RegisterEvent("PLAYER_LOGIN")
-    f:RegisterEvent("PLAYER_ENTERING_WORLD")
+    RegisterEventSafe("PLAYER_LOGIN")
+    RegisterEventSafe("PLAYER_ENTERING_WORLD")
+    RegisterEventSafe("LFG_UPDATE")
+    RegisterEventSafe("LFG_QUEUE_STATUS_UPDATE")
+    RegisterEventSafe("MINIMAP_UPDATE_TRACKING")
     ApplyMinimapClutter()
     -- Re-enforce shortly after login/zone to catch any late layout changes.
     if Carpenter and Carpenter.DeferMany then

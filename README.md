@@ -44,7 +44,7 @@ Auto sell junk, auto repair, auto track newly accepted quests, swap mount-speed 
 
 - **Fade Micro Menu & Bags** - Hide the micro menu and bag bar until you hover.
 - **Resize Exp & Rep Bars** - Make experience and reputation bars smaller and less visually loud.
-- **Remove Minimap Clutter** - Hide minimap zoom buttons, day/night icon, and zone text.
+- **Remove Minimap Clutter** - Hide minimap zoom buttons, day/night icon, and zone text, and fade minimap buttons until hover.
 - **World Map Cleanup** - Lower the small map, remove fullscreen blackout, fade while moving, hide continent city clutter, and optionally show dungeon, raid, and same-faction travel pins.
 - **Enhanced Tooltip** - Clean up unit tooltips with clearer health, level, and target information.
 - **Scale Extra Ability** - Reduce oversized Retail extra action and zone ability buttons.
