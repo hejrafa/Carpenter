@@ -75,6 +75,13 @@ jobs:
             exit 1
           fi
 
+      - name: Generate current-version changelog
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          tools/release.sh changelog "$version" .packager/changelog.md
+          sed 's#manual-changelog: CHANGELOG.md#manual-changelog: .packager/changelog.md#' .pkgmeta > .packager/pkgmeta.yaml
+
       - name: Package and publish to GitHub, CurseForge, and Wago
         uses: BigWigsMods/packager@v2
         env:
@@ -82,4 +89,4 @@ jobs:
           WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: -p ${{ secrets.CF_PROJECT_ID }} -a ${{ secrets.WAGO_PROJECT_ID }}
+          args: -m .packager/pkgmeta.yaml -p ${{ secrets.CF_PROJECT_ID }} -a ${{ secrets.WAGO_PROJECT_ID }}

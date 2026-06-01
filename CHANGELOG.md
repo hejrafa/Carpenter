@@ -4,6 +4,7 @@
 
 - Added the Classic/TBC Looking for Group minimap button to Remove Minimap Clutter's hover fade and reveal faded buttons when hovering the minimap itself.
 - Added the TBC minimap tracking/finding button to the same hover fade.
+- Aligned release packaging with StoryMode so CurseForge and Wago receive a temporary current-version changelog through packager metadata.
 
 ## 1.6.6
 

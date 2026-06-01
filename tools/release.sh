@@ -39,16 +39,13 @@ validate_changelog() {
 
 generate_release_changelog() {
   local release_version out
-  release_version="$(version)"
-  out="$ROOT/.release/CHANGELOG.md"
+  release_version="${1:-$(version)}"
+  out="${2:-$ROOT/.packager/changelog.md}"
+  [[ "$out" = /* ]] || out="$ROOT/$out"
 
-  mkdir -p "$ROOT/.release"
+  mkdir -p "$(dirname "$out")"
   awk -v release_version="$release_version" '
-    BEGIN {
-      found = 0
-      print "# Changelog"
-      print ""
-    }
+    BEGIN { found = 0 }
     /^## / {
       if ($0 == "## " release_version) {
         found = 1
@@ -71,7 +68,7 @@ generate_release_changelog() {
 validate_pkgmeta() {
   [[ -f "$ROOT/.pkgmeta" ]] || fail ".pkgmeta is missing"
   grep -q '^package-as:[[:space:]]*Carpenter$' "$ROOT/.pkgmeta" || fail ".pkgmeta must package as Carpenter"
-  grep -q '^manual-changelog:[[:space:]]*\.release/CHANGELOG.md$' "$ROOT/.pkgmeta" || fail ".pkgmeta must use .release/CHANGELOG.md as the manual changelog"
+  grep -q '^manual-changelog:[[:space:]]*CHANGELOG.md$' "$ROOT/.pkgmeta" || fail ".pkgmeta must use CHANGELOG.md as the default manual changelog"
 }
 
 lua_files() {
@@ -85,7 +82,7 @@ check() {
   validate_tocs
   validate_changelog
   validate_pkgmeta
-  generate_release_changelog
+  generate_release_changelog "$(version)" "$ROOT/.packager/changelog.md"
 
   local files=()
   while IFS= read -r file; do
@@ -113,6 +110,8 @@ package_zip() {
     --exclude='.git' \
     --exclude='.git*' \
     --exclude='.DS_Store' \
+    --exclude='.packager' \
+    --exclude='.release' \
     --exclude='dev' \
     --exclude='tools' \
     --exclude='*.zip'
@@ -175,6 +174,8 @@ Usage: tools/release.sh <command>
 
 Commands:
   check                 Validate TOCs, changelog, Lua syntax, fixtures, localization, and assets.
+  changelog [version] [out]
+                        Extract one changelog section for packager publishing.
   zip [version]         Create .release/Carpenter-[version].zip without hidden/dev/tools files.
   update-worktrees [ref] Fast-forward main worktrees and update detached worktrees to ref.
 EOF
@@ -183,6 +184,10 @@ EOF
 case "${1:-check}" in
   check)
     check
+    ;;
+  changelog)
+    shift
+    generate_release_changelog "${1:-$(version)}" "${2:-$ROOT/.packager/changelog.md}"
     ;;
   zip)
     shift

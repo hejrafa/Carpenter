@@ -132,7 +132,7 @@ Some options are only available on specific game flavors. Carpenter hides unsupp
 - `Art/` - addon icons, masks, and settings preview artwork
 - `tools/` - local validation, fixture, packaging, asset, localization, and worktree helper scripts
 - `DESCRIPTION.md` - CurseForge/Wago-facing project description
-- `CHANGELOG.md` - source release notes; `tools/release.sh check` extracts the current version section into `.release/CHANGELOG.md` for publishing
+- `CHANGELOG.md` - source release notes; the release workflow extracts the current version section into `.packager/changelog.md` for publishing
 
 ## Local Validation
 
@@ -161,10 +161,10 @@ Release flow:
 
 ```bash
 tools/release.sh check
-git tag v1.6.6
-git push origin main v1.6.6
+git tag v1.6.7
+git push origin main v1.6.7
 ```
 
 The tag must be strict `vMAJOR.MINOR.PATCH`, and the number must match `## Version:` in all TOC files. Platform project IDs stay in GitHub secrets; do not add `X-Curse-Project-ID` or `X-Wago-ID` to the TOCs.
 
-The package rules live in `.pkgmeta`; `.github`, local tools, caches, and docs such as `README.md` and `DESCRIPTION.md` are excluded from release zips. CurseForge and Wago receive only the latest version's extracted changelog section, not the full historical changelog.
+The package rules live in `.pkgmeta`; `.github`, local tools, caches, and docs such as `README.md` and `DESCRIPTION.md` are excluded from release zips. During tag builds, GitHub Actions writes a temporary `.packager/pkgmeta.yaml` so CurseForge and Wago receive only the latest version's extracted changelog section, not the full historical changelog.
