@@ -117,6 +117,66 @@ local function RegisterAddonButton(btn)
     table.insert(CP_AddonButtons, btn)
 end
 
+local function IsMouseOverManagedMinimapButton()
+    if not MouseIsOver then return false end
+
+    for _, button in ipairs(CP_AddonButtons) do
+        if button and button.IsShown and button:IsShown() and MouseIsOver(button) then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function ShouldShowFadedMinimapButtons()
+    if not IsEnabled() or not MouseIsOver then return false end
+    return (Minimap and MouseIsOver(Minimap)) or IsMouseOverManagedMinimapButton()
+end
+
+local function UpdateFadedMinimapButtonTargets(wakeFader)
+    local targetAlpha = ShouldShowFadedMinimapButtons() and 1 or 0
+
+    for _, button in ipairs(CP_AddonButtons) do
+        if button and button.CP_MinimapFadeHooked then
+            button.CP_TargetAlpha = targetAlpha
+        end
+    end
+
+    if wakeFader and CP_FaderFrame then
+        CP_FaderFrame:Show()
+    end
+end
+
+local function WakeMinimapButtonFader()
+    UpdateFadedMinimapButtonTargets(true)
+end
+
+local function HookMinimapHover()
+    if not Minimap or Minimap.CP_MinimapFadeHoverHooked then return end
+    Minimap.CP_MinimapFadeHoverHooked = true
+
+    if Minimap.HookScript then
+        Minimap:HookScript("OnEnter", WakeMinimapButtonFader)
+        Minimap:HookScript("OnLeave", WakeMinimapButtonFader)
+    else
+        local originalOnEnter = Minimap:GetScript("OnEnter")
+        local originalOnLeave = Minimap:GetScript("OnLeave")
+        Minimap:SetScript("OnEnter", function(self, ...)
+            WakeMinimapButtonFader()
+            if originalOnEnter then
+                originalOnEnter(self, ...)
+            end
+        end)
+        Minimap:SetScript("OnLeave", function(self, ...)
+            WakeMinimapButtonFader()
+            if originalOnLeave then
+                originalOnLeave(self, ...)
+            end
+        end)
+    end
+end
+
 local function SetupFadedMinimapButton(button, enabled)
     if not button or button == Minimap or not button.SetAlpha or not button.SetScript then return end
 
@@ -131,21 +191,19 @@ local function SetupFadedMinimapButton(button, enabled)
         if CP_FaderFrame then CP_FaderFrame:Show() end
 
         button.CP_CurrentAlpha = button.CP_CurrentAlpha or 0
-        button.CP_TargetAlpha = 0
+        button.CP_TargetAlpha = ShouldShowFadedMinimapButtons() and 1 or 0
         button:SetAlpha(button.CP_CurrentAlpha)
         button:EnableMouse(true)
 
         button:SetScript("OnEnter", function(self)
-            self.CP_TargetAlpha = 1
-            if CP_FaderFrame then CP_FaderFrame:Show() end
+            WakeMinimapButtonFader()
             if self.CP_OrigOnEnter then
                 self.CP_OrigOnEnter(self)
             end
         end)
 
         button:SetScript("OnLeave", function(self)
-            self.CP_TargetAlpha = 0
-            if CP_FaderFrame then CP_FaderFrame:Show() end
+            WakeMinimapButtonFader()
             if self.CP_OrigOnLeave then
                 self.CP_OrigOnLeave(self)
             end
@@ -177,6 +235,10 @@ end
 local function ApplyAddonButtonClutter(enabled)
     if not Minimap or not Minimap.GetChildren then return end
 
+    if enabled then
+        HookMinimapHover()
+    end
+
     for i = 1, Minimap:GetNumChildren() do
         local child = select(i, Minimap:GetChildren())
         if IsAddonMinimapButton(child) then
@@ -185,6 +247,7 @@ local function ApplyAddonButtonClutter(enabled)
     end
 
     ApplyNamedMinimapButtonClutter(enabled)
+    UpdateFadedMinimapButtonTargets(enabled)
 end
 
 -- Smooth fader that lerps addon button alpha toward target over time
@@ -200,6 +263,8 @@ CP_FaderFrame:SetScript("OnUpdate", function(self, elapsed)
         self:Hide()
         return
     end
+
+    UpdateFadedMinimapButtonTargets(false)
 
     local changed = false
     for _, btn in ipairs(CP_AddonButtons) do

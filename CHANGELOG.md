@@ -2,7 +2,7 @@
 
 ## 1.6.7
 
-- Added the Classic/TBC Looking for Group minimap button to Remove Minimap Clutter's hover fade.
+- Added the Classic/TBC Looking for Group minimap button to Remove Minimap Clutter's hover fade and reveal faded buttons when hovering the minimap itself.
 - Added the TBC minimap tracking/finding button to the same hover fade.
 
 ## 1.6.6
