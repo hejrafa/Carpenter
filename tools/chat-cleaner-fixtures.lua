@@ -69,13 +69,11 @@ local now = 1000
 local currentMoney = 0
 local groupMembers = 0
 local inRaid = false
-local currentQuestTitle = nil
 function GetTime() return now end
 function GetMoney() return currentMoney end
 function GetLocale() return "enUS" end
 function IsInRaid() return inRaid end
 function GetNumGroupMembers() return groupMembers end
-function GetTitleText() return currentQuestTitle end
 function UnitName(unit)
     if unit == "player" then return "Tester" end
     return nil
@@ -396,11 +394,16 @@ local fixtures = {
         expectPlain = "+ Accepted: The Missing Diplomat",
     },
     {
-        name = "generic quest completion uses current quest title",
+        name = "quest completed keeps explicit title",
         event = "CHAT_MSG_SYSTEM",
-        questTitle = "An Old Gift",
+        message = "Quest Completed: The Missing Diplomat",
+        expectPlain = "+ Completed: The Missing Diplomat",
+    },
+    {
+        name = "generic quest completion hides placeholder title",
+        event = "CHAT_MSG_SYSTEM",
         message = "You have completed that quest.",
-        expectPlain = "+ Completed: An Old Gift",
+        expectPlain = "+ Completed",
         rejectPlain = "that quest",
     },
     {
@@ -418,7 +421,6 @@ for _, fixture in ipairs(fixtures) do
     local hidden, out
     groupMembers = fixture.groupMembers or 0
     inRaid = fixture.inRaid or false
-    currentQuestTitle = fixture.questTitle
     if fixture.path == "post" then
         local frame = {}
         local captured = nil
@@ -454,19 +456,6 @@ for _, fixture in ipairs(fixtures) do
         end
     elseif fixture.rejectColor and out and out:find(fixture.rejectColor, 1, true) then
         failures[#failures + 1] = fixture.name .. ": output used rejected color " .. fixture.rejectColor
-    end
-end
-
-do
-    currentQuestTitle = nil
-    filter(nil, "CHAT_MSG_SYSTEM", "Quest accepted: Encoded Tablet", "")
-    local hidden, out = filter(nil, "CHAT_MSG_SYSTEM", "You have completed that quest.", "")
-    local outPlain = plain(out)
-    additionalChecks = additionalChecks + 1
-    if hidden == true then
-        failures[#failures + 1] = "generic quest completion uses recent accepted title: unexpectedly hidden"
-    elseif outPlain ~= "+ Completed: Encoded Tablet" then
-        failures[#failures + 1] = "generic quest completion uses recent accepted title: expected [+ Completed: Encoded Tablet] got [" .. tostring(outPlain) .. "]"
     end
 end
 

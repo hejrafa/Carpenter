@@ -77,43 +77,6 @@ local function FormatReceivedDisplay(rawDisplay, sourceMessage)
     return ChatCleanerUtils.FormatReceivedDisplay(rawDisplay, sourceMessage, { CountColor = ColorPlus })
 end
 
-local function CleanQuestTitleCandidate(title)
-    if type(title) ~= "string" then return nil end
-    title = CleanPunctuation(StripBrackets(title))
-    title = title:gsub("^%s+", ""):gsub("%s+$", "")
-    if title == "" then return nil end
-
-    local lower = title:lower()
-    if lower == "that quest" or lower == "the quest" or lower == "quest" then
-        return nil
-    end
-
-    return title
-end
-
-local function ResolveCurrentQuestTitle()
-    local candidate
-
-    if GetTitleText then
-        local ok, title = pcall(GetTitleText)
-        if ok then
-            candidate = CleanQuestTitleCandidate(title)
-            if candidate then return candidate end
-        end
-    end
-
-    for _, frameName in ipairs({ "QuestInfoTitleHeader", "QuestFrameTitleText", "QuestProgressTitleText", "QuestRewardTitleText" }) do
-        local frame = _G[frameName]
-        if frame and frame.GetText then
-            local ok, title = pcall(frame.GetText, frame)
-            if ok then
-                candidate = CleanQuestTitleCandidate(title)
-                if candidate then return candidate end
-            end
-        end
-    end
-end
-
 -- Blizzard party/raid message color (for system messages like "X joins", "Group leader")
 local function GetPartyOrRaidMessageColor()
     local info = ChatTypeInfo["RAID"] or ChatTypeInfo["PARTY"]
@@ -202,7 +165,6 @@ local systemFormatter = ChatCleanerSystem.Create and ChatCleanerSystem.Create({
     ColorTeal = ColorTeal,
     ColorYellow = ColorYellow,
     LearnedSkillDedupSeconds = 3,
-    ResolveQuestCompletionTitle = ResolveCurrentQuestTitle,
 }) or {}
 local IsLevelUpRewardEvent = systemFormatter.IsLevelUpRewardEvent
 local FormatExperienceMessage = systemFormatter.FormatExperienceMessage
