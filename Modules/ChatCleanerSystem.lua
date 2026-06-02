@@ -31,7 +31,10 @@ function System.Create(config)
     local api = {}
     local originalLevelUpGlobals = nil
     local lastLearnedSkillName, lastLearnedSkillTime = nil, 0
+    local lastAcceptedQuestName, lastAcceptedQuestTime = nil, 0
     local learnedSkillDedupSeconds = config.LearnedSkillDedupSeconds or 3
+    local acceptedCompletionWindow = config.AcceptedCompletionWindow or 15
+    local resolveQuestCompletionTitle = config.ResolveQuestCompletionTitle or function() return nil end
 
     local function ShouldSuppressStoryModeQuestAccepted(message)
         local storyMode = _G.StoryMode
@@ -173,6 +176,27 @@ function System.Create(config)
         if event ~= "CHAT_MSG_SYSTEM" or not message or type(message) ~= "string" then return nil end
         plainText = (type(plainText) == "string" and plainText) or message
 
+        local function IsGenericCompletionTitle(title)
+            if not title or type(title) ~= "string" then return false end
+            local normalized = cleanPunctuation(stripBrackets(title)):lower():gsub("^%s+", ""):gsub("%s+$", "")
+            return normalized == "that quest" or normalized == "the quest" or normalized == "quest"
+        end
+
+        local function GetRecentAcceptedQuestName()
+            if not lastAcceptedQuestName then return nil end
+            local now = GetTime and GetTime() or 0
+            if now - lastAcceptedQuestTime > acceptedCompletionWindow then return nil end
+            return lastAcceptedQuestName
+        end
+
+        local function CleanQuestTitle(title)
+            title = cleanPunctuation(stripBrackets(title))
+            if type(title) ~= "string" then return nil end
+            title = title:gsub("^%s+", ""):gsub("%s+$", "")
+            if title == "" or IsGenericCompletionTitle(title) then return nil end
+            return title
+        end
+
         local lowerPlainText = plainText:lower()
         local questAccepted = nil
         if lowerPlainText:find("quest accepted:") then
@@ -196,9 +220,20 @@ function System.Create(config)
             if ShouldSuppressStoryModeQuestAccepted(message) then
                 return true
             end
-            return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_ACCEPTED_LABEL", "Accepted:") .. " |r" .. colorYellow .. cleanPunctuation(stripBrackets(questAccepted)) .. "|r")
+            local cleanQuest = CleanQuestTitle(questAccepted)
+            if cleanQuest then
+                lastAcceptedQuestName = cleanQuest
+                lastAcceptedQuestTime = GetTime and GetTime() or 0
+            end
+            return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_ACCEPTED_LABEL", "Accepted:") .. " |r" .. colorYellow .. (cleanQuest or cleanPunctuation(stripBrackets(questAccepted))) .. "|r")
         elseif questCompleted then
-            local cleanQuest = cleanPunctuation(stripBrackets(questCompleted))
+            local cleanQuest = CleanQuestTitle(questCompleted)
+            if not cleanQuest and IsGenericCompletionTitle(questCompleted) then
+                cleanQuest = CleanQuestTitle(resolveQuestCompletionTitle(message, plainText, questCompleted)) or GetRecentAcceptedQuestName()
+            end
+            if not cleanQuest then
+                return nil
+            end
             return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_COMPLETED_LABEL", "Completed:") .. " |r" .. colorYellow .. cleanQuest .. "|r")
         end
 
