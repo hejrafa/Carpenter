@@ -51,6 +51,7 @@ Modules\ReadyCheckCompat.lua
 Modules\ClassHealthColorsShared.lua
 Modules\ClassHealthColorsUnitFrames.lua
 Modules\DebuffTrackerIcons.lua
+Modules\DebuffTrackerAuraLayers.lua
 Modules\DebuffTracker.lua
 Modules\UnitFrameClassIcon.lua
 Modules\ThreatIndicator.lua
