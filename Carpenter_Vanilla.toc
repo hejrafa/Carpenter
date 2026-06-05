@@ -39,6 +39,7 @@ Modules\ActionBarRange.lua
 # Interface
 Modules\MinimapClutter.lua
 Modules\WorldMapCleanupData.lua
+Modules\WorldMapCleanupPOIPins.lua
 Modules\WorldMapCleanup.xml
 Modules\WorldMapCleanup.lua
 Modules\EnhanceTooltip.lua

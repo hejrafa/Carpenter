@@ -5,11 +5,8 @@
 if Carpenter and Carpenter.Client and not Carpenter.Client.isClassic then return end
 
 local _, ns = ...
-local POIData = ns and ns.Private and ns.Private.WorldMapCleanupData or {}
-local POI_DATA = POIData.POIs or {}
-local POI_ATLAS = POIData.Atlas or {}
+local POIPins = ns and ns.Private and ns.Private.WorldMapCleanupPOIPins or {}
 
-local CUSTOM_PIN_TEMPLATE = "CPWorldMapCleanupPinTemplate"
 local LEATRIX_SMALL_MAP_X = 16
 local LEATRIX_SMALL_MAP_Y = -104
 local FULLSCREEN_MAP_SCALE = 0.85
@@ -31,7 +28,6 @@ local hookedCursorScale = false
 local originalScrollContainerGetCursorPosition = nil
 local originalScrollContainerGetNormalizedCursorPosition = nil
 local originalWorldMapGetNormalizedCursorPosition = nil
-local customPOIProvider = nil
 local scheduleNonce = 0
 local centeredMapCanvasKey = nil
 local originalGroupMemberPinSizes = nil
@@ -356,49 +352,6 @@ local function RestoreMapPosition()
     ApplyMovingMapFade(0, true)
 end
 
-local function IsClassicClient()
-    return Carpenter and Carpenter.Client and Carpenter.Client.isClassic
-end
-
-local function IsDungeonPOI(kind)
-    if POIData.IsDungeonKind then return POIData.IsDungeonKind(kind) end
-    return kind == "Dungeon" or kind == "Raid" or kind == "Dunraid"
-end
-
-local function IsTravelPOI(kind)
-    if POIData.IsTravelKind then return POIData.IsTravelKind(kind) end
-    return kind == "FlightA" or kind == "FlightH" or kind == "FlightN" or
-        kind == "TravelA" or kind == "TravelH" or kind == "TravelN"
-end
-
-local function ShouldShowPOI(kind)
-    local faction = UnitFactionGroup and UnitFactionGroup("player")
-    if POIData.ShouldShowKind then return POIData.ShouldShowKind(kind, faction) end
-
-    if IsDungeonPOI(kind) then return true end
-    if kind == "FlightN" or kind == "TravelN" then return true end
-
-    if faction == "Alliance" then
-        return kind == "FlightA" or kind == "TravelA"
-    elseif faction == "Horde" then
-        return kind == "FlightH" or kind == "TravelH"
-    end
-
-    return false
-end
-
-local function IsPOIAvailableForClient(pinInfo)
-    if POIData.IsPOIAvailableForClient then
-        return POIData.IsPOIAvailableForClient(pinInfo, Carpenter and Carpenter.Client and Carpenter.Client.isTBC)
-    end
-
-    if pinInfo[10] == "tbc" then
-        return Carpenter and Carpenter.Client and Carpenter.Client.isTBC
-    end
-
-    return true
-end
-
 local function GetWorldMapID()
     local mapFrame = _G.WorldMapFrame
     if not mapFrame then return nil end
@@ -413,19 +366,24 @@ local function GetWorldMapID()
     return nil
 end
 
-local function GetMapCanvasID(map)
-    if not map then return nil end
-
-    if map.GetMapID then
-        local mapID = map:GetMapID()
-        if mapID then return mapID end
-    end
-
-    return map.mapID
+if POIPins.Configure then
+    POIPins.Configure({
+        ShouldShowMapPOIIcons = ShouldShowMapPOIIcons,
+        GetWorldMapID = GetWorldMapID,
+    })
 end
 
-local function GetPOIMapID(map)
-    return GetWorldMapID() or GetMapCanvasID(map)
+local function EnsurePOIProvider()
+    if POIPins.EnsureProvider then return POIPins.EnsureProvider() end
+    return false
+end
+
+local function RemovePOIPins()
+    if POIPins.Remove then POIPins.Remove() end
+end
+
+local function ApplyPOIPins()
+    if POIPins.Apply then POIPins.Apply() end
 end
 
 local function GetMapCanvasCenterKey(mapFrame, scrollContainer, mapID)
@@ -472,150 +430,6 @@ local function CenterMapCanvasForCurrentMap()
     end
 
     centeredMapCanvasKey = centerKey
-end
-
-local function BuildPOIName(pinInfo)
-    if POIData.BuildPOIName then return POIData.BuildPOIName(pinInfo) end
-
-    local name = pinInfo[4] or ""
-    local minLevel = pinInfo[7]
-    local maxLevel = pinInfo[8]
-
-    if minLevel and maxLevel then
-        if minLevel == maxLevel then
-            name = name .. " (" .. maxLevel .. ")"
-        else
-            name = name .. " (" .. minLevel .. "-" .. maxLevel .. ")"
-        end
-    end
-
-    return name
-end
-
-local function BuildPOIInfo(pinInfo)
-    if POIData.BuildPOIInfo then return POIData.BuildPOIInfo(pinInfo) end
-
-    local kind = pinInfo[1]
-    return {
-        position = CreateVector2D(pinInfo[2] / 100, pinInfo[3] / 100),
-        name = BuildPOIName(pinInfo),
-        description = pinInfo[5],
-        atlasName = pinInfo[6] or POI_ATLAS[kind],
-        CPKind = kind,
-        CPTargetMapID = pinInfo[9],
-    }
-end
-
-local function GetPOIIconSize(kind)
-    if POIData.GetIconSize then return POIData.GetIconSize(kind) end
-
-    local sizes = POIData.IconSizes or {}
-    return sizes[kind] or 20
-end
-
-local function ApplyPOIIconVisuals(pin, info)
-    local size = GetPOIIconSize(info.CPKind)
-    local textures = { pin.Texture, pin.HighlightTexture }
-
-    if pin.SetSize then pin:SetSize(size, size) end
-
-    for _, texture in ipairs(textures) do
-        if texture then
-            if texture.SetAtlas and info.atlasName then
-                pcall(texture.SetAtlas, texture, info.atlasName, false)
-            end
-            if texture.SetScale then texture:SetScale(1) end
-            if texture.SetRotation then texture:SetRotation(0) end
-            if texture.SetSize then texture:SetSize(size, size) end
-        end
-    end
-end
-
-local function EnsurePinMixin()
-    if _G.CPWorldMapCleanupPinMixin then return true end
-    if not BaseMapPoiPinMixin or not BaseMapPoiPinMixin.CreateSubPin then return false end
-
-    _G.CPWorldMapCleanupPinMixin = BaseMapPoiPinMixin:CreateSubPin("PIN_FRAME_LEVEL_DUNGEON_ENTRANCE")
-
-    function _G.CPWorldMapCleanupPinMixin:OnAcquired(info)
-        self.CPWorldMapCleanupPin = true
-        BaseMapPoiPinMixin.OnAcquired(self, info)
-        self.CPKind = info.CPKind
-        self.CPTargetMapID = info.CPTargetMapID
-
-        ApplyPOIIconVisuals(self, info)
-    end
-
-    function _G.CPWorldMapCleanupPinMixin:OnMouseUp(button)
-        if button == "LeftButton" and self.CPTargetMapID and _G.WorldMapFrame and _G.WorldMapFrame.SetMapID then
-            _G.WorldMapFrame:SetMapID(self.CPTargetMapID)
-        elseif button == "RightButton" and _G.WorldMapFrame and _G.WorldMapFrame.NavigateToParentMap then
-            _G.WorldMapFrame:NavigateToParentMap()
-        end
-    end
-
-    return true
-end
-
-local function RemovePOIPinsFromMap(map)
-    if map and map.RemoveAllPinsByTemplate then
-        pcall(map.RemoveAllPinsByTemplate, map, CUSTOM_PIN_TEMPLATE)
-    end
-end
-
-local function RemovePOIPins()
-    local mapFrame = _G.WorldMapFrame
-    RemovePOIPinsFromMap(mapFrame)
-
-    if customPOIProvider and customPOIProvider.GetMap then
-        local providerMap = customPOIProvider:GetMap()
-        if providerMap ~= mapFrame then
-            RemovePOIPinsFromMap(providerMap)
-        end
-    end
-end
-
-local function EnsurePOIProvider()
-    if customPOIProvider then return true end
-
-    local mapFrame = _G.WorldMapFrame
-    if not IsClassicClient() or not mapFrame or not mapFrame.AddDataProvider then return false end
-    if not CreateFromMixins or not MapCanvasDataProviderMixin or not CreateVector2D then return false end
-    if not EnsurePinMixin() then return false end
-
-    local provider = CreateFromMixins(MapCanvasDataProviderMixin)
-
-    function provider:RefreshAllData()
-        local map = self.GetMap and self:GetMap()
-        RemovePOIPinsFromMap(map)
-        if map ~= _G.WorldMapFrame then RemovePOIPinsFromMap(_G.WorldMapFrame) end
-
-        if not ShouldShowMapPOIIcons() or not map then return end
-
-        local pins = POI_DATA[GetPOIMapID(map)]
-        if not pins then return end
-
-        for _, pinInfo in ipairs(pins) do
-            if IsPOIAvailableForClient(pinInfo) and ShouldShowPOI(pinInfo[1]) and POI_ATLAS[pinInfo[1]] then
-                pcall(map.AcquirePin, map, CUSTOM_PIN_TEMPLATE, BuildPOIInfo(pinInfo))
-            end
-        end
-    end
-
-    mapFrame:AddDataProvider(provider)
-    customPOIProvider = provider
-    return true
-end
-
-local function ApplyPOIPins()
-    if not ShouldShowMapPOIIcons() then
-        RemovePOIPins()
-        return
-    end
-
-    if EnsurePOIProvider() and customPOIProvider and customPOIProvider.RefreshAllData then
-        customPOIProvider:RefreshAllData()
-    end
 end
 
 local function StoreHiddenState(object)
