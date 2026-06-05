@@ -139,14 +139,14 @@ Some options are only available on specific game flavors. Carpenter hides unsupp
 Run the full release validation before tagging or packaging:
 
 ```bash
-tools/release.sh check
+bash tools/release.sh check
 ```
 
-That validates TOC references, changelog metadata, Lua syntax, chat-cleaner fixtures, smart-macro fixtures, localization coverage, and artwork references.
+That validates TOC references, changelog metadata, Lua syntax, offline fixtures, localization coverage, artwork references, and cross-file addon shape.
 
 ## Release Publishing
 
-GitHub Actions packages Carpenter only when a version tag is pushed. Normal pushes to `main` do not publish. The workflow validates the tag against the committed TOC/changelog metadata, runs `tools/release.sh check`, builds the addon zip with the BigWigs WoW Packager, creates a GitHub Release, and uploads the same package to CurseForge and Wago.
+GitHub Actions packages Carpenter only when a version tag is pushed. Normal pushes to `main` do not publish. The workflow validates the tag against the committed TOC/changelog metadata, runs `bash tools/release.sh check`, builds the addon zip with the BigWigs WoW Packager, creates a GitHub Release, and uploads the same package to CurseForge and Wago.
 
 Required GitHub repository secrets:
 
@@ -160,7 +160,7 @@ Add secrets in GitHub at `Settings` -> `Secrets and variables` -> `Actions` -> `
 Release flow:
 
 ```bash
-tools/release.sh check
+bash tools/release.sh check
 git tag v1.6.7
 git push origin main v1.6.7
 ```

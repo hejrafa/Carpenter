@@ -88,11 +88,13 @@ check() {
   while IFS= read -r file; do
     files+=("$file")
   done < <(lua_files)
-  luac -p "${files[@]}" "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT/tools/check-localization.lua" "$ROOT/tools/check-assets.lua"
+  luac -p "${files[@]}" "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT/tools/auto-track-quest-fixtures.lua" "$ROOT/tools/check-localization.lua" "$ROOT/tools/check-assets.lua" "$ROOT/tools/check-addon-shape.lua"
   lua "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT"
   lua "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT"
+  lua "$ROOT/tools/auto-track-quest-fixtures.lua" "$ROOT"
   lua "$ROOT/tools/check-localization.lua" "$ROOT"
   lua "$ROOT/tools/check-assets.lua" "$ROOT"
+  lua "$ROOT/tools/check-addon-shape.lua" "$ROOT"
 
   echo "release: checks passed"
 }
@@ -170,10 +172,10 @@ update_worktrees() {
 
 usage() {
   cat <<EOF
-Usage: tools/release.sh <command>
+Usage: bash tools/release.sh <command>
 
 Commands:
-  check                 Validate TOCs, changelog, Lua syntax, fixtures, localization, and assets.
+  check                 Validate TOCs, changelog, Lua syntax, fixtures, localization, assets, and addon shape.
   changelog [version] [out]
                         Extract one changelog section for packager publishing.
   zip [version]         Create .release/Carpenter-[version].zip without hidden/dev/tools files.

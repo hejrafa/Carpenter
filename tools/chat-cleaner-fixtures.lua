@@ -192,6 +192,19 @@ local fixtures = {
         expectHidden = true,
     },
     {
+        name = "left channel hidden",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Left Channel: 1. General - Elwynn Forest",
+        expectHidden = true,
+    },
+    {
+        name = "monster emote placeholders are escaped",
+        event = "CHAT_MSG_MONSTER_EMOTE",
+        author = "Defias Thief",
+        message = "%s points at %o target.",
+        expectPlain = "Defias Thief points at Defias Thief target.",
+    },
+    {
         name = "loot roll range",
         event = "CHAT_MSG_LOOT",
         message = "Yantiparazi rolls 40 (1-100)",
@@ -407,6 +420,31 @@ local fixtures = {
         rejectPlain = "that quest",
     },
     {
+        name = "ready check initiated strips realm",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Mirella-Grobbulus has initiated a ready check.",
+        expectPlain = "Mirella initiated ready check",
+    },
+    {
+        name = "not ready strips realm",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Mirella-Grobbulus is not ready.",
+        expectPlain = "Mirella not ready",
+    },
+    {
+        name = "trade request strips realm",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You have requested to trade with Mirella-Grobbulus.",
+        expectPlain = "Requested to trade with Mirella",
+    },
+    {
+        name = "retail money gain post-process hidden",
+        path = "post",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You gained: 1 Gold 23 Silver 45 Copper.",
+        expectHidden = true,
+    },
+    {
         name = "auctionator hidden",
         event = "CHAT_MSG_SYSTEM",
         message = "Auctionator: scan complete",
@@ -456,6 +494,37 @@ for _, fixture in ipairs(fixtures) do
         end
     elseif fixture.rejectColor and out and out:find(fixture.rejectColor, 1, true) then
         failures[#failures + 1] = fixture.name .. ": output used rejected color " .. fixture.rejectColor
+    end
+end
+
+do
+    local printed = {}
+    local originalPrint = print
+    print = function(message)
+        printed[#printed + 1] = tostring(message)
+    end
+
+    local session = ns.Private.ChatCleanerSessions.Create({
+        FormatMoney = function(amount) return tostring(amount or 0) end,
+        ColorPlus = "|cffffffff",
+        ColorMinus = "|cffffffff",
+    })
+    local onMerchantEvent = session.merchantFrame._scripts.OnEvent
+    if type(onMerchantEvent) == "function" then
+        currentMoney = 10000
+        onMerchantEvent(session.merchantFrame, "MERCHANT_SHOW")
+        currentMoney = 12500
+        onMerchantEvent(session.merchantFrame, "PLAYER_ENTERING_WORLD")
+        onMerchantEvent(session.merchantFrame, "MERCHANT_CLOSED")
+    else
+        failures[#failures + 1] = "merchant zoning guard: merchant session event handler was not registered"
+    end
+
+    print = originalPrint
+
+    additionalChecks = additionalChecks + 1
+    if type(onMerchantEvent) == "function" and #printed ~= 0 then
+        failures[#failures + 1] = "merchant zoning guard: expected no summary got " .. tostring(#printed)
     end
 end
 

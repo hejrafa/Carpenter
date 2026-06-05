@@ -47,8 +47,8 @@ jobs:
             exit 1
           fi
 
-          if [[ -x tools/release.sh ]]; then
-            tools/release.sh check
+          if [[ -f tools/release.sh ]]; then
+            bash tools/release.sh check
           fi
 
       - name: Check publishing secrets
@@ -79,7 +79,7 @@ jobs:
         shell: bash
         run: |
           version="${GITHUB_REF_NAME#v}"
-          tools/release.sh changelog "$version" .packager/changelog.md
+          bash tools/release.sh changelog "$version" .packager/changelog.md
           sed 's#manual-changelog: CHANGELOG.md#manual-changelog: .packager/changelog.md#' .pkgmeta > .packager/pkgmeta.yaml
 
       - name: Package and publish to GitHub, CurseForge, and Wago

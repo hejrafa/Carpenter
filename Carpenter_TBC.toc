@@ -82,6 +82,8 @@ Modules\SmartMacroScanner.lua
 Modules\SmartMacroBuilder.lua
 Modules\SmartMacros.lua
 Modules\PoisonMacros.lua
+Modules\AutoTrackQuestState.lua
+Modules\AutoTrackQuestLayout.lua
 Modules\AutoTrackQuests.lua
 Modules\AutoSellGreys.lua
 Modules\AutoRepair.lua

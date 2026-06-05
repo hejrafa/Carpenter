@@ -9,6 +9,7 @@ end
 local ns = { Private = {} }
 local registeredFeatures = {}
 local createdFrames = {}
+local tooltipByItemID = {}
 
 SlashCmdList = {}
 
@@ -33,8 +34,26 @@ local bagSlots = {
     },
 }
 
+local itemInfoByID = {
+    [117] = { name = "Tough Jerky", itemLevel = 5, reqLevel = 1, itemType = "Consumable", itemSubType = "Food & Drink", classID = 0, subClassID = 5 },
+    [159] = { name = "Refreshing Spring Water", itemLevel = 5, reqLevel = 1, itemType = "Consumable", itemSubType = "Food & Drink", classID = 0, subClassID = 5 },
+    [8952] = { name = "Roasted Quail", itemLevel = 45, reqLevel = 35, itemType = "Consumable", itemSubType = "Food & Drink", classID = 0, subClassID = 5 },
+    [19013] = { name = "Major Healthstone", itemLevel = 60, reqLevel = 0, itemType = "Consumable", itemSubType = "Other", classID = 0, subClassID = 0 },
+    [22829] = { name = "Super Healing Potion", itemLevel = 65, reqLevel = 55, itemType = "Consumable", itemSubType = "Potion", classID = 0, subClassID = 1 },
+    [27667] = { name = "Spicy Crawdad", itemLevel = 65, reqLevel = 55, itemType = "Consumable", itemSubType = "Food & Drink", classID = 0, subClassID = 5 },
+    [30703] = { name = "Conjured Mountain Spring Water", itemLevel = 65, reqLevel = 55, itemType = "Consumable", itemSubType = "Food & Drink", classID = 0, subClassID = 5 },
+}
+
+local function GetMaxSlot(bag)
+    local maxSlot = 0
+    for slot in pairs(bagSlots[bag] or {}) do
+        if slot > maxSlot then maxSlot = slot end
+    end
+    return maxSlot
+end
+
 function GetContainerNumSlots(bag)
-    return bag == 0 and 1 or 0
+    return GetMaxSlot(bag)
 end
 
 GetContainerItemID = nil
@@ -50,6 +69,14 @@ function GetContainerItemInfo(bag, slot)
     return item.texture, item.count, false, nil, nil, nil, item.link, nil, nil, item.itemID
 end
 
+function GetItemInfo(item)
+    local itemID = type(item) == "number" and item or tonumber(tostring(item or ""):match("item:(%d+)"))
+    local info = itemID and itemInfoByID[itemID]
+    if not info then return nil end
+    local link = "|Hitem:" .. itemID .. "::::::::|h[" .. info.name .. "]|h"
+    return info.name, link, 1, info.itemLevel, info.reqLevel, info.itemType, info.itemSubType, nil, nil, nil, nil, info.classID, info.subClassID
+end
+
 function CreateFrame()
     local frame = { events = {} }
     function frame:RegisterEvent(event) self.events[event] = true end
@@ -62,10 +89,25 @@ end
 
 function GetTime() return 1000 end
 function InCombatLockdown() return false end
+function UnitLevel() return 70 end
 function UnitHealthMax() return 1000 end
 function UnitPowerMax() return 1000 end
 
 C_Timer = { After = function(_, callback) callback() end }
+
+ns.Private.SmartMacroTooltip = {
+    ContainsAny = function(text, hints)
+        if not text or not hints then return false end
+        for _, hint in ipairs(hints) do
+            if text:find(hint, 1, true) then return true end
+        end
+        return false
+    end,
+    Read = function(_, _, item)
+        return tooltipByItemID[item.itemID] or { text = "", useText = "", isFoodAndDrink = false }
+    end,
+    GetSpellText = function() return "" end,
+}
 
 ns.Private.SmartMacroBuilder = {
     BuildMacroBody = function() return "#showtooltip\n" end,
@@ -169,6 +211,102 @@ if classifier.ScoreItem(foodItem, strongBuffTooltip, "", "WellFed") <= classifie
     failures[#failures + 1] = "well fed scoring: expected stronger buff food to beat weaker buff food"
 end
 fixtureCount = fixtureCount + 5
+
+local potionItem = {
+    name = "Slow Health Regeneration Potion",
+    itemID = 990001,
+    itemLevel = 40,
+    reqLevel = 30,
+    itemType = "Consumable",
+    itemSubType = "Potion",
+    classID = ns.Private.SmartMacroData.ConsumableClassID,
+    subClassID = ns.Private.SmartMacroData.PotionSubclassID,
+}
+local regenerationTooltip = {
+    text = "use: regenerates 400 health over 20 sec.",
+    useText = "use: regenerates 400 health over 20 sec.",
+}
+
+if classifier.MatchesCategory(potionItem, regenerationTooltip, "", "Pot") then
+    failures[#failures + 1] = "health potion category: expected regeneration potions to be excluded from immediate health macro"
+end
+fixtureCount = fixtureCount + 1
+
+local healthstoneItem = {
+    name = "Major Healthstone",
+    itemID = 19013,
+    itemLevel = 60,
+    reqLevel = 0,
+    itemType = "Consumable",
+    itemSubType = "Other",
+    classID = ns.Private.SmartMacroData.ConsumableClassID,
+    subClassID = 0,
+}
+local healthstoneTooltip = {
+    text = "use: instantly restores 2080 health. healthstone.",
+    useText = "use: instantly restores 2080 health.",
+}
+
+if not classifier.MatchesCategory(healthstoneItem, healthstoneTooltip, "", "Healthstone") then
+    failures[#failures + 1] = "healthstone category: expected known healthstones to match the internal healthstone category"
+end
+if classifier.MatchesCategory(healthstoneItem, healthstoneTooltip, "", "Pot") then
+    failures[#failures + 1] = "healthstone category: expected healthstones to stay out of the potion category"
+end
+fixtureCount = fixtureCount + 2
+
+tooltipByItemID = {
+    [8952] = {
+        text = "use: restores 2148 health over 30 sec. must remain seated while eating.",
+        useText = "use: restores 2148 health over 30 sec.",
+        isFoodAndDrink = true,
+    },
+    [19013] = healthstoneTooltip,
+    [22829] = {
+        text = "use: restores 1500 to 2500 health.",
+        useText = "use: restores 1500 to 2500 health.",
+    },
+    [27667] = {
+        text = "use: restores 7500 health over 30 sec. must remain seated while eating. if you spend at least 10 seconds eating you will become well fed and gain 30 stamina and 20 spirit for 30 min.",
+        useText = "use: restores 7500 health over 30 sec.",
+        isFoodAndDrink = true,
+    },
+    [30703] = {
+        text = "conjured item. use: restores 7200 mana over 30 sec. must remain seated while drinking.",
+        useText = "use: restores 7200 mana over 30 sec.",
+        isFoodAndDrink = true,
+        isConjured = true,
+    },
+}
+
+bagSlots[0] = {
+    [1] = { itemID = 8952, count = 2, link = "|Hitem:8952::::::::|h[Roasted Quail]|h", texture = "Interface\\Icons\\INV_Misc_Food_15" },
+    [2] = { itemID = 27667, count = 1, link = "|Hitem:27667::::::::|h[Spicy Crawdad]|h", texture = "Interface\\Icons\\INV_Misc_Food_66" },
+    [3] = { itemID = 30703, count = 4, link = "|Hitem:30703::::::::|h[Conjured Mountain Spring Water]|h", texture = "Interface\\Icons\\INV_Drink_18" },
+    [4] = { itemID = 19013, count = 1, link = "|Hitem:19013::::::::|h[Major Healthstone]|h", texture = "Interface\\Icons\\INV_Stone_04" },
+    [5] = { itemID = 22829, count = 3, link = "|Hitem:22829::::::::|h[Super Healing Potion]|h", texture = "Interface\\Icons\\INV_Potion_54" },
+}
+
+local bestItems, needsItemInfoRetry = scanner.GetBestItems()
+if not bestItems.Food or bestItems.Food.itemID ~= 8952 then
+    failures[#failures + 1] = "scanner best items: expected normal food to beat Well Fed food for Food"
+end
+if not bestItems.WellFed or bestItems.WellFed.itemID ~= 27667 then
+    failures[#failures + 1] = "scanner best items: expected Well Fed macro to pick buff food"
+end
+if not bestItems.Water or bestItems.Water.itemID ~= 30703 then
+    failures[#failures + 1] = "scanner best items: expected water macro to pick conjured water"
+end
+if not bestItems.Healthstone or bestItems.Healthstone.itemID ~= 19013 then
+    failures[#failures + 1] = "scanner best items: expected internal healthstone category to track healthstones"
+end
+if not bestItems.Pot or bestItems.Pot.itemID ~= 22829 then
+    failures[#failures + 1] = "scanner best items: expected potion category to pick healing potion"
+end
+if needsItemInfoRetry then
+    failures[#failures + 1] = "scanner best items: did not expect item info retry with complete fixture data"
+end
+fixtureCount = fixtureCount + 6
 
 local feature = registeredFeatures.smartMacrosEnabled
 if not feature or type(feature.Enable) ~= "function" then
