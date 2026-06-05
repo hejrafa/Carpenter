@@ -4,6 +4,7 @@ ns.Private = ns.Private or {}
 
 local PostProcess = ns.Private.ChatCleanerPostProcess or {}
 ns.Private.ChatCleanerPostProcess = PostProcess
+local Utils = ns.Private.ChatCleanerUtils or {}
 
 local channelReplacements = {}
 
@@ -335,6 +336,10 @@ function PostProcess.Create(config)
     end
 
     function api.ProcessMessage(frame, originalAddMessage, message, args)
+        if Utils.IsCombatLockedItemLinkMessage and Utils.IsCombatLockedItemLinkMessage(message) then
+            return originalAddMessage(frame, message, unpack(args))
+        end
+
         message = applyChannelStyling(tostring(message))
         message = removeLinkBrackets(message)
 
@@ -417,8 +422,9 @@ function PostProcess.Create(config)
 
     function api.HookChatFrameAddMessage(frame)
         if not frame or frame._CP_AddMessageHooked then return end
-        local originalAddMessage = frame.AddMessage
+        local originalAddMessage = frame._CP_OriginalAddMessage or frame.AddMessage
         if not originalAddMessage then return end
+        frame._CP_OriginalAddMessage = originalAddMessage
 
         frame.AddMessage = function(self, message, ...)
             if not (Carpenter and Carpenter:IsEnabled("chatCleanerEnabled")) then
@@ -442,6 +448,12 @@ function PostProcess.Create(config)
             end
         end
         frame._CP_AddMessageHooked = true
+    end
+
+    function api.RestoreChatFrameAddMessage(frame)
+        if not frame or not frame._CP_AddMessageHooked or not frame._CP_OriginalAddMessage then return end
+        frame.AddMessage = frame._CP_OriginalAddMessage
+        frame._CP_AddMessageHooked = false
     end
 
     return api

@@ -69,11 +69,13 @@ local now = 1000
 local currentMoney = 0
 local groupMembers = 0
 local inRaid = false
+local inCombatLockdown = false
 function GetTime() return now end
 function GetMoney() return currentMoney end
 function GetLocale() return "enUS" end
 function IsInRaid() return inRaid end
 function GetNumGroupMembers() return groupMembers end
+function InCombatLockdown() return inCombatLockdown end
 function UnitName(unit)
     if unit == "player" then return "Tester" end
     return nil
@@ -277,6 +279,23 @@ local fixtures = {
         requireColors = { "|cffffffffLoot|r", "|cff00ff00Disciple's Robe of the Eagle|r" },
     },
     {
+        name = "combat item link filter passthrough",
+        event = "CHAT_MSG_LOOT",
+        inCombatLockdown = true,
+        message = "You receive loot: |cff1eff00|Hitem:774::::::::|h[Malachite]|h|r.",
+        expectPlain = "You receive loot: [Malachite].",
+        rejectPlain = "+",
+    },
+    {
+        name = "combat item link post-process passthrough",
+        path = "post",
+        event = "CHAT_MSG_LOOT",
+        inCombatLockdown = true,
+        message = "Loot: |cff1eff00|Hitem:774::::::::|h[Malachite]|h|r",
+        expectPlain = "Loot: [Malachite]",
+        rejectPlain = "+",
+    },
+    {
         name = "group loot channel uses party color",
         event = "CHAT_MSG_LOOT",
         groupMembers = 2,
@@ -459,6 +478,7 @@ for _, fixture in ipairs(fixtures) do
     local hidden, out
     groupMembers = fixture.groupMembers or 0
     inRaid = fixture.inRaid or false
+    inCombatLockdown = fixture.inCombatLockdown == true
     if fixture.path == "post" then
         local frame = {}
         local captured = nil
@@ -494,6 +514,32 @@ for _, fixture in ipairs(fixtures) do
         end
     elseif fixture.rejectColor and out and out:find(fixture.rejectColor, 1, true) then
         failures[#failures + 1] = fixture.name .. ": output used rejected color " .. fixture.rejectColor
+    end
+end
+inCombatLockdown = false
+
+do
+    local calls = 0
+    local original = function() calls = calls + 1 end
+    local frame = { AddMessage = original }
+
+    postProcessor.HookChatFrameAddMessage(frame)
+    additionalChecks = additionalChecks + 1
+    if frame.AddMessage == original or frame._CP_AddMessageHooked ~= true then
+        failures[#failures + 1] = "post-process hook restore: expected hook to install"
+    end
+
+    postProcessor.RestoreChatFrameAddMessage(frame)
+    additionalChecks = additionalChecks + 1
+    if frame.AddMessage ~= original or frame._CP_AddMessageHooked ~= false then
+        failures[#failures + 1] = "post-process hook restore: expected original AddMessage to be restored"
+    end
+
+    postProcessor.HookChatFrameAddMessage(frame)
+    postProcessor.RestoreChatFrameAddMessage(frame)
+    additionalChecks = additionalChecks + 1
+    if frame.AddMessage ~= original or calls ~= 0 then
+        failures[#failures + 1] = "post-process hook restore: expected rehook to keep original AddMessage"
     end
 end
 
