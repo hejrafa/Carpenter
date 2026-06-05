@@ -48,6 +48,7 @@ Modules\ReadyCheckCompat.lua
 # Unit Frames
 Modules\ClassHealthColorsShared.lua
 Modules\ClassHealthColorsUnitFrames.lua
+Modules\DebuffTrackerIcons.lua
 Modules\DebuffTracker.lua
 Modules\UnitFrameClassIcon.lua
 Modules\ThreatIndicator.lua
