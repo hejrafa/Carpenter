@@ -62,6 +62,23 @@ function Sidebar.Create(context)
     sideContent:SetSize(210, 120)
     sideContent:Hide()
 
+    local HideAllSideContent
+
+    local function ShowSideContent()
+        HideAllSideContent()
+        sideContent:ClearAllPoints()
+        sideContent:SetPoint("TOPLEFT", sideDesc, "BOTTOMLEFT", 0, -SIDE_GAP)
+        sideContent:Show()
+    end
+
+    local function SetCheckboxLabel(checkbox, label)
+        local text = checkbox and _G[checkbox:GetName() .. "Text"]
+        if not text then return end
+        text:SetText(label)
+        text:SetFontObject("GameFontHighlight")
+        text:SetTextColor(0.67, 0.67, 0.67, 1)
+    end
+
     local function SetSidebarDefault()
         sideImage:Hide()
         sideDesc:ClearAllPoints()
@@ -94,7 +111,7 @@ function Sidebar.Create(context)
     -- Side Content Logic (Trinkets/Macros/Filters/Junk)
     -- =========================
 
-    local function HideAllSideContent()
+    HideAllSideContent = function()
         if _G["CP_CarrotSlotLabel"] then
             _G["CP_CarrotSlotLabel"]:Hide()
             _G["CP_CarrotSlot_13"]:Hide()
@@ -159,10 +176,7 @@ function Sidebar.Create(context)
     end
 
     local function ShowCarrotSlots()
-        HideAllSideContent()
-        sideContent:ClearAllPoints()
-        sideContent:SetPoint("TOPLEFT", sideDesc, "BOTTOMLEFT", 0, -SIDE_GAP)
-        sideContent:Show()
+        ShowSideContent()
         if not _G["CP_CarrotSlotLabel"] then
             local l = sideContent:CreateFontString("CP_CarrotSlotLabel", "OVERLAY", "GameFontHighlight")
             l:SetPoint("TOPLEFT", 0, 0)
@@ -171,10 +185,7 @@ function Sidebar.Create(context)
             local function CreateSlotBtn(slot, name)
                 local btn = CreateFrame("CheckButton", "CP_CarrotSlot_" .. slot, sideContent, "UIRadioButtonTemplate")
                 btn:SetPoint("TOPLEFT", 0, -(22 * (slot - 12)))
-                local t = _G[btn:GetName() .. "Text"]
-                t:SetText(name)
-                t:SetFontObject("GameFontHighlight")
-                t:SetTextColor(0.67, 0.67, 0.67, 1)
+                SetCheckboxLabel(btn, name)
                 btn:SetScript("OnClick", function()
                     CarpenterDB.autoCarrotSlot = slot
                     _G["CP_CarrotSlot_13"]:SetChecked(slot == 13)
@@ -193,10 +204,7 @@ function Sidebar.Create(context)
     end
 
     local function ShowMacroPreviews()
-        HideAllSideContent()
-        sideContent:ClearAllPoints()
-        sideContent:SetPoint("TOPLEFT", sideDesc, "BOTTOMLEFT", 0, -SIDE_GAP)
-        sideContent:Show()
+        ShowSideContent()
         if not _G["CP_Preview_Food"] then
             local icons = { Food = "Interface\\Icons\\Inv_Misc_Food_15", WellFed = "Interface\\Icons\\Inv_Misc_Food_66", Water = "Interface\\Icons\\Inv_Drink_07", Pot =
             "Interface\\Icons\\Inv_Potion_51", Mana = "Interface\\Icons\\Inv_Potion_76", Band =
@@ -238,10 +246,7 @@ function Sidebar.Create(context)
     end
 
     local function ShowPoisonMacroPreviews()
-        HideAllSideContent()
-        sideContent:ClearAllPoints()
-        sideContent:SetPoint("TOPLEFT", sideDesc, "BOTTOMLEFT", 0, -SIDE_GAP)
-        sideContent:Show()
+        ShowSideContent()
         if not _G["CP_PoisonPreview_Instant"] then
             local poisons = {
                 { key = "Instant", label = L.POISON_DAMAGE or "Damage", macro = "CarpenterDamage", icon = "Interface\\Icons\\Ability_Poisons" },
@@ -273,24 +278,16 @@ function Sidebar.Create(context)
     end
 
     local function ShowSellJunkOptions()
-        HideAllSideContent()
-        sideContent:ClearAllPoints()
-        sideContent:SetPoint("TOPLEFT", sideDesc, "BOTTOMLEFT", 0, -SIDE_GAP)
-        sideContent:Show()
+        ShowSideContent()
     end
 
     local function ShowWorldMapOptions()
-        HideAllSideContent()
-        sideContent:ClearAllPoints()
-        sideContent:SetPoint("TOPLEFT", sideDesc, "BOTTOMLEFT", 0, -SIDE_GAP)
-        sideContent:Show()
+        ShowSideContent()
 
         if not _G["CP_WorldMap_POIIcons"] then
             local cb = CreateFrame("CheckButton", "CP_WorldMap_POIIcons", sideContent, "InterfaceOptionsCheckButtonTemplate")
             cb:SetPoint("TOPLEFT", 0, 0)
-            _G[cb:GetName() .. "Text"]:SetText(L.OPTION_WORLD_MAP_POI_ICONS or "Show Map POI Icons")
-            _G[cb:GetName() .. "Text"]:SetFontObject("GameFontHighlight")
-            _G[cb:GetName() .. "Text"]:SetTextColor(0.67, 0.67, 0.67, 1)
+            SetCheckboxLabel(cb, L.OPTION_WORLD_MAP_POI_ICONS or "Show Map POI Icons")
             cb:SetScript("OnClick", function(self)
                 if CarpenterDB then
                     CarpenterDB.worldMapPOIIconsEnabled = self:GetChecked()
@@ -310,10 +307,7 @@ function Sidebar.Create(context)
     end
 
     local function ShowFilterOptions()
-        HideAllSideContent()
-        sideContent:ClearAllPoints()
-        sideContent:SetPoint("TOPLEFT", sideDesc, "BOTTOMLEFT", 0, -SIDE_GAP)
-        sideContent:Show()
+        ShowSideContent()
         if not _G["CP_Filter_TradeBots"] then
             local opts = {
                 { key = "filterTradeBotsEnabled", name = "CP_Filter_TradeBots", label = L.FILTER_BOT_SPAM or "Bot spam" },
@@ -323,9 +317,7 @@ function Sidebar.Create(context)
             for i, opt in ipairs(opts) do
                 local cb = CreateFrame("CheckButton", opt.name, sideContent, "InterfaceOptionsCheckButtonTemplate")
                 cb:SetPoint("TOPLEFT", 0, -(i - 1) * 24)
-                _G[cb:GetName() .. "Text"]:SetText(opt.label)
-                _G[cb:GetName() .. "Text"]:SetFontObject("GameFontHighlight")
-                _G[cb:GetName() .. "Text"]:SetTextColor(0.67, 0.67, 0.67, 1)
+                SetCheckboxLabel(cb, opt.label)
                 cb:SetScript("OnClick", function(self)
                     if CarpenterDB then
                         CarpenterDB[opt.key] = self:GetChecked()
@@ -352,6 +344,14 @@ function Sidebar.Create(context)
         Content = sideContent,
         SetDefault = SetSidebarDefault,
         ToggleImage = ToggleSideImage,
+        SideLogic = {
+            FilterOptions = ShowFilterOptions,
+            CarrotSlots = ShowCarrotSlots,
+            MacroPreviews = ShowMacroPreviews,
+            PoisonMacroPreviews = ShowPoisonMacroPreviews,
+            SellJunkOptions = ShowSellJunkOptions,
+            WorldMapOptions = ShowWorldMapOptions,
+        },
         ShowCarrotSlots = ShowCarrotSlots,
         ShowMacroPreviews = ShowMacroPreviews,
         ShowPoisonMacroPreviews = ShowPoisonMacroPreviews,

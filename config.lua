@@ -315,12 +315,7 @@ local OPTION_SECTIONS = ConfigOptions.Create and ConfigOptions.Create({
     LightGrey = LightGrey,
     LighterCream = LighterCream,
     GetSettingsImage = GetSettingsImage,
-    ShowFilterOptions = sidebarApi.ShowFilterOptions,
-    ShowCarrotSlots = sidebarApi.ShowCarrotSlots,
-    ShowMacroPreviews = sidebarApi.ShowMacroPreviews,
-    ShowPoisonMacroPreviews = sidebarApi.ShowPoisonMacroPreviews,
-    ShowSellJunkOptions = sidebarApi.ShowSellJunkOptions,
-    ShowWorldMapOptions = sidebarApi.ShowWorldMapOptions,
+    SideLogic = sidebarApi.SideLogic,
 }) or {}
 
 local function IsOptionAvailable(option)

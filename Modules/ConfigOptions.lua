@@ -11,12 +11,13 @@ function Options.Create(context)
     local LightGrey = context.LightGrey or "|cffaaaaaa"
     local LighterCream = context.LighterCream or "|cffffff99"
     local GetSettingsImage = context.GetSettingsImage or function() return nil end
-    local ShowFilterOptions = context.ShowFilterOptions
-    local ShowCarrotSlots = context.ShowCarrotSlots
-    local ShowMacroPreviews = context.ShowMacroPreviews
-    local ShowPoisonMacroPreviews = context.ShowPoisonMacroPreviews
-    local ShowSellJunkOptions = context.ShowSellJunkOptions
-    local ShowWorldMapOptions = context.ShowWorldMapOptions
+    local SideLogic = context.SideLogic or {}
+    local ShowFilterOptions = SideLogic.FilterOptions or context.ShowFilterOptions
+    local ShowCarrotSlots = SideLogic.CarrotSlots or context.ShowCarrotSlots
+    local ShowMacroPreviews = SideLogic.MacroPreviews or context.ShowMacroPreviews
+    local ShowPoisonMacroPreviews = SideLogic.PoisonMacroPreviews or context.ShowPoisonMacroPreviews
+    local ShowSellJunkOptions = SideLogic.SellJunkOptions or context.ShowSellJunkOptions
+    local ShowWorldMapOptions = SideLogic.WorldMapOptions or context.ShowWorldMapOptions
 
     local function Description(key)
         local text = L[key] or key
@@ -54,16 +55,22 @@ function Options.Create(context)
         end
     end
 
-    local function OnToggleRetailUnitFrames()
-        return OnToggleGlobal("Carpenter_ApplyRetailUnitFrameCleaner")
-    end
-
     local function OnToggleRetailUnitFramesAndCombatText(configKey)
         return function()
             RunGlobal("Carpenter_ApplyRetailUnitFrameCleaner")
             SyncUnitFrameCombatText(configKey)
         end
     end
+
+    local ApplyActionCam = OnToggleGlobal("Carpenter_ApplyActionCam")
+    local ApplyClassicSettingsPreset = OnToggleGlobal("Carpenter_ApplyClassicSettingsPreset")
+    local ApplyExtraAbilityScale = OnToggleGlobal("Carpenter_ApplyExtraAbilityScale")
+    local ApplyRetailUnitFrames = OnToggleGlobal("Carpenter_ApplyRetailUnitFrameCleaner")
+    local ApplyTargetHealthPercent = OnToggleGlobal("Carpenter_UpdateTargetHealthPercent")
+    local ApplyUnitFrameAuras = OnToggleGlobal("Carpenter_UpdateUnitFrameAuras")
+    local ApplyWorldMapCleanup = OnToggleGlobal("Carpenter_ApplyWorldMapCleanup")
+    local ApplyRetailUnitFramesAndCombatText = OnToggleRetailUnitFramesAndCombatText("cleanUpUnitFramesEnabled")
+    local ApplyUnitFrameCombatText = OnToggleUnitFrameCombatText("hideUnitFrameCombatTextEnabled")
 
     local sections = {
         {
@@ -130,7 +137,7 @@ function Options.Create(context)
                     sideLogic = ShowWorldMapOptions,
                     image = GetSettingsImage("map.png"),
                     requiresReload = false,
-                    onToggle = OnToggleGlobal("Carpenter_ApplyWorldMapCleanup"),
+                    onToggle = ApplyWorldMapCleanup,
                 },
                 {
                     key = "enhanceTooltipEnabled",
@@ -144,7 +151,7 @@ function Options.Create(context)
                     description = Description("DESC_SCALE_EXTRA_ABILITY"),
                     image = GetSettingsImage("actionbar.png"),
                     requiresReload = false,
-                    onToggle = OnToggleGlobal("Carpenter_ApplyExtraAbilityScale"),
+                    onToggle = ApplyExtraAbilityScale,
                 },
                 {
                     key = "hideBossFramesEnabled",
@@ -152,7 +159,7 @@ function Options.Create(context)
                     description = Description("DESC_HIDE_BOSS_FRAMES"),
                     image = GetSettingsImage("unitnumbers.png"),
                     requiresReload = false,
-                    onToggle = OnToggleRetailUnitFrames(),
+                    onToggle = ApplyRetailUnitFrames,
                 },
             },
         },
@@ -177,7 +184,7 @@ function Options.Create(context)
                     description = Description("DESC_TARGET_HEALTH_PERCENT"),
                     image = GetSettingsImage("targetpercentage.png"),
                     requiresReload = false,
-                    onToggle = OnToggleGlobal("Carpenter_UpdateTargetHealthPercent"),
+                    onToggle = ApplyTargetHealthPercent,
                 },
                 {
                     key = "unitFrameDebuffsEnabled",
@@ -191,7 +198,7 @@ function Options.Create(context)
                     description = Description("DESC_UNIT_FRAME_BUFFS"),
                     image = GetSettingsImage("unitbuff.png"),
                     requiresReload = false,
-                    onToggle = OnToggleGlobal("Carpenter_UpdateUnitFrameAuras"),
+                    onToggle = ApplyUnitFrameAuras,
                 },
                 {
                     key = "unitFrameClassIconEnabled",
@@ -205,7 +212,7 @@ function Options.Create(context)
                     description = Description("DESC_HIDE_UNIT_FRAME_COMBAT_TEXT"),
                     image = GetSettingsImage("unitnumbers.png"),
                     requiresReload = false,
-                    onToggle = OnToggleUnitFrameCombatText("hideUnitFrameCombatTextEnabled"),
+                    onToggle = ApplyUnitFrameCombatText,
                 },
                 {
                     key = "cleanUpUnitFramesEnabled",
@@ -213,7 +220,7 @@ function Options.Create(context)
                     description = Description("DESC_CLEAN_UP_UNIT_FRAMES"),
                     image = GetSettingsImage("unitnumbers.png"),
                     requiresReload = false,
-                    onToggle = OnToggleRetailUnitFramesAndCombatText("cleanUpUnitFramesEnabled"),
+                    onToggle = ApplyRetailUnitFramesAndCombatText,
                 },
                 {
                     key = "hideUnitFramePowerBarEnabled",
@@ -221,7 +228,7 @@ function Options.Create(context)
                     description = Description("DESC_HIDE_POWER_BAR"),
                     image = GetSettingsImage("nameplatecombo.png"),
                     requiresReload = false,
-                    onToggle = OnToggleRetailUnitFrames(),
+                    onToggle = ApplyRetailUnitFrames,
                 },
                 {
                     key = "hideGroupIndicatorEnabled",
@@ -229,7 +236,7 @@ function Options.Create(context)
                     description = Description("DESC_HIDE_GROUP_INDICATOR"),
                     image = GetSettingsImage("unitnumbers.png"),
                     requiresReload = false,
-                    onToggle = OnToggleRetailUnitFrames(),
+                    onToggle = ApplyRetailUnitFrames,
                 },
             },
         },
@@ -365,7 +372,7 @@ function Options.Create(context)
                     description = Description("DESC_SETTINGS_PRESET"),
                     image = GetSettingsImage("preset.png"),
                     requiresReload = false,
-                    onToggle = OnToggleGlobal("Carpenter_ApplyClassicSettingsPreset"),
+                    onToggle = ApplyClassicSettingsPreset,
                 },
             },
         },
@@ -378,7 +385,7 @@ function Options.Create(context)
                     description = Description("DESC_ACTION_CAM"),
                     image = GetSettingsImage("actioncam.png"),
                     requiresReload = false,
-                    onToggle = OnToggleGlobal("Carpenter_ApplyActionCam"),
+                    onToggle = ApplyActionCam,
                 },
             },
         },
