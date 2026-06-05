@@ -6,6 +6,9 @@
 - Added the TBC minimap tracking/finding button to the same hover fade.
 - Aligned release packaging with StoryMode so CurseForge and Wago receive a temporary current-version changelog through packager metadata.
 - Fixed Chat Cleaner quest-item completion messages so generic Blizzard text such as `that quest` becomes a compact `Completed` line.
+- Fixed Chat Cleaner item-link clicks in combat so linked items still open without Carpenter touching those protected chat lines.
+- Restored Chat Cleaner guild-prefix cleanup and Hardcore death formatting while in combat.
+- Refactored Auto Track Quests, settings sidebar wiring, World Map Cleanup POI handling, and debuff tracker icon/aura helpers for easier maintenance without changing behavior.
 
 ## 1.6.6
 
