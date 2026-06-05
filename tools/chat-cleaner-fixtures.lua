@@ -62,7 +62,7 @@ LOOT_ROLL_WON = "%s won: %s"
 NUM_CHAT_WINDOWS = 1
 _G.ChatFrame1 = { AddMessage = function() end }
 _G.ChatFrame1EditBox = {
-    GetRegions = function() return nil end,
+    GetRegions = function() end,
 }
 
 local now = 1000
@@ -396,6 +396,25 @@ local fixtures = {
         rejectColor = "|cffffffff",
     },
     {
+        name = "guild prefix post-process compact",
+        path = "post",
+        event = "CHAT_MSG_GUILD",
+        message = "|cff40ff40[Guild] Tester: looking for mats|r",
+        expectPlain = "[G] Tester: looking for mats",
+        requireColor = "|cff40ff40",
+        rejectPlain = "[Guild]",
+    },
+    {
+        name = "combat guild prefix post-process compact",
+        path = "post",
+        event = "CHAT_MSG_GUILD",
+        inCombatLockdown = true,
+        message = "|cff40ff40[Guild] Tester: still cleaning|r",
+        expectPlain = "[G] Tester: still cleaning",
+        requireColor = "|cff40ff40",
+        rejectPlain = "[Guild]",
+    },
+    {
         name = "possessive reputation loss",
         event = "CHAT_MSG_COMBAT_FACTION_CHANGE",
         message = "Your Bloodsail Buccaneers reputation has decreased by 125.",
@@ -517,6 +536,75 @@ for _, fixture in ipairs(fixtures) do
     end
 end
 inCombatLockdown = false
+
+do
+    local hookCalls = 0
+    local restoreCalls = 0
+    _G.ChatFrame1._fixtureHooked = nil
+
+    local lifecycle = ns.Private.ChatCleanerLifecycle.Create({
+        FilterImpl = function() return false, "", "" end,
+        HookChatFrameAddMessage = function(frame)
+            if frame ~= _G.ChatFrame1 or frame._fixtureHooked then return end
+            frame._fixtureHooked = true
+            hookCalls = hookCalls + 1
+        end,
+        RestoreChatFrameAddMessage = function(frame)
+            if frame ~= _G.ChatFrame1 then return end
+            frame._fixtureHooked = false
+            restoreCalls = restoreCalls + 1
+        end,
+    })
+
+    inCombatLockdown = true
+    lifecycle.Enable()
+    additionalChecks = additionalChecks + 1
+    if hookCalls ~= 1 then
+        failures[#failures + 1] = "chat cleaner lifecycle: expected post-process hook while in combat"
+    end
+
+    lifecycle.Disable()
+    inCombatLockdown = false
+    additionalChecks = additionalChecks + 1
+    if restoreCalls ~= 1 then
+        failures[#failures + 1] = "chat cleaner lifecycle: expected post-process restore on disable"
+    end
+end
+
+do
+    local originalChatFrame = _G.ChatFrame1
+    local captured = {}
+    local frame = {
+        AddMessage = function(_, message)
+            captured[#captured + 1] = message
+        end,
+    }
+    _G.ChatFrame1 = frame
+
+    local lifecycle = ns.Private.ChatCleanerLifecycle.Create({
+        FilterImpl = function() return false, "", "" end,
+        HookChatFrameAddMessage = postProcessor.HookChatFrameAddMessage,
+        RestoreChatFrameAddMessage = postProcessor.RestoreChatFrameAddMessage,
+    })
+
+    inCombatLockdown = true
+    lifecycle.Enable()
+    frame:AddMessage("|cff40ff40[Guild] Tester: still cleaning|r")
+    frame:AddMessage("Lionginas died of fatigue in The Merchant Coast! They were level 32")
+    lifecycle.Disable()
+    inCombatLockdown = false
+    _G.ChatFrame1 = originalChatFrame
+
+    additionalChecks = additionalChecks + 1
+    if plain(captured[1]) ~= "[G] Tester: still cleaning" then
+        failures[#failures + 1] = "chat cleaner lifecycle combat guild: expected compact guild prefix got [" .. tostring(plain(captured[1])) .. "]"
+    end
+
+    additionalChecks = additionalChecks + 1
+    if plain(captured[2]) ~= "Lionginas died from fatigue! Level 32" then
+        failures[#failures + 1] = "chat cleaner lifecycle combat death: expected formatted death got [" .. tostring(plain(captured[2])) .. "]"
+    end
+end
 
 do
     local calls = 0

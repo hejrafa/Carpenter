@@ -60,7 +60,6 @@ function Lifecycle.Create(options)
     options = options or {}
     local filtersRegistered = false
     local initializedHooks = false
-    local postProcessSuspended = false
     local featureEnabled = false
 
     local function ForEachChatFrame(callback)
@@ -71,7 +70,7 @@ function Lifecycle.Create(options)
     end
 
     local function HookChatFrames()
-        if postProcessSuspended or not featureEnabled then return end
+        if not featureEnabled then return end
         ForEachChatFrame(function(chatFrame)
             if options.HookChatFrameAddMessage then
                 options.HookChatFrameAddMessage(chatFrame)
@@ -85,16 +84,6 @@ function Lifecycle.Create(options)
                 options.RestoreChatFrameAddMessage(chatFrame)
             end
         end)
-    end
-
-    local function SetPostProcessSuspended(suspended)
-        suspended = suspended == true
-        postProcessSuspended = suspended
-        if suspended then
-            RestoreChatFrames()
-        elseif featureEnabled and initializedHooks then
-            HookChatFrames()
-        end
     end
 
     local function ChatFilter(self, event, msg, author, ...)
@@ -140,7 +129,6 @@ function Lifecycle.Create(options)
         if initializedHooks then return end
         initializedHooks = true
 
-        postProcessSuspended = (InCombatLockdown and InCombatLockdown()) == true
         if C_Timer and C_Timer.After then
             C_Timer.After(0, HookChatFrames)
         else
@@ -154,7 +142,7 @@ function Lifecycle.Create(options)
     local function Enable()
         featureEnabled = true
         InitializeHooks()
-        SetPostProcessSuspended((InCombatLockdown and InCombatLockdown()) == true)
+        HookChatFrames()
         if options.ApplyLevelUpGlobalStringStyling then
             options.ApplyLevelUpGlobalStringStyling()
         end
@@ -176,17 +164,7 @@ function Lifecycle.Create(options)
 
     local loader = CreateFrame("Frame")
     loader:RegisterEvent("VARIABLES_LOADED")
-    loader:RegisterEvent("PLAYER_REGEN_DISABLED")
-    loader:RegisterEvent("PLAYER_REGEN_ENABLED")
     loader:SetScript("OnEvent", function(_, event)
-        if event == "PLAYER_REGEN_DISABLED" then
-            SetPostProcessSuspended(true)
-            return
-        elseif event == "PLAYER_REGEN_ENABLED" then
-            SetPostProcessSuspended(false)
-            return
-        end
-
         InitializeHooks()
         if Carpenter and Carpenter.RefreshFeature then
             Carpenter:RefreshFeature("chatCleanerEnabled")
