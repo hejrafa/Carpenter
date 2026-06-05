@@ -40,6 +40,7 @@ Modules\ActionBarRange.lua
 Modules\SmallerExpBar.lua
 Modules\MenuTransparency.lua
 Modules\MinimapClutter.lua
+Modules\WorldMapCleanupData.lua
 Modules\WorldMapCleanup.xml
 Modules\WorldMapCleanup.lua
 Modules\EnhanceTooltip.lua
