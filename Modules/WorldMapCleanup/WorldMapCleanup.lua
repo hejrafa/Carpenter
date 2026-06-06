@@ -14,6 +14,11 @@ local MOVING_MAP_ALPHA = 0.5
 local MAP_FADE_DURATION = 0.25
 local GROUP_MEMBER_PIN_SIZE = 12
 local GROUP_MEMBER_PIN_TEXTURE = "Interface\\AddOns\\Carpenter\\Art\\Icons\\GroupMemberPin.tga"
+local SILITHUS_MAP_ID = 1451
+local KALIMDOR_MAP_IDS = {
+    [12] = true,
+    [1414] = true,
+}
 
 local frame = CreateFrame("Frame")
 local originalFullscreenGeometry = nil
@@ -32,6 +37,7 @@ local scheduleNonce = 0
 local centeredMapCanvasKey = nil
 local originalGroupMemberPinSizes = nil
 local hookedGroupMemberPins = false
+local hookedSilithusHighlightFix = false
 
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("worldMapCleanupEnabled")
@@ -366,6 +372,102 @@ local function GetWorldMapID()
     return nil
 end
 
+local function IsKalimdorMapID(mapID)
+    return KALIMDOR_MAP_IDS[mapID] == true
+end
+
+local function GetMapForHighlightPin(pin)
+    if pin and pin.GetMap then
+        local ok, map = pcall(pin.GetMap, pin)
+        if ok and map then return map end
+    end
+
+    return _G.WorldMapFrame
+end
+
+local function GetMapIDForHighlightPin(pin)
+    local map = GetMapForHighlightPin(pin)
+    if map and map.GetMapID then
+        local ok, mapID = pcall(map.GetMapID, map)
+        if ok and mapID then return mapID end
+    end
+
+    return GetWorldMapID()
+end
+
+local function IsSilithusHoverOnKalimdor(pin)
+    if not C_Map or not C_Map.GetMapInfoAtPosition then return false end
+
+    local map = GetMapForHighlightPin(pin)
+    local mapID = GetMapIDForHighlightPin(pin)
+    if not IsKalimdorMapID(mapID) then return false end
+
+    if map and map.IsCanvasMouseFocus then
+        local ok, isFocused = pcall(map.IsCanvasMouseFocus, map)
+        if ok and not isFocused then return false end
+    end
+
+    if not map or not map.GetNormalizedCursorPosition then return false end
+
+    local ok, cursorX, cursorY = pcall(map.GetNormalizedCursorPosition, map)
+    if not ok or not cursorX or not cursorY then return false end
+
+    local positionMapInfo
+    ok, positionMapInfo = pcall(C_Map.GetMapInfoAtPosition, mapID, cursorX, cursorY)
+    return ok and positionMapInfo and positionMapInfo.mapID == SILITHUS_MAP_ID
+end
+
+local function HideBrokenSilithusHighlight(pin)
+    if not IsEnabled() or not IsSilithusHoverOnKalimdor(pin) then return end
+
+    local highlightTexture = pin and pin.HighlightTexture
+    if highlightTexture and highlightTexture.Hide then
+        highlightTexture:Hide()
+    end
+end
+
+local function HookSilithusHighlightFix()
+    if hookedSilithusHighlightFix or not hooksecurefunc then return end
+    if not _G.MapHighlightPinMixin or not _G.MapHighlightPinMixin.Refresh then return end
+
+    hooksecurefunc(_G.MapHighlightPinMixin, "Refresh", function(pin)
+        HideBrokenSilithusHighlight(pin)
+    end)
+    hookedSilithusHighlightFix = true
+end
+
+local function ForEachMapHighlightPin(callback)
+    local mapFrame = _G.WorldMapFrame
+    if not mapFrame or not callback then return end
+
+    if mapFrame.EnumeratePinsByTemplate then
+        for pin in mapFrame:EnumeratePinsByTemplate("MapHighlightPinTemplate") do
+            callback(pin)
+        end
+    elseif mapFrame.EnumerateAllPins then
+        for pin in mapFrame:EnumerateAllPins() do
+            if pin and pin.HighlightTexture and pin.Refresh then
+                callback(pin)
+            end
+        end
+    end
+end
+
+local function ApplySilithusHighlightFix()
+    HookSilithusHighlightFix()
+    if not IsEnabled() or not IsKalimdorMapID(GetWorldMapID()) then return end
+
+    ForEachMapHighlightPin(HideBrokenSilithusHighlight)
+end
+
+local function RefreshMapHighlightPins()
+    ForEachMapHighlightPin(function(pin)
+        if pin and pin.Refresh then
+            pcall(pin.Refresh, pin)
+        end
+    end)
+end
+
 if POIPins.Configure then
     POIPins.Configure({
         ShouldShowMapPOIIcons = ShouldShowMapPOIIcons,
@@ -650,6 +752,7 @@ local function ApplyWorldMapCleanup()
     ApplyMapPosition()
     CenterMapCanvasForCurrentMap()
     ApplyTownCityIcons()
+    ApplySilithusHighlightFix()
     HookGroupMemberPins()
     ApplyGroupMemberPins()
     ApplyPOIPins()
@@ -663,6 +766,7 @@ end
 frame:SetScript("OnUpdate", function(_, elapsed)
     local mapFrame = _G.WorldMapFrame
     if mapFrame and mapFrame.IsShown and mapFrame:IsShown() then
+        ApplySilithusHighlightFix()
         ApplyMovingMapFade(elapsed, false)
     end
 end)
@@ -684,6 +788,7 @@ local function HookWorldMap()
 
     EnsurePOIProvider()
     HookTownCityPins()
+    HookSilithusHighlightFix()
 
     if mapFrame.HookScript then
         mapFrame:HookScript("OnShow", function()
@@ -766,6 +871,7 @@ function feature:Disable()
     RestoreGroupMemberPins()
     RestoreMapObjects()
     RemovePOIPins()
+    RefreshMapHighlightPins()
     RestoreScaledMapCursor()
     RestoreMapPosition()
     ApplyMovingMapFade(0, true)
@@ -780,6 +886,7 @@ function Carpenter_ApplyWorldMapCleanup()
         RestoreGroupMemberPins()
         RestoreMapObjects()
         RemovePOIPins()
+        RefreshMapHighlightPins()
         RestoreScaledMapCursor()
         RestoreMapPosition()
         ApplyMovingMapFade(0, true)
