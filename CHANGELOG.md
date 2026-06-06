@@ -8,6 +8,7 @@
 - Fixed Chat Cleaner quest-item completion messages so generic Blizzard text such as `that quest` becomes a compact `Completed` line.
 - Fixed Chat Cleaner item-link handling in combat while keeping combat loot messages styled and item links clickable.
 - Restored Chat Cleaner guild-prefix cleanup and Hardcore death formatting while in combat.
+- Fixed the Classic/TBC Kalimdor Silithus map hover by replacing Blizzard's broken continent highlight with Blizzard's own Silithus highlight art.
 - Refactored Auto Track Quests, settings sidebar wiring, World Map Cleanup POI handling, Minimap Clutter helpers, and debuff tracker icon/aura helpers for easier maintenance without changing behavior.
 
 ## 1.6.6
