@@ -56,24 +56,24 @@ Modules\RetailUnitFrameCleaner.lua
 Modules\ClassHealthColorsNameplates.lua
 
 # Chat
-Modules\ChatCleanerUtils.lua
-Modules\ChatCleanerLoot.lua
-Modules\ChatCleanerSessions.lua
-Modules\ChatCleanerSystem.lua
-Modules\ChatCleanerRewards.lua
-Modules\ChatCleanerSocial.lua
-Modules\ChatCleanerPostProcess.lua
-Modules\ChatCleanerLifecycle.lua
-Modules\ChatCleaner.lua
+Modules\ChatCleaner\ChatCleanerUtils.lua
+Modules\ChatCleaner\ChatCleanerLoot.lua
+Modules\ChatCleaner\ChatCleanerSessions.lua
+Modules\ChatCleaner\ChatCleanerSystem.lua
+Modules\ChatCleaner\ChatCleanerRewards.lua
+Modules\ChatCleaner\ChatCleanerSocial.lua
+Modules\ChatCleaner\ChatCleanerPostProcess.lua
+Modules\ChatCleaner\ChatCleanerLifecycle.lua
+Modules\ChatCleaner\ChatCleaner.lua
 Modules\HideChatButtons.lua
 
 # Automations
-Modules\SmartMacroData.lua
-Modules\SmartMacroTooltip.lua
-Modules\SmartMacroClassifier.lua
-Modules\SmartMacroScanner.lua
-Modules\SmartMacroBuilder.lua
-Modules\SmartMacros.lua
+Modules\SmartMacros\SmartMacroData.lua
+Modules\SmartMacros\SmartMacroTooltip.lua
+Modules\SmartMacros\SmartMacroClassifier.lua
+Modules\SmartMacros\SmartMacroScanner.lua
+Modules\SmartMacros\SmartMacroBuilder.lua
+Modules\SmartMacros\SmartMacros.lua
 Modules\AutoSellGreys.lua
 Modules\AutoRepair.lua
 

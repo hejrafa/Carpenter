@@ -39,22 +39,22 @@ Modules\ActionBarRange.lua
 # Interface
 Modules\SmallerExpBar.lua
 Modules\MenuTransparency.lua
-Modules\MinimapClutterFrames.lua
-Modules\MinimapClutterFader.lua
-Modules\MinimapClutter.lua
-Modules\WorldMapCleanupData.lua
-Modules\WorldMapCleanupPOIPins.lua
-Modules\WorldMapCleanup.xml
-Modules\WorldMapCleanup.lua
+Modules\MinimapClutter\MinimapClutterFrames.lua
+Modules\MinimapClutter\MinimapClutterFader.lua
+Modules\MinimapClutter\MinimapClutter.lua
+Modules\WorldMapCleanup\WorldMapCleanupData.lua
+Modules\WorldMapCleanup\WorldMapCleanupPOIPins.lua
+Modules\WorldMapCleanup\WorldMapCleanup.xml
+Modules\WorldMapCleanup\WorldMapCleanup.lua
 Modules\EnhanceTooltip.lua
 Modules\ReadyCheckCompat.lua
 
 # Unit Frames
 Modules\ClassHealthColorsShared.lua
 Modules\ClassHealthColorsUnitFrames.lua
-Modules\DebuffTrackerIcons.lua
-Modules\DebuffTrackerAuraLayers.lua
-Modules\DebuffTracker.lua
+Modules\DebuffTracker\DebuffTrackerIcons.lua
+Modules\DebuffTracker\DebuffTrackerAuraLayers.lua
+Modules\DebuffTracker\DebuffTracker.lua
 Modules\UnitFrameClassIcon.lua
 Modules\ThreatIndicator.lua
 Modules\TargetHealthPercent.lua
@@ -67,30 +67,30 @@ Modules\NameplateComboPoints.lua
 Modules\RaidTargetIconAligned.lua
 
 # Chat
-Modules\ChatCleanerUtils.lua
-Modules\ChatCleanerLoot.lua
-Modules\ChatCleanerSessions.lua
-Modules\ChatCleanerSystem.lua
-Modules\ChatCleanerRewards.lua
-Modules\ChatCleanerSocial.lua
-Modules\ChatCleanerPostProcess.lua
-Modules\ChatCleanerLifecycle.lua
-Modules\ChatCleaner.lua
+Modules\ChatCleaner\ChatCleanerUtils.lua
+Modules\ChatCleaner\ChatCleanerLoot.lua
+Modules\ChatCleaner\ChatCleanerSessions.lua
+Modules\ChatCleaner\ChatCleanerSystem.lua
+Modules\ChatCleaner\ChatCleanerRewards.lua
+Modules\ChatCleaner\ChatCleanerSocial.lua
+Modules\ChatCleaner\ChatCleanerPostProcess.lua
+Modules\ChatCleaner\ChatCleanerLifecycle.lua
+Modules\ChatCleaner\ChatCleaner.lua
 Modules\ChatFilter.lua
 Modules\HideChatButtons.lua
 
 # Automations
 Modules\AutoCarrot.lua
-Modules\SmartMacroData.lua
-Modules\SmartMacroTooltip.lua
-Modules\SmartMacroClassifier.lua
-Modules\SmartMacroScanner.lua
-Modules\SmartMacroBuilder.lua
-Modules\SmartMacros.lua
+Modules\SmartMacros\SmartMacroData.lua
+Modules\SmartMacros\SmartMacroTooltip.lua
+Modules\SmartMacros\SmartMacroClassifier.lua
+Modules\SmartMacros\SmartMacroScanner.lua
+Modules\SmartMacros\SmartMacroBuilder.lua
+Modules\SmartMacros\SmartMacros.lua
 Modules\PoisonMacros.lua
-Modules\AutoTrackQuestState.lua
-Modules\AutoTrackQuestLayout.lua
-Modules\AutoTrackQuests.lua
+Modules\AutoTrackQuests\AutoTrackQuestState.lua
+Modules\AutoTrackQuests\AutoTrackQuestLayout.lua
+Modules\AutoTrackQuests\AutoTrackQuests.lua
 Modules\AutoSellGreys.lua
 Modules\AutoRepair.lua
 Modules\ClassicSettingsPreset.lua

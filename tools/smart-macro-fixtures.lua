@@ -122,10 +122,10 @@ local function loadAddonFile(path)
     return chunk("Carpenter", ns)
 end
 
-loadAddonFile("Modules/SmartMacroData.lua")
-loadAddonFile("Modules/SmartMacroClassifier.lua")
-loadAddonFile("Modules/SmartMacroScanner.lua")
-loadAddonFile("Modules/SmartMacros.lua")
+loadAddonFile("Modules/SmartMacros/SmartMacroData.lua")
+loadAddonFile("Modules/SmartMacros/SmartMacroClassifier.lua")
+loadAddonFile("Modules/SmartMacros/SmartMacroScanner.lua")
+loadAddonFile("Modules/SmartMacros/SmartMacros.lua")
 
 local failures = {}
 local fixtureCount = 0

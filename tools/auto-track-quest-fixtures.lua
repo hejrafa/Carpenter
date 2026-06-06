@@ -152,9 +152,9 @@ function IsShiftKeyDown() return shiftDown end
 
 UIErrorsFrame = { AddMessage = function() end }
 
-loadAddonFile("Modules/AutoTrackQuestState.lua")
-loadAddonFile("Modules/AutoTrackQuestLayout.lua")
-loadAddonFile("Modules/AutoTrackQuests.lua")
+loadAddonFile("Modules/AutoTrackQuests/AutoTrackQuestState.lua")
+loadAddonFile("Modules/AutoTrackQuests/AutoTrackQuestLayout.lua")
+loadAddonFile("Modules/AutoTrackQuests/AutoTrackQuests.lua")
 
 local frame = createdFrames[1]
 if not frame or type(frame._scripts.OnEvent) ~= "function" then
