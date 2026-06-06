@@ -39,6 +39,8 @@ Modules\ActionBarRange.lua
 # Interface
 Modules\SmallerExpBar.lua
 Modules\MenuTransparency.lua
+Modules\MinimapClutterFrames.lua
+Modules\MinimapClutterFader.lua
 Modules\MinimapClutter.lua
 Modules\WorldMapCleanupData.lua
 Modules\WorldMapCleanupPOIPins.lua

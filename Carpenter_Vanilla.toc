@@ -37,6 +37,8 @@ Modules\ActionBarFader.lua
 Modules\ActionBarRange.lua
 
 # Interface
+Modules\MinimapClutterFrames.lua
+Modules\MinimapClutterFader.lua
 Modules\MinimapClutter.lua
 Modules\WorldMapCleanupData.lua
 Modules\WorldMapCleanupPOIPins.lua
