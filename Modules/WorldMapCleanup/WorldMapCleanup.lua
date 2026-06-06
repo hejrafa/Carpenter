@@ -15,6 +15,7 @@ local MAP_FADE_DURATION = 0.25
 local GROUP_MEMBER_PIN_SIZE = 12
 local GROUP_MEMBER_PIN_TEXTURE = "Interface\\AddOns\\Carpenter\\Art\\Icons\\GroupMemberPin.tga"
 local SILITHUS_MAP_ID = 1451
+local SILITHUS_HIGHLIGHT_RECT_PADDING = 0.01
 local KALIMDOR_MAP_IDS = {
     [12] = true,
     [1414] = true,
@@ -423,6 +424,45 @@ local function IsSilithusHoverOnKalimdor(pin)
     return ok and positionMapInfo and positionMapInfo.mapID == SILITHUS_MAP_ID
 end
 
+local function GetSilithusRectOnMap(mapID)
+    if not C_Map or not C_Map.GetMapRectOnMap then return nil end
+
+    local ok, left, right, top, bottom = pcall(C_Map.GetMapRectOnMap, SILITHUS_MAP_ID, mapID)
+    if not ok or not left or not right or not top or not bottom then return nil end
+    if right <= left or bottom <= top then return nil end
+
+    return ClampValue(left - SILITHUS_HIGHLIGHT_RECT_PADDING, 0, 1),
+        ClampValue(right + SILITHUS_HIGHLIGHT_RECT_PADDING, 0, 1),
+        ClampValue(top - SILITHUS_HIGHLIGHT_RECT_PADDING, 0, 1),
+        ClampValue(bottom + SILITHUS_HIGHLIGHT_RECT_PADDING, 0, 1)
+end
+
+local function SetTextureSize(texture, width, height)
+    if texture.SetSize then
+        texture:SetSize(width, height)
+    else
+        texture:SetWidth(width)
+        texture:SetHeight(height)
+    end
+end
+
+local function AnchorHighlightToRect(pin, highlightTexture, texPercentageX, texPercentageY, left, right, top, bottom)
+    local pinWidth = pin:GetWidth() or 0
+    local pinHeight = pin:GetHeight() or 0
+    if pinWidth <= 0 or pinHeight <= 0 then return false end
+
+    local width = (right - left) * pinWidth
+    local height = (bottom - top) * pinHeight
+    if width <= 0 or height <= 0 then return false end
+
+    highlightTexture:ClearAllPoints()
+    highlightTexture:SetTexCoord(0, texPercentageX, 0, texPercentageY)
+    SetTextureSize(highlightTexture, width, height)
+    highlightTexture:SetPoint("TOPLEFT", pin, "TOPLEFT", left * pinWidth, -top * pinHeight)
+    if highlightTexture.Show then highlightTexture:Show() end
+    return true
+end
+
 local function ConstrainSilithusHighlight(pin)
     if not IsEnabled() or not IsSilithusHoverOnKalimdor(pin) then return end
 
@@ -444,6 +484,11 @@ local function ConstrainSilithusHighlight(pin)
     if atlasID or not fileDataID or fileDataID <= 0 then return end
     if not texPercentageX or not texPercentageY or not textureX or not textureY or not scrollChildX or not scrollChildY then return end
     if not pin.GetWidth or not pin.GetHeight then return end
+
+    local rectLeft, rectRight, rectTop, rectBottom = GetSilithusRectOnMap(mapID)
+    if rectLeft and AnchorHighlightToRect(pin, highlightTexture, texPercentageX, texPercentageY, rectLeft, rectRight, rectTop, rectBottom) then
+        return
+    end
 
     local pinWidth = pin:GetWidth() or 0
     local pinHeight = pin:GetHeight() or 0
@@ -473,12 +518,7 @@ local function ConstrainSilithusHighlight(pin)
 
     highlightTexture:ClearAllPoints()
     highlightTexture:SetTexCoord(u1, u2, v1, v2)
-    if highlightTexture.SetSize then
-        highlightTexture:SetSize(clippedWidth, clippedHeight)
-    else
-        highlightTexture:SetWidth(clippedWidth)
-        highlightTexture:SetHeight(clippedHeight)
-    end
+    SetTextureSize(highlightTexture, clippedWidth, clippedHeight)
     highlightTexture:SetPoint("TOPLEFT", pin, "TOPLEFT", clippedLeft, -clippedTop)
     if highlightTexture.Show then highlightTexture:Show() end
 end
