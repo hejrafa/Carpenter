@@ -15,13 +15,13 @@ local MAP_FADE_DURATION = 0.25
 local GROUP_MEMBER_PIN_SIZE = 12
 local GROUP_MEMBER_PIN_TEXTURE = "Interface\\AddOns\\Carpenter\\Art\\Icons\\GroupMemberPin.tga"
 local SILITHUS_MAP_ID = 1451
-local SILITHUS_HIGHLIGHT_TEXTURE = "Interface\\AddOns\\Carpenter\\Art\\WorldMap\\SilithusHover.tga"
-local SILITHUS_HIGHLIGHT_ALPHA = 0.72
-local SILITHUS_HIGHLIGHT_RECT = {
-    left = 0.375,
-    right = 0.515,
-    top = 0.715,
-    bottom = 0.935,
+local SILITHUS_HIGHLIGHT_TEXTURE = "Interface\\WorldMap\\Silithus\\SilithusHighlight.blp"
+local SILITHUS_HIGHLIGHT_ALPHA = 0.9
+local SILITHUS_FALLBACK_HIGHLIGHT_RECT = {
+    left = 0.39,
+    right = 0.47,
+    top = 0.74,
+    bottom = 0.895,
 }
 local KALIMDOR_MAP_IDS = {
     [12] = true,
@@ -384,6 +384,12 @@ local function IsKalimdorMapID(mapID)
     return KALIMDOR_MAP_IDS[mapID] == true
 end
 
+local function ClampValue(value, minValue, maxValue)
+    if value < minValue then return minValue end
+    if value > maxValue then return maxValue end
+    return value
+end
+
 local function GetMapForHighlightPin(pin)
     if pin and pin.GetMap then
         local ok, map = pcall(pin.GetMap, pin)
@@ -425,6 +431,20 @@ local function IsSilithusHoverOnKalimdor(pin)
     return ok and positionMapInfo and positionMapInfo.mapID == SILITHUS_MAP_ID
 end
 
+local function GetSilithusHighlightRect(mapID)
+    if C_Map and C_Map.GetMapRectOnMap then
+        local ok, left, right, top, bottom = pcall(C_Map.GetMapRectOnMap, SILITHUS_MAP_ID, mapID)
+        if ok and left and right and top and bottom and right > left and bottom > top then
+            return ClampValue(left, 0, 1), ClampValue(right, 0, 1), ClampValue(top, 0, 1), ClampValue(bottom, 0, 1)
+        end
+    end
+
+    return SILITHUS_FALLBACK_HIGHLIGHT_RECT.left,
+        SILITHUS_FALLBACK_HIGHLIGHT_RECT.right,
+        SILITHUS_FALLBACK_HIGHLIGHT_RECT.top,
+        SILITHUS_FALLBACK_HIGHLIGHT_RECT.bottom
+end
+
 local function SetSilithusHighlightSize(texture, width, height)
     if texture.SetSize then
         texture:SetSize(width, height)
@@ -443,7 +463,7 @@ local function EnsureSilithusHighlight(pin)
         texture:SetTexCoord(0, 1, 0, 1)
         texture:SetAlpha(SILITHUS_HIGHLIGHT_ALPHA)
         if texture.SetBlendMode then texture:SetBlendMode("ADD") end
-        if texture.SetVertexColor then texture:SetVertexColor(1, 0.82, 0.32) end
+        if texture.SetVertexColor then texture:SetVertexColor(1, 1, 1) end
         texture:Hide()
         pin.CP_SilithusHighlightTexture = texture
     end
@@ -464,15 +484,14 @@ local function ShowSilithusHighlight(pin)
     local pinHeight = pin:GetHeight() or 0
     if pinWidth <= 0 or pinHeight <= 0 then return false end
 
-    local width = (SILITHUS_HIGHLIGHT_RECT.right - SILITHUS_HIGHLIGHT_RECT.left) * pinWidth
-    local height = (SILITHUS_HIGHLIGHT_RECT.bottom - SILITHUS_HIGHLIGHT_RECT.top) * pinHeight
+    local left, right, top, bottom = GetSilithusHighlightRect(GetMapIDForHighlightPin(pin))
+    local width = (right - left) * pinWidth
+    local height = (bottom - top) * pinHeight
     if width <= 0 or height <= 0 then return false end
 
     texture:ClearAllPoints()
     SetSilithusHighlightSize(texture, width, height)
-    texture:SetPoint("TOPLEFT", pin, "TOPLEFT",
-        SILITHUS_HIGHLIGHT_RECT.left * pinWidth,
-        -SILITHUS_HIGHLIGHT_RECT.top * pinHeight)
+    texture:SetPoint("TOPLEFT", pin, "TOPLEFT", left * pinWidth, -top * pinHeight)
     texture:Show()
     return true
 end
