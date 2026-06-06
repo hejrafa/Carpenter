@@ -78,14 +78,6 @@ function Utils.GetItemLinkFromMessage(text)
     return text:match("(|Hitem:[^|]+|h%[[^%]]*%]|h)") or text:match("(|Hitem:[^|]+|h[^|]*|h)")
 end
 
-function Utils.IsItemLinkMessage(text)
-    return type(text) == "string" and text:find("|Hitem:", 1, true) ~= nil
-end
-
-function Utils.IsCombatLockedItemLinkMessage(text)
-    return Utils.IsItemLinkMessage(text) and (InCombatLockdown and InCombatLockdown()) == true
-end
-
 function Utils.FormatMoney(amount, amountColor, icons)
     amountColor = amountColor or "|cffffffff"
     icons = icons or {}

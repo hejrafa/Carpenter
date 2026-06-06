@@ -4,7 +4,6 @@ ns.Private = ns.Private or {}
 
 local PostProcess = ns.Private.ChatCleanerPostProcess or {}
 ns.Private.ChatCleanerPostProcess = PostProcess
-local Utils = ns.Private.ChatCleanerUtils or {}
 
 local channelReplacements = {}
 
@@ -336,10 +335,6 @@ function PostProcess.Create(config)
     end
 
     function api.ProcessMessage(frame, originalAddMessage, message, args)
-        if Utils.IsCombatLockedItemLinkMessage and Utils.IsCombatLockedItemLinkMessage(message) then
-            return originalAddMessage(frame, message, unpack(args))
-        end
-
         message = applyChannelStyling(tostring(message))
         message = removeLinkBrackets(message)
 

@@ -48,7 +48,6 @@ local CleanPunctuation = ChatCleanerUtils.CleanPunctuation
 local SpaceBeforeX = ChatCleanerUtils.SpaceBeforeX
 local RemoveLinkBrackets = ChatCleanerUtils.RemoveLinkBrackets
 local GetItemLinkFromMessage = ChatCleanerUtils.GetItemLinkFromMessage
-local IsCombatLockedItemLinkMessage = ChatCleanerUtils.IsCombatLockedItemLinkMessage or function() return false end
 local ChatCleanerLoot = ns and ns.Private and ns.Private.ChatCleanerLoot or {}
 local ChatCleanerSessions = ns and ns.Private and ns.Private.ChatCleanerSessions or {}
 local ChatCleanerSystem = ns and ns.Private and ns.Private.ChatCleanerSystem or {}
@@ -276,10 +275,6 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     -- Hide all Auctionator addon messages (they start with "Auctionator:")
     if type(msg) == "string" and (msg:find("^Auctionator:") or msg:find("^|c%x%x%x%x%x%x%x%x%xAuctionator:")) then
         return true
-    end
-
-    if IsCombatLockedItemLinkMessage(msg) then
-        return false, msg, author, ...
     end
 
     local prefixPlus = ColorPlus .. "+|r "
