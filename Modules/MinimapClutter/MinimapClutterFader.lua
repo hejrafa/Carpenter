@@ -15,7 +15,7 @@ local LFG_MINIMAP_BUTTONS = {
     "QueueStatusMinimapButton",
 }
 
-local TBC_TRACKING_MINIMAP_BUTTONS = {
+local CLASSIC_TRACKING_MINIMAP_BUTTONS = {
     "MiniMapTracking",
     "MiniMapTrackingFrame",
     "MiniMapTrackingButton",
@@ -26,7 +26,7 @@ local FADE_SPEED = 6 -- higher = snappier fade
 function Fader.Create(config)
     config = config or {}
     local isEnabled = config.IsEnabled or function() return false end
-    local isTBCClient = config.IsTBCClient or function() return false end
+    local isClassicClient = config.IsClassicClient or function() return false end
 
     local addonButtons = {}
     local faderFrame = CreateFrame("Frame")
@@ -78,7 +78,8 @@ function Fader.Create(config)
     end
 
     local function UpdateFadedMinimapButtonTargets(wakeFader)
-        local targetAlpha = ShouldShowFadedMinimapButtons() and 1 or 0
+        local shouldShow = ShouldShowFadedMinimapButtons()
+        local targetAlpha = shouldShow and 1 or 0
 
         for _, button in ipairs(addonButtons) do
             if button and button.CP_MinimapFadeHooked then
@@ -89,6 +90,8 @@ function Fader.Create(config)
         if wakeFader and faderFrame then
             faderFrame:Show()
         end
+
+        return shouldShow
     end
 
     local function WakeMinimapButtonFader()
@@ -168,8 +171,8 @@ function Fader.Create(config)
             SetupFadedMinimapButton(_G[name], enabled)
         end
 
-        if isTBCClient() then
-            for _, name in ipairs(TBC_TRACKING_MINIMAP_BUTTONS) do
+        if isClassicClient() then
+            for _, name in ipairs(CLASSIC_TRACKING_MINIMAP_BUTTONS) do
                 SetupFadedMinimapButton(_G[name], enabled)
             end
         end
@@ -203,7 +206,7 @@ function Fader.Create(config)
             return
         end
 
-        UpdateFadedMinimapButtonTargets(false)
+        local shouldShow = UpdateFadedMinimapButtonTargets(false)
 
         local changed = false
         for _, btn in ipairs(addonButtons) do
@@ -227,7 +230,7 @@ function Fader.Create(config)
             end
         end
 
-        if not changed then
+        if not changed and not shouldShow then
             self:Hide()
         end
     end)

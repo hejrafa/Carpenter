@@ -11,8 +11,8 @@ local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("minimapClutterEnabled")
 end
 
-local function IsTBCClient()
-    return Carpenter and Carpenter.Client and Carpenter.Client.isTBC
+local function IsClassicClient()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isClassic
 end
 
 local frameHelpers = FrameHelpers.Create and FrameHelpers.Create({
@@ -21,7 +21,7 @@ local frameHelpers = FrameHelpers.Create and FrameHelpers.Create({
 
 local faderHelpers = FaderHelpers.Create and FaderHelpers.Create({
     IsEnabled = IsEnabled,
-    IsTBCClient = IsTBCClient,
+    IsClassicClient = IsClassicClient,
 }) or {}
 
 local function ApplyMinimapClutter()

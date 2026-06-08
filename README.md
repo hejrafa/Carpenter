@@ -161,8 +161,8 @@ Release flow:
 
 ```bash
 bash tools/release.sh check
-git tag v1.6.7
-git push origin main v1.6.7
+git tag v1.6.8
+git push origin main v1.6.8
 ```
 
 The tag must be strict `vMAJOR.MINOR.PATCH`, and the number must match `## Version:` in all TOC files. Platform project IDs stay in GitHub secrets; do not add `X-Curse-Project-ID` or `X-Wago-ID` to the TOCs.

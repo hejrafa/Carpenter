@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.8
+
+- Added the Classic Find Herbs minimap tracking icon to Remove Minimap Clutter's hover fade.
+- Kept the minimap button fade watcher awake while faded buttons are visible so leaving through Blizzard's clock frame still fades them back out.
+
 ## 1.6.7
 
 - Added the Classic/TBC Looking for Group minimap button to Remove Minimap Clutter's hover fade and reveal faded buttons when hovering the minimap itself.
