@@ -4,14 +4,8 @@
 
 - Added the Classic Find Herbs minimap tracking icon to Remove Minimap Clutter's hover fade.
 - Kept the minimap button fade watcher awake while faded buttons are visible so leaving through Blizzard's clock frame still fades them back out.
-- Restored Class Icon Portrait immediately after Unit Frame Debuffs gives the portrait slot back.
-- Kept Class Icon Portrait active when Blizzard refreshes the target portrait alpha after self-targeting.
-- Reapplied Class Icon Portrait after delayed Blizzard target portrait refreshes, including self-targeting.
-- Applied Class Icon Portrait to target-of-target portraits after Blizzard refreshes that frame.
-- Kept target and target-of-target Class Icon Portraits applied immediately after health and status updates redraw Blizzard portraits.
-- Replaced texture-backed portraits directly with Class Icon Portraits to prevent default portrait flicker during health updates.
-- Guarded Class Icon Portrait refreshes against recursive Blizzard portrait updates.
-- Restored default portrait texture coordinates after Class Icon Portrait hands a target frame back to Blizzard.
+- Stabilized Classic/TBC Class Icon Portraits after Unit Frame Debuffs, self-targeting, target-of-target updates, and Blizzard health/status portrait redraws.
+- Prevented Class Icon Portrait flicker during health updates while restoring normal enemy/NPC portrait framing when Carpenter hands a target frame back to Blizzard.
 
 ## 1.6.7
 
