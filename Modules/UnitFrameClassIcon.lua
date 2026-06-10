@@ -133,6 +133,7 @@ local UpdateUnitClassIcon
 local ScheduleUnitRefresh
 local portraitTextureHookInstalled
 local portraitUpdateHookInstalled
+local REFRESH_FOLLOWUP_DELAYS = { 0.05, 0.25, 0.75, 1.25 }
 
 local function HookPortraitMethod(portrait, method, marker, handler)
     if not hooksecurefunc or not portrait or not portrait[method] or portrait[marker] then return end
@@ -247,15 +248,14 @@ function ScheduleUnitRefresh(unit)
         UpdateUnitClassIcon(unit)
     end
 
+    Refresh()
+
     if Carpenter and Carpenter.DeferMany then
-        Carpenter:DeferMany("UnitFrameClassIcon:" .. unit, { 0, 0.05, 0.25, 0.75, 1.25 }, Refresh)
-    else
-        Refresh()
-        if C_Timer and C_Timer.After then
-            C_Timer.After(0.25, Refresh)
-            C_Timer.After(0.75, Refresh)
-            C_Timer.After(1.25, Refresh)
-        end
+        Carpenter:DeferMany("UnitFrameClassIcon:" .. unit, REFRESH_FOLLOWUP_DELAYS, Refresh)
+    elseif C_Timer and C_Timer.After then
+        C_Timer.After(0.25, Refresh)
+        C_Timer.After(0.75, Refresh)
+        C_Timer.After(1.25, Refresh)
     end
 end
 
