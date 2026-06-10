@@ -8,6 +8,8 @@ ns = ns or {}
 ns.Private = ns.Private or {}
 
 local Unit = ns.Private.Unit or {}
+local ClassIcon = ns.Private.UnitFrameClassIcon or {}
+ns.Private.UnitFrameClassIcon = ClassIcon
 
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("unitFrameClassIconEnabled")
@@ -183,6 +185,9 @@ local function RefreshAll()
     UpdateUnitClassIcon("targettarget")
     UpdateUnitClassIcon("focus")
 end
+
+ClassIcon.RefreshUnit = UpdateUnitClassIcon
+ClassIcon.RefreshAll = RefreshAll
 
 local frame = CreateFrame("Frame")
 

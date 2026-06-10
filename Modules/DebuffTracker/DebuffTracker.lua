@@ -149,6 +149,13 @@ local function IsNPCPartyUnit(unit)
     return IsPartyUnit(unit) and UnitExists(unit) and not UnitIsPlayer(unit)
 end
 
+local function RefreshUnitFrameClassIcon(unit)
+    local classIcon = ns.Private and ns.Private.UnitFrameClassIcon
+    if classIcon and classIcon.RefreshUnit then
+        classIcon.RefreshUnit(unit)
+    end
+end
+
 local function RestoreUnitPortrait(unit, portrait)
     if portraitIcons[unit] then
         portraitIcons[unit]:Hide()
@@ -156,6 +163,7 @@ local function RestoreUnitPortrait(unit, portrait)
     if portrait then
         portrait:SetAlpha(1)
     end
+    RefreshUnitFrameClassIcon(unit)
 end
 
 -- Get the unit frame (parent of portrait) so we can layer debuff under frame textures but over portrait
@@ -272,6 +280,7 @@ local function UpdateUnitPortraitDebuff(unit)
         SetIconCooldown(iconFrame, 0, 0, nil)
         iconFrame:Hide()
         portrait:SetAlpha(1)
+        RefreshUnitFrameClassIcon(unit)
     end
 end
 
