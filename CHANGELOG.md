@@ -6,6 +6,8 @@
 - Kept the minimap button fade watcher awake while faded buttons are visible so leaving through Blizzard's clock frame still fades them back out.
 - Restored Class Icon Portrait immediately after Unit Frame Debuffs gives the portrait slot back.
 - Kept Class Icon Portrait active when Blizzard refreshes the target portrait alpha after self-targeting.
+- Reapplied Class Icon Portrait after delayed Blizzard target portrait refreshes, including self-targeting.
+- Applied Class Icon Portrait to target-of-target portraits after Blizzard refreshes that frame.
 
 ## 1.6.7
 

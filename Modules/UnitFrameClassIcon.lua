@@ -66,6 +66,19 @@ local function ShouldShowClassIcon(unit)
     return false
 end
 
+local function FindPortraitRegion(frame)
+    if not frame or not frame.GetRegions then return nil end
+
+    for i = 1, frame:GetNumRegions() do
+        local region = select(i, frame:GetRegions())
+        local name = region and region.GetName and region:GetName()
+        if name and name:find("Portrait") and region.SetTexture then
+            return region
+        end
+    end
+    return nil
+end
+
 -- Get portrait and parent for a unit (same logic as DebuffTracker).
 local function GetPortraitAndParent(unit)
     local portrait
@@ -76,7 +89,11 @@ local function GetPortraitAndParent(unit)
     elseif unit == "focus" then
         portrait = _G.FocusFramePortrait or (_G.FocusFrame and _G.FocusFrame.portrait)
     elseif unit == "targettarget" then
-        portrait = _G.TargetFrameToTPortrait or (_G.TargetFrameToT and _G.TargetFrameToT.portrait)
+        portrait = _G.TargetFrameToTPortrait
+            or _G.TargetofTargetPortrait
+            or _G.TargetOfTargetPortrait
+            or (_G.TargetFrameToT and (_G.TargetFrameToT.portrait or _G.TargetFrameToT.Portrait))
+            or FindPortraitRegion(_G.TargetFrameToT)
     end
     if not portrait then return nil, nil end
     local unitFrame = (unit == "player" and PlayerFrame) or (unit == "target" and TargetFrame) or (unit == "focus" and _G.FocusFrame) or (unit == "targettarget" and _G.TargetFrameToT)
@@ -87,9 +104,25 @@ local function GetPortraitAndParent(unit)
     return portrait, parent
 end
 
+local function IsTargetTargetPortrait(texture)
+    if not texture then return false end
+
+    local targetTargetFrame = _G.TargetFrameToT
+    return texture == _G.TargetFrameToTPortrait
+        or texture == _G.TargetofTargetPortrait
+        or texture == _G.TargetOfTargetPortrait
+        or (targetTargetFrame and (
+            texture == targetTargetFrame.portrait
+            or texture == targetTargetFrame.Portrait
+            or texture == FindPortraitRegion(targetTargetFrame)
+        ))
+end
+
 -- Overlay frames when the default portrait is a Model (no SetTexture) or we use overlay for consistency.
 local overlays = {}
 local UpdateUnitClassIcon
+local portraitTextureHookInstalled
+local portraitUpdateHookInstalled
 
 local function HookPortraitAlpha(unit, portrait)
     if not hooksecurefunc or not portrait or not portrait.SetAlpha or portrait.CP_ClassIconAlphaHooked then return end
@@ -165,6 +198,57 @@ function UpdateUnitClassIcon(unit)
     end
 end
 
+local function ScheduleUnitRefresh(unit)
+    if not unit then return end
+
+    local function Refresh()
+        UpdateUnitClassIcon(unit)
+    end
+
+    if Carpenter and Carpenter.DeferMany then
+        Carpenter:DeferMany("UnitFrameClassIcon:" .. unit, { 0, 0.05, 0.25, 0.75, 1.25 }, Refresh)
+    else
+        Refresh()
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0.25, Refresh)
+            C_Timer.After(0.75, Refresh)
+            C_Timer.After(1.25, Refresh)
+        end
+    end
+end
+
+local function RefreshUnitForPortraitTexture(texture, unit)
+    if unit == "player" or unit == "target" or unit == "targettarget" or unit == "focus" then
+        ScheduleUnitRefresh(unit)
+        return
+    end
+
+    if texture == PlayerPortrait then
+        ScheduleUnitRefresh("player")
+    elseif texture == TargetFramePortrait then
+        ScheduleUnitRefresh("target")
+    elseif texture == _G.FocusFramePortrait or (_G.FocusFrame and texture == _G.FocusFrame.portrait) then
+        ScheduleUnitRefresh("focus")
+    elseif IsTargetTargetPortrait(texture) then
+        ScheduleUnitRefresh("targettarget")
+    end
+end
+
+local function RefreshUnitForFrame(frameObject)
+    local unit = frameObject and frameObject.unit
+    if unit == "player" or unit == "target" or unit == "targettarget" or unit == "focus" then
+        ScheduleUnitRefresh(unit)
+    elseif frameObject == PlayerFrame then
+        ScheduleUnitRefresh("player")
+    elseif frameObject == TargetFrame then
+        ScheduleUnitRefresh("target")
+    elseif frameObject == _G.FocusFrame then
+        ScheduleUnitRefresh("focus")
+    elseif frameObject == _G.TargetFrameToT or frameObject == _G.TargetofTargetFrame or frameObject == _G.TargetOfTargetFrame then
+        ScheduleUnitRefresh("targettarget")
+    end
+end
+
 -- Also hook UnitSetPortraitTexture so that when the default UI tries to set the portrait (texture-based UIs), we show class icon instead.
 local orig_UnitSetPortraitTexture
 local hookInstalled
@@ -183,12 +267,45 @@ local function UnitSetPortraitTexture_Hook(texture, unit)
 end
 
 local function InstallHook()
-    if hookInstalled then return end
-    if type(UnitSetPortraitTexture) ~= "function" then return end
-    if UnitSetPortraitTexture == UnitSetPortraitTexture_Hook then return end
-    orig_UnitSetPortraitTexture = UnitSetPortraitTexture
-    UnitSetPortraitTexture = UnitSetPortraitTexture_Hook
-    hookInstalled = true
+    if not hookInstalled and type(UnitSetPortraitTexture) == "function" and UnitSetPortraitTexture ~= UnitSetPortraitTexture_Hook then
+        orig_UnitSetPortraitTexture = UnitSetPortraitTexture
+        UnitSetPortraitTexture = UnitSetPortraitTexture_Hook
+        hookInstalled = true
+    end
+
+    if hooksecurefunc and type(SetPortraitTexture) == "function" and not portraitTextureHookInstalled then
+        local ok = pcall(hooksecurefunc, "SetPortraitTexture", RefreshUnitForPortraitTexture)
+        portraitTextureHookInstalled = ok == true
+    end
+
+    if hooksecurefunc and not portraitUpdateHookInstalled then
+        local hooked = false
+        if type(UnitFramePortrait_Update) == "function" then
+            hooked = pcall(hooksecurefunc, "UnitFramePortrait_Update", RefreshUnitForFrame) or hooked
+        end
+        if type(TargetFrame_Update) == "function" then
+            hooked = pcall(hooksecurefunc, "TargetFrame_Update", function()
+                ScheduleUnitRefresh("target")
+                ScheduleUnitRefresh("targettarget")
+            end) or hooked
+        end
+        if type(TargetofTarget_Update) == "function" then
+            hooked = pcall(hooksecurefunc, "TargetofTarget_Update", function()
+                ScheduleUnitRefresh("targettarget")
+            end) or hooked
+        end
+        if type(TargetFrameToT_Update) == "function" then
+            hooked = pcall(hooksecurefunc, "TargetFrameToT_Update", function()
+                ScheduleUnitRefresh("targettarget")
+            end) or hooked
+        end
+        if type(FocusFrame_Update) == "function" then
+            hooked = pcall(hooksecurefunc, "FocusFrame_Update", function()
+                ScheduleUnitRefresh("focus")
+            end) or hooked
+        end
+        portraitUpdateHookInstalled = hooked == true
+    end
 end
 
 local function RefreshAll()
@@ -206,10 +323,12 @@ local frame = CreateFrame("Frame")
 
 frame:SetScript("OnEvent", function(self, event, unit)
     if event == "PLAYER_TARGET_CHANGED" then
-        UpdateUnitClassIcon("target")
-        UpdateUnitClassIcon("targettarget")
+        ScheduleUnitRefresh("target")
+        ScheduleUnitRefresh("targettarget")
     elseif event == "PLAYER_FOCUS_CHANGED" then
-        UpdateUnitClassIcon("focus")
+        ScheduleUnitRefresh("focus")
+    elseif event == "UNIT_TARGET" and unit == "target" then
+        ScheduleUnitRefresh("targettarget")
     elseif event == "PLAYER_ENTERING_WORLD" then
         RefreshAll()
         -- Delayed refresh so default unit frames (and Model portraits) are fully built
@@ -218,7 +337,7 @@ frame:SetScript("OnEvent", function(self, event, unit)
         end
     elseif event == "UNIT_PORTRAIT_UPDATE" and unit then
         if unit == "player" or unit == "target" or unit == "targettarget" or unit == "focus" then
-            UpdateUnitClassIcon(unit)
+            ScheduleUnitRefresh(unit)
         end
     end
 end)
@@ -230,6 +349,7 @@ function feature:Enable()
     frame:RegisterEvent("PLAYER_FOCUS_CHANGED")
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
     frame:RegisterEvent("UNIT_PORTRAIT_UPDATE")
+    frame:RegisterUnitEvent("UNIT_TARGET", "target")
     RefreshAll()
     if C_Timer and C_Timer.After then
         C_Timer.After(0.5, RefreshAll)
