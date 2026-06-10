@@ -89,10 +89,23 @@ end
 
 -- Overlay frames when the default portrait is a Model (no SetTexture) or we use overlay for consistency.
 local overlays = {}
+local UpdateUnitClassIcon
+
+local function HookPortraitAlpha(unit, portrait)
+    if not hooksecurefunc or not portrait or not portrait.SetAlpha or portrait.CP_ClassIconAlphaHooked then return end
+    portrait.CP_ClassIconAlphaHooked = true
+
+    hooksecurefunc(portrait, "SetAlpha", function(_, alpha)
+        if alpha and alpha > 0 and ShouldShowClassIcon(unit) then
+            UpdateUnitClassIcon(unit)
+        end
+    end)
+end
 
 local function GetOrCreateOverlay(unit)
     local portrait, parent = GetPortraitAndParent(unit)
     if not portrait or not parent then return nil end
+    HookPortraitAlpha(unit, portrait)
     if overlays[unit] then
         return overlays[unit], portrait, parent
     end
@@ -115,7 +128,7 @@ local function GetOrCreateOverlay(unit)
     return f, portrait, parent
 end
 
-local function UpdateUnitClassIcon(unit)
+function UpdateUnitClassIcon(unit)
     local portrait, parent = GetPortraitAndParent(unit)
     if not portrait then return end
 
