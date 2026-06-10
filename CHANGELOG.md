@@ -11,6 +11,7 @@
 - Kept target and target-of-target Class Icon Portraits applied immediately after health and status updates redraw Blizzard portraits.
 - Replaced texture-backed portraits directly with Class Icon Portraits to prevent default portrait flicker during health updates.
 - Guarded Class Icon Portrait refreshes against recursive Blizzard portrait updates.
+- Restored default portrait texture coordinates after Class Icon Portrait hands a target frame back to Blizzard.
 
 ## 1.6.7
 

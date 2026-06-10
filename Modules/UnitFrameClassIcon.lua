@@ -215,6 +215,14 @@ local function ApplyClassIconToPortrait(portrait, class)
     return applied
 end
 
+local function ResetPortraitTexCoords(portrait)
+    if not portrait or not portrait.SetTexCoord then return end
+
+    BeginClassIconApply(portrait)
+    portrait:SetTexCoord(0, 1, 0, 1)
+    EndClassIconApply(portrait)
+end
+
 local function RestorePortraitTexture(unit, portrait)
     if not portrait or not portrait.CP_ClassIconDirectApplied then return end
 
@@ -228,6 +236,7 @@ local function RestorePortraitTexture(unit, portrait)
         restored = pcall(SetPortraitTexture, portrait, unit)
     end
     EndClassIconApply(portrait)
+    ResetPortraitTexCoords(portrait)
 end
 
 local function PositionOverlay(overlay, portrait, parent)
@@ -395,9 +404,13 @@ local function UnitSetPortraitTexture_Hook(texture, unit)
             return
         end
     end
+    if texture then
+        texture.CP_ClassIconDirectApplied = nil
+    end
     if orig_UnitSetPortraitTexture then
         orig_UnitSetPortraitTexture(texture, unit)
     end
+    ResetPortraitTexCoords(texture)
 end
 
 local function InstallHook()
