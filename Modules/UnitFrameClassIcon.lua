@@ -136,6 +136,25 @@ local portraitUpdateHookInstalled
 local REFRESH_FOLLOWUP_DELAYS = { 0.05, 0.25, 0.75, 1.25 }
 local orig_UnitSetPortraitTexture
 local hookInstalled
+local classIconApplyingDepth = 0
+
+local function IsApplyingClassIcon()
+    return classIconApplyingDepth > 0
+end
+
+local function BeginClassIconApply(portrait)
+    classIconApplyingDepth = classIconApplyingDepth + 1
+    if portrait then
+        portrait.CP_ClassIconApplying = true
+    end
+end
+
+local function EndClassIconApply(portrait)
+    if portrait then
+        portrait.CP_ClassIconApplying = nil
+    end
+    classIconApplyingDepth = math.max(0, classIconApplyingDepth - 1)
+end
 
 local function IsDebuffPortraitActive(unit)
     local debuffTracker = ns.Private and ns.Private.DebuffTracker
@@ -152,14 +171,14 @@ local function HookPortraitRefresh(unit, portrait)
     if not portrait then return end
 
     HookPortraitMethod(portrait, "SetAlpha", "CP_ClassIconAlphaHooked", function(_, alpha)
-        if portrait.CP_ClassIconApplying then return end
+        if IsApplyingClassIcon() or portrait.CP_ClassIconApplying then return end
         if alpha and alpha > 0 and ShouldShowClassIcon(unit) then
             UpdateUnitClassIcon(unit)
         end
     end)
 
     local function OnPortraitChanged()
-        if portrait.CP_ClassIconApplying then return end
+        if IsApplyingClassIcon() or portrait.CP_ClassIconApplying then return end
         if ShouldShowClassIcon(unit) and ScheduleUnitRefresh then
             ScheduleUnitRefresh(unit)
         end
@@ -177,17 +196,17 @@ end
 
 local function SetPortraitAlpha(portrait, alpha)
     if not portrait or not portrait.SetAlpha then return end
-    portrait.CP_ClassIconApplying = true
+    BeginClassIconApply(portrait)
     portrait:SetAlpha(alpha)
-    portrait.CP_ClassIconApplying = nil
+    EndClassIconApply(portrait)
 end
 
 local function ApplyClassIconToPortrait(portrait, class)
     if not portrait or not portrait.SetTexture then return false end
 
-    portrait.CP_ClassIconApplying = true
+    BeginClassIconApply(portrait)
     local applied = SetClassIconOnTexture(portrait, class)
-    portrait.CP_ClassIconApplying = nil
+    EndClassIconApply(portrait)
 
     if applied then
         portrait.CP_ClassIconDirectApplied = true
@@ -199,7 +218,8 @@ end
 local function RestorePortraitTexture(unit, portrait)
     if not portrait or not portrait.CP_ClassIconDirectApplied then return end
 
-    portrait.CP_ClassIconApplying = true
+    portrait.CP_ClassIconDirectApplied = nil
+    BeginClassIconApply(portrait)
     local restored = false
     if orig_UnitSetPortraitTexture then
         restored = pcall(orig_UnitSetPortraitTexture, portrait, unit)
@@ -207,8 +227,7 @@ local function RestorePortraitTexture(unit, portrait)
     if not restored and type(SetPortraitTexture) == "function" then
         restored = pcall(SetPortraitTexture, portrait, unit)
     end
-    portrait.CP_ClassIconApplying = nil
-    portrait.CP_ClassIconDirectApplied = nil
+    EndClassIconApply(portrait)
 end
 
 local function PositionOverlay(overlay, portrait, parent)
@@ -334,6 +353,8 @@ local function ScheduleUnitRefreshForUnitEvent(unit)
 end
 
 local function RefreshUnitForPortraitTexture(texture, unit)
+    if IsApplyingClassIcon() or (texture and texture.CP_ClassIconApplying) then return end
+
     if unit == "player" or unit == "target" or unit == "targettarget" or unit == "focus" then
         ScheduleUnitRefresh(unit)
         return
@@ -351,6 +372,8 @@ local function RefreshUnitForPortraitTexture(texture, unit)
 end
 
 local function RefreshUnitForFrame(frameObject)
+    if IsApplyingClassIcon() then return end
+
     local unit = frameObject and frameObject.unit
     if unit == "player" or unit == "target" or unit == "targettarget" or unit == "focus" then
         ScheduleUnitRefresh(unit)
@@ -396,22 +419,26 @@ local function InstallHook()
         end
         if type(TargetFrame_Update) == "function" then
             hooked = pcall(hooksecurefunc, "TargetFrame_Update", function()
+                if IsApplyingClassIcon() then return end
                 ScheduleUnitRefresh("target")
                 ScheduleUnitRefresh("targettarget")
             end) or hooked
         end
         if type(TargetofTarget_Update) == "function" then
             hooked = pcall(hooksecurefunc, "TargetofTarget_Update", function()
+                if IsApplyingClassIcon() then return end
                 ScheduleUnitRefresh("targettarget")
             end) or hooked
         end
         if type(TargetFrameToT_Update) == "function" then
             hooked = pcall(hooksecurefunc, "TargetFrameToT_Update", function()
+                if IsApplyingClassIcon() then return end
                 ScheduleUnitRefresh("targettarget")
             end) or hooked
         end
         if type(FocusFrame_Update) == "function" then
             hooked = pcall(hooksecurefunc, "FocusFrame_Update", function()
+                if IsApplyingClassIcon() then return end
                 ScheduleUnitRefresh("focus")
             end) or hooked
         end
