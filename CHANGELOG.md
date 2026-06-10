@@ -8,6 +8,7 @@
 - Kept Class Icon Portrait active when Blizzard refreshes the target portrait alpha after self-targeting.
 - Reapplied Class Icon Portrait after delayed Blizzard target portrait refreshes, including self-targeting.
 - Applied Class Icon Portrait to target-of-target portraits after Blizzard refreshes that frame.
+- Kept target and target-of-target Class Icon Portraits applied after health and status updates redraw Blizzard portraits.
 
 ## 1.6.7
 

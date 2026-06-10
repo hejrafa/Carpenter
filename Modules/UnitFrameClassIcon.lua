@@ -84,10 +84,16 @@ local function GetPortraitAndParent(unit)
     local portrait
     if unit == "player" then
         portrait = PlayerPortrait
+            or (PlayerFrame and (PlayerFrame.portrait or PlayerFrame.Portrait))
+            or FindPortraitRegion(PlayerFrame)
     elseif unit == "target" then
         portrait = TargetFramePortrait
+            or (TargetFrame and (TargetFrame.portrait or TargetFrame.Portrait))
+            or FindPortraitRegion(TargetFrame)
     elseif unit == "focus" then
-        portrait = _G.FocusFramePortrait or (_G.FocusFrame and _G.FocusFrame.portrait)
+        portrait = _G.FocusFramePortrait
+            or (_G.FocusFrame and (_G.FocusFrame.portrait or _G.FocusFrame.Portrait))
+            or FindPortraitRegion(_G.FocusFrame)
     elseif unit == "targettarget" then
         portrait = _G.TargetFrameToTPortrait
             or _G.TargetofTargetPortrait
@@ -96,7 +102,10 @@ local function GetPortraitAndParent(unit)
             or FindPortraitRegion(_G.TargetFrameToT)
     end
     if not portrait then return nil, nil end
-    local unitFrame = (unit == "player" and PlayerFrame) or (unit == "target" and TargetFrame) or (unit == "focus" and _G.FocusFrame) or (unit == "targettarget" and _G.TargetFrameToT)
+    local unitFrame = (unit == "player" and PlayerFrame)
+        or (unit == "target" and TargetFrame)
+        or (unit == "focus" and _G.FocusFrame)
+        or (unit == "targettarget" and (_G.TargetFrameToT or _G.TargetofTargetFrame or _G.TargetOfTargetFrame))
     local parent = portrait.GetParent and portrait:GetParent() or unitFrame or UIParent
     if not parent or not parent.CreateFrame then
         parent = unitFrame or UIParent
@@ -121,44 +130,77 @@ end
 -- Overlay frames when the default portrait is a Model (no SetTexture) or we use overlay for consistency.
 local overlays = {}
 local UpdateUnitClassIcon
+local ScheduleUnitRefresh
 local portraitTextureHookInstalled
 local portraitUpdateHookInstalled
 
-local function HookPortraitAlpha(unit, portrait)
-    if not hooksecurefunc or not portrait or not portrait.SetAlpha or portrait.CP_ClassIconAlphaHooked then return end
-    portrait.CP_ClassIconAlphaHooked = true
+local function HookPortraitMethod(portrait, method, marker, handler)
+    if not hooksecurefunc or not portrait or not portrait[method] or portrait[marker] then return end
+    portrait[marker] = true
+    pcall(hooksecurefunc, portrait, method, handler)
+end
 
-    hooksecurefunc(portrait, "SetAlpha", function(_, alpha)
+local function HookPortraitRefresh(unit, portrait)
+    if not portrait then return end
+
+    HookPortraitMethod(portrait, "SetAlpha", "CP_ClassIconAlphaHooked", function(_, alpha)
         if alpha and alpha > 0 and ShouldShowClassIcon(unit) then
             UpdateUnitClassIcon(unit)
         end
     end)
+
+    local function OnPortraitChanged()
+        if ShouldShowClassIcon(unit) and ScheduleUnitRefresh then
+            ScheduleUnitRefresh(unit)
+        end
+    end
+
+    HookPortraitMethod(portrait, "SetTexture", "CP_ClassIconTextureHooked", OnPortraitChanged)
+    HookPortraitMethod(portrait, "SetTexCoord", "CP_ClassIconTexCoordHooked", OnPortraitChanged)
+    HookPortraitMethod(portrait, "Show", "CP_ClassIconShowHooked", OnPortraitChanged)
+    HookPortraitMethod(portrait, "SetShown", "CP_ClassIconSetShownHooked", function(_, shown)
+        if shown ~= false then
+            OnPortraitChanged()
+        end
+    end)
+end
+
+local function PositionOverlay(overlay, portrait, parent)
+    if overlay.SetParent and overlay:GetParent() ~= parent then
+        overlay:SetParent(parent)
+    end
+    if overlay.ClearAllPoints then
+        overlay:ClearAllPoints()
+    end
+    overlay:SetFrameLevel(math.max(0, (parent.GetFrameLevel and parent:GetFrameLevel() or 0) - 2))
+    overlay:SetPoint("TOPLEFT", portrait, "TOPLEFT")
+    overlay:SetPoint("BOTTOMRIGHT", portrait, "BOTTOMRIGHT")
+    overlay.portrait = portrait
 end
 
 local function GetOrCreateOverlay(unit)
     local portrait, parent = GetPortraitAndParent(unit)
     if not portrait or not parent then return nil end
-    HookPortraitAlpha(unit, portrait)
-    if overlays[unit] then
-        return overlays[unit], portrait, parent
+    HookPortraitRefresh(unit, portrait)
+
+    local overlay = overlays[unit]
+    if not overlay then
+        overlay = CreateFrame("Frame", nil, parent)
+        local tex = overlay:CreateTexture(nil, "BACKGROUND", nil, 1)
+        tex:SetAllPoints(overlay)
+        tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        if overlay.CreateMaskTexture then
+            local mask = overlay:CreateMaskTexture()
+            mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
+            mask:SetAllPoints(overlay)
+            tex:AddMaskTexture(mask)
+        end
+        overlay.texture = tex
+        overlays[unit] = overlay
     end
-    local f = CreateFrame("Frame", nil, parent)
-    f:SetFrameLevel(math.max(0, (parent.GetFrameLevel and parent:GetFrameLevel() or 0) - 2))
-    f:SetPoint("TOPLEFT", portrait, "TOPLEFT")
-    f:SetPoint("BOTTOMRIGHT", portrait, "BOTTOMRIGHT")
-    local tex = f:CreateTexture(nil, "BACKGROUND", nil, 1)
-    tex:SetAllPoints(f)
-    tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    if f.CreateMaskTexture then
-        local mask = f:CreateMaskTexture()
-        mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
-        mask:SetAllPoints(f)
-        tex:AddMaskTexture(mask)
-    end
-    f.texture = tex
-    f.portrait = portrait
-    overlays[unit] = f
-    return f, portrait, parent
+
+    PositionOverlay(overlay, portrait, parent)
+    return overlay, portrait, parent
 end
 
 function UpdateUnitClassIcon(unit)
@@ -198,7 +240,7 @@ function UpdateUnitClassIcon(unit)
     end
 end
 
-local function ScheduleUnitRefresh(unit)
+function ScheduleUnitRefresh(unit)
     if not unit then return end
 
     local function Refresh()
@@ -214,6 +256,25 @@ local function ScheduleUnitRefresh(unit)
             C_Timer.After(0.75, Refresh)
             C_Timer.After(1.25, Refresh)
         end
+    end
+end
+
+local function ScheduleUnitRefreshForUnitEvent(unit)
+    if unit == "player" then
+        ScheduleUnitRefresh("player")
+        if UnitIsUnit and UnitIsUnit("target", "player") then
+            ScheduleUnitRefresh("target")
+        end
+        if UnitIsUnit and UnitIsUnit("targettarget", "player") then
+            ScheduleUnitRefresh("targettarget")
+        end
+    elseif unit == "target" then
+        ScheduleUnitRefresh("target")
+        ScheduleUnitRefresh("targettarget")
+    elseif unit == "targettarget" then
+        ScheduleUnitRefresh("targettarget")
+    elseif unit == "focus" then
+        ScheduleUnitRefresh("focus")
     end
 end
 
@@ -329,6 +390,8 @@ frame:SetScript("OnEvent", function(self, event, unit)
         ScheduleUnitRefresh("focus")
     elseif event == "UNIT_TARGET" and unit == "target" then
         ScheduleUnitRefresh("targettarget")
+    elseif event == "UNIT_HEALTH" or event == "UNIT_HEALTH_FREQUENT" or event == "UNIT_MAXHEALTH" or event == "UNIT_FLAGS" then
+        ScheduleUnitRefreshForUnitEvent(unit)
     elseif event == "PLAYER_ENTERING_WORLD" then
         RefreshAll()
         -- Delayed refresh so default unit frames (and Model portraits) are fully built
@@ -344,12 +407,26 @@ end)
 
 local feature = {}
 
+local function RegisterUnitRefreshEvent(event, optional)
+    if frame.RegisterUnitEvent then
+        local ok = pcall(frame.RegisterUnitEvent, frame, event, "player", "target", "targettarget", "focus")
+        if ok then return end
+    end
+    if not optional then
+        frame:RegisterEvent(event)
+    end
+end
+
 function feature:Enable()
     frame:RegisterEvent("PLAYER_TARGET_CHANGED")
     frame:RegisterEvent("PLAYER_FOCUS_CHANGED")
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
     frame:RegisterEvent("UNIT_PORTRAIT_UPDATE")
     frame:RegisterUnitEvent("UNIT_TARGET", "target")
+    RegisterUnitRefreshEvent("UNIT_HEALTH")
+    RegisterUnitRefreshEvent("UNIT_HEALTH_FREQUENT", true)
+    RegisterUnitRefreshEvent("UNIT_MAXHEALTH")
+    RegisterUnitRefreshEvent("UNIT_FLAGS")
     RefreshAll()
     if C_Timer and C_Timer.After then
         C_Timer.After(0.5, RefreshAll)
