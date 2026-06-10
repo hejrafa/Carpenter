@@ -9,6 +9,7 @@
 - Reapplied Class Icon Portrait after delayed Blizzard target portrait refreshes, including self-targeting.
 - Applied Class Icon Portrait to target-of-target portraits after Blizzard refreshes that frame.
 - Kept target and target-of-target Class Icon Portraits applied immediately after health and status updates redraw Blizzard portraits.
+- Replaced texture-backed portraits directly with Class Icon Portraits to prevent default portrait flicker during health updates.
 
 ## 1.6.7
 

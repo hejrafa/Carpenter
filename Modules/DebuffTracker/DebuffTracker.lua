@@ -8,6 +8,8 @@ local Unit = ns.Private.Unit or {}
 local Nameplates = ns.Private.Nameplates or {}
 local Icons = ns.Private.DebuffTrackerIcons or {}
 local AuraLayers = ns.Private.DebuffTrackerAuraLayers or {}
+local DebuffTracker = ns.Private.DebuffTracker or {}
+ns.Private.DebuffTracker = DebuffTracker
 local CreateBaseIcon = Icons.CreateBaseIcon
 local GetDebuffColor = Icons.GetDebuffColor
 local SetIconCooldown = Icons.SetIconCooldown
@@ -138,6 +140,11 @@ end
 -- =========================================================
 
 local portraitIcons = {}
+
+function DebuffTracker.IsPortraitIconActive(unit)
+    local iconFrame = portraitIcons[unit]
+    return iconFrame and iconFrame.IsShown and iconFrame:IsShown()
+end
 
 local function IsPartyUnit(unit)
     if Unit.IsPartyUnit then return Unit.IsPartyUnit(unit) end

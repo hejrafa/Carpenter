@@ -134,6 +134,13 @@ local ScheduleUnitRefresh
 local portraitTextureHookInstalled
 local portraitUpdateHookInstalled
 local REFRESH_FOLLOWUP_DELAYS = { 0.05, 0.25, 0.75, 1.25 }
+local orig_UnitSetPortraitTexture
+local hookInstalled
+
+local function IsDebuffPortraitActive(unit)
+    local debuffTracker = ns.Private and ns.Private.DebuffTracker
+    return debuffTracker and debuffTracker.IsPortraitIconActive and debuffTracker.IsPortraitIconActive(unit)
+end
 
 local function HookPortraitMethod(portrait, method, marker, handler)
     if not hooksecurefunc or not portrait or not portrait[method] or portrait[marker] then return end
@@ -145,12 +152,14 @@ local function HookPortraitRefresh(unit, portrait)
     if not portrait then return end
 
     HookPortraitMethod(portrait, "SetAlpha", "CP_ClassIconAlphaHooked", function(_, alpha)
+        if portrait.CP_ClassIconApplying then return end
         if alpha and alpha > 0 and ShouldShowClassIcon(unit) then
             UpdateUnitClassIcon(unit)
         end
     end)
 
     local function OnPortraitChanged()
+        if portrait.CP_ClassIconApplying then return end
         if ShouldShowClassIcon(unit) and ScheduleUnitRefresh then
             ScheduleUnitRefresh(unit)
         end
@@ -164,6 +173,42 @@ local function HookPortraitRefresh(unit, portrait)
             OnPortraitChanged()
         end
     end)
+end
+
+local function SetPortraitAlpha(portrait, alpha)
+    if not portrait or not portrait.SetAlpha then return end
+    portrait.CP_ClassIconApplying = true
+    portrait:SetAlpha(alpha)
+    portrait.CP_ClassIconApplying = nil
+end
+
+local function ApplyClassIconToPortrait(portrait, class)
+    if not portrait or not portrait.SetTexture then return false end
+
+    portrait.CP_ClassIconApplying = true
+    local applied = SetClassIconOnTexture(portrait, class)
+    portrait.CP_ClassIconApplying = nil
+
+    if applied then
+        portrait.CP_ClassIconDirectApplied = true
+    end
+
+    return applied
+end
+
+local function RestorePortraitTexture(unit, portrait)
+    if not portrait or not portrait.CP_ClassIconDirectApplied then return end
+
+    portrait.CP_ClassIconApplying = true
+    local restored = false
+    if orig_UnitSetPortraitTexture then
+        restored = pcall(orig_UnitSetPortraitTexture, portrait, unit)
+    end
+    if not restored and type(SetPortraitTexture) == "function" then
+        restored = pcall(SetPortraitTexture, portrait, unit)
+    end
+    portrait.CP_ClassIconApplying = nil
+    portrait.CP_ClassIconDirectApplied = nil
 end
 
 local function PositionOverlay(overlay, portrait, parent)
@@ -213,9 +258,8 @@ function UpdateUnitClassIcon(unit)
         if overlays[unit] then
             overlays[unit]:Hide()
         end
-        if portrait.SetAlpha then
-            portrait:SetAlpha(1)
-        end
+        RestorePortraitTexture(unit, portrait)
+        SetPortraitAlpha(portrait, 1)
         return
     end
 
@@ -227,7 +271,20 @@ function UpdateUnitClassIcon(unit)
     end
     if not class then
         if overlays[unit] then overlays[unit]:Hide() end
-        if portrait.SetAlpha then portrait:SetAlpha(1) end
+        RestorePortraitTexture(unit, portrait)
+        SetPortraitAlpha(portrait, 1)
+        return
+    end
+
+    HookPortraitRefresh(unit, portrait)
+
+    if ApplyClassIconToPortrait(portrait, class) then
+        if overlays[unit] then
+            overlays[unit]:Hide()
+        end
+        if not IsDebuffPortraitActive(unit) then
+            SetPortraitAlpha(portrait, 1)
+        end
         return
     end
 
@@ -236,9 +293,7 @@ function UpdateUnitClassIcon(unit)
 
     SetClassIconOnTexture(overlay.texture, class)
     overlay:Show()
-    if portrait.SetAlpha then
-        portrait:SetAlpha(0)
-    end
+    SetPortraitAlpha(portrait, 0)
 end
 
 function ScheduleUnitRefresh(unit)
@@ -310,15 +365,10 @@ local function RefreshUnitForFrame(frameObject)
     end
 end
 
--- Also hook UnitSetPortraitTexture so that when the default UI tries to set the portrait (texture-based UIs), we show class icon instead.
-local orig_UnitSetPortraitTexture
-local hookInstalled
-
 local function UnitSetPortraitTexture_Hook(texture, unit)
     if ShouldShowClassIcon(unit) then
         local _, class = UnitClass(unit)
-        if class and texture and texture.SetTexture then
-            SetClassIconOnTexture(texture, class)
+        if class and ApplyClassIconToPortrait(texture, class) then
             return
         end
     end
