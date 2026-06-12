@@ -44,6 +44,8 @@ Modules\MinimapClutter\MinimapClutterFader.lua
 Modules\MinimapClutter\MinimapClutter.lua
 Modules\WorldMapCleanup\WorldMapCleanupData.lua
 Modules\WorldMapCleanup\WorldMapCleanupPOIPins.lua
+Modules\WorldMapCleanup\WorldMapCleanupSilithus.lua
+Modules\WorldMapCleanup\WorldMapCleanupPins.lua
 Modules\WorldMapCleanup\WorldMapCleanup.xml
 Modules\WorldMapCleanup\WorldMapCleanup.lua
 Modules\EnhanceTooltip.lua
@@ -55,6 +57,9 @@ Modules\ClassHealthColorsUnitFrames.lua
 Modules\DebuffTracker\DebuffTrackerIcons.lua
 Modules\DebuffTracker\DebuffTrackerAuraLayers.lua
 Modules\DebuffTracker\DebuffTracker.lua
+Modules\UnitFrameClassIcon\UnitFrameClassIconPortraits.lua
+Modules\UnitFrameClassIcon\UnitFrameClassIconApply.lua
+Modules\UnitFrameClassIcon\UnitFrameClassIconHooks.lua
 Modules\UnitFrameClassIcon.lua
 Modules\ThreatIndicator.lua
 Modules\TargetHealthPercent.lua

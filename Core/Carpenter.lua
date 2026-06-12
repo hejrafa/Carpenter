@@ -118,6 +118,29 @@ function Carpenter:After(delay, callback)
     end
 end
 
+function Carpenter:SafeHook(target, method, handler)
+    if type(target) == "string" and type(method) == "function" then
+        if not hooksecurefunc then return false end
+        if type(_G[target]) ~= "function" then return false end
+        return pcall(hooksecurefunc, target, method) == true
+    end
+
+    if not hooksecurefunc or type(handler) ~= "function" then return false end
+    if type(target) ~= "table" or type(method) ~= "string" then return false end
+    if type(target[method]) ~= "function" then return false end
+    return pcall(hooksecurefunc, target, method, handler) == true
+end
+
+function Carpenter:SafeRegisterEvent(frame, event)
+    if not frame or not event or not frame.RegisterEvent then return false end
+    return pcall(frame.RegisterEvent, frame, event) == true
+end
+
+function Carpenter:SafeRegisterUnitEvent(frame, event, ...)
+    if not frame or not event or not frame.RegisterUnitEvent then return false end
+    return pcall(frame.RegisterUnitEvent, frame, event, ...) == true
+end
+
 Carpenter.Features = Carpenter.Features or {}
 Carpenter.Deferred = Carpenter.Deferred or {}
 Carpenter.Tickers = Carpenter.Tickers or {}
@@ -181,6 +204,23 @@ function Carpenter:DeferMany(key, delays, callback)
             end
             callback()
         end)
+    end
+end
+
+function Carpenter:RunStartupPasses(key, delays, callback)
+    if type(callback) ~= "function" then return end
+    if key and type(delays) == "table" and self.DeferMany then
+        self:DeferMany(key, delays, callback)
+        return
+    end
+
+    if type(delays) ~= "table" then
+        callback()
+        return
+    end
+
+    for _, delay in ipairs(delays) do
+        self:After(delay or 0, callback)
     end
 end
 

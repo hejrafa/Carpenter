@@ -6,6 +6,7 @@
 - Kept the minimap button fade watcher awake while faded buttons are visible so leaving through Blizzard's clock frame still fades them back out.
 - Stabilized Classic/TBC Class Icon Portraits after Unit Frame Debuffs, self-targeting, target-of-target updates, and Blizzard health/status portrait redraws.
 - Prevented Class Icon Portrait flicker during health updates while restoring normal enemy/NPC portrait framing when Carpenter hands a target frame back to Blizzard.
+- Refactored Classic/TBC Class Icon Portrait and World Map Cleanup internals into smaller helper modules without changing behavior.
 
 ## 1.6.7
 

@@ -5,28 +5,18 @@
 if Carpenter and Carpenter.Client and not Carpenter.Client.isClassic then return end
 
 local _, ns = ...
-local POIPins = ns and ns.Private and ns.Private.WorldMapCleanupPOIPins or {}
+ns = ns or {}
+ns.Private = ns.Private or {}
+
+local Cleanup = ns.Private.WorldMapCleanup or {}
+ns.Private.WorldMapCleanup = Cleanup
+local POIPins = ns.Private.WorldMapCleanupPOIPins or {}
 
 local LEATRIX_SMALL_MAP_X = 16
 local LEATRIX_SMALL_MAP_Y = -104
 local FULLSCREEN_MAP_SCALE = 0.85
 local MOVING_MAP_ALPHA = 0.5
 local MAP_FADE_DURATION = 0.25
-local GROUP_MEMBER_PIN_SIZE = 12
-local GROUP_MEMBER_PIN_TEXTURE = "Interface\\AddOns\\Carpenter\\Art\\Icons\\GroupMemberPin.tga"
-local SILITHUS_MAP_ID = 1451
-local SILITHUS_HIGHLIGHT_TEXTURE = "Interface\\WorldMap\\Silithus\\SilithusHighlight.blp"
-local SILITHUS_HIGHLIGHT_ALPHA = 0.9
-local SILITHUS_FALLBACK_HIGHLIGHT_RECT = {
-    left = 0.39,
-    right = 0.47,
-    top = 0.74,
-    bottom = 0.895,
-}
-local KALIMDOR_MAP_IDS = {
-    [12] = true,
-    [1414] = true,
-}
 
 local frame = CreateFrame("Frame")
 local originalFullscreenGeometry = nil
@@ -34,30 +24,31 @@ local originalBlackoutAlpha = nil
 local originalMapAlpha = nil
 local originalMapScale = nil
 local originalScreenAnchorPoints = nil
-local hiddenMapObjects = {}
 local hookedWorldMap = false
-local hookedTownCityPins = false
 local hookedCursorScale = false
 local originalScrollContainerGetCursorPosition = nil
 local originalScrollContainerGetNormalizedCursorPosition = nil
 local originalWorldMapGetNormalizedCursorPosition = nil
 local scheduleNonce = 0
 local centeredMapCanvasKey = nil
-local originalGroupMemberPinSizes = nil
-local hookedGroupMemberPins = false
-local hookedSilithusHighlightFix = false
 
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("worldMapCleanupEnabled")
 end
+Cleanup.IsEnabled = IsEnabled
 
 local function ShouldShowMapPOIIcons()
     return IsEnabled() and CarpenterDB and CarpenterDB.worldMapPOIIconsEnabled == true
 end
+Cleanup.ShouldShowMapPOIIcons = ShouldShowMapPOIIcons
 
 local function SafeRegisterEvent(event)
     if not event then return end
-    pcall(frame.RegisterEvent, frame, event)
+    if Carpenter and Carpenter.SafeRegisterEvent then
+        Carpenter:SafeRegisterEvent(frame, event)
+    else
+        pcall(frame.RegisterEvent, frame, event)
+    end
 end
 
 local function CaptureFramePoints(frameToCapture)
@@ -379,176 +370,7 @@ local function GetWorldMapID()
 
     return nil
 end
-
-local function IsKalimdorMapID(mapID)
-    return KALIMDOR_MAP_IDS[mapID] == true
-end
-
-local function ClampValue(value, minValue, maxValue)
-    if value < minValue then return minValue end
-    if value > maxValue then return maxValue end
-    return value
-end
-
-local function GetMapForHighlightPin(pin)
-    if pin and pin.GetMap then
-        local ok, map = pcall(pin.GetMap, pin)
-        if ok and map then return map end
-    end
-
-    return _G.WorldMapFrame
-end
-
-local function GetMapIDForHighlightPin(pin)
-    local map = GetMapForHighlightPin(pin)
-    if map and map.GetMapID then
-        local ok, mapID = pcall(map.GetMapID, map)
-        if ok and mapID then return mapID end
-    end
-
-    return GetWorldMapID()
-end
-
-local function IsSilithusHoverOnKalimdor(pin)
-    if not C_Map or not C_Map.GetMapInfoAtPosition then return false end
-
-    local map = GetMapForHighlightPin(pin)
-    local mapID = GetMapIDForHighlightPin(pin)
-    if not IsKalimdorMapID(mapID) then return false end
-
-    if map and map.IsCanvasMouseFocus then
-        local ok, isFocused = pcall(map.IsCanvasMouseFocus, map)
-        if ok and not isFocused then return false end
-    end
-
-    if not map or not map.GetNormalizedCursorPosition then return false end
-
-    local ok, cursorX, cursorY = pcall(map.GetNormalizedCursorPosition, map)
-    if not ok or not cursorX or not cursorY then return false end
-
-    local positionMapInfo
-    ok, positionMapInfo = pcall(C_Map.GetMapInfoAtPosition, mapID, cursorX, cursorY)
-    return ok and positionMapInfo and positionMapInfo.mapID == SILITHUS_MAP_ID
-end
-
-local function GetSilithusHighlightRect(mapID)
-    if C_Map and C_Map.GetMapRectOnMap then
-        local ok, left, right, top, bottom = pcall(C_Map.GetMapRectOnMap, SILITHUS_MAP_ID, mapID)
-        if ok and left and right and top and bottom and right > left and bottom > top then
-            return ClampValue(left, 0, 1), ClampValue(right, 0, 1), ClampValue(top, 0, 1), ClampValue(bottom, 0, 1)
-        end
-    end
-
-    return SILITHUS_FALLBACK_HIGHLIGHT_RECT.left,
-        SILITHUS_FALLBACK_HIGHLIGHT_RECT.right,
-        SILITHUS_FALLBACK_HIGHLIGHT_RECT.top,
-        SILITHUS_FALLBACK_HIGHLIGHT_RECT.bottom
-end
-
-local function SetSilithusHighlightSize(texture, width, height)
-    if texture.SetSize then
-        texture:SetSize(width, height)
-    else
-        texture:SetWidth(width)
-        texture:SetHeight(height)
-    end
-end
-
-local function EnsureSilithusHighlight(pin)
-    if not pin or not pin.CreateTexture then return nil end
-
-    if not pin.CP_SilithusHighlightTexture then
-        local texture = pin:CreateTexture(nil, "ARTWORK")
-        texture:SetTexture(SILITHUS_HIGHLIGHT_TEXTURE)
-        texture:SetTexCoord(0, 1, 0, 1)
-        texture:SetAlpha(SILITHUS_HIGHLIGHT_ALPHA)
-        if texture.SetBlendMode then texture:SetBlendMode("ADD") end
-        if texture.SetVertexColor then texture:SetVertexColor(1, 1, 1) end
-        texture:Hide()
-        pin.CP_SilithusHighlightTexture = texture
-    end
-
-    return pin.CP_SilithusHighlightTexture
-end
-
-local function HideSilithusHighlight(pin)
-    local texture = pin and pin.CP_SilithusHighlightTexture
-    if texture and texture.Hide then texture:Hide() end
-end
-
-local function ShowSilithusHighlight(pin)
-    local texture = EnsureSilithusHighlight(pin)
-    if not texture or not pin.GetWidth or not pin.GetHeight then return false end
-
-    local pinWidth = pin:GetWidth() or 0
-    local pinHeight = pin:GetHeight() or 0
-    if pinWidth <= 0 or pinHeight <= 0 then return false end
-
-    local left, right, top, bottom = GetSilithusHighlightRect(GetMapIDForHighlightPin(pin))
-    local width = (right - left) * pinWidth
-    local height = (bottom - top) * pinHeight
-    if width <= 0 or height <= 0 then return false end
-
-    texture:ClearAllPoints()
-    SetSilithusHighlightSize(texture, width, height)
-    texture:SetPoint("TOPLEFT", pin, "TOPLEFT", left * pinWidth, -top * pinHeight)
-    texture:Show()
-    return true
-end
-
-local function ApplySilithusHighlightReplacement(pin)
-    if not pin then return end
-
-    if not IsEnabled() or not IsSilithusHoverOnKalimdor(pin) then
-        HideSilithusHighlight(pin)
-        return
-    end
-
-    if ShowSilithusHighlight(pin) and pin.HighlightTexture and pin.HighlightTexture.Hide then
-        pin.HighlightTexture:Hide()
-    end
-end
-
-local function HookSilithusHighlightFix()
-    if hookedSilithusHighlightFix or not hooksecurefunc then return end
-    if not _G.MapHighlightPinMixin or not _G.MapHighlightPinMixin.Refresh then return end
-
-    hooksecurefunc(_G.MapHighlightPinMixin, "Refresh", function(pin)
-        ApplySilithusHighlightReplacement(pin)
-    end)
-    hookedSilithusHighlightFix = true
-end
-
-local function ForEachMapHighlightPin(callback)
-    local mapFrame = _G.WorldMapFrame
-    if not mapFrame or not callback then return end
-
-    if mapFrame.EnumeratePinsByTemplate then
-        for pin in mapFrame:EnumeratePinsByTemplate("MapHighlightPinTemplate") do
-            callback(pin)
-        end
-    elseif mapFrame.EnumerateAllPins then
-        for pin in mapFrame:EnumerateAllPins() do
-            if pin and pin.HighlightTexture and pin.Refresh then
-                callback(pin)
-            end
-        end
-    end
-end
-
-local function ApplySilithusHighlightFix()
-    HookSilithusHighlightFix()
-
-    ForEachMapHighlightPin(ApplySilithusHighlightReplacement)
-end
-
-local function RefreshMapHighlightPins()
-    ForEachMapHighlightPin(function(pin)
-        if pin and pin.Refresh then
-            pcall(pin.Refresh, pin)
-        end
-    end)
-end
+Cleanup.GetWorldMapID = GetWorldMapID
 
 if POIPins.Configure then
     POIPins.Configure({
@@ -616,227 +438,13 @@ local function CenterMapCanvasForCurrentMap()
     centeredMapCanvasKey = centerKey
 end
 
-local function StoreHiddenState(object)
-    if hiddenMapObjects[object] then return end
-
-    hiddenMapObjects[object] = {
-        shown = object.IsShown and object:IsShown() or nil,
-        alpha = object.GetAlpha and object:GetAlpha() or nil,
-        mouseEnabled = object.IsMouseEnabled and object:IsMouseEnabled() or nil,
-    }
-end
-
-local function HideMapObject(object)
-    if not object then return end
-
-    StoreHiddenState(object)
-    if object.Hide then object:Hide() end
-    if object.SetAlpha then object:SetAlpha(0) end
-    if object.EnableMouse then object:EnableMouse(false) end
-end
-
-local function RestoreMapObjects()
-    for object, state in pairs(hiddenMapObjects) do
-        if object then
-            if object.SetAlpha then object:SetAlpha(state.alpha or 1) end
-            if object.EnableMouse and state.mouseEnabled ~= nil then object:EnableMouse(state.mouseEnabled) end
-            if object.Show and state.shown then
-                object:Show()
-            elseif object.Hide and state.shown == false then
-                object:Hide()
-            end
-        end
-    end
-    hiddenMapObjects = {}
-end
-
-local function IsContinentMapID(mapID)
-    return mapID == 1414 or mapID == 1415 or mapID == 1945 or mapID == 947 or
-        mapID == 12 or mapID == 13 or mapID == 1467
-end
-
-local function TextureCoordsMatch(texture, a, b, c, d, e, f, g, h)
-    if not texture or not texture.GetTexCoord then return false end
-
-    local ta, tb, tc, td, te, tf, tg, th = texture:GetTexCoord()
-    return math.abs((ta or 0) - a) < 0.0001 and
-        math.abs((tb or 0) - b) < 0.0001 and
-        math.abs((tc or 0) - c) < 0.0001 and
-        math.abs((td or 0) - d) < 0.0001 and
-        math.abs((te or 0) - e) < 0.0001 and
-        math.abs((tf or 0) - f) < 0.0001 and
-        math.abs((tg or 0) - g) < 0.0001 and
-        math.abs((th or 0) - h) < 0.0001
-end
-
-local function TextureIsTownOrCity(texture)
-    if not texture or not texture.GetTexture then return false end
-
-    local textureID = texture:GetTexture()
-    if textureID ~= 136441 and textureID ~= "Interface\\Minimap\\POIIcons" and textureID ~= "Interface\\MINIMAP\\POIIcons" then
-        return false
-    end
-
-    return TextureCoordsMatch(texture, 0.5, 0, 0.5, 0.125, 0.625, 0, 0.625, 0.125) or
-        TextureCoordsMatch(texture, 0.625, 0, 0.625, 0.125, 0.75, 0, 0.75, 0.125)
-end
-
-local function HideTownCityPin(pin)
-    if not IsEnabled() or not pin or pin.CPWorldMapCleanupPin then return end
-    if not IsContinentMapID(GetWorldMapID()) then return end
-
-    if pin.Texture and TextureIsTownOrCity(pin.Texture) then
-        HideMapObject(pin)
-    end
-end
-
-local function HookTownCityPins()
-    if hookedTownCityPins or not hooksecurefunc or not BaseMapPoiPinMixin then return end
-
-    hooksecurefunc(BaseMapPoiPinMixin, "OnAcquired", function(pin)
-        HideTownCityPin(pin)
-    end)
-    hookedTownCityPins = true
-end
-
-local function ApplyExistingTownCityPins()
-    local mapFrame = _G.WorldMapFrame
-    if not mapFrame then return end
-
-    if mapFrame.EnumerateAllPins then
-        for pin in mapFrame:EnumerateAllPins() do
-            HideTownCityPin(pin)
-        end
-    elseif mapFrame.EnumeratePinsByTemplate then
-        for pin in mapFrame:EnumeratePinsByTemplate("BaseMapPoiPinTemplate") do
-            HideTownCityPin(pin)
-        end
-    end
-end
-
-local function ApplyTownCityIcons()
-    RestoreMapObjects()
-    if not IsEnabled() or not _G.WorldMapFrame then return end
-
-    HookTownCityPins()
-    ApplyExistingTownCityPins()
-end
-
-local function CaptureGroupMemberPinSizes(pin)
-    if originalGroupMemberPinSizes or not pin or not pin.dataProvider then return end
-    if not pin.dataProvider.GetUnitPinSizesTable then return end
-
-    local sizes = pin.dataProvider:GetUnitPinSizesTable()
-    if not sizes then return end
-
-    originalGroupMemberPinSizes = {
-        party = sizes.party,
-        raid = sizes.raid,
-    }
-end
-
-local function SetGroupMemberPinTexture(pin)
-    if not pin or not pin.SetPinTexture then return end
-
-    pcall(pin.SetPinTexture, pin, "party", GROUP_MEMBER_PIN_TEXTURE)
-    pcall(pin.SetPinTexture, pin, "raid", GROUP_MEMBER_PIN_TEXTURE)
-end
-
-local function HookGroupMemberPinAppearance(pin)
-    if not pin or pin.CP_WorldMapCleanupGroupPinHooked or not hooksecurefunc then return end
-    if not pin.UpdateAppearanceData then return end
-
-    hooksecurefunc(pin, "UpdateAppearanceData", function(self)
-        if IsEnabled() then SetGroupMemberPinTexture(self) end
-    end)
-    pin.CP_WorldMapCleanupGroupPinHooked = true
-end
-
-local function SetGroupMemberPinAppearance(pin, enabled)
-    if not pin then return end
-
-    if enabled then
-        HookGroupMemberPinAppearance(pin)
-        SetGroupMemberPinTexture(pin)
-    end
-
-    if pin.SetAppearanceField then
-        pcall(pin.SetAppearanceField, pin, "party", "useClassColor", enabled == true)
-        pcall(pin.SetAppearanceField, pin, "raid", "useClassColor", enabled == true)
-    end
-
-    if enabled and pin.SetAppearanceField then
-        pcall(pin.SetAppearanceField, pin, "party", "sublevel", 0)
-        pcall(pin.SetAppearanceField, pin, "raid", "sublevel", 0)
-    end
-
-    if pin.dataProvider and pin.dataProvider.GetUnitPinSizesTable then
-        local sizes = pin.dataProvider:GetUnitPinSizesTable()
-        if sizes then
-            if enabled then
-                CaptureGroupMemberPinSizes(pin)
-                sizes.party = GROUP_MEMBER_PIN_SIZE
-                sizes.raid = GROUP_MEMBER_PIN_SIZE
-            elseif originalGroupMemberPinSizes then
-                sizes.party = originalGroupMemberPinSizes.party
-                sizes.raid = originalGroupMemberPinSizes.raid
-            end
-        end
-    end
-
-    if pin.UpdateShownUnits then pcall(pin.UpdateShownUnits, pin) end
-    if pin.SynchronizePinSizes then pcall(pin.SynchronizePinSizes, pin) end
-end
-
-local function ForEachGroupMemberPin(callback)
-    local mapFrame = _G.WorldMapFrame
-    if not mapFrame or not callback then return end
-
-    if mapFrame.EnumeratePinsByTemplate then
-        for pin in mapFrame:EnumeratePinsByTemplate("GroupMembersPinTemplate") do
-            callback(pin)
-        end
-    elseif mapFrame.EnumerateAllPins then
-        for pin in mapFrame:EnumerateAllPins() do
-            if pin and pin.SetAppearanceField and pin.dataProvider and pin.SynchronizePinSizes then
-                callback(pin)
-            end
-        end
-    end
-end
-
-local function ApplyGroupMemberPins()
-    if not IsEnabled() then return end
-
-    ForEachGroupMemberPin(function(pin)
-        SetGroupMemberPinAppearance(pin, true)
-    end)
-end
-
-local function RestoreGroupMemberPins()
-    ForEachGroupMemberPin(function(pin)
-        SetGroupMemberPinAppearance(pin, false)
-    end)
-    originalGroupMemberPinSizes = nil
-end
-
-local function HookGroupMemberPins()
-    if hookedGroupMemberPins or not hooksecurefunc or not _G.GroupMembersPinMixin then return end
-    if not _G.GroupMembersPinMixin.OnAcquired then return end
-
-    hooksecurefunc(_G.GroupMembersPinMixin, "OnAcquired", function()
-        ApplyGroupMemberPins()
-    end)
-    hookedGroupMemberPins = true
-end
-
 local function ApplyWorldMapCleanup()
     ApplyMapPosition()
     CenterMapCanvasForCurrentMap()
-    ApplyTownCityIcons()
-    ApplySilithusHighlightFix()
-    HookGroupMemberPins()
-    ApplyGroupMemberPins()
+    Cleanup.ApplyTownCityIcons()
+    Cleanup.ApplySilithusHighlightFix()
+    Cleanup.HookGroupMemberPins()
+    Cleanup.ApplyGroupMemberPins()
     ApplyPOIPins()
     ApplyMovingMapFade(0, false)
 end
@@ -848,7 +456,7 @@ end
 frame:SetScript("OnUpdate", function(_, elapsed)
     local mapFrame = _G.WorldMapFrame
     if mapFrame and mapFrame.IsShown and mapFrame:IsShown() then
-        ApplySilithusHighlightFix()
+        Cleanup.ApplySilithusHighlightFix()
         ApplyMovingMapFade(elapsed, false)
     end
 end)
@@ -869,8 +477,8 @@ local function HookWorldMap()
     if hookedWorldMap or not mapFrame then return end
 
     EnsurePOIProvider()
-    HookTownCityPins()
-    HookSilithusHighlightFix()
+    Cleanup.HookTownCityPins()
+    Cleanup.ApplySilithusHighlightFix()
 
     if mapFrame.HookScript then
         mapFrame:HookScript("OnShow", function()
@@ -885,32 +493,24 @@ local function HookWorldMap()
         end)
     end
 
-    if hooksecurefunc then
-        if mapFrame.RefreshAllData then hooksecurefunc(mapFrame, "RefreshAllData", function() ScheduleApply(0) end) end
-        if mapFrame.OnMapChanged then
-            hooksecurefunc(mapFrame, "OnMapChanged", function()
-                CenterMapCanvasForCurrentMap()
-                ScheduleApply(0)
-            end)
-        end
-        if mapFrame.Maximize then
-            hooksecurefunc(mapFrame, "Maximize", function()
-                ApplyWorldMapCleanupImmediately()
-                ScheduleApply(0.1)
-            end)
-        end
-        if mapFrame.Minimize then
-            hooksecurefunc(mapFrame, "Minimize", function()
-                ApplyWorldMapCleanupImmediately()
-                ScheduleApply(0.1)
-            end)
-        end
-        if mapFrame.SynchronizeDisplayState then
-            hooksecurefunc(mapFrame, "SynchronizeDisplayState", function()
-                ApplyWorldMapCleanupImmediately()
-                ScheduleApply(0.1)
-            end)
-        end
+    if Carpenter and Carpenter.SafeHook then
+        Carpenter:SafeHook(mapFrame, "RefreshAllData", function() ScheduleApply(0) end)
+        Carpenter:SafeHook(mapFrame, "OnMapChanged", function()
+            CenterMapCanvasForCurrentMap()
+            ScheduleApply(0)
+        end)
+        Carpenter:SafeHook(mapFrame, "Maximize", function()
+            ApplyWorldMapCleanupImmediately()
+            ScheduleApply(0.1)
+        end)
+        Carpenter:SafeHook(mapFrame, "Minimize", function()
+            ApplyWorldMapCleanupImmediately()
+            ScheduleApply(0.1)
+        end)
+        Carpenter:SafeHook(mapFrame, "SynchronizeDisplayState", function()
+            ApplyWorldMapCleanupImmediately()
+            ScheduleApply(0.1)
+        end)
     end
 
     hookedWorldMap = true
@@ -938,8 +538,8 @@ function feature:Enable()
 
     HookWorldMap()
     ApplyWorldMapCleanupImmediately()
-    if Carpenter and Carpenter.DeferMany then
-        Carpenter:DeferMany("WorldMapCleanup:startup", { 0.2, 1, 3 }, ApplyWorldMapCleanup)
+    if Carpenter and Carpenter.RunStartupPasses then
+        Carpenter:RunStartupPasses("WorldMapCleanup:startup", { 0.2, 1, 3 }, ApplyWorldMapCleanup)
     else
         ScheduleApply(0.2)
         ScheduleApply(1)
@@ -950,10 +550,10 @@ end
 function feature:Disable()
     frame:UnregisterAllEvents()
     centeredMapCanvasKey = nil
-    RestoreGroupMemberPins()
-    RestoreMapObjects()
+    Cleanup.RestoreGroupMemberPins()
+    Cleanup.RestoreMapObjects()
     RemovePOIPins()
-    RefreshMapHighlightPins()
+    Cleanup.RefreshMapHighlightPins()
     RestoreScaledMapCursor()
     RestoreMapPosition()
     ApplyMovingMapFade(0, true)
@@ -965,10 +565,10 @@ function Carpenter_ApplyWorldMapCleanup()
         ApplyWorldMapCleanup()
     else
         centeredMapCanvasKey = nil
-        RestoreGroupMemberPins()
-        RestoreMapObjects()
+        Cleanup.RestoreGroupMemberPins()
+        Cleanup.RestoreMapObjects()
         RemovePOIPins()
-        RefreshMapHighlightPins()
+        Cleanup.RefreshMapHighlightPins()
         RestoreScaledMapCursor()
         RestoreMapPosition()
         ApplyMovingMapFade(0, true)
