@@ -2,6 +2,7 @@
 
 ## 1.6.8
 
+- Added a Classic/TBC Profession Icon Portrait option that replaces trade skill and craft window player portraits with the active profession icon.
 - Added the Classic Find Herbs minimap tracking icon to Remove Minimap Clutter's hover fade.
 - Kept the minimap button fade watcher awake while faded buttons are visible so leaving through Blizzard's clock frame still fades them back out.
 - Stabilized Classic/TBC Class Icon Portraits after Unit Frame Debuffs, self-targeting, target-of-target updates, and Blizzard health/status portrait redraws.

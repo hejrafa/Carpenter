@@ -140,6 +140,13 @@ function Options.Create(context)
                     onToggle = ApplyWorldMapCleanup,
                 },
                 {
+                    key = "professionIconPortraitEnabled",
+                    label = L.OPTION_PROFESSION_ICON_PORTRAIT or "Profession Icon Portrait",
+                    description = Description("DESC_PROFESSION_ICON_PORTRAIT"),
+                    image = GetSettingsImage("tooltip.png"),
+                    requiresReload = false,
+                },
+                {
                     key = "enhanceTooltipEnabled",
                     label = L.OPTION_ENHANCE_TOOLTIP or "Enhanced Tooltip",
                     description = Description("DESC_ENHANCE_TOOLTIP"),

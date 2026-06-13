@@ -21,6 +21,7 @@ local defaults = {
     minimapClutterEnabled = false,
     worldMapCleanupEnabled = false,
     worldMapPOIIconsEnabled = false,
+    professionIconPortraitEnabled = false,
     enhanceTooltipEnabled = false,
     scaleExtraAbilityEnabled = false,
     -- Unit Frames

@@ -37,6 +37,7 @@ local classicFeatures = {
     hideStanceBarEnabled = true,
     minimapClutterEnabled = true,
     worldMapCleanupEnabled = true,
+    professionIconPortraitEnabled = true,
     enhanceTooltipEnabled = true,
     classHealthColorsEnabled = true,
     threatIndicatorEnabled = true,

@@ -48,6 +48,7 @@ Modules\WorldMapCleanup\WorldMapCleanupSilithus.lua
 Modules\WorldMapCleanup\WorldMapCleanupPins.lua
 Modules\WorldMapCleanup\WorldMapCleanup.xml
 Modules\WorldMapCleanup\WorldMapCleanup.lua
+Modules\ProfessionIconPortrait.lua
 Modules\EnhanceTooltip.lua
 Modules\ReadyCheckCompat.lua
 
