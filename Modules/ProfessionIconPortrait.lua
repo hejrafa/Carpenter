@@ -251,7 +251,7 @@ local function PositionOverlay(overlay, portrait, parent)
         overlay:SetParent(parent)
     end
     overlay:ClearAllPoints()
-    overlay:SetFrameLevel((parent.GetFrameLevel and parent:GetFrameLevel() or 0) + 1)
+    overlay:SetFrameLevel(math.max(0, (parent.GetFrameLevel and parent:GetFrameLevel() or 0) - 2))
     overlay:SetPoint("TOPLEFT", portrait, "TOPLEFT")
     overlay:SetPoint("BOTTOMRIGHT", portrait, "BOTTOMRIGHT")
 end
@@ -265,7 +265,7 @@ local function GetOrCreateOverlay(window, portrait)
     local overlay = overlays[window.frameName]
     if not overlay then
         overlay = CreateFrame("Frame", nil, parent)
-        local texture = overlay:CreateTexture(nil, "ARTWORK")
+        local texture = overlay:CreateTexture(nil, "BACKGROUND", nil, 1)
         texture:SetAllPoints(overlay)
         texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
