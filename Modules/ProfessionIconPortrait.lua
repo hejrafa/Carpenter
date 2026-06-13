@@ -9,6 +9,7 @@ local FEATURE_KEY = "professionIconPortraitEnabled"
 local BOOKTYPE = _G.BOOKTYPE_SPELL or "spell"
 
 local globalHooks = {}
+local overlays = {}
 local fallbackIcons
 
 local function IsEnabled()
@@ -202,6 +203,13 @@ local function GetWindowPortrait(window)
     end
 end
 
+local function SetPortraitAlpha(portrait, alpha)
+    if not portrait or type(portrait.SetAlpha) ~= "function" then return end
+    portrait.CP_ProfessionIconApplying = true
+    pcall(portrait.SetAlpha, portrait, alpha)
+    portrait.CP_ProfessionIconApplying = nil
+end
+
 local function ScheduleRefresh(window)
     if Carpenter and Carpenter.Defer then
         Carpenter:Defer("ProfessionIconPortrait:" .. (window.frameName or "all"), 0, function()
@@ -238,28 +246,70 @@ local function HookPortrait(window)
     portrait.CP_ProfessionIconHooked = true
 end
 
-local function SetPortraitIcon(portrait, texture)
-    if not portrait or not texture or type(portrait.SetTexture) ~= "function" then return false end
+local function PositionOverlay(overlay, portrait, parent)
+    if overlay.SetParent and overlay:GetParent() ~= parent then
+        overlay:SetParent(parent)
+    end
+    overlay:ClearAllPoints()
+    overlay:SetFrameLevel((parent.GetFrameLevel and parent:GetFrameLevel() or 0) + 1)
+    overlay:SetPoint("TOPLEFT", portrait, "TOPLEFT")
+    overlay:SetPoint("BOTTOMRIGHT", portrait, "BOTTOMRIGHT")
+end
 
-    portrait.CP_ProfessionIconApplying = true
-    local ok = pcall(portrait.SetTexture, portrait, texture)
-    if ok and portrait.SetTexCoord then
-        pcall(portrait.SetTexCoord, portrait, 0, 1, 0, 1)
-    end
-    if ok and portrait.SetAlpha then
-        pcall(portrait.SetAlpha, portrait, 1)
-    end
-    if ok and portrait.Show then
-        pcall(portrait.Show, portrait)
-    end
-    portrait.CP_ProfessionIconApplying = nil
+local function GetOrCreateOverlay(window, portrait)
+    if not window or not portrait then return nil end
 
-    if ok then
-        portrait.CP_ProfessionIconApplied = true
-        portrait.CP_ProfessionIconTexture = texture
+    local parent = (portrait.GetParent and portrait:GetParent()) or GetWindowFrame(window) or UIParent
+    if not parent then return nil end
+
+    local overlay = overlays[window.frameName]
+    if not overlay then
+        overlay = CreateFrame("Frame", nil, parent)
+        local texture = overlay:CreateTexture(nil, "ARTWORK")
+        texture:SetAllPoints(overlay)
+        texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+        if overlay.CreateMaskTexture and texture.AddMaskTexture then
+            local mask = overlay:CreateMaskTexture()
+            mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
+            mask:SetAllPoints(overlay)
+            texture:AddMaskTexture(mask)
+            overlay.mask = mask
+        end
+
+        overlay.texture = texture
+        overlays[window.frameName] = overlay
     end
 
-    return ok
+    PositionOverlay(overlay, portrait, parent)
+    return overlay
+end
+
+local function HideOverlay(window)
+    local overlay = window and overlays[window.frameName]
+    if overlay then
+        overlay:Hide()
+    end
+end
+
+local function SetPortraitIcon(window, portrait, texture)
+    if not portrait or not texture then return false end
+
+    local overlay = GetOrCreateOverlay(window, portrait)
+    if not overlay or not overlay.texture then return false end
+
+    local ok = pcall(overlay.texture.SetTexture, overlay.texture, texture)
+    if not ok then return false end
+
+    if overlay.texture.SetTexCoord then
+        pcall(overlay.texture.SetTexCoord, overlay.texture, 0.08, 0.92, 0.08, 0.92)
+    end
+
+    overlay:Show()
+    SetPortraitAlpha(portrait, 0)
+    portrait.CP_ProfessionIconApplied = true
+    portrait.CP_ProfessionIconTexture = texture
+    return true
 end
 
 local function RestorePortrait(window)
@@ -268,17 +318,8 @@ local function RestorePortrait(window)
 
     portrait.CP_ProfessionIconApplied = nil
     portrait.CP_ProfessionIconTexture = nil
-    portrait.CP_ProfessionIconApplying = true
-    if type(_G.SetPortraitTexture) == "function" then
-        pcall(_G.SetPortraitTexture, portrait, "player")
-    end
-    if portrait.SetTexCoord then
-        pcall(portrait.SetTexCoord, portrait, 0, 1, 0, 1)
-    end
-    if portrait.SetAlpha then
-        pcall(portrait.SetAlpha, portrait, 1)
-    end
-    portrait.CP_ProfessionIconApplying = nil
+    HideOverlay(window)
+    SetPortraitAlpha(portrait, 1)
 end
 
 function windows.RefreshWindow(window)
@@ -301,7 +342,7 @@ function windows.RefreshWindow(window)
     local selectedIcon = window.selectedIcon and window.selectedIcon()
     local texture = GetProfessionIcon(title, selectedIcon)
     if texture then
-        SetPortraitIcon(portrait, texture)
+        SetPortraitIcon(window, portrait, texture)
     else
         RestorePortrait(window)
     end
