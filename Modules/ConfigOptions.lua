@@ -143,7 +143,7 @@ function Options.Create(context)
                     key = "professionIconPortraitEnabled",
                     label = L.OPTION_PROFESSION_ICON_PORTRAIT or "Profession Icon Portrait",
                     description = Description("DESC_PROFESSION_ICON_PORTRAIT"),
-                    image = GetSettingsImage("tooltip.png"),
+                    image = GetSettingsImage("profession.png"),
                     requiresReload = false,
                 },
                 {
