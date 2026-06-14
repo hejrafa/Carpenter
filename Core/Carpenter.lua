@@ -71,6 +71,7 @@ local defaults = {
     actionCamEnabled = false,
     -- Transmog
     hideShouldersEnabled = false,
+    backSheathOneHandWeaponsEnabled = false,
     -- Settings
     classicSettingsPresetEnabled = false,
     blankLuaErrorTraceEnabled = false,
@@ -301,6 +302,7 @@ end
 function Carpenter_InitializeSettings()
     if CarpenterDB then
         CarpenterDB.hideShouldersEnabled = false
+        CarpenterDB.backSheathOneHandWeaponsEnabled = false
     end
 
     if CarpenterDB and Carpenter.Client and Carpenter.Client.isRetail and

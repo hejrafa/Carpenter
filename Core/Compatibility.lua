@@ -64,6 +64,7 @@ local classicFeatures = {
     hideErrorMessagesEnabled = true,
     actionCamEnabled = true,
     hideShouldersEnabled = true,
+    backSheathOneHandWeaponsEnabled = true,
     classicSettingsPresetEnabled = true,
 }
 

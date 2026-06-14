@@ -424,6 +424,13 @@ function Options.CreateHidden(context)
                     requiresReload = false,
                     unavailableMessage = L.HIDE_SHOULDERS_UNAVAILABLE or "Live character shoulders cannot be hidden client-side by an addon.",
                 },
+                {
+                    key = "backSheathOneHandWeaponsEnabled",
+                    label = L.OPTION_BACK_SHEATH_ONE_HAND_WEAPONS or "Back Sheath 1H Weapons",
+                    description = Description("DESC_BACK_SHEATH_ONE_HAND_WEAPONS"),
+                    requiresReload = false,
+                    unavailableMessage = L.BACK_SHEATH_ONE_HAND_WEAPONS_UNAVAILABLE or "Live one-hand weapon sheath placement cannot be changed by an addon.",
+                },
             },
         },
     }
