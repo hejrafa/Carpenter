@@ -276,18 +276,11 @@ local function CreateCheckbox(key, label, description, sideLogic, imagePath, req
         _G[check:GetName() .. "Text"]:SetTextColor(0.55, 0.55, 0.55, 1)
     end
 
-    local function ShowUnavailableMessage()
+    local function ResetUnavailableOption()
         check:SetChecked(false)
         if CarpenterDB then
             CarpenterDB[key] = false
             UpdateReloadButton()
-        end
-        if UIErrorsFrame and UIErrorsFrame.AddMessage then
-            UIErrorsFrame:AddMessage(unavailableMessage, 1, 0.82, 0.2, 1)
-        elseif Carpenter and Carpenter.AddChatMessage then
-            Carpenter:AddChatMessage("|cffffd200Carpenter:|r " .. unavailableMessage)
-        else
-            print("|cffffd200Carpenter:|r " .. unavailableMessage)
         end
     end
 
@@ -311,7 +304,7 @@ local function CreateCheckbox(key, label, description, sideLogic, imagePath, req
     row:SetScript("OnLeave", OnLeave)
     row:SetScript("OnClick", function()
         if isUnavailable then
-            ShowUnavailableMessage()
+            ResetUnavailableOption()
         else
             check:Click()
         end
@@ -320,7 +313,7 @@ local function CreateCheckbox(key, label, description, sideLogic, imagePath, req
     check:SetScript("OnLeave", OnLeave)
     check:SetScript("OnClick", function(self)
         if isUnavailable then
-            ShowUnavailableMessage()
+            ResetUnavailableOption()
             return
         end
         if CarpenterDB then
