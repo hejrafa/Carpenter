@@ -2,8 +2,8 @@
 
 ## 1.7.0
 
-- Added a hidden Transmog settings page behind the footer version number.
-- Added a disabled Hide Shoulders experiment that explains why live player shoulder armor cannot be hidden client-side by an addon.
+- Added a hidden Classic/TBC Transmog settings page behind the footer version number.
+- Added a disabled Classic/TBC Hide Shoulders experiment that explains why live player shoulder armor cannot be hidden client-side by an addon.
 
 ## 1.6.8
 

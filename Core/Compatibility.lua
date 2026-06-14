@@ -100,7 +100,6 @@ local featureSupport = {
         autoRepair = true,
         hideErrorMessagesEnabled = true,
         actionCamEnabled = true,
-        hideShouldersEnabled = true,
     },
 }
 

@@ -416,6 +416,7 @@ end
 
 local mainWidgets, mainYPos = RenderSections(OPTION_SECTIONS)
 local hiddenWidgets, hiddenYPos = RenderSections(HIDDEN_OPTION_SECTIONS)
+local hasHiddenSettings = #hiddenWidgets > 0
 
 -- =========================
 -- Footer
@@ -431,11 +432,11 @@ local versionText = "v" .. ((Carpenter and Carpenter.GetVersion and Carpenter:Ge
 local hiddenSettingsShown = false
 
 local function UpdateFooterVersionText(isHovered)
-    footerVersion:SetText((isHovered and "|cffdddddd" or LightGrey) .. versionText .. "|r")
+    footerVersion:SetText((isHovered and hasHiddenSettings and "|cffdddddd" or LightGrey) .. versionText .. "|r")
 end
 
 local function SetSettingsView(showHidden)
-    hiddenSettingsShown = showHidden == true
+    hiddenSettingsShown = hasHiddenSettings and showHidden == true
     for _, widget in ipairs(mainWidgets) do
         ShowWidget(widget, not hiddenSettingsShown)
     end
@@ -463,6 +464,7 @@ footerVersionButton:SetScript("OnLeave", function()
     UpdateFooterVersionText(false)
 end)
 footerVersionButton:SetScript("OnClick", function()
+    if not hasHiddenSettings then return end
     SetSettingsView(not hiddenSettingsShown)
 end)
 
