@@ -226,7 +226,14 @@ local function SetupPlate(plate, unit)
     if not fontSet then
         text:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", 8)
     end
-    text:SetPoint("CENTER", widget, "CENTER", 0, 0)
+    text:SetPoint("LEFT", widget, "LEFT", 3, 0)
+    text:SetPoint("RIGHT", widget, "RIGHT", -3, 0)
+    text:SetHeight(barH + 2)
+    text:SetJustifyH("CENTER")
+    text:SetJustifyV("MIDDLE")
+    if text.SetWordWrap then text:SetWordWrap(false) end
+    if text.SetNonSpaceWrap then text:SetNonSpaceWrap(false) end
+    if text.SetMaxLines then text:SetMaxLines(1) end
     text:SetTextColor(1, 1, 1)
     text:SetShadowColor(0, 0, 0, 1)
     text:SetShadowOffset(1, -1)
