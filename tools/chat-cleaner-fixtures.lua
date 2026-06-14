@@ -52,6 +52,12 @@ LOOT_ITEM = "%s receives loot: %s."
 LOOT_ITEM_MULTIPLE = "%s receives loot: %sx%d."
 LOOT_ITEM_PUSHED = "%s receives item: %s."
 LOOT_ITEM_PUSHED_MULTIPLE = "%s receives item: %sx%d."
+LOOT_ITEM_SELF = "You receive loot: %s."
+LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %sx%d."
+LOOT_ITEM_PUSHED_SELF = "You receive item: %s."
+LOOT_ITEM_PUSHED_SELF_MULTIPLE = "You receive item: %sx%d."
+LOOT_ITEM_CREATED_SELF = "You create: %s."
+LOOT_ITEM_CREATED_SELF_MULTIPLE = "You create: %sx%d."
 CREATED_ITEM = "%s creates: %s."
 CREATED_ITEM_MULTIPLE = "%s creates: %sx%d."
 LOOT_ROLL_NEED = "%s has selected Need for: %s"
@@ -536,6 +542,79 @@ for _, fixture in ipairs(fixtures) do
     end
 end
 inCombatLockdown = false
+
+do
+    local keys = {
+        "LOOT_ITEM",
+        "LOOT_ITEM_MULTIPLE",
+        "LOOT_ITEM_PUSHED",
+        "LOOT_ITEM_PUSHED_MULTIPLE",
+        "LOOT_ITEM_SELF",
+        "LOOT_ITEM_SELF_MULTIPLE",
+        "LOOT_ITEM_PUSHED_SELF",
+        "LOOT_ITEM_PUSHED_SELF_MULTIPLE",
+        "LOOT_ITEM_CREATED_SELF",
+        "LOOT_ITEM_CREATED_SELF_MULTIPLE",
+        "CREATED_ITEM",
+        "CREATED_ITEM_MULTIPLE",
+    }
+    local saved = {}
+    for _, key in ipairs(keys) do
+        saved[key] = _G[key]
+        _G[key] = nil
+    end
+
+    LOOT_ITEM = "Beute: %2$s fuer %1$s."
+    LOOT_ITEM_MULTIPLE = "Beute: %2$sx%3$d fuer %1$s."
+    LOOT_ITEM_SELF = "Erhalten: %s."
+    LOOT_ITEM_SELF_MULTIPLE = "Erhalten: %sx%d."
+
+    local utils = ns.Private.ChatCleanerUtils
+    local loot = ns.Private.ChatCleanerLoot
+    local countColor = "|cffc8c8c8"
+    local localizedFormatter = loot.Create({
+        CleanPunctuation = utils.CleanPunctuation,
+        StripBrackets = utils.StripBrackets,
+        SpaceBeforeX = utils.SpaceBeforeX,
+        GetItemLinkFromMessage = utils.GetItemLinkFromMessage,
+        GetItemLinkWithQualityColor = utils.GetItemLinkWithQualityColor,
+        FormatItemCountSuffix = function(text) return utils.FormatItemCountSuffix(text, countColor) end,
+        FormatReceivedDisplay = function(rawDisplay, sourceMessage)
+            return utils.FormatReceivedDisplay(rawDisplay, sourceMessage, { CountColor = countColor })
+        end,
+        ShouldSkipGenericReceive = utils.ShouldSkipGenericReceive,
+        SelfLootPatterns = loot.BuildSelfLootPatterns(),
+        GroupLootPatterns = loot.BuildGroupLootPatterns(),
+        RollPatterns = {},
+        RollPatternsFallback = {},
+        ColorPlus = countColor,
+        ColorLootLiteral = "|cffffffff",
+        ColorGreen = "|cff00ff00",
+        GetChannelMessageColor = function() return "|cffffffff" end,
+    })
+
+    local groupOut = localizedFormatter.FormatGroupLootMessage("CHAT_MSG_LOOT", "Beute: Seidenstoff fuer Malagas.", "")
+    additionalChecks = additionalChecks + 1
+    if plain(groupOut) ~= "Malagas + Seidenstoff" then
+        failures[#failures + 1] = "localized group loot format: expected [Malagas + Seidenstoff] got [" .. tostring(plain(groupOut)) .. "]"
+    end
+
+    local groupStackOut = localizedFormatter.FormatGroupLootMessage("CHAT_MSG_LOOT", "Beute: Seidenstoffx3 fuer Malagas.", "")
+    additionalChecks = additionalChecks + 1
+    if plain(groupStackOut) ~= "Malagas + Seidenstoff (3)" then
+        failures[#failures + 1] = "localized group loot stack format: expected [Malagas + Seidenstoff (3)] got [" .. tostring(plain(groupStackOut)) .. "]"
+    end
+
+    local selfOut = localizedFormatter.FormatSelfLootMessage("CHAT_MSG_LOOT", "Erhalten: Malachitx3.", countColor .. "+|r ")
+    additionalChecks = additionalChecks + 1
+    if plain(selfOut) ~= "+ Malachit (3)" then
+        failures[#failures + 1] = "localized self loot stack format: expected [+ Malachit (3)] got [" .. tostring(plain(selfOut)) .. "]"
+    end
+
+    for _, key in ipairs(keys) do
+        _G[key] = saved[key]
+    end
+end
 
 do
     local hookCalls = 0

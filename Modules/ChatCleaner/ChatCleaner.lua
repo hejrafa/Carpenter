@@ -280,39 +280,11 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     local prefixPlus = ColorPlus .. "+|r "
     local prefixMinus = ColorMinus .. "-|r "
 
-    -- Early detection: Suppress loot messages that come through as CHAT_MSG_YELL
-    -- Only process if the message ALREADY contains loot patterns - don't add "receives loot:" to regular yells
     if event == "CHAT_MSG_YELL" then
-        local plainMsg = msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
-        -- Only process if message already contains loot patterns (actual loot messages, not regular yells)
-        if plainMsg:find("receives loot:") or plainMsg:find("receives item:") or 
-           plainMsg:find("creates:") or plainMsg:find("conjures:") then
-            -- This is an actual loot message incorrectly sent as a yell - reformat it
-            local playerName = author
-            if not playerName or playerName == "" then
-                -- Try to extract from message if author is missing
-                playerName = plainMsg:match("^%s*(.-)%s+receives loot:") or
-                             plainMsg:match("^%s*(.-)%s+receives item:") or
-                             plainMsg:match("^%s*(.-)%s+creates:") or
-                             plainMsg:match("^%s*(.-)%s+conjures:")
-                if playerName then
-                    playerName = playerName:gsub("%-.*", "") -- Remove server name if present
-                    playerName = playerName:gsub("^%s+", ""):gsub("%s+$", "") -- Trim whitespace
-                end
-            else
-                -- Remove server name if present in author (format: "Name-Server")
-                playerName = playerName:gsub("%-.*", "")
-            end
-            
-            -- Other person's loot in yell: fall through so group loot block can style as "Name: Item (2)"
-            if playerName and playerName ~= "" and playerName ~= UnitName("player") then
-                -- fall through to group loot styling below
-            else
-                -- If we can't format it properly, suppress the yell version
-                return true
-            end
+        local playerName = ChatCleanerLoot.GetGroupLootPlayerName and ChatCleanerLoot.GetGroupLootPlayerName(msg, GroupLootPatterns, author)
+        if playerName and (playerName == "You" or playerName == UnitName("player")) then
+            return true
         end
-        -- Regular yells with item links should pass through unchanged - don't add "receives loot:" to them
     end
 
     -- 1. Experience and discovery messages

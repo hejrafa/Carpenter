@@ -22,25 +22,119 @@ local function MakeLootPattern(fmt)
     return Utils.MakeLootPattern and Utils.MakeLootPattern(fmt) or nil
 end
 
-function Loot.BuildGroupLootPatterns()
-    local patterns = {}
-    local globals = {
-        "LOOT_ITEM",
-        "LOOT_ITEM_MULTIPLE",
-        "LOOT_ITEM_PUSHED",
-        "LOOT_ITEM_PUSHED_MULTIPLE",
-        "CREATED_ITEM",
-        "CREATED_ITEM_MULTIPLE",
-    }
+local function MakeFormatPattern(fmt, fields, options)
+    if Utils.MakeFormatPattern then
+        return Utils.MakeFormatPattern(fmt, fields, options)
+    end
+    return MakeLootPattern(fmt), fields
+end
 
-    for _, globalName in ipairs(globals) do
-        local fmt = _G[globalName]
-        if fmt and type(fmt) == "string" then
-            local pattern = MakeLootPattern(fmt)
-            if pattern then
-                patterns[#patterns + 1] = { pattern = pattern, global = globalName }
+local function AddFormatPattern(patterns, spec)
+    local fmt = spec and _G[spec.global]
+    if fmt and type(fmt) == "string" then
+        local pattern, fields = MakeFormatPattern(fmt, spec.fields, { AnchorStart = true, AnchorEnd = true })
+        if pattern then
+            patterns[#patterns + 1] = { pattern = pattern, fields = fields, global = spec.global }
+        end
+    end
+end
+
+local function MatchFormatEntry(text, entry)
+    if not text or not entry or not entry.pattern then return nil end
+
+    local captures = { text:match(entry.pattern) }
+    if #captures == 0 then return nil end
+
+    local values = {}
+    if entry.fields then
+        for index, field in ipairs(entry.fields) do
+            if field and captures[index] then
+                values[field] = captures[index]
             end
         end
+    end
+
+    if not values.name then values.name = captures[1] end
+    if not values.item then values.item = captures[2] or captures[1] end
+    if not values.count then values.count = captures[3] end
+    return values
+end
+
+local function PlainLootText(message)
+    if not message or type(message) ~= "string" then return "" end
+    return message:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("%s+", " ")
+end
+
+local function MatchFallbackGroupLoot(text)
+    local name, itemPart = text:match("^%s*(.-)%s+receives loot:%s*(.+)$")
+    if name then return name, itemPart end
+    name, itemPart = text:match("^%s*(.-)%s+receives item:%s*(.+)$")
+    if name then return name, itemPart end
+    name, itemPart = text:match("^%s*(.-)%s+creates:%s*(.+)$")
+    if name then return name, itemPart end
+    name, itemPart = text:match("^%s*(.-)%s+conjures:%s*(.+)$")
+    if name then return name, itemPart end
+    return nil, nil
+end
+
+function Loot.GetGroupLootPlayerName(message, groupLootPatterns, author)
+    local plainLoot = PlainLootText(message)
+    for _, entry in ipairs(groupLootPatterns or {}) do
+        local values = MatchFormatEntry(plainLoot, entry)
+        if values and values.name then
+            return values.name:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
+        end
+    end
+
+    local name = MatchFallbackGroupLoot(plainLoot)
+    if name then
+        name = name:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
+        if name ~= "" then return name end
+    end
+
+    if author and author ~= "" then
+        local lowerPlain = plainLoot:lower()
+        if lowerPlain:find("receives loot:") or lowerPlain:find("receives item:") or lowerPlain:find(" creates:") or lowerPlain:find(" conjures:") then
+            return author:gsub("%-.*$", "")
+        end
+    end
+
+    return nil
+end
+
+function Loot.BuildGroupLootPatterns()
+    local patterns = {}
+    local specs = {
+        { global = "LOOT_ITEM", fields = { "name", "item" } },
+        { global = "LOOT_ITEM_MULTIPLE", fields = { "name", "item", "count" } },
+        { global = "LOOT_ITEM_PUSHED", fields = { "name", "item" } },
+        { global = "LOOT_ITEM_PUSHED_MULTIPLE", fields = { "name", "item", "count" } },
+        { global = "LOOT_ITEM_BONUS_ROLL", fields = { "name", "item" } },
+        { global = "LOOT_ITEM_BONUS_ROLL_MULTIPLE", fields = { "name", "item", "count" } },
+        { global = "CREATED_ITEM", fields = { "name", "item" } },
+        { global = "CREATED_ITEM_MULTIPLE", fields = { "name", "item", "count" } },
+    }
+
+    for _, spec in ipairs(specs) do
+        AddFormatPattern(patterns, spec)
+    end
+
+    return patterns
+end
+
+function Loot.BuildSelfLootPatterns()
+    local patterns = {}
+    local specs = {
+        { global = "LOOT_ITEM_SELF", fields = { "item" } },
+        { global = "LOOT_ITEM_SELF_MULTIPLE", fields = { "item", "count" } },
+        { global = "LOOT_ITEM_PUSHED_SELF", fields = { "item" } },
+        { global = "LOOT_ITEM_PUSHED_SELF_MULTIPLE", fields = { "item", "count" } },
+        { global = "LOOT_ITEM_CREATED_SELF", fields = { "item" } },
+        { global = "LOOT_ITEM_CREATED_SELF_MULTIPLE", fields = { "item", "count" } },
+    }
+
+    for _, spec in ipairs(specs) do
+        AddFormatPattern(patterns, spec)
     end
 
     return patterns
@@ -121,6 +215,7 @@ function Loot.Create(config)
     local formatItemCountSuffix = config.FormatItemCountSuffix or function(text) return text end
     local formatReceivedDisplay = config.FormatReceivedDisplay or function() return nil end
     local shouldSkipGenericReceive = config.ShouldSkipGenericReceive or function() return true end
+    local selfLootPatterns = config.SelfLootPatterns or Loot.BuildSelfLootPatterns()
     local groupLootPatterns = config.GroupLootPatterns or Loot.BuildGroupLootPatterns()
     local rollPatterns = config.RollPatterns or Loot.BuildRollPatterns()
     local rollPatternsFallback = config.RollPatternsFallback or Loot.RollPatternsFallback
@@ -170,6 +265,11 @@ function Loot.Create(config)
         return display:gsub("%s+[Ll]oot%s*$", ""):gsub("|r%s*$", "|r")
     end
 
+    local function ItemWithCount(item, count)
+        if not item or item == "" or not count or count == "" then return item end
+        return item .. " x" .. count
+    end
+
     local function BuildDisplayFromMessage(message)
         local itemLink = getItemLinkFromMessage(message)
         if itemLink then
@@ -203,7 +303,16 @@ function Loot.Create(config)
     end
 
     function api.FormatSelfLootMessage(event, message, prefixPlus)
-        local item = message:match("You receive loot: (.+)") or message:match("You create: (.+)") or
+        local item
+        for _, entry in ipairs(selfLootPatterns) do
+            local values = MatchFormatEntry(message, entry)
+            if values and values.item then
+                item = ItemWithCount(values.item, values.count)
+                break
+            end
+        end
+
+        item = item or message:match("You receive loot: (.+)") or message:match("You create: (.+)") or
             message:match("You receive item: (.+)") or message:match("You receive items: (.+)") or
             message:match("You received item: (.+)") or message:match("You received items: (.+)")
         if not item then
@@ -249,23 +358,13 @@ function Loot.Create(config)
             if not name or name == "" or name == "You" then return nil end
             return spaceBeforeX(nameColor .. name .. " " .. colorPlus .. "+|r " .. display)
         end
-        local function MatchGroupLoot(text)
-            local name, itemPart = text:match("^%s*(.-)%s+receives loot:%s*(.+)$")
-            if name then return name, itemPart end
-            name, itemPart = text:match("^%s*(.-)%s+receives item:%s*(.+)$")
-            if name then return name, itemPart end
-            name, itemPart = text:match("^%s*(.-)%s+creates:%s*(.+)$")
-            if name then return name, itemPart end
-            name, itemPart = text:match("^%s*(.-)%s+conjures:%s*(.+)$")
-            if name then return name, itemPart end
-            return nil, nil
-        end
-
-        local plainLoot = message:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("%s+", " ")
+        local plainLoot = PlainLootText(message)
         local lowerPlain = plainLoot:lower()
         for _, entry in ipairs(groupLootPatterns) do
-            local name, itemPart = plainLoot:match(entry.pattern)
-            if name then
+            local values = MatchFormatEntry(plainLoot, entry)
+            if values and values.name then
+                local name = values.name
+                local itemPart = ItemWithCount(values.item, values.count)
                 name = name:gsub("^%s+", ""):gsub("%s+$", "")
                 local display = BuildDisplayFromMessage(message)
                 if not display then
@@ -278,7 +377,7 @@ function Loot.Create(config)
             end
         end
 
-        local name, itemPart = MatchGroupLoot(plainLoot)
+        local name, itemPart = MatchFallbackGroupLoot(plainLoot)
         if name then
             name = name:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
             if name == "" and author and author ~= "" then name = author:gsub("%-.*$", "") end

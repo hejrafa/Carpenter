@@ -7,6 +7,12 @@ ns.Private.ChatCleanerUtils = Utils
 
 local LINK_OPEN  = "\255\255CP_L\255\255"
 local LINK_CLOSE = "\255\255CP_R\255\255"
+local PATTERN_MAGIC = "([%^%$%(%)%%%.%[%]%*%+%-%?])"
+
+function Utils.EscapePattern(text)
+    if not text or type(text) ~= "string" then return text end
+    return text:gsub(PATTERN_MAGIC, "%%%1")
+end
 
 function Utils.ParseRetailMoneyGain(message)
     if not message or type(message) ~= "string" then return nil end
@@ -165,7 +171,63 @@ function Utils.FormatReceivedDisplay(rawDisplay, sourceMessage, options)
     return display
 end
 
-function Utils.MakeLootPattern(fmt)
+function Utils.MakeFormatPattern(fmt, fields, options)
     if not fmt or type(fmt) ~= "string" then return nil end
-    return fmt:gsub("%%[%d%$]*s", "(.+)"):gsub("%%[%d%$]*d", "(%%d+)"):gsub("%.", "%%.")
+    fields = fields or {}
+    options = options or {}
+
+    local pattern = options.AnchorStart and "^%s*" or ""
+    local captureFields = {}
+    local cursor = 1
+    local ordinal = 1
+
+    while cursor <= #fmt do
+        local percent = fmt:find("%", cursor, true)
+        if not percent then
+            pattern = pattern .. Utils.EscapePattern(fmt:sub(cursor))
+            break
+        end
+
+        if percent > cursor then
+            pattern = pattern .. Utils.EscapePattern(fmt:sub(cursor, percent - 1))
+        end
+
+        local nextChar = fmt:sub(percent + 1, percent + 1)
+        if nextChar == "%" then
+            pattern = pattern .. "%%"
+            cursor = percent + 2
+        else
+            local token = fmt:match("^%%(%d+%$?[sd])", percent)
+            if not token then
+                token = fmt:match("^%%([sd])", percent)
+            end
+
+            if token then
+                local position = token:match("^(%d+)%$")
+                local field = fields[position and tonumber(position) or ordinal]
+                captureFields[#captureFields + 1] = field
+                ordinal = ordinal + 1
+
+                if token:sub(-1) == "d" then
+                    pattern = pattern .. "(%d+)"
+                else
+                    pattern = pattern .. "(.+)"
+                end
+                cursor = percent + #token + 1
+            else
+                pattern = pattern .. "%%"
+                cursor = percent + 1
+            end
+        end
+    end
+
+    if options.AnchorEnd then
+        pattern = pattern .. "%s*$"
+    end
+
+    return pattern, captureFields
+end
+
+function Utils.MakeLootPattern(fmt)
+    return Utils.MakeFormatPattern(fmt)
 end
