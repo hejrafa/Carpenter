@@ -69,6 +69,8 @@ local defaults = {
     hideErrorMessagesEnabled = false,
     -- Immersion
     actionCamEnabled = false,
+    -- Transmog
+    hideShouldersEnabled = false,
     -- Settings
     classicSettingsPresetEnabled = false,
     blankLuaErrorTraceEnabled = false,
@@ -297,6 +299,10 @@ function Carpenter:AddChatMessage(msg)
 end
 
 function Carpenter_InitializeSettings()
+    if CarpenterDB then
+        CarpenterDB.hideShouldersEnabled = false
+    end
+
     if CarpenterDB and Carpenter.Client and Carpenter.Client.isRetail and
         CarpenterDB.hideUnitFrameCombatTextEnabled == true and
         CarpenterDB.cleanUpUnitFramesEnabled ~= true then

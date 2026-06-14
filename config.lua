@@ -208,10 +208,12 @@ local function CreateHeader(text)
     label:SetText(text)
     label:SetTextColor(1, 1, 1)
     yPos = yPos - 25
+    return label
 end
 
-local function CreateCheckbox(key, label, description, sideLogic, imagePath, requiresReload, onToggle)
+local function CreateCheckbox(key, label, description, sideLogic, imagePath, requiresReload, onToggle, unavailableMessage)
     if requiresReload == nil then requiresReload = true end
+    local isUnavailable = unavailableMessage ~= nil
     local row = CreateFrame("Button", nil, content)
     row:SetHeight(32)
     row:SetPoint("TOPLEFT", 0, yPos)
@@ -269,6 +271,25 @@ local function CreateCheckbox(key, label, description, sideLogic, imagePath, req
     check:SetHitRectInsets(0, -320, 0, 0)
     _G[check:GetName() .. "Text"]:SetText(label)
     _G[check:GetName() .. "Text"]:SetFontObject("GameFontNormal")
+    if isUnavailable then
+        check:SetAlpha(0.55)
+        _G[check:GetName() .. "Text"]:SetTextColor(0.55, 0.55, 0.55, 1)
+    end
+
+    local function ShowUnavailableMessage()
+        check:SetChecked(false)
+        if CarpenterDB then
+            CarpenterDB[key] = false
+            UpdateReloadButton()
+        end
+        if UIErrorsFrame and UIErrorsFrame.AddMessage then
+            UIErrorsFrame:AddMessage(unavailableMessage, 1, 0.82, 0.2, 1)
+        elseif Carpenter and Carpenter.AddChatMessage then
+            Carpenter:AddChatMessage("|cffffd200Carpenter:|r " .. unavailableMessage)
+        else
+            print("|cffffd200Carpenter:|r " .. unavailableMessage)
+        end
+    end
 
     local function OnEnter()
         bgLeft:Show()
@@ -277,7 +298,7 @@ local function CreateCheckbox(key, label, description, sideLogic, imagePath, req
         ToggleSideImage(imagePath)
         sideDesc:SetText(description)
         if sideLogic then sideLogic() else sideContent:Hide() end
-        if requiresReload then sideReloadHint:Show() else sideReloadHint:Hide() end
+        if requiresReload and not isUnavailable then sideReloadHint:Show() else sideReloadHint:Hide() end
     end
 
     local function OnLeave()
@@ -288,10 +309,20 @@ local function CreateCheckbox(key, label, description, sideLogic, imagePath, req
 
     row:SetScript("OnEnter", OnEnter)
     row:SetScript("OnLeave", OnLeave)
-    row:SetScript("OnClick", function() check:Click() end)
+    row:SetScript("OnClick", function()
+        if isUnavailable then
+            ShowUnavailableMessage()
+        else
+            check:Click()
+        end
+    end)
     check:SetScript("OnEnter", OnEnter)
     check:SetScript("OnLeave", OnLeave)
     check:SetScript("OnClick", function(self)
+        if isUnavailable then
+            ShowUnavailableMessage()
+            return
+        end
         if CarpenterDB then
             CarpenterDB[key] = self:GetChecked()
             UpdateReloadButton()
@@ -318,6 +349,12 @@ local OPTION_SECTIONS = ConfigOptions.Create and ConfigOptions.Create({
     SideLogic = sidebarApi.SideLogic,
 }) or {}
 
+local HIDDEN_OPTION_SECTIONS = ConfigOptions.CreateHidden and ConfigOptions.CreateHidden({
+    L = L,
+    LightGrey = LightGrey,
+    LighterCream = LighterCream,
+}) or {}
+
 local function IsOptionAvailable(option)
     if not Carpenter:IsFeatureAvailable(option.key) then return false end
     if option.class then
@@ -327,54 +364,110 @@ local function IsOptionAvailable(option)
     return true
 end
 
-local visibleSectionCount = 0
-
-for _, section in ipairs(OPTION_SECTIONS) do
-    local hasAvailableOptions = false
-    for _, option in ipairs(section.options) do
-        if IsOptionAvailable(option) then
-            hasAvailableOptions = true
-            break
-        end
+local function ShowWidget(widget, shown)
+    if shown then
+        widget:Show()
+    else
+        widget:Hide()
     end
+end
 
-    if hasAvailableOptions then
-        visibleSectionCount = visibleSectionCount + 1
-        if visibleSectionCount > 1 then
-            yPos = yPos - 24
-        end
+local function RenderSections(sections)
+    local widgets = {}
+    yPos = -SCROLL_CONTENT_TOP_PADDING
+    local visibleSectionCount = 0
 
-        CreateHeader(section.title)
-
+    for _, section in ipairs(sections) do
+        local hasAvailableOptions = false
         for _, option in ipairs(section.options) do
             if IsOptionAvailable(option) then
-                CreateCheckbox(
-                    option.key,
-                    option.label,
-                    option.description,
-                    option.sideLogic,
-                    option.image,
-                    option.requiresReload,
-                    option.onToggle
-                )
+                hasAvailableOptions = true
+                break
+            end
+        end
+
+        if hasAvailableOptions then
+            visibleSectionCount = visibleSectionCount + 1
+            if visibleSectionCount > 1 then
+                yPos = yPos - 24
+            end
+
+            widgets[#widgets + 1] = CreateHeader(section.title)
+
+            for _, option in ipairs(section.options) do
+                if IsOptionAvailable(option) then
+                    widgets[#widgets + 1] = CreateCheckbox(
+                        option.key,
+                        option.label,
+                        option.description,
+                        option.sideLogic,
+                        option.image,
+                        option.requiresReload,
+                        option.onToggle,
+                        option.unavailableMessage
+                    )
+                end
             end
         end
     end
+
+    return widgets, yPos
 end
+
+local mainWidgets, mainYPos = RenderSections(OPTION_SECTIONS)
+local hiddenWidgets, hiddenYPos = RenderSections(HIDDEN_OPTION_SECTIONS)
 
 -- =========================
 -- Footer
 -- =========================
-yPos = yPos - 48
-local footerVersion = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-footerVersion:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, yPos - 3)
-footerVersion:SetText(LightGrey .. "v" .. ((Carpenter and Carpenter.GetVersion and Carpenter:GetVersion()) or "1.6.0") .. "|r")
+local footerVersionButton = CreateFrame("Button", nil, content)
+footerVersionButton:SetSize(96, 16)
+
+local footerVersion = footerVersionButton:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+footerVersion:SetAllPoints(footerVersionButton)
+footerVersion:SetJustifyH("RIGHT")
+
+local versionText = "v" .. ((Carpenter and Carpenter.GetVersion and Carpenter:GetVersion()) or "1.7.0")
+local hiddenSettingsShown = false
+
+local function UpdateFooterVersionText(isHovered)
+    footerVersion:SetText((isHovered and "|cffdddddd" or LightGrey) .. versionText .. "|r")
+end
+
+local function SetSettingsView(showHidden)
+    hiddenSettingsShown = showHidden == true
+    for _, widget in ipairs(mainWidgets) do
+        ShowWidget(widget, not hiddenSettingsShown)
+    end
+    for _, widget in ipairs(hiddenWidgets) do
+        ShowWidget(widget, hiddenSettingsShown)
+    end
+
+    local footerYPos = (hiddenSettingsShown and hiddenYPos or mainYPos) - 48
+    footerVersionButton:ClearAllPoints()
+    footerVersionButton:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, footerYPos - 3)
+    SetSidebarDefault()
+    scrollFrame:SetVerticalScroll(0)
 
 -- Keep the scroll child close to the frame edges without crowding the footer.
-local FOOTER_LINE_HEIGHT = 14
-local SIDEBAR_BOTTOM_INSET = 10
-local SCROLL_CONTENT_BOTTOM_PADDING = SIDE_GAP + SIDEBAR_BOTTOM_INSET
-content:SetHeight(-yPos + FOOTER_LINE_HEIGHT + SCROLL_CONTENT_BOTTOM_PADDING)
+    local FOOTER_LINE_HEIGHT = 14
+    local SIDEBAR_BOTTOM_INSET = 10
+    local SCROLL_CONTENT_BOTTOM_PADDING = SIDE_GAP + SIDEBAR_BOTTOM_INSET
+    content:SetHeight(-footerYPos + FOOTER_LINE_HEIGHT + SCROLL_CONTENT_BOTTOM_PADDING)
+end
+
+footerVersionButton:SetScript("OnEnter", function()
+    UpdateFooterVersionText(true)
+end)
+footerVersionButton:SetScript("OnLeave", function()
+    UpdateFooterVersionText(false)
+end)
+footerVersionButton:SetScript("OnClick", function()
+    SetSettingsView(not hiddenSettingsShown)
+end)
+
+UpdateFooterVersionText(false)
+SetSettingsView(false)
 
 -- Sync on Login
 local init = CreateFrame("Frame")

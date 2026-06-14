@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.0
+
+- Added a hidden Transmog settings page behind the footer version number.
+- Added a disabled Hide Shoulders experiment that explains why live player shoulder armor cannot be hidden client-side by an addon.
+
 ## 1.6.8
 
 - Added a Classic/TBC Profession Icon Portrait option that replaces trade skill and craft window player portraits with a circular active profession icon.
