@@ -15,7 +15,11 @@ local function AddBracketReplacement(globalName, short)
     if not label or label == "" then return end
 
     label = label:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
-    table.insert(channelReplacements, { "%[" .. label .. "%]", "[" .. short .. "]" })
+    table.insert(channelReplacements, {
+        Pattern = "%[" .. label .. "%]",
+        Replacement = "[" .. short .. "]",
+        RequiresSpeaker = true,
+    })
 end
 
 AddBracketReplacement("CHAT_PARTY_LEADER_GET", "PL")
@@ -33,7 +37,10 @@ do
         local label = rwTag:match("%[(.-)%]")
         if label and label ~= "" then
             label = label:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
-            table.insert(channelReplacements, { "%[" .. label .. "%]", "|cffff0000!|r" })
+            table.insert(channelReplacements, {
+                Pattern = "%[" .. label .. "%]",
+                Replacement = "|cffff0000!|r",
+            })
         end
     end
 end
@@ -41,8 +48,11 @@ end
 local function ApplyChannelStyling(text)
     if not text or type(text) ~= "string" then return text end
 
+    local hasSpeaker = text:find(":%s") ~= nil
     for _, entry in ipairs(channelReplacements) do
-        text = text:gsub(entry[1], entry[2])
+        if not entry.RequiresSpeaker or hasSpeaker then
+            text = text:gsub(entry.Pattern, entry.Replacement)
+        end
     end
 
     text = text:gsub("|Hchannel:(.-):(%d+)|h%[(%d+)%. (.-)%s%-%s.-%]|h", "|Hchannel:%1:%2|h%3.|h")

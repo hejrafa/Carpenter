@@ -32,6 +32,9 @@ local ColorAuctionExpired = ColorRed
 local ColorSold           = ColorGray
 local ColorAuctionHouse   = "|cffffb347"   -- Amber for buyer found, auction created
 local ColorRepair         = ColorGray
+local ColorFriendTag      = "|cff7dd3fc"
+local ColorGuildTag       = "|cff86efac"
+local ColorSocialAction   = "|cffb8b8b8"
 
 -- Same tones as shared XP colors
 local ColorRestedBar = Colors and Colors.restedValue and Colors.restedValue.colorCode or "|cff3399ff"
@@ -217,6 +220,9 @@ local socialFormatter = ChatCleanerSocial.Create and ChatCleanerSocial.Create({
     ColorQueue = ColorQueue,
     ColorRestedBar = ColorRestedBar,
     ColorNormalBar = ColorNormalBar,
+    ColorFriendTag = ColorFriendTag,
+    ColorGuildTag = ColorGuildTag,
+    ColorSocialAction = ColorSocialAction,
 }) or {}
 local FormatBattlegroundAndGroupNotice = socialFormatter.FormatBattlegroundAndGroupNotice
 local FormatSystemSocialMessage = socialFormatter.FormatSystemSocialMessage

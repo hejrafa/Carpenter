@@ -26,6 +26,13 @@ RAID_CLASS_COLORS = {
     ROGUE = { r = 1.00, g = 0.96, b = 0.41 },
     PRIEST = { r = 1.00, g = 1.00, b = 1.00 },
 }
+LOCALIZED_CLASS_NAMES_MALE = {
+    WARRIOR = "Warrior",
+    MAGE = "Mage",
+    ROGUE = "Rogue",
+    PRIEST = "Priest",
+}
+LOCALIZED_CLASS_NAMES_FEMALE = LOCALIZED_CLASS_NAMES_MALE
 ITEM_QUALITY_COLORS = {
     [0] = { r = 0.62, g = 0.62, b = 0.62 },
     [1] = { r = 1.00, g = 1.00, b = 1.00 },
@@ -76,12 +83,30 @@ local currentMoney = 0
 local groupMembers = 0
 local inRaid = false
 local inCombatLockdown = false
+local fixtureFriends = {
+    { name = "Dreadwarden", className = "Mage", connected = true },
+}
+local fixtureGuildMembers = {
+    { name = "Wightwalker", className = "Rogue", classFileName = "ROGUE", online = false },
+}
 function GetTime() return now end
 function GetMoney() return currentMoney end
 function GetLocale() return "enUS" end
 function IsInRaid() return inRaid end
 function GetNumGroupMembers() return groupMembers end
 function InCombatLockdown() return inCombatLockdown end
+function GetNumFriends() return #fixtureFriends end
+function GetFriendInfo(index)
+    local friend = fixtureFriends[index]
+    if not friend then return nil end
+    return friend.name, 60, friend.className, "Stormwind", friend.connected
+end
+function GetNumGuildMembers() return #fixtureGuildMembers end
+function GetGuildRosterInfo(index)
+    local member = fixtureGuildMembers[index]
+    if not member then return nil end
+    return member.name, "Member", 0, 60, member.className, "Stormwind", "", "", member.online, nil, member.classFileName
+end
 function UnitName(unit)
     if unit == "player" then return "Tester" end
     return nil
@@ -443,6 +468,42 @@ local fixtures = {
         event = "CHAT_MSG_SYSTEM",
         message = "Uzaemon has left the guild.",
         expectPlain = "Uzaemon left the guild",
+    },
+    {
+        name = "friend online notice",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Dreadwarden has come online.",
+        expectPlain = "[Friend] Dreadwarden came online",
+        requireColors = { "|cff7dd3fc[Friend]|r", "|cff3fc6eaDreadwarden|r", "|cffb8b8b8came online|r" },
+    },
+    {
+        name = "friend offline notice",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Dreadwarden has gone offline.",
+        expectPlain = "[Friend] Dreadwarden went offline",
+        requireColors = { "|cff7dd3fc[Friend]|r", "|cff3fc6eaDreadwarden|r", "|cffb8b8b8went offline|r" },
+    },
+    {
+        name = "guild online notice",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Wightwalker has come online.",
+        expectPlain = "[Guild] Wightwalker came online",
+        requireColors = { "|cff86efac[Guild]|r", "|cfffff468Wightwalker|r", "|cffb8b8b8came online|r" },
+    },
+    {
+        name = "guild offline notice",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Wightwalker has gone offline.",
+        expectPlain = "[Guild] Wightwalker went offline",
+        requireColors = { "|cff86efac[Guild]|r", "|cfffff468Wightwalker|r", "|cffb8b8b8went offline|r" },
+    },
+    {
+        name = "guild social notice tag stays full",
+        path = "post",
+        event = "CHAT_MSG_SYSTEM",
+        message = "|cff86efac[Guild]|r |cfffff468Wightwalker|r |cffb8b8b8went offline|r",
+        expectPlain = "[Guild] Wightwalker went offline",
+        requireColor = "|cff86efac[Guild]|r",
     },
     {
         name = "quest accepted",

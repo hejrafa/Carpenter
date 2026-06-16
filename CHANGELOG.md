@@ -5,6 +5,7 @@
 - Added a hidden Classic/TBC Transmog settings page behind the footer version number.
 - Added a disabled Classic/TBC Hide Shoulders experiment that explains why live player shoulder armor cannot be hidden client-side by an addon.
 - Added a disabled Classic/TBC Back Sheath 1H Weapons idea for tracking weapon-sheath placement experiments.
+- Styled Chat Cleaner friend and guild online/offline notices with compact social tags and muted action text.
 
 ## 1.6.8
 
