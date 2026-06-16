@@ -26,13 +26,6 @@ RAID_CLASS_COLORS = {
     ROGUE = { r = 1.00, g = 0.96, b = 0.41 },
     PRIEST = { r = 1.00, g = 1.00, b = 1.00 },
 }
-LOCALIZED_CLASS_NAMES_MALE = {
-    WARRIOR = "Warrior",
-    MAGE = "Mage",
-    ROGUE = "Rogue",
-    PRIEST = "Priest",
-}
-LOCALIZED_CLASS_NAMES_FEMALE = LOCALIZED_CLASS_NAMES_MALE
 ITEM_QUALITY_COLORS = {
     [0] = { r = 0.62, g = 0.62, b = 0.62 },
     [1] = { r = 1.00, g = 1.00, b = 1.00 },
@@ -43,6 +36,7 @@ ITEM_QUALITY_COLORS = {
 ChatTypeInfo = {
     PARTY = { r = 0.67, g = 0.67, b = 1 },
     RAID = { r = 1, g = 0.50, b = 0 },
+    GUILD = { r = 64 / 255, g = 1, b = 64 / 255 },
 }
 
 CHAT_PARTY_LEADER_GET = "[Party Leader] %s: "
@@ -473,37 +467,29 @@ local fixtures = {
         name = "friend online notice",
         event = "CHAT_MSG_SYSTEM",
         message = "Dreadwarden has come online.",
-        expectPlain = "[Friend] Dreadwarden came online",
-        requireColors = { "|cff7dd3fc[Friend]|r", "|cff3fc6eaDreadwarden|r", "|cffb8b8b8came online|r" },
+        expectPlain = "Dreadwarden came online",
+        requireColor = "|cffffd200Dreadwarden came online|r",
     },
     {
         name = "friend offline notice",
         event = "CHAT_MSG_SYSTEM",
         message = "Dreadwarden has gone offline.",
-        expectPlain = "[Friend] Dreadwarden went offline",
-        requireColors = { "|cff7dd3fc[Friend]|r", "|cff3fc6eaDreadwarden|r", "|cffb8b8b8went offline|r" },
+        expectPlain = "Dreadwarden went offline",
+        requireColor = "|cffffd200Dreadwarden went offline|r",
     },
     {
         name = "guild online notice",
         event = "CHAT_MSG_SYSTEM",
         message = "Wightwalker has come online.",
-        expectPlain = "[Guild] Wightwalker came online",
-        requireColors = { "|cff86efac[Guild]|r", "|cfffff468Wightwalker|r", "|cffb8b8b8came online|r" },
+        expectPlain = "Wightwalker came online",
+        requireColor = "|cff40ff40Wightwalker came online|r",
     },
     {
         name = "guild offline notice",
         event = "CHAT_MSG_SYSTEM",
         message = "Wightwalker has gone offline.",
-        expectPlain = "[Guild] Wightwalker went offline",
-        requireColors = { "|cff86efac[Guild]|r", "|cfffff468Wightwalker|r", "|cffb8b8b8went offline|r" },
-    },
-    {
-        name = "guild social notice tag stays full",
-        path = "post",
-        event = "CHAT_MSG_SYSTEM",
-        message = "|cff86efac[Guild]|r |cfffff468Wightwalker|r |cffb8b8b8went offline|r",
-        expectPlain = "[Guild] Wightwalker went offline",
-        requireColor = "|cff86efac[Guild]|r",
+        expectPlain = "Wightwalker went offline",
+        requireColor = "|cff40ff40Wightwalker went offline|r",
     },
     {
         name = "quest accepted",

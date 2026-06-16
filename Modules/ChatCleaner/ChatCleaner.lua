@@ -32,9 +32,6 @@ local ColorAuctionExpired = ColorRed
 local ColorSold           = ColorGray
 local ColorAuctionHouse   = "|cffffb347"   -- Amber for buyer found, auction created
 local ColorRepair         = ColorGray
-local ColorFriendTag      = "|cff7dd3fc"
-local ColorGuildTag       = "|cff86efac"
-local ColorSocialAction   = "|cffb8b8b8"
 
 -- Same tones as shared XP colors
 local ColorRestedBar = Colors and Colors.restedValue and Colors.restedValue.colorCode or "|cff3399ff"
@@ -113,6 +110,16 @@ local function GetChannelMessageColor(event)
     end
     local info = chatType and ChatTypeInfo and ChatTypeInfo[chatType]
     if not info or not info.r then return ColorLootLiteral end
+
+    local r = math.floor((info.r or 1) * 255)
+    local g = math.floor((info.g or 1) * 255)
+    local b = math.floor((info.b or 1) * 255)
+    return string.format("|cff%02x%02x%02x", r, g, b)
+end
+
+local function GetGuildMessageColor()
+    local info = ChatTypeInfo and ChatTypeInfo["GUILD"]
+    if not info or not info.r then return ColorGreen end
 
     local r = math.floor((info.r or 1) * 255)
     local g = math.floor((info.g or 1) * 255)
@@ -220,9 +227,8 @@ local socialFormatter = ChatCleanerSocial.Create and ChatCleanerSocial.Create({
     ColorQueue = ColorQueue,
     ColorRestedBar = ColorRestedBar,
     ColorNormalBar = ColorNormalBar,
-    ColorFriendTag = ColorFriendTag,
-    ColorGuildTag = ColorGuildTag,
-    ColorSocialAction = ColorSocialAction,
+    ColorFriendNotice = ColorYellow,
+    GetGuildMessageColor = GetGuildMessageColor,
 }) or {}
 local FormatBattlegroundAndGroupNotice = socialFormatter.FormatBattlegroundAndGroupNotice
 local FormatSystemSocialMessage = socialFormatter.FormatSystemSocialMessage

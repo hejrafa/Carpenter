@@ -16,9 +16,8 @@ function Social.Create(config)
     local colorQueue = config.ColorQueue or "|cff80b0ff"
     local colorRestedBar = config.ColorRestedBar or "|cff3399ff"
     local colorNormalBar = config.ColorNormalBar or "|cff9940ff"
-    local colorFriendTag = config.ColorFriendTag or "|cff7dd3fc"
-    local colorGuildTag = config.ColorGuildTag or "|cff86efac"
-    local colorSocialAction = config.ColorSocialAction or "|cffb8b8b8"
+    local colorFriendNotice = config.ColorFriendNotice or "|cffffd200"
+    local getGuildMessageColor = config.GetGuildMessageColor or function() return colorGreen end
     local cleanPunctuation = config.CleanPunctuation or function(text) return text end
     local L = config.L or (Carpenter and Carpenter.L) or {}
 
@@ -59,40 +58,6 @@ function Social.Create(config)
         return name:lower()
     end
 
-    local function ClassTokenFromName(className)
-        if not className or className == "" then return nil end
-        if RAID_CLASS_COLORS and RAID_CLASS_COLORS[className] then return className end
-
-        local maleNames = _G.LOCALIZED_CLASS_NAMES_MALE
-        if type(maleNames) == "table" then
-            for token, localized in pairs(maleNames) do
-                if localized == className then return token end
-            end
-        end
-
-        local femaleNames = _G.LOCALIZED_CLASS_NAMES_FEMALE
-        if type(femaleNames) == "table" then
-            for token, localized in pairs(femaleNames) do
-                if localized == className then return token end
-            end
-        end
-
-        return nil
-    end
-
-    local function ClassColorCode(classToken)
-        local color = classToken and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classToken]
-        if not color then return colorWhite end
-        if color.colorStr and type(color.colorStr) == "string" then
-            return "|c" .. color.colorStr
-        end
-
-        local r = math.floor((color.r or 1) * 255)
-        local g = math.floor((color.g or 1) * 255)
-        local b = math.floor((color.b or 1) * 255)
-        return string.format("|cff%02x%02x%02x", r, g, b)
-    end
-
     local function GetFriendCount()
         if C_FriendList and C_FriendList.GetNumFriends then
             local ok, count = pcall(C_FriendList.GetNumFriends)
@@ -112,18 +77,12 @@ function Social.Create(config)
             if C_FriendList and C_FriendList.GetFriendInfoByIndex then
                 local ok, info = pcall(C_FriendList.GetFriendInfoByIndex, i)
                 if ok and type(info) == "table" and PlayerKey(info.name) == targetKey then
-                    return {
-                        source = "friend",
-                        classToken = ClassTokenFromName(info.classFileName or info.className),
-                    }
+                    return { source = "friend" }
                 end
             elseif GetFriendInfo then
-                local ok, name, _, className = pcall(GetFriendInfo, i)
+                local ok, name = pcall(GetFriendInfo, i)
                 if ok and PlayerKey(name) == targetKey then
-                    return {
-                        source = "friend",
-                        classToken = ClassTokenFromName(className),
-                    }
+                    return { source = "friend" }
                 end
             end
         end
@@ -147,12 +106,9 @@ function Social.Create(config)
         if not targetKey or not GetGuildRosterInfo then return nil end
 
         for i = 1, GetGuildCount() do
-            local ok, name, _, _, _, className, _, _, _, _, _, classFileName = pcall(GetGuildRosterInfo, i)
+            local ok, name = pcall(GetGuildRosterInfo, i)
             if ok and PlayerKey(name) == targetKey then
-                return {
-                    source = "guild",
-                    classToken = ClassTokenFromName(classFileName or className),
-                }
+                return { source = "guild" }
             end
         end
 
@@ -172,14 +128,9 @@ function Social.Create(config)
 
         local record = GetSocialNoticeRecord(shortName) or { source = "friend" }
         local isGuild = record.source == "guild"
-        local labelKey = isGuild and "CHAT_GUILD_LABEL" or "CHAT_FRIEND_LABEL"
-        local labelFallback = isGuild and "Guild" or "Friend"
-        local tagColor = isGuild and colorGuildTag or colorFriendTag
-        local nameColor = ClassColorCode(record.classToken)
+        local lineColor = isGuild and getGuildMessageColor() or colorFriendNotice
 
-        return tagColor .. "[" .. T(labelKey, labelFallback) .. "]|r " ..
-            nameColor .. shortName .. "|r " ..
-            colorSocialAction .. T(actionKey, actionFallback) .. "|r"
+        return lineColor .. shortName .. " " .. T(actionKey, actionFallback) .. "|r"
     end
 
     function api.FormatBattlegroundAndGroupNotice(event, plainSys)
