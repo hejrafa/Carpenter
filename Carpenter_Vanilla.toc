@@ -105,3 +105,4 @@ Modules\EnchantWarning.lua
 
 # Immersion
 Modules\ActionCam.lua
+Modules\ExplorerMode.lua

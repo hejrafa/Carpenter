@@ -64,6 +64,7 @@ function Options.Create(context)
 
     local ApplyActionCam = OnToggleGlobal("Carpenter_ApplyActionCam")
     local ApplyClassicSettingsPreset = OnToggleGlobal("Carpenter_ApplyClassicSettingsPreset")
+    local ApplyExplorerMode = OnToggleGlobal("Carpenter_ApplyExplorerMode")
     local ApplyExtraAbilityScale = OnToggleGlobal("Carpenter_ApplyExtraAbilityScale")
     local ApplyRetailUnitFrames = OnToggleGlobal("Carpenter_ApplyRetailUnitFrameCleaner")
     local ApplyTargetHealthPercent = OnToggleGlobal("Carpenter_UpdateTargetHealthPercent")
@@ -393,6 +394,14 @@ function Options.Create(context)
                     image = GetSettingsImage("actioncam.png"),
                     requiresReload = false,
                     onToggle = ApplyActionCam,
+                },
+                {
+                    key = "explorerModeEnabled",
+                    label = L.OPTION_EXPLORER_MODE or "Explorer Mode",
+                    description = Description("DESC_EXPLORER_MODE"),
+                    image = GetSettingsImage("actioncam.png"),
+                    requiresReload = false,
+                    onToggle = ApplyExplorerMode,
                 },
             },
         },

@@ -63,6 +63,7 @@ local classicFeatures = {
     enchantWarningEnabled = true,
     hideErrorMessagesEnabled = true,
     actionCamEnabled = true,
+    explorerModeEnabled = true,
     hideShouldersEnabled = true,
     backSheathOneHandWeaponsEnabled = true,
     classicSettingsPresetEnabled = true,
@@ -101,6 +102,7 @@ local featureSupport = {
         autoRepair = true,
         hideErrorMessagesEnabled = true,
         actionCamEnabled = true,
+        explorerModeEnabled = true,
     },
 }
 

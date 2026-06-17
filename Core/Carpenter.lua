@@ -69,6 +69,7 @@ local defaults = {
     hideErrorMessagesEnabled = false,
     -- Immersion
     actionCamEnabled = false,
+    explorerModeEnabled = false,
     -- Transmog
     hideShouldersEnabled = false,
     backSheathOneHandWeaponsEnabled = false,
