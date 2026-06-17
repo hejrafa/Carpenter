@@ -4,10 +4,12 @@
 local FEATURE_KEY = "explorerModeEnabled"
 local EXPLORING_ALPHA = 0
 local VISIBLE_ALPHA = 1
+local FADE_OUT_DELAY_SECONDS = 1
 local FADE_OUT_SECONDS = 2.8
-local HOVER_FADE_IN_SECONDS = 0.18
+local HOVER_FADE_IN_SECONDS = 0.25
+local HOVER_FADE_OUT_DELAY_SECONDS = 1
 local HOVER_FADE_OUT_SECONDS = 0.45
-local HOVER_UPDATE_INTERVAL = 0.15
+local HOVER_UPDATE_INTERVAL = 0.05
 local CHAT_REPAIR_VERSION = 1
 
 local frame = CreateFrame("Frame")
@@ -15,7 +17,10 @@ local managedFrames = {}
 local managedAlphas = {}
 local frameTargets = {}
 local activeFades = {}
+local hoverFadeOutAt = {}
+local explorerFaded = false
 local IsShownFrame
+local actionButtonOverlayHooksInstalled = false
 local registeredEvents = {
     "PLAYER_LOGIN",
     "PLAYER_ENTERING_WORLD",
@@ -33,6 +38,12 @@ local registeredEvents = {
     "QUEST_WATCH_UPDATE",
     "QUEST_ACCEPTED",
     "QUEST_REMOVED",
+}
+
+local registeredUnitEvents = {
+    "UNIT_HEALTH",
+    "UNIT_HEALTH_FREQUENT",
+    "UNIT_MAXHEALTH",
 }
 
 local frameNames = {
@@ -147,6 +158,12 @@ local unitFramePieces = {
     "FocusFrameTextureFrameLevelText",
 }
 
+local actionButtonOverlayFunctions = {
+    "ActionButton_ShowOverlayGlow",
+    "ActionButton_ShowCooldownFlash",
+    "ActionButton_StartFlash",
+}
+
 local function NormalizeChatWindowName(name)
     return tostring(name or ""):lower():gsub("%s+", "")
 end
@@ -258,6 +275,19 @@ end
 
 local function IsInCombat()
     return InCombatLockdown and InCombatLockdown()
+end
+
+local function IsPlayerAtFullHealth()
+    if not UnitHealth or not UnitHealthMax then
+        return true
+    end
+
+    local maxHealth = UnitHealthMax("player") or 0
+    if maxHealth <= 0 then
+        return true
+    end
+
+    return (UnitHealth("player") or 0) >= maxHealth
 end
 
 function IsShownFrame(frameObject)
@@ -376,6 +406,25 @@ local function TargetAlphaForObject(object, targetAlpha)
     return math.min(managedAlphas[object] or VISIBLE_ALPHA, targetAlpha)
 end
 
+local function GetManagedTargetForFrame(frameObject)
+    local current = frameObject
+    while current do
+        if managedFrames[current] then
+            return frameTargets[current], current
+        end
+        if not current.GetParent then
+            return nil, nil
+        end
+        local ok, parent = pcall(current.GetParent, current)
+        if not ok then
+            return nil, nil
+        end
+        current = parent
+    end
+
+    return nil, nil
+end
+
 local function CollectAlphaTargets(root, starts, targets, targetAlpha, depth)
     if not root or depth > 4 then
         return
@@ -414,6 +463,42 @@ local function CollectAlphaTargets(root, starts, targets, targetAlpha, depth)
             CollectAlphaTargets(select(i, root:GetChildren()), starts, targets, targetAlpha, depth + 1)
         end
     end
+end
+
+local function ApplyActionButtonOverlayAlpha(button)
+    if not button or not explorerFaded or IsInCombat() or not IsPlayerAtFullHealth() then
+        return
+    end
+
+    local targetAlpha = GetManagedTargetForFrame(button)
+    if targetAlpha ~= EXPLORING_ALPHA then
+        return
+    end
+
+    local starts = {}
+    local targets = {}
+    CollectAlphaTargets(button, starts, targets, EXPLORING_ALPHA, 0)
+    for object, alpha in pairs(targets) do
+        SafeSetAlpha(object, alpha)
+    end
+end
+
+local function HookActionButtonOverlayFunctions()
+    if actionButtonOverlayHooksInstalled or not hooksecurefunc then
+        return
+    end
+
+    local hookedAny = false
+    for _, functionName in ipairs(actionButtonOverlayFunctions) do
+        if type(_G[functionName]) == "function" then
+            local ok = pcall(hooksecurefunc, functionName, function(button)
+                ApplyActionButtonOverlayAlpha(button)
+            end)
+            hookedAny = hookedAny or ok
+        end
+    end
+
+    actionButtonOverlayHooksInstalled = hookedAny
 end
 
 local fadeDriver = CreateFrame("Frame")
@@ -491,10 +576,19 @@ hoverDriver:SetScript("OnUpdate", function(self, elapsed)
     end
     self.elapsed = 0
 
+    local now = GetTime and GetTime() or 0
     for frameObject in pairs(managedFrames) do
         if IsMouseOverFrame(frameObject) or IsManagedAncestorHovered(frameObject) then
+            hoverFadeOutAt[frameObject] = nil
             FadeFrame(frameObject, VISIBLE_ALPHA, HOVER_FADE_IN_SECONDS)
+        elseif frameTargets[frameObject] == VISIBLE_ALPHA then
+            hoverFadeOutAt[frameObject] = hoverFadeOutAt[frameObject] or (now + HOVER_FADE_OUT_DELAY_SECONDS)
+            if now >= hoverFadeOutAt[frameObject] then
+                hoverFadeOutAt[frameObject] = nil
+                FadeFrame(frameObject, EXPLORING_ALPHA, HOVER_FADE_OUT_SECONDS)
+            end
         else
+            hoverFadeOutAt[frameObject] = nil
             FadeFrame(frameObject, EXPLORING_ALPHA, HOVER_FADE_OUT_SECONDS)
         end
     end
@@ -513,7 +607,29 @@ local function CancelScheduledRefresh()
     end
 end
 
+local function CancelScheduledFadeOut()
+    if Carpenter and Carpenter.Deferred then
+        Carpenter.Deferred["ExplorerMode:fadeOut"] = nil
+    end
+end
+
+local function RestoreVisible(duration, forceApply)
+    CancelScheduledRefresh()
+    CancelScheduledFadeOut()
+    activeFades = {}
+    fadeDriver:Hide()
+    hoverDriver:Hide()
+    hoverFadeOutAt = {}
+    explorerFaded = false
+
+    if forceApply or not IsInCombat() then
+        ApplyTargetAlpha(VISIBLE_ALPHA, duration or 0)
+    end
+end
+
 local function RestoreManagedFrames()
+    CancelScheduledRefresh()
+    CancelScheduledFadeOut()
     activeFades = {}
     fadeDriver:Hide()
     hoverDriver:Hide()
@@ -524,15 +640,43 @@ local function RestoreManagedFrames()
     managedFrames = {}
     managedAlphas = {}
     frameTargets = {}
+    hoverFadeOutAt = {}
+    explorerFaded = false
 end
 
 local function ScheduleRefresh()
     if Carpenter and Carpenter.DeferMany then
         Carpenter:DeferMany("ExplorerMode:refresh", { 0.2, 1.0 }, function()
-            if IsEnabled() and not IsInCombat() then
+            if IsEnabled() and not IsInCombat() and IsPlayerAtFullHealth() then
                 ApplyTargetAlpha(EXPLORING_ALPHA, FADE_OUT_SECONDS)
             end
         end)
+    end
+end
+
+local function FadeOutForExploration()
+    if not IsEnabled() or IsInCombat() then
+        return
+    end
+    if not IsPlayerAtFullHealth() then
+        RestoreVisible(HOVER_FADE_IN_SECONDS)
+        return
+    end
+
+    explorerFaded = true
+    ApplyTargetAlpha(EXPLORING_ALPHA, FADE_OUT_SECONDS)
+    hoverDriver:Show()
+    ScheduleRefresh()
+end
+
+local function ScheduleFadeOut()
+    CancelScheduledFadeOut()
+    if Carpenter and Carpenter.Defer then
+        Carpenter:Defer("ExplorerMode:fadeOut", FADE_OUT_DELAY_SECONDS, FadeOutForExploration)
+    elseif C_Timer and C_Timer.After then
+        C_Timer.After(FADE_OUT_DELAY_SECONDS, FadeOutForExploration)
+    else
+        FadeOutForExploration()
     end
 end
 
@@ -543,31 +687,35 @@ local function ApplyExplorerMode(forceVisible)
     end
 
     if forceVisible then
-        CancelScheduledRefresh()
-        activeFades = {}
-        fadeDriver:Hide()
-        hoverDriver:Hide()
-        ApplyTargetAlpha(VISIBLE_ALPHA, 0)
+        RestoreVisible(0, true)
         return
     end
 
     local inCombat = IsInCombat()
     if inCombat then
-        CancelScheduledRefresh()
-        activeFades = {}
-        fadeDriver:Hide()
-        hoverDriver:Hide()
-        ApplyTargetAlpha(VISIBLE_ALPHA, 0)
-    else
-        ApplyTargetAlpha(EXPLORING_ALPHA, FADE_OUT_SECONDS)
+        RestoreVisible(0)
+    elseif not IsPlayerAtFullHealth() then
+        RestoreVisible(HOVER_FADE_IN_SECONDS)
+    elseif explorerFaded then
+        ApplyTargetAlpha(EXPLORING_ALPHA, 0)
         hoverDriver:Show()
         ScheduleRefresh()
+    else
+        ScheduleFadeOut()
     end
 end
 
 frame:SetScript("OnEvent", function(_, event, unit)
     if (event == "UNIT_ENTERED_VEHICLE" or event == "UNIT_EXITED_VEHICLE") and unit ~= "player" then
         return
+    end
+    if event == "UNIT_HEALTH" or event == "UNIT_HEALTH_FREQUENT" or event == "UNIT_MAXHEALTH" then
+        if unit ~= "player" then
+            return
+        end
+    end
+    if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
+        HookActionButtonOverlayFunctions()
     end
     ApplyExplorerMode(event == "PLAYER_REGEN_DISABLED")
 end)
@@ -598,6 +746,14 @@ function feature:Enable()
             pcall(frame.RegisterEvent, frame, event)
         end
     end
+    for _, event in ipairs(registeredUnitEvents) do
+        if Carpenter and Carpenter.SafeRegisterUnitEvent then
+            Carpenter:SafeRegisterUnitEvent(frame, event, "player")
+        else
+            pcall(frame.RegisterUnitEvent, frame, event, "player")
+        end
+    end
+    HookActionButtonOverlayFunctions()
     ApplyExplorerMode()
 end
 
