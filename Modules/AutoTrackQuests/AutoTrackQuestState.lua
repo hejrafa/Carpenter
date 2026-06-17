@@ -173,11 +173,16 @@ end
 local function IsQuestCompleteInLog(index, questID)
     local logQuestID, _, isHeader, isComplete
     local explicitlyIncomplete = false
+    local numObjectives
     if index then
         logQuestID, _, isHeader, isComplete = GetQuestInfo(index)
         if isHeader then return false end
         if IsCompleteValue(isComplete) then return true end
         explicitlyIncomplete = IsIncompleteValue(isComplete)
+        if GetNumQuestLeaderBoards then
+            numObjectives = GetNumQuestLeaderBoards(index)
+        end
+        if explicitlyIncomplete and numObjectives == 0 then return false end
     end
 
     questID = questID or logQuestID
@@ -191,8 +196,7 @@ local function IsQuestCompleteInLog(index, questID)
     end
     if explicitlyIncomplete then return false end
 
-    if index and GetNumQuestLeaderBoards and GetQuestLogLeaderBoard then
-        local numObjectives = GetNumQuestLeaderBoards(index) or 0
+    if index and numObjectives and GetQuestLogLeaderBoard then
         if numObjectives > 0 then
             for objectiveIndex = 1, numObjectives do
                 local _, _, finished = GetQuestLogLeaderBoard(objectiveIndex, index)

@@ -201,6 +201,7 @@ end
 function IsQuestComplete(questID)
     for _, quest in pairs(quests) do
         if quest.questID == questID then
+            if quest.apiComplete ~= nil then return quest.apiComplete end
             return quest.complete == true
         end
     end
@@ -341,6 +342,26 @@ if #failures == 0 then
         if hiddenObjectiveLine:IsShown() then
             failures[#failures + 1] = "complete native watch: expected extra objective line to be hidden"
         end
+    end
+
+    do
+        ResetQuestWatchLines()
+        questWatchIndexes = {}
+        CarpenterDB.noObjectiveQuestWatches = nil
+        CarpenterDB.autoTrackQuestWatches = nil
+        quests[1].objectives = 0
+        quests[1].complete = false
+        quests[1].apiComplete = true
+        selectedQuestIndex = 0
+
+        fire("QUEST_ACCEPTED", 1, 101)
+
+        local objectiveLine = _G.QuestWatchLine2
+        if objectiveLine:GetText() ~= "Speak with Marshal Dughan in Goldshire." then
+            failures[#failures + 1] = "incomplete fallback watch: expected objective sentence, got " .. tostring(objectiveLine:GetText())
+        end
+
+        quests[1].apiComplete = nil
     end
 
     do
