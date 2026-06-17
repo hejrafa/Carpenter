@@ -86,9 +86,6 @@ local frameNames = {
     "DebuffFrame",
     "PlayerBuffFrame",
     "CastingBarFrame",
-    "MirrorTimer1",
-    "MirrorTimer2",
-    "MirrorTimer3",
     "DurabilityFrame",
     "VehicleSeatIndicator",
 }
@@ -138,8 +135,16 @@ local function IsInCombat()
     return InCombatLockdown and InCombatLockdown()
 end
 
+local function IsShownFrame(frameObject)
+    if not frameObject or not frameObject.IsShown then
+        return true
+    end
+    local ok, shown = pcall(frameObject.IsShown, frameObject)
+    return ok and shown
+end
+
 local function AddManagedFrame(frameObject)
-    if not frameObject or IsForbiddenFrame(frameObject) or not frameObject.SetAlpha then
+    if not frameObject or IsForbiddenFrame(frameObject) or not frameObject.SetAlpha or not IsShownFrame(frameObject) then
         return
     end
 
@@ -184,6 +189,11 @@ end
 
 local function FadeFrame(frameObject, targetAlpha, duration)
     if not frameObject or IsForbiddenFrame(frameObject) or not frameObject.SetAlpha then
+        return
+    end
+
+    if not IsShownFrame(frameObject) then
+        SafeSetAlpha(frameObject, targetAlpha)
         return
     end
 
