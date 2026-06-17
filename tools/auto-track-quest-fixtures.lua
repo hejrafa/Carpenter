@@ -335,8 +335,8 @@ if #failures == 0 then
         if completeLine:GetText() ~= "Complete" then
             failures[#failures + 1] = "complete native watch: expected Complete line, got " .. tostring(completeLine:GetText())
         end
-        if not (completeLine.color and completeLine.color.r == 0 and completeLine.color.g == 1 and completeLine.color.b == 0) then
-            failures[#failures + 1] = "complete native watch: expected green Complete line"
+        if not (completeLine.color and completeLine.color.r == 1 and completeLine.color.g == 1 and completeLine.color.b == 1) then
+            failures[#failures + 1] = "complete native watch: expected white Complete line"
         end
         if hiddenObjectiveLine:IsShown() then
             failures[#failures + 1] = "complete native watch: expected extra objective line to be hidden"
@@ -362,8 +362,8 @@ if #failures == 0 then
         if completeLine:GetText() ~= "Complete" then
             failures[#failures + 1] = "complete fallback watch: expected Complete line, got " .. tostring(completeLine:GetText())
         end
-        if not (completeLine:IsShown() and completeLine.color and completeLine.color.r == 0 and completeLine.color.g == 1 and completeLine.color.b == 0) then
-            failures[#failures + 1] = "complete fallback watch: expected visible green Complete line"
+        if not (completeLine:IsShown() and completeLine.color and completeLine.color.r == 1 and completeLine.color.g == 1 and completeLine.color.b == 1) then
+            failures[#failures + 1] = "complete fallback watch: expected visible white Complete line"
         end
     end
 end
