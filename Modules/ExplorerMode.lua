@@ -2,14 +2,19 @@
 -- Slowly fades the main HUD while out of combat, leaving the minimap alone.
 
 local FEATURE_KEY = "explorerModeEnabled"
-local EXPLORING_ALPHA = 0.18
+local EXPLORING_ALPHA = 0
 local VISIBLE_ALPHA = 1
 local FADE_OUT_SECONDS = 2.8
-local FADE_IN_SECONDS = 0.35
+local HOVER_FADE_IN_SECONDS = 0.18
+local HOVER_FADE_OUT_SECONDS = 0.45
+local HOVER_UPDATE_INTERVAL = 0.08
 local CHAT_REPAIR_VERSION = 1
 
 local frame = CreateFrame("Frame")
 local managedFrames = {}
+local managedAlphas = {}
+local frameTargets = {}
+local activeFades = {}
 local IsShownFrame
 local registeredEvents = {
     "PLAYER_LOGIN",
@@ -92,6 +97,19 @@ local frameNames = {
 }
 
 local repeatedFramePrefixes = {
+    { prefix = "ActionButton", suffix = "", count = 12 },
+    { prefix = "MultiBarBottomLeftButton", suffix = "", count = 12 },
+    { prefix = "MultiBarBottomRightButton", suffix = "", count = 12 },
+    { prefix = "MultiBarRightButton", suffix = "", count = 12 },
+    { prefix = "MultiBarLeftButton", suffix = "", count = 12 },
+    { prefix = "MultiBar5Button", suffix = "", count = 12 },
+    { prefix = "MultiBar6Button", suffix = "", count = 12 },
+    { prefix = "MultiBar7Button", suffix = "", count = 12 },
+    { prefix = "PetActionButton", suffix = "", count = 10 },
+    { prefix = "StanceButton", suffix = "", count = 10 },
+    { prefix = "ShapeshiftButton", suffix = "", count = 10 },
+    { prefix = "BuffButton", suffix = "", count = 40 },
+    { prefix = "DebuffButton", suffix = "", count = 40 },
     { prefix = "PartyMemberFrame", suffix = "", count = 4 },
     { prefix = "PartyMemberFrame", suffix = "PetFrame", count = 4 },
     { prefix = "Boss", suffix = "TargetFrame", count = 8 },
@@ -116,6 +134,31 @@ local microButtons = {
     "MainMenuMicroButton",
     "HelpMicroButton",
     "WorldMapMicroButton",
+}
+
+local unitFramePieces = {
+    "PlayerFrameHealthBar",
+    "PlayerFrameManaBar",
+    "PlayerFrameAlternateManaBar",
+    "PlayerFrameTexture",
+    "PlayerName",
+    "PlayerLevelText",
+    "PlayerPVPIcon",
+    "PlayerLeaderIcon",
+    "PlayerMasterIcon",
+    "TargetFrameHealthBar",
+    "TargetFrameManaBar",
+    "TargetFrameTextureFrame",
+    "TargetFrameNameBackground",
+    "TargetFrameTextureFrameName",
+    "TargetFrameTextureFrameLevelText",
+    "TargetFrameTextureFramePVPIcon",
+    "FocusFrameHealthBar",
+    "FocusFrameManaBar",
+    "FocusFrameTextureFrame",
+    "FocusFrameNameBackground",
+    "FocusFrameTextureFrameName",
+    "FocusFrameTextureFrameLevelText",
 }
 
 local function NormalizeChatWindowName(name)
@@ -239,8 +282,69 @@ function IsShownFrame(frameObject)
     return ok and shown
 end
 
+local function IsMouseOverFrame(frameObject)
+    if not frameObject or not IsShownFrame(frameObject) then
+        return false
+    end
+
+    if MouseIsOver then
+        local ok, hovering = pcall(MouseIsOver, frameObject)
+        if ok then
+            return hovering == true
+        end
+    end
+
+    if frameObject.IsMouseOver then
+        local ok, hovering = pcall(frameObject.IsMouseOver, frameObject)
+        return ok and hovering == true
+    end
+
+    return false
+end
+
+local function IsMouseOverTree(frameObject, depth)
+    if not frameObject or depth > 3 then
+        return false
+    end
+    if IsForbiddenFrame(frameObject) then
+        return false
+    end
+    if IsMouseOverFrame(frameObject) then
+        return true
+    end
+
+    if frameObject.GetChildren then
+        for i = 1, frameObject:GetNumChildren() do
+            if IsMouseOverTree(select(i, frameObject:GetChildren()), depth + 1) then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+local function IsManagedAncestorHovered(frameObject)
+    if not frameObject or not frameObject.GetParent then
+        return false
+    end
+
+    local ok, parent = pcall(frameObject.GetParent, frameObject)
+    while ok and parent do
+        if managedFrames[parent] and IsMouseOverTree(parent, 0) then
+            return true
+        end
+        if not parent.GetParent then
+            return false
+        end
+        ok, parent = pcall(parent.GetParent, parent)
+    end
+
+    return false
+end
+
 local function AddManagedFrame(frameObject)
-    if not frameObject or IsForbiddenFrame(frameObject) or not frameObject.SetAlpha or not IsShownFrame(frameObject) then
+    if not frameObject or IsForbiddenFrame(frameObject) or not frameObject.SetAlpha then
         return
     end
 
@@ -252,7 +356,8 @@ local function AddManagedFrame(frameObject)
         if not ok then
             alpha = VISIBLE_ALPHA
         end
-        managedFrames[frameObject] = alpha or VISIBLE_ALPHA
+        managedFrames[frameObject] = true
+        managedAlphas[frameObject] = alpha or VISIBLE_ALPHA
     end
 end
 
@@ -269,6 +374,10 @@ local function RefreshManagedFrames()
         AddFrameByName(name)
     end
 
+    for _, name in ipairs(unitFramePieces) do
+        AddFrameByName(name)
+    end
+
     for _, group in ipairs(repeatedFramePrefixes) do
         for i = 1, group.count do
             AddFrameByName(group.prefix .. i .. group.suffix)
@@ -276,85 +385,236 @@ local function RefreshManagedFrames()
     end
 end
 
-local function SafeSetAlpha(frameObject, alpha)
-    if not frameObject or IsForbiddenFrame(frameObject) or not frameObject.SetAlpha then
+local function RememberAlpha(object)
+    if not object or managedAlphas[object] or not object.GetAlpha then
         return
     end
-    pcall(frameObject.SetAlpha, frameObject, alpha)
+
+    local ok, alpha = pcall(object.GetAlpha, object)
+    managedAlphas[object] = ok and alpha or VISIBLE_ALPHA
 end
+
+local function SafeSetAlpha(object, alpha)
+    if not object or not object.SetAlpha then
+        return
+    end
+    if IsForbiddenFrame(object) then
+        return
+    end
+    RememberAlpha(object)
+    pcall(object.SetAlpha, object, alpha)
+end
+
+local function TargetAlphaForObject(object, targetAlpha)
+    if targetAlpha == VISIBLE_ALPHA then
+        return managedAlphas[object] or VISIBLE_ALPHA
+    end
+    return math.min(managedAlphas[object] or VISIBLE_ALPHA, targetAlpha)
+end
+
+local function CollectAlphaTargets(root, starts, targets, targetAlpha, depth)
+    if not root or depth > 4 then
+        return
+    end
+    if IsForbiddenFrame(root) then
+        return
+    end
+
+    if root.SetAlpha then
+        RememberAlpha(root)
+        local ok, alpha = true, targetAlpha
+        if root.GetAlpha then
+            ok, alpha = pcall(root.GetAlpha, root)
+        end
+        starts[root] = ok and alpha or TargetAlphaForObject(root, targetAlpha)
+        targets[root] = TargetAlphaForObject(root, targetAlpha)
+    end
+
+    if root.GetRegions then
+        for i = 1, select("#", root:GetRegions()) do
+            local region = select(i, root:GetRegions())
+            if region and region.SetAlpha then
+                RememberAlpha(region)
+                local ok, alpha = true, targetAlpha
+                if region.GetAlpha then
+                    ok, alpha = pcall(region.GetAlpha, region)
+                end
+                starts[region] = ok and alpha or TargetAlphaForObject(region, targetAlpha)
+                targets[region] = TargetAlphaForObject(region, targetAlpha)
+            end
+        end
+    end
+
+    if root.GetChildren then
+        for i = 1, root:GetNumChildren() do
+            CollectAlphaTargets(select(i, root:GetChildren()), starts, targets, targetAlpha, depth + 1)
+        end
+    end
+end
+
+local fadeDriver = CreateFrame("Frame")
+fadeDriver:Hide()
+fadeDriver:SetScript("OnUpdate", function(self, elapsed)
+    local hasActiveFade = false
+
+    for root, fade in pairs(activeFades) do
+        fade.elapsed = fade.elapsed + elapsed
+        local progress = fade.duration > 0 and math.min(fade.elapsed / fade.duration, 1) or 1
+
+        for object, startAlpha in pairs(fade.starts) do
+            local targetAlpha = fade.targets[object] or VISIBLE_ALPHA
+            SafeSetAlpha(object, startAlpha + ((targetAlpha - startAlpha) * progress))
+        end
+
+        if progress >= 1 then
+            activeFades[root] = nil
+        else
+            hasActiveFade = true
+        end
+    end
+
+    if not hasActiveFade then
+        self:Hide()
+    end
+end)
 
 local function FadeFrame(frameObject, targetAlpha, duration)
     if not frameObject or IsForbiddenFrame(frameObject) or not frameObject.SetAlpha then
         return
     end
 
-    if not IsShownFrame(frameObject) then
-        SafeSetAlpha(frameObject, targetAlpha)
+    if frameTargets[frameObject] == targetAlpha and activeFades[frameObject] == nil then
+        if targetAlpha == EXPLORING_ALPHA then
+            local starts = {}
+            local targets = {}
+            CollectAlphaTargets(frameObject, starts, targets, targetAlpha, 0)
+            for object, alpha in pairs(targets) do
+                SafeSetAlpha(object, alpha)
+            end
+        end
         return
     end
+    frameTargets[frameObject] = targetAlpha
 
-    if UIFrameFadeRemoveFrame then
+    if UIFrameFadeRemoveFrame and not IsInCombat() then
         pcall(UIFrameFadeRemoveFrame, frameObject)
     end
 
-    if UIFrameFadeIn then
-        local ok, currentAlpha = true, targetAlpha
-        if frameObject.GetAlpha then
-            ok, currentAlpha = pcall(frameObject.GetAlpha, frameObject)
+    local starts = {}
+    local targets = {}
+    CollectAlphaTargets(frameObject, starts, targets, targetAlpha, 0)
+
+    if duration == nil or duration <= 0 then
+        activeFades[frameObject] = nil
+        for object, alpha in pairs(targets) do
+            SafeSetAlpha(object, alpha)
         end
-        if not ok then
-            currentAlpha = targetAlpha
-        end
-        pcall(UIFrameFadeIn, frameObject, duration, currentAlpha or targetAlpha, targetAlpha)
-    else
-        SafeSetAlpha(frameObject, targetAlpha)
+        return
     end
+
+    activeFades[frameObject] = {
+        elapsed = 0,
+        duration = duration,
+        starts = starts,
+        targets = targets,
+    }
+    fadeDriver:Show()
 end
+
+local hoverDriver = CreateFrame("Frame")
+hoverDriver:Hide()
+hoverDriver:SetScript("OnUpdate", function(self, elapsed)
+    if not IsEnabled() or IsInCombat() then
+        self:Hide()
+        return
+    end
+
+    self.elapsed = (self.elapsed or 0) + elapsed
+    if self.elapsed < HOVER_UPDATE_INTERVAL then
+        return
+    end
+    self.elapsed = 0
+
+    RefreshManagedFrames()
+    for frameObject in pairs(managedFrames) do
+        if IsMouseOverTree(frameObject, 0) or IsManagedAncestorHovered(frameObject) then
+            FadeFrame(frameObject, VISIBLE_ALPHA, HOVER_FADE_IN_SECONDS)
+        else
+            FadeFrame(frameObject, EXPLORING_ALPHA, HOVER_FADE_OUT_SECONDS)
+        end
+    end
+end)
 
 local function ApplyTargetAlpha(targetAlpha, duration)
     RefreshManagedFrames()
-    for frameObject, originalAlpha in pairs(managedFrames) do
-        local alpha = targetAlpha == VISIBLE_ALPHA and originalAlpha or math.min(originalAlpha or VISIBLE_ALPHA, targetAlpha)
-        FadeFrame(frameObject, alpha, duration)
+    for frameObject in pairs(managedFrames) do
+        FadeFrame(frameObject, targetAlpha, duration)
+    end
+end
+
+local function CancelScheduledRefresh()
+    if Carpenter and Carpenter.Deferred then
+        Carpenter.Deferred["ExplorerMode:refresh"] = nil
     end
 end
 
 local function RestoreManagedFrames()
-    for frameObject, originalAlpha in pairs(managedFrames) do
-        if UIFrameFadeRemoveFrame then
-            pcall(UIFrameFadeRemoveFrame, frameObject)
-        end
-        SafeSetAlpha(frameObject, originalAlpha or VISIBLE_ALPHA)
+    activeFades = {}
+    fadeDriver:Hide()
+    hoverDriver:Hide()
+
+    for object, originalAlpha in pairs(managedAlphas) do
+        SafeSetAlpha(object, originalAlpha or VISIBLE_ALPHA)
     end
     managedFrames = {}
+    managedAlphas = {}
+    frameTargets = {}
 end
 
 local function ScheduleRefresh()
     if Carpenter and Carpenter.DeferMany then
         Carpenter:DeferMany("ExplorerMode:refresh", { 0.2, 1.0 }, function()
-            if IsEnabled() then
-                ApplyTargetAlpha(IsInCombat() and VISIBLE_ALPHA or EXPLORING_ALPHA, IsInCombat() and FADE_IN_SECONDS or FADE_OUT_SECONDS)
+            if IsEnabled() and not IsInCombat() then
+                ApplyTargetAlpha(EXPLORING_ALPHA, FADE_OUT_SECONDS)
             end
         end)
     end
 end
 
-local function ApplyExplorerMode()
+local function ApplyExplorerMode(forceVisible)
     if not IsEnabled() then
         RestoreManagedFrames()
         return
     end
 
+    if forceVisible then
+        CancelScheduledRefresh()
+        activeFades = {}
+        fadeDriver:Hide()
+        hoverDriver:Hide()
+        ApplyTargetAlpha(VISIBLE_ALPHA, 0)
+        return
+    end
+
     local inCombat = IsInCombat()
-    ApplyTargetAlpha(inCombat and VISIBLE_ALPHA or EXPLORING_ALPHA, inCombat and FADE_IN_SECONDS or FADE_OUT_SECONDS)
-    ScheduleRefresh()
+    if inCombat then
+        CancelScheduledRefresh()
+        activeFades = {}
+        fadeDriver:Hide()
+        hoverDriver:Hide()
+        ApplyTargetAlpha(VISIBLE_ALPHA, 0)
+    else
+        ApplyTargetAlpha(EXPLORING_ALPHA, FADE_OUT_SECONDS)
+        hoverDriver:Show()
+        ScheduleRefresh()
+    end
 end
 
 frame:SetScript("OnEvent", function(_, event, unit)
     if (event == "UNIT_ENTERED_VEHICLE" or event == "UNIT_EXITED_VEHICLE") and unit ~= "player" then
         return
     end
-    ApplyExplorerMode()
+    ApplyExplorerMode(event == "PLAYER_REGEN_DISABLED")
 end)
 
 _G.Carpenter_ApplyExplorerMode = ApplyExplorerMode
