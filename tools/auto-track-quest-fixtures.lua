@@ -170,7 +170,11 @@ end
 function GetQuestLogTitle(index)
     local quest = quests[index]
     if not quest then return nil end
-    return quest.title, nil, nil, quest.isHeader, nil, quest.complete == true, nil, quest.questID
+    local isComplete = nil
+    if quest.complete ~= nil then
+        isComplete = quest.complete == true
+    end
+    return quest.title, nil, nil, quest.isHeader, nil, isComplete, nil, quest.questID
 end
 
 function GetNumQuestLeaderBoards(index)
@@ -350,7 +354,7 @@ if #failures == 0 then
         CarpenterDB.noObjectiveQuestWatches = nil
         CarpenterDB.autoTrackQuestWatches = nil
         quests[1].objectives = 0
-        quests[1].complete = false
+        quests[1].complete = nil
         quests[1].apiComplete = true
         selectedQuestIndex = 0
 
@@ -362,6 +366,7 @@ if #failures == 0 then
         end
 
         quests[1].apiComplete = nil
+        quests[1].complete = false
     end
 
     do

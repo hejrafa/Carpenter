@@ -182,7 +182,7 @@ local function IsQuestCompleteInLog(index, questID)
         if GetNumQuestLeaderBoards then
             numObjectives = GetNumQuestLeaderBoards(index)
         end
-        if explicitlyIncomplete and numObjectives == 0 then return false end
+        if numObjectives == 0 then return false end
     end
 
     questID = questID or logQuestID
