@@ -19,17 +19,14 @@ local managedAlphas = {}
 local frameTargets = {}
 local activeFades = {}
 local hoverFadeOutAt = {}
-local dominosClusterFrames = {}
 local explorerFaded = false
 local IsShownFrame
 local actionButtonOverlayHooksInstalled = false
 local actionButtonCooldownHookedFrames = {}
 local actionButtonCooldownDrawStates = {}
-local dominosCallbacksRegistered = false
 local registeredEvents = {
     "PLAYER_LOGIN",
     "PLAYER_ENTERING_WORLD",
-    "ADDON_LOADED",
     "PLAYER_REGEN_DISABLED",
     "PLAYER_REGEN_ENABLED",
     "ACTIONBAR_PAGE_CHANGED",
@@ -256,15 +253,6 @@ local actionBarClusterFrameNames = {
     HonorWatchBar = true,
 }
 
-local dominosActionBarFrameIds = {
-    bags = true,
-    class = true,
-    extra = true,
-    menu = true,
-    pet = true,
-    possess = true,
-}
-
 for _, name in ipairs(microButtons) do
     actionBarClusterFrameNames[name] = true
 end
@@ -273,25 +261,16 @@ local actionButtonNamePatterns = {
     "^ActionButton%d+$",
     "^BonusActionButton%d+$",
     "^MultiBarBottomLeftButton%d+$",
-    "^MultiBarBottomLeftActionButton%d+$",
     "^MultiBarBottomRightButton%d+$",
-    "^MultiBarBottomRightActionButton%d+$",
     "^MultiBarRightButton%d+$",
-    "^MultiBarRightActionButton%d+$",
     "^MultiBarLeftButton%d+$",
-    "^MultiBarLeftActionButton%d+$",
     "^MultiBar5Button%d+$",
-    "^MultiBar5ActionButton%d+$",
     "^MultiBar6Button%d+$",
-    "^MultiBar6ActionButton%d+$",
     "^MultiBar7Button%d+$",
-    "^MultiBar7ActionButton%d+$",
     "^PetActionButton%d+$",
     "^StanceButton%d+$",
     "^ShapeshiftButton%d+$",
     "^PossessButton%d+$",
-    "^DominosStanceButton%d+$",
-    "^DominosPossessButton%d+$",
     "^OverrideActionBarButton%d+$",
     "^ExtraActionButton%d+$",
     "^ZoneAbilityFrame$",
@@ -484,79 +463,26 @@ local function IsManagedAncestorHovered(frameObject)
     return false
 end
 
-local function AddManagedFrame(frameObject, skipAlpha)
+local function AddManagedFrame(frameObject)
     if not frameObject or IsForbiddenFrame(frameObject) or not frameObject.SetAlpha then
         return
     end
 
     if not managedFrames[frameObject] then
-        if not skipAlpha then
-            local ok, alpha = true, VISIBLE_ALPHA
-            if frameObject.GetAlpha then
-                ok, alpha = pcall(frameObject.GetAlpha, frameObject)
-            end
-            if not ok then
-                alpha = VISIBLE_ALPHA
-            end
-            managedAlphas[frameObject] = alpha or VISIBLE_ALPHA
+        local ok, alpha = true, VISIBLE_ALPHA
+        if frameObject.GetAlpha then
+            ok, alpha = pcall(frameObject.GetAlpha, frameObject)
         end
+        if not ok then
+            alpha = VISIBLE_ALPHA
+        end
+        managedAlphas[frameObject] = alpha or VISIBLE_ALPHA
         managedFrames[frameObject] = true
     end
 end
 
 local function AddFrameByName(name)
     AddManagedFrame(_G[name])
-end
-
-local function ClearDominosClusterFrames()
-    for frameObject in pairs(dominosClusterFrames) do
-        dominosClusterFrames[frameObject] = nil
-    end
-end
-
-local function IsDominosActionBarFrame(frameObject)
-    if not frameObject then
-        return false
-    end
-
-    if type(frameObject.id) == "number" then
-        return true
-    end
-
-    if dominosActionBarFrameIds[frameObject.id] then
-        return true
-    end
-
-    return type(frameObject.buttons) == "table"
-end
-
-local function ForEachDominosFrame(callback)
-    local dominos = _G.Dominos
-    if not dominos or not dominos.Frame or type(dominos.Frame.GetAll) ~= "function" then
-        return
-    end
-
-    local ok, iterator, state, initial = pcall(dominos.Frame.GetAll, dominos.Frame)
-    if not ok or type(iterator) ~= "function" then
-        return
-    end
-
-    for _, dominosFrame in iterator, state, initial do
-        if dominosFrame then
-            callback(dominosFrame)
-        end
-    end
-end
-
-local function RefreshDominosFrames()
-    ClearDominosClusterFrames()
-
-    ForEachDominosFrame(function(dominosFrame)
-        if IsDominosActionBarFrame(dominosFrame) then
-            AddManagedFrame(dominosFrame, true)
-            dominosClusterFrames[dominosFrame] = true
-        end
-    end)
 end
 
 local function RefreshManagedFrames()
@@ -577,8 +503,6 @@ local function RefreshManagedFrames()
             AddFrameByName(group.prefix .. i .. group.suffix)
         end
     end
-
-    RefreshDominosFrames()
 end
 
 local function RememberAlpha(object)
@@ -674,34 +598,6 @@ local function FindActionButtonAncestor(frameObject)
     return nil
 end
 
-local function ForEachDominosActionButton(callback)
-    local seen = {}
-    local dominos = _G.Dominos
-
-    if dominos and dominos.ActionButtons and type(dominos.ActionButtons.GetAll) == "function" then
-        local ok, iterator, state, initial = pcall(dominos.ActionButtons.GetAll, dominos.ActionButtons)
-        if ok and type(iterator) == "function" then
-            for button in iterator, state, initial do
-                if button and not seen[button] then
-                    seen[button] = true
-                    callback(button)
-                end
-            end
-        end
-    end
-
-    ForEachDominosFrame(function(dominosFrame)
-        if type(dominosFrame.buttons) == "table" then
-            for _, button in pairs(dominosFrame.buttons) do
-                if button and not seen[button] then
-                    seen[button] = true
-                    callback(button)
-                end
-            end
-        end
-    end)
-end
-
 local function ForEachActionButton(callback)
     for _, group in ipairs(actionButtonGroups) do
         for i = 1, group.count do
@@ -718,8 +614,6 @@ local function ForEachActionButton(callback)
             callback(button)
         end
     end
-
-    ForEachDominosActionButton(callback)
 end
 
 local function GetFrameName(frameObject)
@@ -737,11 +631,11 @@ local function IsNamedFrameInSet(frameObject, nameSet)
 end
 
 local function IsActionBarManagedFrame(frameObject)
-    return dominosClusterFrames[frameObject] or IsNamedFrameInSet(frameObject, actionBarManagedFrameNames)
+    return IsNamedFrameInSet(frameObject, actionBarManagedFrameNames)
 end
 
 local function IsActionBarClusterFrame(frameObject)
-    return dominosClusterFrames[frameObject] or IsNamedFrameInSet(frameObject, actionBarClusterFrameNames)
+    return IsNamedFrameInSet(frameObject, actionBarClusterFrameNames)
 end
 
 local function IsCooldownFrame(frameObject)
@@ -874,7 +768,7 @@ local function CollectAlphaTargets(root, starts, targets, targetAlpha, depth)
         return
     end
 
-    if root.SetAlpha and not dominosClusterFrames[root] then
+    if root.SetAlpha then
         RememberAlpha(root)
         local ok, alpha = true, targetAlpha
         if root.GetAlpha then
@@ -1259,9 +1153,7 @@ local function RestoreManagedFrames()
     hoverDriver:Hide()
 
     for object, originalAlpha in pairs(managedAlphas) do
-        if not dominosClusterFrames[object] then
-            SafeSetAlpha(object, originalAlpha or VISIBLE_ALPHA)
-        end
+        SafeSetAlpha(object, originalAlpha or VISIBLE_ALPHA)
     end
     RestoreActionButtonCooldownDrawStates()
     managedFrames = {}
@@ -1332,36 +1224,7 @@ local function ApplyExplorerMode(forceVisible)
     end
 end
 
-local function RefreshAfterDominosLayout()
-    if IsEnabled() then
-        RefreshActionButtonCooldownHooks()
-        ApplyExplorerMode()
-    end
-end
-
-local function RegisterDominosCallbacks()
-    if dominosCallbacksRegistered then
-        return
-    end
-
-    local dominos = _G.Dominos
-    if not dominos or type(dominos.RegisterCallback) ~= "function" then
-        return
-    end
-
-    local okLoaded = pcall(dominos.RegisterCallback, frame, "LAYOUT_LOADED", RefreshAfterDominosLayout)
-    local okCount = pcall(dominos.RegisterCallback, frame, "ACTIONBAR_COUNT_UPDATED", RefreshAfterDominosLayout)
-    dominosCallbacksRegistered = okLoaded or okCount
-end
-
 frame:SetScript("OnEvent", function(_, event, unit)
-    if event == "ADDON_LOADED" then
-        if unit ~= "Dominos" then
-            return
-        end
-        RegisterDominosCallbacks()
-    end
-
     if (event == "UNIT_ENTERED_VEHICLE" or event == "UNIT_EXITED_VEHICLE") and unit ~= "player" then
         return
     end
@@ -1372,7 +1235,6 @@ frame:SetScript("OnEvent", function(_, event, unit)
     end
     if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
         HookActionButtonOverlayFunctions()
-        RegisterDominosCallbacks()
     end
     ApplyExplorerMode(event == "PLAYER_REGEN_DISABLED")
 end)
@@ -1411,7 +1273,6 @@ function feature:Enable()
         end
     end
     HookActionButtonOverlayFunctions()
-    RegisterDominosCallbacks()
     ApplyExplorerMode()
 end
 
