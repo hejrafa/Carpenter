@@ -872,6 +872,15 @@ local function HookActionButtonOverlayFunctions()
     actionButtonOverlayHooksInstalled = hookedAny
 end
 
+local function EaseFadeProgress(progress, startAlpha, targetAlpha)
+    if targetAlpha > startAlpha then
+        local remaining = 1 - progress
+        return 1 - (remaining * remaining * remaining)
+    end
+
+    return progress * progress * (3 - (2 * progress))
+end
+
 local fadeDriver = CreateFrame("Frame")
 fadeDriver:Hide()
 fadeDriver:SetScript("OnUpdate", function(self, elapsed)
@@ -883,7 +892,8 @@ fadeDriver:SetScript("OnUpdate", function(self, elapsed)
 
         for object, startAlpha in pairs(fade.starts) do
             local targetAlpha = fade.targets[object] or VISIBLE_ALPHA
-            SafeSetAlpha(object, startAlpha + ((targetAlpha - startAlpha) * progress))
+            local easedProgress = EaseFadeProgress(progress, startAlpha, targetAlpha)
+            SafeSetAlpha(object, startAlpha + ((targetAlpha - startAlpha) * easedProgress))
         end
 
         if progress >= 1 then
