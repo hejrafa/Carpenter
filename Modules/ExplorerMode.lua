@@ -8,7 +8,7 @@ local FADE_OUT_DELAY_SECONDS = 1
 local FADE_OUT_SECONDS = 2.8
 local HOVER_FADE_IN_SECONDS = 0.25
 local HOVER_FADE_OUT_DELAY_SECONDS = 1
-local HOVER_FADE_OUT_SECONDS = 0.45
+local HOVER_FADE_OUT_SECONDS = 0.75
 local HOVER_UPDATE_INTERVAL = 0.05
 local CHAT_REPAIR_VERSION = 1
 
@@ -815,6 +815,19 @@ local function ApplyActionButtonVisualAlphasForManagedFrame(frameObject, targetA
     end)
 end
 
+local function ApplyActionButtonCooldownDrawStatesForManagedFrame(frameObject, targetAlpha)
+    if not IsActionBarManagedFrame(frameObject) then
+        return
+    end
+
+    ForEachActionButton(function(button)
+        local currentTargetAlpha, managedRoot = GetManagedTargetForFrame(button)
+        if managedRoot == frameObject or button == frameObject then
+            ApplyActionButtonCooldownDrawStates(button, targetAlpha or currentTargetAlpha)
+        end
+    end)
+end
+
 local function ApplyCooldownFrameAlpha(cooldown)
     local button = FindActionButtonAncestor(cooldown)
     if button then
@@ -881,6 +894,10 @@ local function EaseFadeProgress(progress, startAlpha, targetAlpha)
     return progress * progress * (3 - (2 * progress))
 end
 
+local function EaseFadeOutProgress(progress)
+    return progress * progress * progress * (progress * ((progress * 6) - 15) + 10)
+end
+
 local fadeDriver = CreateFrame("Frame")
 fadeDriver:Hide()
 fadeDriver:SetScript("OnUpdate", function(self, elapsed)
@@ -892,7 +909,7 @@ fadeDriver:SetScript("OnUpdate", function(self, elapsed)
 
         for object, startAlpha in pairs(fade.starts) do
             local targetAlpha = fade.targets[object] or VISIBLE_ALPHA
-            local easedProgress = EaseFadeProgress(progress, startAlpha, targetAlpha)
+            local easedProgress = targetAlpha < startAlpha and EaseFadeOutProgress(progress) or EaseFadeProgress(progress, startAlpha, targetAlpha)
             SafeSetAlpha(object, startAlpha + ((targetAlpha - startAlpha) * easedProgress))
         end
 
@@ -917,7 +934,6 @@ local function FadeFrame(frameObject, targetAlpha, duration)
         return
     end
     frameTargets[frameObject] = targetAlpha
-    ApplyActionButtonVisualAlphasForManagedFrame(frameObject, targetAlpha)
 
     if UIFrameFadeRemoveFrame and not IsInCombat() then
         pcall(UIFrameFadeRemoveFrame, frameObject)
@@ -928,12 +944,15 @@ local function FadeFrame(frameObject, targetAlpha, duration)
     CollectAlphaTargets(frameObject, starts, targets, targetAlpha, 0)
 
     if duration == nil or duration <= 0 then
+        ApplyActionButtonVisualAlphasForManagedFrame(frameObject, targetAlpha)
         activeFades[frameObject] = nil
         for object, alpha in pairs(targets) do
             SafeSetAlpha(object, alpha)
         end
         return
     end
+
+    ApplyActionButtonCooldownDrawStatesForManagedFrame(frameObject, targetAlpha)
 
     activeFades[frameObject] = {
         elapsed = 0,
@@ -982,7 +1001,11 @@ local function ApplyTargetAlpha(targetAlpha, duration)
         FadeFrame(frameObject, targetAlpha, duration)
     end
 
-    ApplyActionButtonVisualAlphas(targetAlpha)
+    if duration == nil or duration <= 0 then
+        ApplyActionButtonVisualAlphas(targetAlpha)
+    elseif targetAlpha == VISIBLE_ALPHA then
+        RestoreActionButtonCooldownDrawStates()
+    end
 end
 
 local function CancelScheduledRefresh()
