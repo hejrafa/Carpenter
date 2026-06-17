@@ -399,7 +399,7 @@ function Options.Create(context)
                     key = "explorerModeEnabled",
                     label = L.OPTION_EXPLORER_MODE or "Explorer Mode",
                     description = Description("DESC_EXPLORER_MODE"),
-                    image = GetSettingsImage("actioncam.png"),
+                    image = GetSettingsImage("explorer.png"),
                     requiresReload = false,
                     onToggle = ApplyExplorerMode,
                 },
