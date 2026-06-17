@@ -484,21 +484,23 @@ local function IsManagedAncestorHovered(frameObject)
     return false
 end
 
-local function AddManagedFrame(frameObject)
+local function AddManagedFrame(frameObject, skipAlpha)
     if not frameObject or IsForbiddenFrame(frameObject) or not frameObject.SetAlpha then
         return
     end
 
     if not managedFrames[frameObject] then
-        local ok, alpha = true, VISIBLE_ALPHA
-        if frameObject.GetAlpha then
-            ok, alpha = pcall(frameObject.GetAlpha, frameObject)
-        end
-        if not ok then
-            alpha = VISIBLE_ALPHA
+        if not skipAlpha then
+            local ok, alpha = true, VISIBLE_ALPHA
+            if frameObject.GetAlpha then
+                ok, alpha = pcall(frameObject.GetAlpha, frameObject)
+            end
+            if not ok then
+                alpha = VISIBLE_ALPHA
+            end
+            managedAlphas[frameObject] = alpha or VISIBLE_ALPHA
         end
         managedFrames[frameObject] = true
-        managedAlphas[frameObject] = alpha or VISIBLE_ALPHA
     end
 end
 
@@ -551,7 +553,7 @@ local function RefreshDominosFrames()
 
     ForEachDominosFrame(function(dominosFrame)
         if IsDominosActionBarFrame(dominosFrame) then
-            AddManagedFrame(dominosFrame)
+            AddManagedFrame(dominosFrame, true)
             dominosClusterFrames[dominosFrame] = true
         end
     end)
@@ -872,7 +874,7 @@ local function CollectAlphaTargets(root, starts, targets, targetAlpha, depth)
         return
     end
 
-    if root.SetAlpha then
+    if root.SetAlpha and not dominosClusterFrames[root] then
         RememberAlpha(root)
         local ok, alpha = true, targetAlpha
         if root.GetAlpha then
@@ -1257,7 +1259,9 @@ local function RestoreManagedFrames()
     hoverDriver:Hide()
 
     for object, originalAlpha in pairs(managedAlphas) do
-        SafeSetAlpha(object, originalAlpha or VISIBLE_ALPHA)
+        if not dominosClusterFrames[object] then
+            SafeSetAlpha(object, originalAlpha or VISIBLE_ALPHA)
+        end
     end
     RestoreActionButtonCooldownDrawStates()
     managedFrames = {}
