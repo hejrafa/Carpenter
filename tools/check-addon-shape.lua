@@ -13,6 +13,7 @@ local tocs = { "Carpenter.toc", "Carpenter_TBC.toc", "Carpenter_Vanilla.toc" }
 local stateKeys = {
     autoTrackQuestWatches = true,
     blankLuaErrorTraceLog = true,
+    explorerModeChatWindowRepairVersion = true,
     noObjectiveQuestWatches = true,
 }
 
