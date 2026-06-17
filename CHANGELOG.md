@@ -6,6 +6,7 @@
 - Added a disabled Classic/TBC Hide Shoulders experiment that explains why live player shoulder armor cannot be hidden client-side by an addon.
 - Added a disabled Classic/TBC Back Sheath 1H Weapons idea for tracking weapon-sheath placement experiments.
 - Styled Chat Cleaner friend and guild online/offline notices as single-color social lines.
+- Show `Complete` on Classic/TBC tracked quests once they are ready to turn in, replacing the objective list in the tracker.
 
 ## 1.6.8
 

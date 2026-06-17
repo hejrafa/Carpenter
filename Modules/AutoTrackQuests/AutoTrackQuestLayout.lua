@@ -18,9 +18,16 @@ local QUEST_WATCH_SECTION_GAP = 4
 local QUEST_WATCH_FRAME_PADDING = 10
 local QUEST_WATCH_FRAME_WIDTH = QUEST_WATCH_WRAP_WIDTH + QUEST_WATCH_FRAME_PADDING
 local QUEST_WATCH_OBJECTIVE_PREFIX = " - "
+local QUEST_WATCH_COMPLETE_R = 0
+local QUEST_WATCH_COMPLETE_G = 1
+local QUEST_WATCH_COMPLETE_B = 0
 
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("autoTrackQuestsEnabled")
+end
+
+local function GetCompleteText()
+    return State.CleanQuestText(COMPLETE) or "Complete"
 end
 
 local function GetNativeQuestWatchLineIndex()
@@ -179,6 +186,7 @@ local function ClearQuestWatchLineMetadata()
         local line = _G["QuestWatchLine" .. index]
         if line then
             line._CarpenterQuestWatchFallbackLine = nil
+            line._CarpenterQuestWatchCompleteLine = nil
             line._CarpenterQuestWatchGapBefore = nil
             line._CarpenterQuestWatchOffsetX = nil
             line._CarpenterQuestWatchRawText = nil
@@ -247,7 +255,7 @@ local function LayoutQuestWatchLines()
             ConfigureQuestWatchLine(line)
             ApplyQuestWatchLineText(line)
 
-            local gapBefore = line._CarpenterQuestWatchFallbackLine and line._CarpenterQuestWatchGapBefore or nativeGaps[index]
+            local gapBefore = (line._CarpenterQuestWatchFallbackLine or line._CarpenterQuestWatchCompleteLine) and line._CarpenterQuestWatchGapBefore or nativeGaps[index]
             if gapBefore and visibleLines > 0 then
                 offsetY = offsetY + QUEST_WATCH_SECTION_GAP
             end
@@ -326,6 +334,47 @@ local function SetQuestWatchLine(lineIndex, text, r, g, b, gapBefore, offsetText
     return GetQuestWatchLineWidth(line)
 end
 
+local function RenderCompletedNativeQuestWatches()
+    if not IsEnabled() or not QuestWatchFrame or not GetNumQuestWatches or not GetQuestIndexForWatch then return end
+
+    local maxLines = MAX_QUESTWATCH_LINES or 30
+    local lineIndex = 1
+
+    for watchIndex = 1, GetNumQuestWatches() do
+        local questIndex = GetQuestIndexForWatch(watchIndex)
+        local numObjectives = State.GetNumQuestObjectives(questIndex) or 0
+
+        if questIndex and numObjectives > 0 then
+            if State.IsQuestComplete and State.IsQuestComplete(questIndex) then
+                local completeLineIndex = lineIndex + 1
+                local completeLine = _G["QuestWatchLine" .. completeLineIndex]
+                if completeLine then
+                    ConfigureQuestWatchLine(completeLine)
+                    completeLine._CarpenterQuestWatchCompleteLine = true
+                    completeLine._CarpenterQuestWatchGapBefore = false
+                    completeLine._CarpenterQuestWatchOffsetX = GetQuestWatchPrefixWidth(completeLine, QUEST_WATCH_OBJECTIVE_PREFIX)
+                    ConfigureQuestWatchLine(completeLine)
+                    completeLine:SetText(GetCompleteText())
+                    completeLine:SetTextColor(QUEST_WATCH_COMPLETE_R, QUEST_WATCH_COMPLETE_G, QUEST_WATCH_COMPLETE_B)
+                    completeLine:Show()
+                end
+
+                for objectiveLineIndex = completeLineIndex + 1, math.min(lineIndex + numObjectives, maxLines) do
+                    local line = _G["QuestWatchLine" .. objectiveLineIndex]
+                    if line then
+                        if line.SetText then
+                            line:SetText("")
+                        end
+                        line:Hide()
+                    end
+                end
+            end
+
+            lineIndex = lineIndex + 1 + numObjectives
+        end
+    end
+end
+
 local function PositionQuestLogWatchCheck(row, button, check, title)
     local normalText = _G["QuestLogTitle" .. row .. "NormalText"]
     local displayText = button.GetText and button:GetText() or title
@@ -373,7 +422,12 @@ local function RenderFallbackQuestWatches()
             lineIndex = lineIndex + 1
 
             local objective = watch.objectiveText or watch.title or ""
-            SetQuestWatchLine(lineIndex, objective, 0.8, 0.8, 0.8, false, QUEST_WATCH_OBJECTIVE_PREFIX)
+            local objectiveR, objectiveG, objectiveB = 0.8, 0.8, 0.8
+            if State.IsQuestComplete and State.IsQuestComplete(questIndex, watch.questID) then
+                objective = GetCompleteText()
+                objectiveR, objectiveG, objectiveB = QUEST_WATCH_COMPLETE_R, QUEST_WATCH_COMPLETE_G, QUEST_WATCH_COMPLETE_B
+            end
+            SetQuestWatchLine(lineIndex, objective, objectiveR, objectiveG, objectiveB, false, QUEST_WATCH_OBJECTIVE_PREFIX)
             lineIndex = lineIndex + 1
             rendered = rendered + 1
         end
@@ -397,6 +451,7 @@ end
 
 local function UpdateQuestWatchLayout()
     ClearQuestWatchLineMetadata()
+    RenderCompletedNativeQuestWatches()
     RenderFallbackQuestWatches()
     LayoutQuestWatchLines()
     ScheduleQuestWatchLayoutRefresh()

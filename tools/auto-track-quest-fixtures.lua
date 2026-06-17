@@ -26,7 +26,9 @@ Carpenter = {
 }
 
 MAX_WATCHABLE_QUESTS = 5
+MAX_QUESTWATCH_LINES = 8
 QUEST_WATCH_TOO_MANY = "You can only watch %d quests."
+COMPLETE = "Complete"
 
 local quests = {
     [1] = {
@@ -34,8 +36,94 @@ local quests = {
         title = "Report to Goldshire",
         objectives = 0,
         objectiveText = "Speak with Marshal Dughan in Goldshire.",
+        complete = false,
+    },
+    [2] = {
+        questID = 202,
+        title = "Kobold Candles",
+        objectives = 2,
+        objectiveText = "Collect candles from kobold workers.",
+        complete = false,
+        leaderboards = {
+            { text = "Kobold Workers slain: 8/8", finished = true },
+            { text = "Candles collected: 4/4", finished = true },
+        },
     },
 }
+
+local function CreateMockRegion()
+    local region = {
+        text = "",
+        shown = false,
+        width = 230,
+        height = 13,
+        color = nil,
+        points = {},
+    }
+
+    function region:SetText(text) self.text = text or "" end
+    function region:GetText() return self.text end
+    function region:SetTextColor(r, g, b) self.color = { r = r, g = g, b = b } end
+    function region:Show() self.shown = true end
+    function region:Hide() self.shown = false end
+    function region:IsShown() return self.shown end
+    function region:SetWidth(width) self.width = width end
+    function region:GetWidth() return self.width end
+    function region:SetHeight(height) self.height = height end
+    function region:GetHeight() return self.height end
+    function region:GetStringWidth() return #(self.text or "") * 6 end
+    function region:GetStringHeight()
+        local lines = 1
+        for _ in tostring(self.text or ""):gmatch("\n") do
+            lines = lines + 1
+        end
+        return lines * 13
+    end
+    function region:SetMaxLines() end
+    function region:SetWordWrap() end
+    function region:SetNonSpaceWrap() end
+    function region:SetJustifyH() end
+    function region:ClearAllPoints() self.points = {} end
+    function region:SetPoint(...) self.points[#self.points + 1] = { ... } end
+
+    return region
+end
+
+local function CreateMockFrame()
+    local frame = CreateMockRegion()
+    function frame:SetHeight(height) self.height = height end
+    function frame:SetWidth(width) self.width = width end
+    return frame
+end
+
+QuestWatchFrame = CreateMockFrame()
+QuestWatchQuestName = CreateMockRegion()
+for index = 1, MAX_QUESTWATCH_LINES do
+    _G["QuestWatchLine" .. index] = CreateMockRegion()
+end
+
+local function ResetQuestWatchLines()
+    for index = 1, MAX_QUESTWATCH_LINES do
+        local line = _G["QuestWatchLine" .. index]
+        line:SetText("")
+        line:Hide()
+        line.color = nil
+        line._CarpenterQuestWatchFallbackLine = nil
+        line._CarpenterQuestWatchCompleteLine = nil
+        line._CarpenterQuestWatchGapBefore = nil
+        line._CarpenterQuestWatchOffsetX = nil
+        line._CarpenterQuestWatchRawText = nil
+        line._CarpenterQuestWatchWrappedText = nil
+    end
+    QuestWatchFrame:Hide()
+end
+
+local function ShowQuestWatchLine(index, text)
+    local line = _G["QuestWatchLine" .. index]
+    line:SetText(text)
+    line:Show()
+    return line
+end
 
 local function loadAddonFile(path)
     local chunk, err = loadfile(repo .. "/" .. path)
@@ -82,7 +170,7 @@ end
 function GetQuestLogTitle(index)
     local quest = quests[index]
     if not quest then return nil end
-    return quest.title, nil, nil, quest.isHeader, nil, nil, nil, quest.questID
+    return quest.title, nil, nil, quest.isHeader, nil, quest.complete == true, nil, quest.questID
 end
 
 function GetNumQuestLeaderBoards(index)
@@ -101,6 +189,22 @@ end
 function GetQuestLogQuestText()
     local quest = quests[selectedQuestIndex]
     return nil, quest and quest.objectiveText or nil
+end
+
+function GetQuestLogLeaderBoard(objectiveIndex, questIndex)
+    local quest = quests[questIndex]
+    local objective = quest and quest.leaderboards and quest.leaderboards[objectiveIndex]
+    if not objective then return nil, nil, nil end
+    return objective.text, "object", objective.finished == true
+end
+
+function IsQuestComplete(questID)
+    for _, quest in pairs(quests) do
+        if quest.questID == questID then
+            return quest.complete == true
+        end
+    end
+    return false
 end
 
 function GetTitleText()
@@ -215,6 +319,53 @@ if #failures == 0 then
     if questWatchUpdates == 0 or questLogUpdates == 0 then
         failures[#failures + 1] = "tracker refresh: expected quest watch and quest log refreshes"
     end
+
+    do
+        ResetQuestWatchLines()
+        questWatchIndexes = { 2 }
+        quests[2].complete = true
+        ShowQuestWatchLine(1, quests[2].title)
+        ShowQuestWatchLine(2, " - Kobold Workers slain: 8/8")
+        ShowQuestWatchLine(3, " - Candles collected: 4/4")
+
+        ns.Private.AutoTrackQuestLayout.UpdateQuestWatchLayout()
+
+        local completeLine = _G.QuestWatchLine2
+        local hiddenObjectiveLine = _G.QuestWatchLine3
+        if completeLine:GetText() ~= "Complete" then
+            failures[#failures + 1] = "complete native watch: expected Complete line, got " .. tostring(completeLine:GetText())
+        end
+        if not (completeLine.color and completeLine.color.r == 0 and completeLine.color.g == 1 and completeLine.color.b == 0) then
+            failures[#failures + 1] = "complete native watch: expected green Complete line"
+        end
+        if hiddenObjectiveLine:IsShown() then
+            failures[#failures + 1] = "complete native watch: expected extra objective line to be hidden"
+        end
+    end
+
+    do
+        ResetQuestWatchLines()
+        questWatchIndexes = {}
+        CarpenterDB.noObjectiveQuestWatches = nil
+        CarpenterDB.autoTrackQuestWatches = nil
+        quests[1].objectives = 0
+        quests[1].complete = true
+        selectedQuestIndex = 0
+
+        fire("QUEST_ACCEPTED", 1, 101)
+
+        local titleLine = _G.QuestWatchLine1
+        local completeLine = _G.QuestWatchLine2
+        if titleLine:GetText() ~= "Report to Goldshire" then
+            failures[#failures + 1] = "complete fallback watch: expected quest title line, got " .. tostring(titleLine:GetText())
+        end
+        if completeLine:GetText() ~= "Complete" then
+            failures[#failures + 1] = "complete fallback watch: expected Complete line, got " .. tostring(completeLine:GetText())
+        end
+        if not (completeLine:IsShown() and completeLine.color and completeLine.color.r == 0 and completeLine.color.g == 1 and completeLine.color.b == 0) then
+            failures[#failures + 1] = "complete fallback watch: expected visible green Complete line"
+        end
+    end
 end
 
 if #failures > 0 then
@@ -222,4 +373,4 @@ if #failures > 0 then
     os.exit(1)
 end
 
-print("auto-track quest fixtures: 4 passed")
+print("auto-track quest fixtures: 6 passed")

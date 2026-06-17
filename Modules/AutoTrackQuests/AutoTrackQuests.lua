@@ -60,7 +60,7 @@ local function AddFallbackQuestWatch(index, questID, questName, quiet)
     local key = State.MakeQuestKey(questID, questName)
     if not key then return false end
 
-    objectiveText = State.GetQuestObjectiveText(index) or questName
+    local objectiveText = State.GetQuestObjectiveText(index) or questName
     objectiveText = State.CleanQuestText(objectiveText)
     if not objectiveText then return false end
 

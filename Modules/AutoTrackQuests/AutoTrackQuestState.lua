@@ -25,13 +25,13 @@ local function GetQuestInfo(index)
     if C_QuestLog and C_QuestLog.GetInfo then
         local info = C_QuestLog.GetInfo(index)
         if info then
-            return info.questID, info.title, info.isHeader
+            return info.questID, info.title, info.isHeader, info.isComplete
         end
     end
 
     if GetQuestLogTitle then
-        local title, _, _, isHeader, _, _, _, questID = GetQuestLogTitle(index)
-        return questID, title, isHeader
+        local title, _, _, isHeader, _, isComplete, _, questID = GetQuestLogTitle(index)
+        return questID, title, isHeader, isComplete
     end
 end
 
@@ -162,6 +162,51 @@ local function RemoveNativeQuestWatch(questID, questName)
     return RemoveQuestWatchFromState(GetNativeWatchState(), questID, questName)
 end
 
+local function IsCompleteValue(value)
+    return value == true or value == 1
+end
+
+local function IsIncompleteValue(value)
+    return value == false or value == 0 or value == -1
+end
+
+local function IsQuestCompleteInLog(index, questID)
+    local logQuestID, _, isHeader, isComplete
+    local explicitlyIncomplete = false
+    if index then
+        logQuestID, _, isHeader, isComplete = GetQuestInfo(index)
+        if isHeader then return false end
+        if IsCompleteValue(isComplete) then return true end
+        explicitlyIncomplete = IsIncompleteValue(isComplete)
+    end
+
+    questID = questID or logQuestID
+    if questID and C_QuestLog and C_QuestLog.ReadyForTurnIn then
+        local ok, ready = pcall(C_QuestLog.ReadyForTurnIn, questID)
+        if ok and IsCompleteValue(ready) then return true end
+    end
+    if questID and _G.IsQuestComplete then
+        local ok, ready = pcall(_G.IsQuestComplete, questID)
+        if ok and IsCompleteValue(ready) then return true end
+    end
+    if explicitlyIncomplete then return false end
+
+    if index and GetNumQuestLeaderBoards and GetQuestLogLeaderBoard then
+        local numObjectives = GetNumQuestLeaderBoards(index) or 0
+        if numObjectives > 0 then
+            for objectiveIndex = 1, numObjectives do
+                local _, _, finished = GetQuestLogLeaderBoard(objectiveIndex, index)
+                if not IsCompleteValue(finished) then
+                    return false
+                end
+            end
+            return true
+        end
+    end
+
+    return false
+end
+
 local function GetQuestObjectiveText(index)
     if not index or not GetQuestLogQuestText then return nil end
 
@@ -171,7 +216,7 @@ local function GetQuestObjectiveText(index)
     end
 
     local _, objectives = GetQuestLogQuestText()
-    text = CleanQuestText(objectives)
+    local text = CleanQuestText(objectives)
 
     if selectedIndex ~= nil and SelectQuestLogEntry then
         SelectQuestLogEntry(selectedIndex)
@@ -370,6 +415,7 @@ State.RemoveQuestStateEntry = RemoveQuestStateEntry
 State.RemoveQuestWatchFromState = RemoveQuestWatchFromState
 State.RememberNativeQuestWatch = RememberNativeQuestWatch
 State.RemoveNativeQuestWatch = RemoveNativeQuestWatch
+State.IsQuestComplete = IsQuestCompleteInLog
 State.GetQuestObjectiveText = GetQuestObjectiveText
 State.GetNumQuestObjectives = GetNumQuestObjectives
 State.QuestHasTrackableObjectives = QuestHasTrackableObjectives
