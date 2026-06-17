@@ -20,7 +20,6 @@ local registeredEvents = {
     "UPDATE_VEHICLE_ACTIONBAR",
     "UNIT_ENTERED_VEHICLE",
     "UNIT_EXITED_VEHICLE",
-    "UPDATE_CHAT_WINDOWS",
     "GROUP_ROSTER_UPDATE",
     "PLAYER_TARGET_CHANGED",
     "PLAYER_FOCUS_CHANGED",
@@ -91,8 +90,6 @@ local frameNames = {
 }
 
 local repeatedFramePrefixes = {
-    { prefix = "ChatFrame", suffix = "", count = 10 },
-    { prefix = "ChatFrame", suffix = "Tab", count = 10 },
     { prefix = "PartyMemberFrame", suffix = "", count = 4 },
     { prefix = "PartyMemberFrame", suffix = "PetFrame", count = 4 },
     { prefix = "Boss", suffix = "TargetFrame", count = 8 },
