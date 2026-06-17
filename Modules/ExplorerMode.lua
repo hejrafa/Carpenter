@@ -21,6 +21,7 @@ local hoverFadeOutAt = {}
 local explorerFaded = false
 local IsShownFrame
 local actionButtonOverlayHooksInstalled = false
+local actionButtonCooldownHookedFrames = {}
 local registeredEvents = {
     "PLAYER_LOGIN",
     "PLAYER_ENTERING_WORLD",
@@ -162,6 +163,61 @@ local actionButtonOverlayFunctions = {
     "ActionButton_ShowOverlayGlow",
     "ActionButton_ShowCooldownFlash",
     "ActionButton_StartFlash",
+    "ActionButton_UpdateCooldown",
+}
+
+local cooldownFrameFunctions = {
+    "CooldownFrame_Set",
+    "CooldownFrame_SetTimer",
+}
+
+local actionButtonGroups = {
+    { prefix = "ActionButton", count = 12 },
+    { prefix = "BonusActionButton", count = 12 },
+    { prefix = "MultiBarBottomLeftButton", count = 12 },
+    { prefix = "MultiBarBottomRightButton", count = 12 },
+    { prefix = "MultiBarRightButton", count = 12 },
+    { prefix = "MultiBarLeftButton", count = 12 },
+    { prefix = "MultiBar5Button", count = 12 },
+    { prefix = "MultiBar6Button", count = 12 },
+    { prefix = "MultiBar7Button", count = 12 },
+    { prefix = "PetActionButton", count = 10 },
+    { prefix = "StanceButton", count = 10 },
+    { prefix = "ShapeshiftButton", count = 10 },
+    { prefix = "PossessButton", count = 2 },
+    { prefix = "OverrideActionBarButton", count = 6 },
+    { prefix = "ExtraActionButton", count = 1 },
+}
+
+local actionButtonNames = {
+    "ZoneAbilityFrame",
+}
+
+local actionButtonNamePatterns = {
+    "^ActionButton%d+$",
+    "^BonusActionButton%d+$",
+    "^MultiBarBottomLeftButton%d+$",
+    "^MultiBarBottomRightButton%d+$",
+    "^MultiBarRightButton%d+$",
+    "^MultiBarLeftButton%d+$",
+    "^MultiBar5Button%d+$",
+    "^MultiBar6Button%d+$",
+    "^MultiBar7Button%d+$",
+    "^PetActionButton%d+$",
+    "^StanceButton%d+$",
+    "^ShapeshiftButton%d+$",
+    "^PossessButton%d+$",
+    "^OverrideActionBarButton%d+$",
+    "^ExtraActionButton%d+$",
+    "^ZoneAbilityFrame$",
+}
+
+local actionButtonCooldownKeys = {
+    "cooldown",
+    "Cooldown",
+    "chargeCooldown",
+    "ChargeCooldown",
+    "IconCooldown",
 }
 
 local function NormalizeChatWindowName(name)
@@ -425,6 +481,118 @@ local function GetManagedTargetForFrame(frameObject)
     return nil, nil
 end
 
+local ApplyActionButtonOverlayAlpha
+local RefreshActionButtonCooldownHooks
+
+local function IsKnownActionButtonName(name)
+    if not name then
+        return false
+    end
+
+    for _, pattern in ipairs(actionButtonNamePatterns) do
+        if name:match(pattern) then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function IsActionButtonFrame(frameObject)
+    if not frameObject or not frameObject.GetName then
+        return false
+    end
+
+    local ok, name = pcall(frameObject.GetName, frameObject)
+    return ok and IsKnownActionButtonName(name)
+end
+
+local function FindActionButtonAncestor(frameObject)
+    local current = frameObject
+    local depth = 0
+    while current and depth <= 8 do
+        if IsActionButtonFrame(current) then
+            return current
+        end
+        if not current.GetParent then
+            return nil
+        end
+        local ok, parent = pcall(current.GetParent, current)
+        if not ok then
+            return nil
+        end
+        current = parent
+        depth = depth + 1
+    end
+
+    return nil
+end
+
+local function ForEachActionButton(callback)
+    for _, group in ipairs(actionButtonGroups) do
+        for i = 1, group.count do
+            local button = _G[group.prefix .. i]
+            if button then
+                callback(button)
+            end
+        end
+    end
+
+    for _, name in ipairs(actionButtonNames) do
+        local button = _G[name]
+        if button then
+            callback(button)
+        end
+    end
+end
+
+local function IsCooldownFrame(frameObject)
+    if not frameObject or not frameObject.SetAlpha then
+        return false
+    end
+
+    return frameObject.SetCooldown or frameObject.SetDrawSwipe or frameObject.SetDrawBling
+end
+
+local function AddCooldownFrame(cooldowns, frameObject)
+    if IsCooldownFrame(frameObject) then
+        cooldowns[frameObject] = true
+    end
+end
+
+local function CollectCooldownChildren(root, cooldowns, depth)
+    if not root or depth > 3 or IsForbiddenFrame(root) then
+        return
+    end
+
+    AddCooldownFrame(cooldowns, root)
+
+    if root.GetChildren then
+        for i = 1, root:GetNumChildren() do
+            CollectCooldownChildren(select(i, root:GetChildren()), cooldowns, depth + 1)
+        end
+    end
+end
+
+local function CollectActionButtonCooldownFrames(button, cooldowns)
+    if not button then
+        return
+    end
+
+    for _, key in ipairs(actionButtonCooldownKeys) do
+        AddCooldownFrame(cooldowns, button[key])
+    end
+
+    if button.GetName then
+        local ok, name = pcall(button.GetName, button)
+        if ok and name then
+            AddCooldownFrame(cooldowns, _G[name .. "Cooldown"])
+        end
+    end
+
+    CollectCooldownChildren(button, cooldowns, 0)
+end
+
 local function CollectAlphaTargets(root, starts, targets, targetAlpha, depth)
     if not root or depth > 4 then
         return
@@ -465,26 +633,75 @@ local function CollectAlphaTargets(root, starts, targets, targetAlpha, depth)
     end
 end
 
-local function ApplyActionButtonOverlayAlpha(button)
-    if not button or not explorerFaded or IsInCombat() or not IsPlayerAtFullHealth() then
+local function CollectActionButtonCooldownTargets(button, starts, targets, targetAlpha)
+    local cooldowns = {}
+    CollectActionButtonCooldownFrames(button, cooldowns)
+
+    for cooldown in pairs(cooldowns) do
+        CollectAlphaTargets(cooldown, starts, targets, targetAlpha, 0)
+    end
+end
+
+function ApplyActionButtonOverlayAlpha(button, targetAlphaOverride)
+    if not button or IsInCombat() then
         return
     end
 
-    local targetAlpha = GetManagedTargetForFrame(button)
-    if targetAlpha ~= EXPLORING_ALPHA then
+    local targetAlpha = targetAlphaOverride or GetManagedTargetForFrame(button)
+    if targetAlpha == nil then
+        return
+    end
+
+    if targetAlpha == EXPLORING_ALPHA and (not explorerFaded or not IsPlayerAtFullHealth()) then
         return
     end
 
     local starts = {}
     local targets = {}
-    CollectAlphaTargets(button, starts, targets, EXPLORING_ALPHA, 0)
+    CollectAlphaTargets(button, starts, targets, targetAlpha, 0)
+    CollectActionButtonCooldownTargets(button, starts, targets, targetAlpha)
     for object, alpha in pairs(targets) do
         SafeSetAlpha(object, alpha)
     end
 end
 
+local function ApplyActionButtonVisualAlphas(targetAlpha)
+    ForEachActionButton(function(button)
+        ApplyActionButtonOverlayAlpha(button, targetAlpha)
+    end)
+end
+
+local function ApplyCooldownFrameAlpha(cooldown)
+    local button = FindActionButtonAncestor(cooldown)
+    if button then
+        ApplyActionButtonOverlayAlpha(button)
+    end
+end
+
+local function HookActionButtonCooldownFrame(cooldown)
+    if not cooldown or actionButtonCooldownHookedFrames[cooldown] or not cooldown.HookScript then
+        return
+    end
+
+    actionButtonCooldownHookedFrames[cooldown] = true
+    pcall(cooldown.HookScript, cooldown, "OnShow", ApplyCooldownFrameAlpha)
+end
+
+function RefreshActionButtonCooldownHooks()
+    ForEachActionButton(function(button)
+        local cooldowns = {}
+        CollectActionButtonCooldownFrames(button, cooldowns)
+        for cooldown in pairs(cooldowns) do
+            HookActionButtonCooldownFrame(cooldown)
+        end
+    end)
+end
+
 local function HookActionButtonOverlayFunctions()
     if actionButtonOverlayHooksInstalled or not hooksecurefunc then
+        if RefreshActionButtonCooldownHooks then
+            RefreshActionButtonCooldownHooks()
+        end
         return
     end
 
@@ -498,6 +715,16 @@ local function HookActionButtonOverlayFunctions()
         end
     end
 
+    for _, functionName in ipairs(cooldownFrameFunctions) do
+        if type(_G[functionName]) == "function" then
+            local ok = pcall(hooksecurefunc, functionName, function(cooldown)
+                ApplyCooldownFrameAlpha(cooldown)
+            end)
+            hookedAny = hookedAny or ok
+        end
+    end
+
+    RefreshActionButtonCooldownHooks()
     actionButtonOverlayHooksInstalled = hookedAny
 end
 
@@ -598,6 +825,10 @@ local function ApplyTargetAlpha(targetAlpha, duration)
     RefreshManagedFrames()
     for frameObject in pairs(managedFrames) do
         FadeFrame(frameObject, targetAlpha, duration)
+    end
+
+    if targetAlpha == VISIBLE_ALPHA or duration == nil or duration <= 0 then
+        ApplyActionButtonVisualAlphas(targetAlpha)
     end
 end
 
