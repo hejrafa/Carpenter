@@ -7,7 +7,7 @@ local VISIBLE_ALPHA = 1
 local FADE_OUT_SECONDS = 2.8
 local HOVER_FADE_IN_SECONDS = 0.18
 local HOVER_FADE_OUT_SECONDS = 0.45
-local HOVER_UPDATE_INTERVAL = 0.08
+local HOVER_UPDATE_INTERVAL = 0.15
 local CHAT_REPAIR_VERSION = 1
 
 local frame = CreateFrame("Frame")
@@ -91,25 +91,11 @@ local frameNames = {
     "TemporaryEnchantFrame",
     "DebuffFrame",
     "PlayerBuffFrame",
-    "CastingBarFrame",
     "DurabilityFrame",
     "VehicleSeatIndicator",
 }
 
 local repeatedFramePrefixes = {
-    { prefix = "ActionButton", suffix = "", count = 12 },
-    { prefix = "MultiBarBottomLeftButton", suffix = "", count = 12 },
-    { prefix = "MultiBarBottomRightButton", suffix = "", count = 12 },
-    { prefix = "MultiBarRightButton", suffix = "", count = 12 },
-    { prefix = "MultiBarLeftButton", suffix = "", count = 12 },
-    { prefix = "MultiBar5Button", suffix = "", count = 12 },
-    { prefix = "MultiBar6Button", suffix = "", count = 12 },
-    { prefix = "MultiBar7Button", suffix = "", count = 12 },
-    { prefix = "PetActionButton", suffix = "", count = 10 },
-    { prefix = "StanceButton", suffix = "", count = 10 },
-    { prefix = "ShapeshiftButton", suffix = "", count = 10 },
-    { prefix = "BuffButton", suffix = "", count = 40 },
-    { prefix = "DebuffButton", suffix = "", count = 40 },
     { prefix = "PartyMemberFrame", suffix = "", count = 4 },
     { prefix = "PartyMemberFrame", suffix = "PetFrame", count = 4 },
     { prefix = "Boss", suffix = "TargetFrame", count = 8 },
@@ -302,28 +288,6 @@ local function IsMouseOverFrame(frameObject)
     return false
 end
 
-local function IsMouseOverTree(frameObject, depth)
-    if not frameObject or depth > 3 then
-        return false
-    end
-    if IsForbiddenFrame(frameObject) then
-        return false
-    end
-    if IsMouseOverFrame(frameObject) then
-        return true
-    end
-
-    if frameObject.GetChildren then
-        for i = 1, frameObject:GetNumChildren() do
-            if IsMouseOverTree(select(i, frameObject:GetChildren()), depth + 1) then
-                return true
-            end
-        end
-    end
-
-    return false
-end
-
 local function IsManagedAncestorHovered(frameObject)
     if not frameObject or not frameObject.GetParent then
         return false
@@ -331,7 +295,7 @@ local function IsManagedAncestorHovered(frameObject)
 
     local ok, parent = pcall(frameObject.GetParent, frameObject)
     while ok and parent do
-        if managedFrames[parent] and IsMouseOverTree(parent, 0) then
+        if managedFrames[parent] and IsMouseOverFrame(parent) then
             return true
         end
         if not parent.GetParent then
@@ -483,15 +447,7 @@ local function FadeFrame(frameObject, targetAlpha, duration)
         return
     end
 
-    if frameTargets[frameObject] == targetAlpha and activeFades[frameObject] == nil then
-        if targetAlpha == EXPLORING_ALPHA then
-            local starts = {}
-            local targets = {}
-            CollectAlphaTargets(frameObject, starts, targets, targetAlpha, 0)
-            for object, alpha in pairs(targets) do
-                SafeSetAlpha(object, alpha)
-            end
-        end
+    if frameTargets[frameObject] == targetAlpha then
         return
     end
     frameTargets[frameObject] = targetAlpha
@@ -535,9 +491,8 @@ hoverDriver:SetScript("OnUpdate", function(self, elapsed)
     end
     self.elapsed = 0
 
-    RefreshManagedFrames()
     for frameObject in pairs(managedFrames) do
-        if IsMouseOverTree(frameObject, 0) or IsManagedAncestorHovered(frameObject) then
+        if IsMouseOverFrame(frameObject) or IsManagedAncestorHovered(frameObject) then
             FadeFrame(frameObject, VISIBLE_ALPHA, HOVER_FADE_IN_SECONDS)
         else
             FadeFrame(frameObject, EXPLORING_ALPHA, HOVER_FADE_OUT_SECONDS)
