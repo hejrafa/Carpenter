@@ -1,4 +1,4 @@
-## Interface: 120001, 120005
+## Interface: 120005, 120007
 ## Title: Carpenter
 ## Notes: Provides a variety of UI cleanup and quality-of-life features.|n|nOpen Settings with Slash Command:|n/carpenter or /cp
 ## Notes-deDE: Bietet verschiedene Funktionen zum Aufräumen der Benutzeroberfläche und zur Verbesserung der Bedienqualität.|n|nEinstellungen per Slash-Befehl öffnen:|n/carpenter oder /cp

@@ -7,6 +7,7 @@
 - Added a disabled Classic/TBC Back Sheath 1H Weapons idea for tracking weapon-sheath placement experiments.
 - Added an Explorer Mode immersion option that slowly fades the main HUD out of combat while keeping the minimap visible, then quickly restores the HUD when combat starts.
 - Added Classic/TBC Explorer Mode settings preview artwork.
+- Added Retail interface support for 12.0.7.
 - Styled Chat Cleaner friend and guild online/offline notices as single-color social lines.
 - Show `Complete` on Classic/TBC tracked quests once they are ready to turn in, replacing the objective list in the tracker.
 
