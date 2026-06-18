@@ -9,30 +9,31 @@ local FADE_OUT_SECONDS = 2.8
 local HOVER_FADE_IN_SECONDS = 0.45
 local HOVER_FADE_OUT_DELAY_SECONDS = 1
 local HOVER_FADE_OUT_SECONDS = 0.75
-local HOVER_UPDATE_INTERVAL = 0.05
+local HOVER_UPDATE_INTERVAL = 0.2
 local CHAT_REPAIR_VERSION = 1
 local ACTION_BAR_CLUSTER_KEY = "actionBarCluster"
+local ACTION_BUTTON_FADE_KEY = {}
 
 local frame = CreateFrame("Frame")
+local actionBarFrame = CreateFrame("Frame")
 local managedFrames = {}
 local managedAlphas = {}
 local frameTargets = {}
 local activeFades = {}
 local hoverFadeOutAt = {}
 local explorerFaded = false
+local actionButtonTargetAlpha = nil
 local IsShownFrame
 local actionButtonOverlayHooksInstalled = false
 local actionButtonCooldownHookedFrames = {}
 local actionButtonCooldownDrawStates = {}
+local editModeCallbacksRegistered = false
+local editModeHooksInstalled = false
 local registeredEvents = {
     "PLAYER_LOGIN",
     "PLAYER_ENTERING_WORLD",
     "PLAYER_REGEN_DISABLED",
     "PLAYER_REGEN_ENABLED",
-    "ACTIONBAR_PAGE_CHANGED",
-    "UPDATE_BONUS_ACTIONBAR",
-    "UPDATE_OVERRIDE_ACTIONBAR",
-    "UPDATE_VEHICLE_ACTIONBAR",
     "UNIT_ENTERED_VEHICLE",
     "UNIT_EXITED_VEHICLE",
     "GROUP_ROSTER_UPDATE",
@@ -41,6 +42,13 @@ local registeredEvents = {
     "QUEST_WATCH_UPDATE",
     "QUEST_ACCEPTED",
     "QUEST_REMOVED",
+}
+
+local actionBarRefreshEvents = {
+    ACTIONBAR_PAGE_CHANGED = true,
+    UPDATE_BONUS_ACTIONBAR = true,
+    UPDATE_OVERRIDE_ACTIONBAR = true,
+    UPDATE_VEHICLE_ACTIONBAR = true,
 }
 
 local registeredUnitEvents = {
@@ -69,8 +77,6 @@ local frameNames = {
     "MultiBarRight",
     "MultiBarLeft",
     "MultiBar5",
-    "MultiBar6",
-    "MultiBar7",
     "StanceBar",
     "StanceBarFrame",
     "ShapeshiftBarFrame",
@@ -79,19 +85,7 @@ local frameNames = {
     "OverrideActionBar",
     "ExtraActionBarFrame",
     "ZoneAbilityFrame",
-    -- Bottom utility clusters
-    "MicroButtonAndBagsBar",
-    "MicroMenuContainer",
-    "BagsBar",
-    "BagBarExpandToggle",
-    "MainMenuBarBackpackButton",
-    "KeyRingButton",
-    "KeyringButton",
-    "CharacterBag0Slot",
-    "CharacterBag1Slot",
-    "CharacterBag2Slot",
-    "CharacterBag3Slot",
-    "CharacterReagentBag0Slot",
+    -- Bottom status bars
     "MainMenuExpBar",
     "ReputationWatchBar",
     "ArtifactWatchBar",
@@ -114,26 +108,6 @@ local repeatedFramePrefixes = {
     { prefix = "PartyMemberFrame", suffix = "PetFrame", count = 4 },
     { prefix = "Boss", suffix = "TargetFrame", count = 8 },
     { prefix = "ArenaEnemyFrame", suffix = "", count = 5 },
-}
-
-local microButtons = {
-    "MainMenuBarPerformanceBar",
-    "CharacterMicroButton",
-    "SpellbookMicroButton",
-    "TalentMicroButton",
-    "ProfessionMicroButton",
-    "QuestLogMicroButton",
-    "AchievementMicroButton",
-    "SocialsMicroButton",
-    "GuildMicroButton",
-    "PVPMicroButton",
-    "LFGMicroButton",
-    "CollectionsMicroButton",
-    "EJMicroButton",
-    "StoreMicroButton",
-    "MainMenuMicroButton",
-    "HelpMicroButton",
-    "WorldMapMicroButton",
 }
 
 local unitFramePieces = {
@@ -168,6 +142,12 @@ local actionButtonOverlayFunctions = {
     "ActionButton_UpdateCooldown",
 }
 
+local actionButtonRefreshFunctions = {
+    "ActionButton_Update",
+    "ActionButton_UpdateAction",
+    "ActionButton_UpdateState",
+}
+
 local cooldownFrameFunctions = {
     "CooldownFrame_Set",
     "CooldownFrame_SetTimer",
@@ -181,8 +161,6 @@ local actionButtonGroups = {
     { prefix = "MultiBarRightButton", count = 12 },
     { prefix = "MultiBarLeftButton", count = 12 },
     { prefix = "MultiBar5Button", count = 12 },
-    { prefix = "MultiBar6Button", count = 12 },
-    { prefix = "MultiBar7Button", count = 12 },
     { prefix = "PetActionButton", count = 10 },
     { prefix = "StanceButton", count = 10 },
     { prefix = "ShapeshiftButton", count = 10 },
@@ -204,8 +182,6 @@ local actionBarManagedFrameNames = {
     MultiBarRight = true,
     MultiBarLeft = true,
     MultiBar5 = true,
-    MultiBar6 = true,
-    MultiBar7 = true,
     StanceBar = true,
     StanceBarFrame = true,
     ShapeshiftBarFrame = true,
@@ -225,8 +201,6 @@ local actionBarClusterFrameNames = {
     MultiBarRight = true,
     MultiBarLeft = true,
     MultiBar5 = true,
-    MultiBar6 = true,
-    MultiBar7 = true,
     StanceBar = true,
     StanceBarFrame = true,
     ShapeshiftBarFrame = true,
@@ -235,27 +209,7 @@ local actionBarClusterFrameNames = {
     OverrideActionBar = true,
     ExtraActionBarFrame = true,
     ZoneAbilityFrame = true,
-    MicroButtonAndBagsBar = true,
-    MicroMenuContainer = true,
-    BagsBar = true,
-    BagBarExpandToggle = true,
-    MainMenuBarBackpackButton = true,
-    KeyRingButton = true,
-    KeyringButton = true,
-    CharacterBag0Slot = true,
-    CharacterBag1Slot = true,
-    CharacterBag2Slot = true,
-    CharacterBag3Slot = true,
-    CharacterReagentBag0Slot = true,
-    MainMenuExpBar = true,
-    ReputationWatchBar = true,
-    ArtifactWatchBar = true,
-    HonorWatchBar = true,
 }
-
-for _, name in ipairs(microButtons) do
-    actionBarClusterFrameNames[name] = true
-end
 
 local actionButtonNamePatterns = {
     "^ActionButton%d+$",
@@ -265,8 +219,6 @@ local actionButtonNamePatterns = {
     "^MultiBarRightButton%d+$",
     "^MultiBarLeftButton%d+$",
     "^MultiBar5Button%d+$",
-    "^MultiBar6Button%d+$",
-    "^MultiBar7Button%d+$",
     "^PetActionButton%d+$",
     "^StanceButton%d+$",
     "^ShapeshiftButton%d+$",
@@ -391,6 +343,11 @@ local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled(FEATURE_KEY)
 end
 
+local function IsEditModeSupportedClient()
+    local client = Carpenter and Carpenter.Client
+    return client and (client.isRetail or client.isTBC)
+end
+
 local function IsForbiddenFrame(frameObject)
     if not frameObject or not frameObject.IsForbidden then
         return false
@@ -403,17 +360,90 @@ local function IsInCombat()
     return InCombatLockdown and InCombatLockdown()
 end
 
+local function IsGameEditModeActive()
+    if not IsEditModeSupportedClient() then
+        return false
+    end
+
+    local editMode = _G.EditModeManagerFrame
+    if not editMode then
+        return false
+    end
+
+    if editMode.IsEditModeActive then
+        local ok, active = pcall(editMode.IsEditModeActive, editMode)
+        if ok then
+            return active == true
+        end
+    end
+
+    if editMode.editModeActive ~= nil then
+        return editMode.editModeActive == true
+    end
+
+    return false
+end
+
+local function GetPlayerHealthBar()
+    return (PlayerFrame
+            and PlayerFrame.PlayerFrameContent
+            and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain
+            and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain.HealthBarsContainer
+            and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain.HealthBarsContainer.HealthBar)
+        or PlayerFrameHealthBar
+        or (PlayerFrame
+            and PlayerFrame.PlayerFrameContent
+            and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain
+            and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain.HealthBar)
+end
+
+local function IsPlayerHealthBarFull()
+    local healthBar = GetPlayerHealthBar()
+    if not (healthBar and healthBar.GetValue and healthBar.GetMinMaxValues) then
+        return nil
+    end
+
+    local ok, fullHealth = pcall(function()
+        local value = healthBar:GetValue() or 0
+        local _, maxValue = healthBar:GetMinMaxValues()
+        maxValue = maxValue or 0
+        if maxValue <= 0 then
+            return true
+        end
+
+        return value >= maxValue
+    end)
+
+    if ok then
+        return fullHealth == true
+    end
+    return nil
+end
+
 local function IsPlayerAtFullHealth()
     if not UnitHealth or not UnitHealthMax then
         return true
     end
 
-    local maxHealth = UnitHealthMax("player") or 0
-    if maxHealth <= 0 then
-        return true
+    local ok, fullHealth = pcall(function()
+        local maxHealth = UnitHealthMax("player") or 0
+        if maxHealth <= 0 then
+            return true
+        end
+
+        return (UnitHealth("player") or 0) >= maxHealth
+    end)
+
+    if ok then
+        return fullHealth == true
     end
 
-    return (UnitHealth("player") or 0) >= maxHealth
+    local barFullHealth = IsPlayerHealthBarFull()
+    if barFullHealth ~= nil then
+        return barFullHealth
+    end
+
+    return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
 end
 
 function IsShownFrame(frameObject)
@@ -463,20 +493,46 @@ local function IsManagedAncestorHovered(frameObject)
     return false
 end
 
+local function SafeAlphaValue(value, fallback)
+    fallback = fallback or VISIBLE_ALPHA
+
+    local ok, alpha = pcall(function()
+        if value == nil then
+            return fallback
+        end
+        if value < 0 then
+            return 0
+        end
+        if value > 1 then
+            return 1
+        end
+        return value
+    end)
+
+    return ok and alpha or fallback
+end
+
+local function ReadFrameAlpha(frameObject, fallback)
+    fallback = fallback or VISIBLE_ALPHA
+    if not (frameObject and frameObject.GetAlpha) then
+        return fallback
+    end
+
+    local ok, alpha = pcall(frameObject.GetAlpha, frameObject)
+    if not ok then
+        return fallback
+    end
+
+    return SafeAlphaValue(alpha, fallback)
+end
+
 local function AddManagedFrame(frameObject)
     if not frameObject or IsForbiddenFrame(frameObject) or not frameObject.SetAlpha then
         return
     end
 
     if not managedFrames[frameObject] then
-        local ok, alpha = true, VISIBLE_ALPHA
-        if frameObject.GetAlpha then
-            ok, alpha = pcall(frameObject.GetAlpha, frameObject)
-        end
-        if not ok then
-            alpha = VISIBLE_ALPHA
-        end
-        managedAlphas[frameObject] = alpha or VISIBLE_ALPHA
+        managedAlphas[frameObject] = ReadFrameAlpha(frameObject, VISIBLE_ALPHA)
         managedFrames[frameObject] = true
     end
 end
@@ -487,10 +543,6 @@ end
 
 local function RefreshManagedFrames()
     for _, name in ipairs(frameNames) do
-        AddFrameByName(name)
-    end
-
-    for _, name in ipairs(microButtons) do
         AddFrameByName(name)
     end
 
@@ -510,8 +562,7 @@ local function RememberAlpha(object)
         return
     end
 
-    local ok, alpha = pcall(object.GetAlpha, object)
-    managedAlphas[object] = ok and alpha or VISIBLE_ALPHA
+    managedAlphas[object] = ReadFrameAlpha(object, VISIBLE_ALPHA)
 end
 
 local function SafeSetAlpha(object, alpha)
@@ -526,10 +577,11 @@ local function SafeSetAlpha(object, alpha)
 end
 
 local function TargetAlphaForObject(object, targetAlpha)
+    local originalAlpha = SafeAlphaValue(managedAlphas[object], VISIBLE_ALPHA)
     if targetAlpha == VISIBLE_ALPHA then
-        return managedAlphas[object] or VISIBLE_ALPHA
+        return originalAlpha
     end
-    return math.min(managedAlphas[object] or VISIBLE_ALPHA, targetAlpha)
+    return math.min(originalAlpha, SafeAlphaValue(targetAlpha, EXPLORING_ALPHA))
 end
 
 local function GetManagedTargetForFrame(frameObject)
@@ -553,6 +605,7 @@ end
 
 local ApplyActionButtonOverlayAlpha
 local RefreshActionButtonCooldownHooks
+local FadeActionButtonVisuals
 
 local function IsKnownActionButtonName(name)
     if not name then
@@ -770,11 +823,8 @@ local function CollectAlphaTargets(root, starts, targets, targetAlpha, depth)
 
     if root.SetAlpha then
         RememberAlpha(root)
-        local ok, alpha = true, targetAlpha
-        if root.GetAlpha then
-            ok, alpha = pcall(root.GetAlpha, root)
-        end
-        starts[root] = ok and alpha or TargetAlphaForObject(root, targetAlpha)
+        local target = TargetAlphaForObject(root, targetAlpha)
+        starts[root] = ReadFrameAlpha(root, target)
         targets[root] = TargetAlphaForObject(root, targetAlpha)
     end
 
@@ -783,11 +833,8 @@ local function CollectAlphaTargets(root, starts, targets, targetAlpha, depth)
             local region = select(i, root:GetRegions())
             if region and region.SetAlpha then
                 RememberAlpha(region)
-                local ok, alpha = true, targetAlpha
-                if region.GetAlpha then
-                    ok, alpha = pcall(region.GetAlpha, region)
-                end
-                starts[region] = ok and alpha or TargetAlphaForObject(region, targetAlpha)
+                local target = TargetAlphaForObject(region, targetAlpha)
+                starts[region] = ReadFrameAlpha(region, target)
                 targets[region] = TargetAlphaForObject(region, targetAlpha)
             end
         end
@@ -800,16 +847,6 @@ local function CollectAlphaTargets(root, starts, targets, targetAlpha, depth)
     end
 end
 
-local function CollectActionButtonCooldownTargets(button, starts, targets, targetAlpha)
-    local cooldowns = {}
-    CollectActionButtonCooldownFrames(button, cooldowns)
-
-    for cooldown in pairs(cooldowns) do
-        ApplyCooldownDrawState(cooldown, targetAlpha)
-        CollectAlphaTargets(cooldown, starts, targets, targetAlpha, 0)
-    end
-end
-
 local function ApplyActionButtonCooldownDrawStates(button, targetAlpha)
     local cooldowns = {}
     CollectActionButtonCooldownFrames(button, cooldowns)
@@ -819,12 +856,21 @@ local function ApplyActionButtonCooldownDrawStates(button, targetAlpha)
     end
 end
 
+local function ApplyActionButtonFrameAlpha(button, targetAlpha)
+    if not button or IsForbiddenFrame(button) or not button.SetAlpha then
+        return
+    end
+
+    RememberAlpha(button)
+    SafeSetAlpha(button, TargetAlphaForObject(button, targetAlpha))
+end
+
 function ApplyActionButtonOverlayAlpha(button, targetAlphaOverride)
     if not button then
         return
     end
 
-    local targetAlpha = targetAlphaOverride or GetManagedTargetForFrame(button)
+    local targetAlpha = targetAlphaOverride or GetManagedTargetForFrame(button) or actionButtonTargetAlpha
     if targetAlpha == nil then
         return
     end
@@ -838,23 +884,19 @@ function ApplyActionButtonOverlayAlpha(button, targetAlphaOverride)
         return
     end
 
-    local starts = {}
-    local targets = {}
-    CollectActionButtonCooldownTargets(button, starts, targets, targetAlpha)
-    CollectAlphaTargets(button, starts, targets, targetAlpha, 0)
-    for object, alpha in pairs(targets) do
-        SafeSetAlpha(object, alpha)
-    end
+    ApplyActionButtonCooldownDrawStates(button, targetAlpha)
+    ApplyActionButtonFrameAlpha(button, targetAlpha)
 end
 
-local function ApplyActionButtonVisualAlphas(targetAlpha)
-    ForEachActionButton(function(button)
-        ApplyActionButtonOverlayAlpha(button, targetAlpha)
-    end)
-
-    if targetAlpha == VISIBLE_ALPHA then
-        RestoreActionButtonCooldownDrawStates()
+local function ClampUpdatedActionButtonAlpha(button)
+    if actionButtonTargetAlpha == nil then
+        return
     end
+    if not (IsEnabled() and explorerFaded and not IsInCombat() and IsPlayerAtFullHealth() and not IsGameEditModeActive()) then
+        return
+    end
+
+    ApplyActionButtonFrameAlpha(button, actionButtonTargetAlpha)
 end
 
 local function ApplyActionButtonVisualAlphasForManagedFrame(frameObject, targetAlpha)
@@ -922,6 +964,15 @@ local function HookActionButtonOverlayFunctions()
         if type(_G[functionName]) == "function" then
             local ok = pcall(hooksecurefunc, functionName, function(button)
                 ApplyActionButtonOverlayAlpha(button)
+            end)
+            hookedAny = hookedAny or ok
+        end
+    end
+
+    for _, functionName in ipairs(actionButtonRefreshFunctions) do
+        if type(_G[functionName]) == "function" then
+            local ok = pcall(hooksecurefunc, functionName, function(button)
+                ClampUpdatedActionButtonAlpha(button)
             end)
             hookedAny = hookedAny or ok
         end
@@ -1016,6 +1067,44 @@ local function FadeFrame(frameObject, targetAlpha, duration)
     fadeDriver:Show()
 end
 
+function FadeActionButtonVisuals(targetAlpha, duration, forceApply)
+    if not forceApply and actionButtonTargetAlpha == targetAlpha then
+        return
+    end
+
+    actionButtonTargetAlpha = targetAlpha
+    local starts = {}
+    local targets = {}
+
+    ForEachActionButton(function(button)
+        if button and not IsForbiddenFrame(button) and button.SetAlpha then
+            ApplyActionButtonCooldownDrawStates(button, targetAlpha)
+            local target = TargetAlphaForObject(button, targetAlpha)
+            starts[button] = ReadFrameAlpha(button, target)
+            targets[button] = TargetAlphaForObject(button, targetAlpha)
+        end
+    end)
+
+    if duration == nil or duration <= 0 then
+        activeFades[ACTION_BUTTON_FADE_KEY] = nil
+        for object, alpha in pairs(targets) do
+            SafeSetAlpha(object, alpha)
+        end
+        if targetAlpha == VISIBLE_ALPHA then
+            RestoreActionButtonCooldownDrawStates()
+        end
+        return
+    end
+
+    activeFades[ACTION_BUTTON_FADE_KEY] = {
+        elapsed = 0,
+        duration = duration,
+        starts = starts,
+        targets = targets,
+    }
+    fadeDriver:Show()
+end
+
 local function ForEachActionBarClusterFrame(callback)
     for frameObject in pairs(managedFrames) do
         if IsActionBarClusterFrame(frameObject) then
@@ -1025,12 +1114,6 @@ local function ForEachActionBarClusterFrame(callback)
 end
 
 local function IsActionBarClusterHovered()
-    for frameObject in pairs(managedFrames) do
-        if IsActionBarClusterFrame(frameObject) and (IsMouseOverFrame(frameObject) or IsManagedAncestorHovered(frameObject)) then
-            return true
-        end
-    end
-
     local hovered = false
     ForEachActionButton(function(button)
         if not hovered and IsMouseOverFrame(button) then
@@ -1042,6 +1125,10 @@ local function IsActionBarClusterHovered()
 end
 
 local function HasVisibleActionBarClusterTarget()
+    if actionButtonTargetAlpha == VISIBLE_ALPHA then
+        return true
+    end
+
     local visible = false
     ForEachActionBarClusterFrame(function(frameObject)
         if frameTargets[frameObject] == VISIBLE_ALPHA then
@@ -1054,8 +1141,11 @@ end
 
 local function FadeActionBarCluster(targetAlpha, duration)
     ForEachActionBarClusterFrame(function(frameObject)
-        FadeFrame(frameObject, targetAlpha, duration)
+        if not IsActionBarManagedFrame(frameObject) then
+            FadeFrame(frameObject, targetAlpha, duration)
+        end
     end)
+    FadeActionButtonVisuals(targetAlpha, duration)
 end
 
 local hoverDriver = CreateFrame("Frame")
@@ -1063,6 +1153,10 @@ hoverDriver:Hide()
 hoverDriver:SetScript("OnUpdate", function(self, elapsed)
     if not IsEnabled() or IsInCombat() then
         self:Hide()
+        return
+    end
+    if IsGameEditModeActive() then
+        RestoreVisible(0, true)
         return
     end
 
@@ -1109,12 +1203,13 @@ end)
 local function ApplyTargetAlpha(targetAlpha, duration)
     RefreshManagedFrames()
     for frameObject in pairs(managedFrames) do
-        FadeFrame(frameObject, targetAlpha, duration)
+        if not IsActionBarManagedFrame(frameObject) then
+            FadeFrame(frameObject, targetAlpha, duration)
+        end
     end
+    FadeActionButtonVisuals(targetAlpha, duration)
 
-    if duration == nil or duration <= 0 then
-        ApplyActionButtonVisualAlphas(targetAlpha)
-    elseif targetAlpha == VISIBLE_ALPHA then
+    if targetAlpha == VISIBLE_ALPHA then
         RestoreActionButtonCooldownDrawStates()
     end
 end
@@ -1160,21 +1255,54 @@ local function RestoreManagedFrames()
     managedAlphas = {}
     frameTargets = {}
     hoverFadeOutAt = {}
+    actionButtonTargetAlpha = nil
     explorerFaded = false
 end
 
 local function ScheduleRefresh()
-    if Carpenter and Carpenter.DeferMany then
-        Carpenter:DeferMany("ExplorerMode:refresh", { 0.2, 1.0 }, function()
-            if IsEnabled() and not IsInCombat() and IsPlayerAtFullHealth() then
-                ApplyTargetAlpha(EXPLORING_ALPHA, FADE_OUT_SECONDS)
-            end
-        end)
+    local callback = function()
+        if IsEnabled() and explorerFaded and not IsInCombat() and IsPlayerAtFullHealth() and not IsGameEditModeActive() then
+            ApplyTargetAlpha(EXPLORING_ALPHA, 0)
+            FadeActionButtonVisuals(EXPLORING_ALPHA, 0, true)
+        end
+    end
+
+    if Carpenter and Carpenter.Defer then
+        Carpenter:Defer("ExplorerMode:refresh", FADE_OUT_SECONDS + 0.2, callback)
+    elseif C_Timer and C_Timer.After then
+        C_Timer.After(FADE_OUT_SECONDS + 0.2, callback)
+    end
+end
+
+local function ScheduleActionButtonRefresh()
+    if not (IsEnabled() and explorerFaded and not IsInCombat() and IsPlayerAtFullHealth() and not IsGameEditModeActive()) then
+        return
+    end
+
+    local targetAlpha = actionButtonTargetAlpha or EXPLORING_ALPHA
+    FadeActionButtonVisuals(targetAlpha, 0, true)
+
+    local callback = function()
+        if IsEnabled() and explorerFaded and not IsInCombat() and IsPlayerAtFullHealth() and not IsGameEditModeActive() then
+            FadeActionButtonVisuals(actionButtonTargetAlpha or targetAlpha, 0, true)
+        end
+    end
+
+    if Carpenter and Carpenter.Defer then
+        Carpenter:Defer("ExplorerMode:actionButtons", 0.05, callback)
+    elseif C_Timer and C_Timer.After then
+        C_Timer.After(0.05, callback)
+    else
+        callback()
     end
 end
 
 local function FadeOutForExploration()
     if not IsEnabled() or IsInCombat() then
+        return
+    end
+    if IsGameEditModeActive() then
+        RestoreVisible(0, true)
         return
     end
     if not IsPlayerAtFullHealth() then
@@ -1213,6 +1341,8 @@ local function ApplyExplorerMode(forceVisible)
     local inCombat = IsInCombat()
     if inCombat then
         RestoreVisible(0)
+    elseif IsGameEditModeActive() then
+        RestoreVisible(0, true)
     elseif not IsPlayerAtFullHealth() then
         RestoreVisible(HOVER_FADE_IN_SECONDS)
     elseif explorerFaded then
@@ -1238,6 +1368,45 @@ frame:SetScript("OnEvent", function(_, event, unit)
     end
     ApplyExplorerMode(event == "PLAYER_REGEN_DISABLED")
 end)
+
+actionBarFrame:SetScript("OnEvent", function()
+    ScheduleActionButtonRefresh()
+end)
+
+local function OnEditModeEnter()
+    if IsEnabled() then
+        RestoreVisible(0, true)
+    end
+end
+
+local function OnEditModeExit()
+    if IsEnabled() then
+        ApplyExplorerMode()
+    end
+end
+
+local function RegisterEditModeCallbacks()
+    if not IsEditModeSupportedClient() then
+        return
+    end
+
+    if not editModeCallbacksRegistered and EventRegistry and EventRegistry.RegisterCallback then
+        EventRegistry:RegisterCallback("EditMode.Enter", OnEditModeEnter, frame)
+        EventRegistry:RegisterCallback("EditMode.Exit", OnEditModeExit, frame)
+        editModeCallbacksRegistered = true
+    end
+
+    if not editModeHooksInstalled and hooksecurefunc and _G.EditModeManagerFrame then
+        local editMode = _G.EditModeManagerFrame
+        if type(editMode.EnterEditMode) == "function" then
+            pcall(hooksecurefunc, editMode, "EnterEditMode", OnEditModeEnter)
+        end
+        if type(editMode.ExitEditMode) == "function" then
+            pcall(hooksecurefunc, editMode, "ExitEditMode", OnEditModeExit)
+        end
+        editModeHooksInstalled = true
+    end
+end
 
 _G.Carpenter_ApplyExplorerMode = ApplyExplorerMode
 _G.Carpenter_RepairExplorerModeChatWindows = RepairAccidentalChatWindows
@@ -1265,6 +1434,13 @@ function feature:Enable()
             pcall(frame.RegisterEvent, frame, event)
         end
     end
+    for event in pairs(actionBarRefreshEvents) do
+        if Carpenter and Carpenter.SafeRegisterEvent then
+            Carpenter:SafeRegisterEvent(actionBarFrame, event)
+        else
+            pcall(actionBarFrame.RegisterEvent, actionBarFrame, event)
+        end
+    end
     for _, event in ipairs(registeredUnitEvents) do
         if Carpenter and Carpenter.SafeRegisterUnitEvent then
             Carpenter:SafeRegisterUnitEvent(frame, event, "player")
@@ -1273,11 +1449,13 @@ function feature:Enable()
         end
     end
     HookActionButtonOverlayFunctions()
+    RegisterEditModeCallbacks()
     ApplyExplorerMode()
 end
 
 function feature:Disable()
     frame:UnregisterAllEvents()
+    actionBarFrame:UnregisterAllEvents()
     RestoreManagedFrames()
 end
 
