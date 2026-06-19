@@ -10,6 +10,11 @@
 - Added Retail interface support for 12.0.7.
 - Styled Chat Cleaner friend and guild online/offline notices as single-color social lines.
 - Show `Complete` on Classic/TBC tracked quests once they are ready to turn in, replacing the objective list in the tracker.
+- Kept incomplete Classic/TBC no-objective tracked quests on their original quest text instead of showing `Complete` too early.
+- Smoothed and stabilized Explorer Mode fade timing, including slower fades, a short fade-out delay, grouped hover reveals, and full hidden opacity while idle.
+- Kept Explorer Mode from fading cast bars, the micro menu, bags, Action Bars 7/8, or any UI while the player is hurt or Edit Mode is active.
+- Fixed Explorer Mode action bar cooldown flashes, page scrolling flicker, intermittent action bar reappearing, and high idle CPU usage.
+- Fixed Retail Explorer Mode protected-value errors while checking player health and frame opacity.
 
 ## 1.6.8
 
