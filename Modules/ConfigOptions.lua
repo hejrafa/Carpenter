@@ -399,6 +399,11 @@ function Options.Create(context)
                     key = "explorerModeEnabled",
                     label = L.OPTION_EXPLORER_MODE or "Explorer Mode",
                     description = Description("DESC_EXPLORER_MODE"),
+                    badge = {
+                        text = L.BADGE_BETA or "BETA",
+                        tooltipTitle = L.BADGE_BETA_TITLE or "Beta",
+                        tooltipText = L.BADGE_BETA_EXPLORER_MODE or "This option is still being tuned. It is safe to try, but the fade targets and behavior may change as it gets more testing.",
+                    },
                     image = GetSettingsImage("explorer.png"),
                     requiresReload = false,
                     onToggle = ApplyExplorerMode,

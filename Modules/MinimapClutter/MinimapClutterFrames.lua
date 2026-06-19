@@ -20,6 +20,7 @@ local MINIMAP_FRAMES = {
 function Frames.Create(config)
     config = config or {}
     local isEnabled = config.IsEnabled or function() return false end
+    local isRetailClient = config.IsRetailClient or function() return false end
 
     local function HideMinimapFrame(frame)
         if not frame then return end
@@ -56,6 +57,19 @@ function Frames.Create(config)
     local api = {}
 
     function api.Apply(enabled)
+        if isRetailClient() then
+            if not enabled then
+                for _, name in ipairs(MINIMAP_FRAMES) do
+                    local frame = _G[name]
+                    if frame then
+                        frame:SetAlpha(1)
+                        frame:Show()
+                    end
+                end
+            end
+            return
+        end
+
         if not enabled then
             for _, name in ipairs(MINIMAP_FRAMES) do
                 local frame = _G[name]

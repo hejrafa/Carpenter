@@ -81,6 +81,7 @@ local featureSupport = {
         hideMacroNamesEnabled = true,
         hideStanceBarEnabled = true,
         menuTransparencyEnabled = true,
+        minimapClutterEnabled = true,
         enhanceTooltipEnabled = true,
         scaleExtraAbilityEnabled = true,
         classHealthColorsEnabled = true,

@@ -6,6 +6,8 @@
 - Added a disabled Classic/TBC Hide Shoulders experiment that explains why live player shoulder armor cannot be hidden client-side by an addon.
 - Added a disabled Classic/TBC Back Sheath 1H Weapons idea for tracking weapon-sheath placement experiments.
 - Added an Explorer Mode immersion option that slowly fades the main HUD out of combat while keeping the minimap visible, then quickly restores the HUD when combat starts.
+- Added a Beta badge and hover tooltip to Explorer Mode while its fade behavior continues to be tuned.
+- Styled the Explorer Mode Beta badge with Blizzard's new-feature label treatment using green text and a light green glow.
 - Added Classic/TBC Explorer Mode settings preview artwork.
 - Added Retail interface support for 12.0.7.
 - Styled Chat Cleaner friend and guild online/offline notices as single-color social lines.
@@ -13,8 +15,13 @@
 - Kept incomplete Classic/TBC no-objective tracked quests on their original quest text instead of showing `Complete` too early.
 - Smoothed and stabilized Explorer Mode fade timing, including slower fades, a short fade-out delay, grouped hover reveals, and full hidden opacity while idle.
 - Kept Explorer Mode from fading cast bars, the micro menu, bags, Action Bars 7/8, or any UI while the player is hurt or Edit Mode is active.
+- Kept minimap clutter frames out of Explorer Mode so the minimap cleanup fade remains independent.
 - Fixed Explorer Mode action bar cooldown flashes, page scrolling flicker, intermittent action bar reappearing, and high idle CPU usage.
 - Fixed Retail Explorer Mode protected-value errors while checking player health and frame opacity.
+- Enabled Remove Minimap Clutter on Retail, fading addon minimap buttons, tracking, zone text, clock/calendar elements, their backdrop art, and the AddOn Compartment until the minimap is hovered.
+- Kept Retail minimap clock/calendar and AddOn Compartment controls clickable while their surrounding cleanup art fades.
+- Treated the full Retail minimap cluster as the hover area so gaps between the minimap, zone text, clock, and controls do not flicker the fade.
+- Improved Retail flying performance by throttling Explorer Mode action-button refreshes and letting settled minimap fade drivers sleep while idle.
 
 ## 1.6.8
 

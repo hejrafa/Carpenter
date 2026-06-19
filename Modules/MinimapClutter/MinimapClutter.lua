@@ -1,5 +1,5 @@
 --[[ Carpenter - MinimapClutter ]]
--- Hides minimap zoom buttons, day/night icon, and zone text/border for a cleaner minimap.
+-- Fades or hides minimap extras for a cleaner minimap, depending on client flavor.
 local _, ns = ...
 ns = ns or {}
 ns.Private = ns.Private or {}
@@ -15,13 +15,19 @@ local function IsClassicClient()
     return Carpenter and Carpenter.Client and Carpenter.Client.isClassic
 end
 
+local function IsRetailClient()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+end
+
 local frameHelpers = FrameHelpers.Create and FrameHelpers.Create({
     IsEnabled = IsEnabled,
+    IsRetailClient = IsRetailClient,
 }) or {}
 
 local faderHelpers = FaderHelpers.Create and FaderHelpers.Create({
     IsEnabled = IsEnabled,
     IsClassicClient = IsClassicClient,
+    IsRetailClient = IsRetailClient,
 }) or {}
 
 local function ApplyMinimapClutter()
@@ -33,7 +39,7 @@ local function ApplyMinimapClutter()
     if faderHelpers.Apply then
         faderHelpers.Apply(enabled)
     end
-    if enabled and frameHelpers.EnableMouseWheelZoom then
+    if enabled and IsClassicClient() and frameHelpers.EnableMouseWheelZoom then
         frameHelpers.EnableMouseWheelZoom()
     end
 end

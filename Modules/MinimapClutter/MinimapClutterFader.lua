@@ -21,14 +21,56 @@ local CLASSIC_TRACKING_MINIMAP_BUTTONS = {
     "MiniMapTrackingButton",
 }
 
+local RETAIL_MINIMAP_FRAMES = {
+    "MiniMapTracking",
+    "MiniMapTrackingFrame",
+    "MiniMapTrackingButton",
+    "MinimapZoneTextButton",
+    "MinimapZoneText",
+    "MinimapZoneTextButtonLeft",
+    "MinimapZoneTextButtonMiddle",
+    "MinimapZoneTextButtonRight",
+    "MinimapBorderTop",
+    "GameTimeFrame",
+    "GameTimeCalendarInvitesTexture",
+    "TimeManagerClockButton",
+    "TimeManagerClockTicker",
+    "TimeManagerClockButtonText",
+    "TimeManagerClockButtonBackground",
+    "TimeManagerClockButtonLeft",
+    "TimeManagerClockButtonMiddle",
+    "TimeManagerClockButtonRight",
+    "AddonCompartmentFrame",
+}
+
+local RETAIL_MINIMAP_CLUSTER_KEYS = {
+    "Tracking",
+    "TrackingButton",
+    "TrackingFrame",
+    "ZoneTextButton",
+    "ZoneTextFrame",
+    "ZoneText",
+    "BorderTop",
+    "CalendarButton",
+    "CalendarFrame",
+    "GameTimeFrame",
+    "ClockButton",
+    "ClockFrame",
+    "AddonCompartment",
+    "AddonCompartmentButton",
+    "AddonCompartmentFrame",
+}
+
 local FADE_SPEED = 6 -- higher = snappier fade
 
 function Fader.Create(config)
     config = config or {}
     local isEnabled = config.IsEnabled or function() return false end
     local isClassicClient = config.IsClassicClient or function() return false end
+    local isRetailClient = config.IsRetailClient or function() return false end
 
-    local addonButtons = {}
+    local fadeTargets = {}
+    local hoverTargets = {}
     local faderFrame = CreateFrame("Frame")
     faderFrame:Hide()
 
@@ -53,17 +95,38 @@ function Fader.Create(config)
         return false
     end
 
-    local function RegisterAddonButton(btn)
-        for _, button in ipairs(addonButtons) do
-            if button == btn then return end
+    local function RegisterFadeTarget(target, useHoverTarget)
+        for _, button in ipairs(fadeTargets) do
+            if button == target then
+                if useHoverTarget then
+                    for _, hoverTarget in ipairs(hoverTargets) do
+                        if hoverTarget == target then return end
+                    end
+                    table.insert(hoverTargets, target)
+                end
+                return
+            end
         end
-        table.insert(addonButtons, btn)
+        table.insert(fadeTargets, target)
+
+        if useHoverTarget then
+            table.insert(hoverTargets, target)
+        end
+    end
+
+    local function RegisterHoverTarget(target)
+        if not target or target == Minimap then return end
+
+        for _, hoverTarget in ipairs(hoverTargets) do
+            if hoverTarget == target then return end
+        end
+        table.insert(hoverTargets, target)
     end
 
     local function IsMouseOverManagedMinimapButton()
         if not MouseIsOver then return false end
 
-        for _, button in ipairs(addonButtons) do
+        for _, button in ipairs(hoverTargets) do
             if button and button.IsShown and button:IsShown() and MouseIsOver(button) then
                 return true
             end
@@ -81,8 +144,8 @@ function Fader.Create(config)
         local shouldShow = ShouldShowFadedMinimapButtons()
         local targetAlpha = shouldShow and 1 or 0
 
-        for _, button in ipairs(addonButtons) do
-            if button and button.CP_MinimapFadeHooked then
+        for _, button in ipairs(fadeTargets) do
+            if button and button.CP_MinimapFadeManaged then
                 button.CP_TargetAlpha = targetAlpha
             end
         end
@@ -96,6 +159,14 @@ function Fader.Create(config)
 
     local function WakeMinimapButtonFader()
         UpdateFadedMinimapButtonTargets(true)
+    end
+
+    local function HookFadeHoverTarget(target)
+        if not target or target == Minimap or target.CP_MinimapFadeHooked or not target.HookScript then return end
+
+        local okEnter = pcall(target.HookScript, target, "OnEnter", WakeMinimapButtonFader)
+        local okLeave = pcall(target.HookScript, target, "OnLeave", WakeMinimapButtonFader)
+        target.CP_MinimapFadeHooked = okEnter or okLeave
     end
 
     local function HookMinimapHover()
@@ -123,72 +194,116 @@ function Fader.Create(config)
         end
     end
 
-    local function SetupFadedMinimapButton(button, enabled)
-        if not button or button == Minimap or not button.SetAlpha or not button.SetScript then return end
+    local function SetupFadedMinimapButton(button, enabled, useHoverTarget)
+        if not button or button == Minimap or not button.SetAlpha then return end
 
         if enabled then
-            if not button.CP_MinimapFadeHooked then
-                button.CP_OrigOnEnter = button:GetScript("OnEnter")
-                button.CP_OrigOnLeave = button:GetScript("OnLeave")
-                button.CP_MinimapFadeHooked = true
+            if useHoverTarget then
+                RegisterHoverTarget(button)
+                HookFadeHoverTarget(button)
             end
+            button.CP_MinimapFadeManaged = true
 
-            RegisterAddonButton(button)
+            RegisterFadeTarget(button, false)
             if faderFrame then faderFrame:Show() end
 
             button.CP_CurrentAlpha = button.CP_CurrentAlpha or 0
             button.CP_TargetAlpha = ShouldShowFadedMinimapButtons() and 1 or 0
             button:SetAlpha(button.CP_CurrentAlpha)
-            button:EnableMouse(true)
-
-            button:SetScript("OnEnter", function(self)
-                WakeMinimapButtonFader()
-                if self.CP_OrigOnEnter then
-                    self.CP_OrigOnEnter(self)
-                end
-            end)
-
-            button:SetScript("OnLeave", function(self)
-                WakeMinimapButtonFader()
-                if self.CP_OrigOnLeave then
-                    self.CP_OrigOnLeave(self)
-                end
-            end)
         else
             button.CP_TargetAlpha = nil
             button.CP_CurrentAlpha = nil
             button:SetAlpha(1)
-            if button.CP_MinimapFadeHooked or button.CP_OrigOnEnter or button.CP_OrigOnLeave then
-                button:SetScript("OnEnter", button.CP_OrigOnEnter)
-                button:SetScript("OnLeave", button.CP_OrigOnLeave)
+            button.CP_MinimapFadeManaged = nil
+        end
+    end
+
+    local function SetupRetailHoverFrame(frame, enabled)
+        if not enabled or not frame or frame == Minimap then return end
+
+        RegisterHoverTarget(frame)
+        HookFadeHoverTarget(frame)
+    end
+
+    local function SetupRetailMinimapVisuals(object, enabled, depth, includeFrame)
+        if not object or object == Minimap or type(object) ~= "table" then return end
+        depth = depth or 0
+
+        if includeFrame ~= false then
+            SetupRetailHoverFrame(object, enabled)
+        end
+
+        if object.GetRegions then
+            for i = 1, select("#", object:GetRegions()) do
+                SetupFadedMinimapButton(select(i, object:GetRegions()), enabled, false)
             end
-            button.CP_MinimapFadeHooked = nil
+        end
+
+        if not object.GetRegions and not object.GetChildren then
+            SetupFadedMinimapButton(object, enabled, false)
+        end
+
+        if depth >= 2 or not object.GetChildren then return end
+        for i = 1, object:GetNumChildren() do
+            SetupRetailMinimapVisuals(select(i, object:GetChildren()), enabled, depth + 1, false)
+        end
+    end
+
+    local function SetupRetailClusterMember(member, enabled)
+        if not member or member == Minimap then return end
+        if type(member) ~= "table" then return end
+
+        SetupRetailMinimapVisuals(member, enabled, 0, true)
+        if member.Button then
+            SetupRetailMinimapVisuals(member.Button, enabled, 0, true)
+        end
+        if member.Frame then
+            SetupRetailMinimapVisuals(member.Frame, enabled, 0, true)
+        end
+    end
+
+    local function ApplyRetailMinimapClutter(enabled)
+        for _, name in ipairs(RETAIL_MINIMAP_FRAMES) do
+            SetupRetailMinimapVisuals(_G[name], enabled, 0, true)
+        end
+
+        local cluster = _G.MinimapCluster
+        if not cluster then return end
+
+        SetupRetailHoverFrame(cluster, enabled)
+
+        for _, key in ipairs(RETAIL_MINIMAP_CLUSTER_KEYS) do
+            SetupRetailClusterMember(cluster[key], enabled)
         end
     end
 
     local function ApplyNamedMinimapButtonClutter(enabled)
         for _, name in ipairs(LFG_MINIMAP_BUTTONS) do
-            SetupFadedMinimapButton(_G[name], enabled)
+            SetupFadedMinimapButton(_G[name], enabled, true)
         end
 
         if isClassicClient() then
             for _, name in ipairs(CLASSIC_TRACKING_MINIMAP_BUTTONS) do
-                SetupFadedMinimapButton(_G[name], enabled)
+                SetupFadedMinimapButton(_G[name], enabled, true)
             end
+        end
+
+        if isRetailClient() then
+            ApplyRetailMinimapClutter(enabled)
         end
     end
 
     local function ApplyAddonButtonClutter(enabled)
-        if not Minimap or not Minimap.GetChildren then return end
-
-        if enabled then
+        if enabled and Minimap then
             HookMinimapHover()
         end
 
-        for i = 1, Minimap:GetNumChildren() do
-            local child = select(i, Minimap:GetChildren())
-            if IsAddonMinimapButton(child) then
-                SetupFadedMinimapButton(child, enabled)
+        if Minimap and Minimap.GetChildren then
+            for i = 1, Minimap:GetNumChildren() do
+                local child = select(i, Minimap:GetChildren())
+                if IsAddonMinimapButton(child) then
+                    SetupFadedMinimapButton(child, enabled, true)
+                end
             end
         end
 
@@ -201,15 +316,15 @@ function Fader.Create(config)
             self:Hide()
             return
         end
-        if not addonButtons or #addonButtons == 0 then
+        if not fadeTargets or #fadeTargets == 0 then
             self:Hide()
             return
         end
 
-        local shouldShow = UpdateFadedMinimapButtonTargets(false)
+        UpdateFadedMinimapButtonTargets(false)
 
         local changed = false
-        for _, btn in ipairs(addonButtons) do
+        for _, btn in ipairs(fadeTargets) do
             if btn and btn.CP_TargetAlpha and btn:IsShown() then
                 local current = btn.CP_CurrentAlpha or btn:GetAlpha() or 0
                 local target = btn.CP_TargetAlpha
@@ -230,7 +345,7 @@ function Fader.Create(config)
             end
         end
 
-        if not changed and not shouldShow then
+        if not changed then
             self:Hide()
         end
     end)

@@ -10,6 +10,7 @@ local HOVER_FADE_IN_SECONDS = 0.45
 local HOVER_FADE_OUT_DELAY_SECONDS = 1
 local HOVER_FADE_OUT_SECONDS = 0.75
 local HOVER_UPDATE_INTERVAL = 0.2
+local ACTION_BUTTON_REFRESH_THROTTLE_SECONDS = 0.15
 local CHAT_REPAIR_VERSION = 1
 local ACTION_BAR_CLUSTER_KEY = "actionBarCluster"
 local ACTION_BUTTON_FADE_KEY = {}
@@ -27,6 +28,8 @@ local IsShownFrame
 local actionButtonOverlayHooksInstalled = false
 local actionButtonCooldownHookedFrames = {}
 local actionButtonCooldownDrawStates = {}
+local actionButtonRefreshQueued = false
+local lastActionButtonRefreshAt = 0
 local editModeCallbacksRegistered = false
 local editModeHooksInstalled = false
 local registeredEvents = {
@@ -133,6 +136,36 @@ local unitFramePieces = {
     "FocusFrameNameBackground",
     "FocusFrameTextureFrameName",
     "FocusFrameTextureFrameLevelText",
+}
+
+local minimapClutterFrameNames = {
+    Minimap = true,
+    MinimapCluster = true,
+    MiniMapLFGFrame = true,
+    MinimapLFGFrame = true,
+    LFGMinimapFrame = true,
+    LFGMinimapButton = true,
+    LookingForGroupMinimapButton = true,
+    QueueStatusMinimapButton = true,
+    MiniMapTracking = true,
+    MiniMapTrackingFrame = true,
+    MiniMapTrackingButton = true,
+    MinimapZoneTextButton = true,
+    MinimapZoneText = true,
+    MinimapZoneTextButtonLeft = true,
+    MinimapZoneTextButtonMiddle = true,
+    MinimapZoneTextButtonRight = true,
+    MinimapBorderTop = true,
+    GameTimeFrame = true,
+    GameTimeCalendarInvitesTexture = true,
+    TimeManagerClockButton = true,
+    TimeManagerClockTicker = true,
+    TimeManagerClockButtonText = true,
+    TimeManagerClockButtonBackground = true,
+    TimeManagerClockButtonLeft = true,
+    TimeManagerClockButtonMiddle = true,
+    TimeManagerClockButtonRight = true,
+    AddonCompartmentFrame = true,
 }
 
 local actionButtonOverlayFunctions = {
@@ -356,6 +389,45 @@ local function IsForbiddenFrame(frameObject)
     return ok and forbidden
 end
 
+local function SafeGetFrameName(frameObject)
+    if not frameObject or not frameObject.GetName then
+        return nil
+    end
+
+    local ok, name = pcall(frameObject.GetName, frameObject)
+    return ok and name or nil
+end
+
+local function IsMinimapClutterFrame(frameObject)
+    local current = frameObject
+    local depth = 0
+
+    while current and depth <= 8 do
+        local name = SafeGetFrameName(current)
+        if name and minimapClutterFrameNames[name] then
+            return true
+        end
+
+        if current == Minimap or current == _G.MinimapCluster then
+            return true
+        end
+
+        if not current.GetParent then
+            return false
+        end
+
+        local ok, parent = pcall(current.GetParent, current)
+        if not ok then
+            return false
+        end
+
+        current = parent
+        depth = depth + 1
+    end
+
+    return false
+end
+
 local function IsInCombat()
     return InCombatLockdown and InCombatLockdown()
 end
@@ -527,7 +599,7 @@ local function ReadFrameAlpha(frameObject, fallback)
 end
 
 local function AddManagedFrame(frameObject)
-    if not frameObject or IsForbiddenFrame(frameObject) or not frameObject.SetAlpha then
+    if not frameObject or IsForbiddenFrame(frameObject) or IsMinimapClutterFrame(frameObject) or not frameObject.SetAlpha then
         return
     end
 
@@ -817,7 +889,7 @@ local function CollectAlphaTargets(root, starts, targets, targetAlpha, depth)
     if not root or depth > 4 then
         return
     end
-    if IsForbiddenFrame(root) then
+    if IsForbiddenFrame(root) or IsMinimapClutterFrame(root) then
         return
     end
 
@@ -831,7 +903,7 @@ local function CollectAlphaTargets(root, starts, targets, targetAlpha, depth)
     if root.GetRegions then
         for i = 1, select("#", root:GetRegions()) do
             local region = select(i, root:GetRegions())
-            if region and region.SetAlpha then
+            if region and region.SetAlpha and not IsMinimapClutterFrame(region) then
                 RememberAlpha(region)
                 local target = TargetAlphaForObject(region, targetAlpha)
                 starts[region] = ReadFrameAlpha(region, target)
@@ -1139,6 +1211,20 @@ local function HasVisibleActionBarClusterTarget()
     return visible
 end
 
+local function HasVisibleHoverTarget()
+    if HasVisibleActionBarClusterTarget() then
+        return true
+    end
+
+    for frameObject in pairs(managedFrames) do
+        if not IsActionBarClusterFrame(frameObject) and frameTargets[frameObject] == VISIBLE_ALPHA then
+            return true
+        end
+    end
+
+    return false
+end
+
 local function FadeActionBarCluster(targetAlpha, duration)
     ForEachActionBarClusterFrame(function(frameObject)
         if not IsActionBarManagedFrame(frameObject) then
@@ -1165,6 +1251,17 @@ hoverDriver:SetScript("OnUpdate", function(self, elapsed)
         return
     end
     self.elapsed = 0
+
+    if GetCursorPosition then
+        local cursorX, cursorY = GetCursorPosition()
+        local cursorMoved = cursorX ~= self.lastCursorX or cursorY ~= self.lastCursorY
+        self.lastCursorX = cursorX
+        self.lastCursorY = cursorY
+
+        if not cursorMoved and not HasVisibleHoverTarget() and not next(activeFades) then
+            return
+        end
+    end
 
     local now = GetTime and GetTime() or 0
     if IsActionBarClusterHovered() then
@@ -1220,6 +1317,14 @@ local function CancelScheduledRefresh()
     end
 end
 
+local function CancelScheduledActionButtonRefresh()
+    actionButtonRefreshQueued = false
+    if Carpenter and Carpenter.Deferred then
+        Carpenter.Deferred["ExplorerMode:actionButtons"] = nil
+        Carpenter.Deferred["ExplorerMode:actionButtonsVerify"] = nil
+    end
+end
+
 local function CancelScheduledFadeOut()
     if Carpenter and Carpenter.Deferred then
         Carpenter.Deferred["ExplorerMode:fadeOut"] = nil
@@ -1228,6 +1333,7 @@ end
 
 local function RestoreVisible(duration, forceApply)
     CancelScheduledRefresh()
+    CancelScheduledActionButtonRefresh()
     CancelScheduledFadeOut()
     activeFades = {}
     fadeDriver:Hide()
@@ -1242,6 +1348,7 @@ end
 
 local function RestoreManagedFrames()
     CancelScheduledRefresh()
+    CancelScheduledActionButtonRefresh()
     CancelScheduledFadeOut()
     activeFades = {}
     fadeDriver:Hide()
@@ -1274,8 +1381,23 @@ local function ScheduleRefresh()
     end
 end
 
-local function ScheduleActionButtonRefresh()
+local function ShouldRefreshActionButtons()
     if not (IsEnabled() and explorerFaded and not IsInCombat() and IsPlayerAtFullHealth() and not IsGameEditModeActive()) then
+        return false
+    end
+
+    return true
+end
+
+local function ShouldQueueActionButtonRefresh()
+    return IsEnabled() and explorerFaded and not IsInCombat() and not IsGameEditModeActive()
+end
+
+local function RunActionButtonRefresh()
+    actionButtonRefreshQueued = false
+    lastActionButtonRefreshAt = GetTime and GetTime() or 0
+
+    if not ShouldRefreshActionButtons() then
         return
     end
 
@@ -1283,17 +1405,42 @@ local function ScheduleActionButtonRefresh()
     FadeActionButtonVisuals(targetAlpha, 0, true)
 
     local callback = function()
-        if IsEnabled() and explorerFaded and not IsInCombat() and IsPlayerAtFullHealth() and not IsGameEditModeActive() then
+        if ShouldRefreshActionButtons() then
             FadeActionButtonVisuals(actionButtonTargetAlpha or targetAlpha, 0, true)
         end
     end
 
     if Carpenter and Carpenter.Defer then
-        Carpenter:Defer("ExplorerMode:actionButtons", 0.05, callback)
+        Carpenter:Defer("ExplorerMode:actionButtonsVerify", 0.05, callback)
     elseif C_Timer and C_Timer.After then
         C_Timer.After(0.05, callback)
     else
         callback()
+    end
+end
+
+local function ScheduleActionButtonRefresh()
+    if not ShouldQueueActionButtonRefresh() or actionButtonRefreshQueued then
+        return
+    end
+
+    local now = GetTime and GetTime() or 0
+    local elapsedSinceRefresh = now - (lastActionButtonRefreshAt or 0)
+    local delay = math.max(0, ACTION_BUTTON_REFRESH_THROTTLE_SECONDS - elapsedSinceRefresh)
+
+    actionButtonRefreshQueued = true
+
+    if delay <= 0 then
+        RunActionButtonRefresh()
+        return
+    end
+
+    if Carpenter and Carpenter.Defer then
+        Carpenter:Defer("ExplorerMode:actionButtons", delay, RunActionButtonRefresh)
+    elseif C_Timer and C_Timer.After then
+        C_Timer.After(delay, RunActionButtonRefresh)
+    else
+        RunActionButtonRefresh()
     end
 end
 

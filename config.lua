@@ -211,7 +211,7 @@ local function CreateHeader(text)
     return label
 end
 
-local function CreateCheckbox(key, label, description, sideLogic, imagePath, requiresReload, onToggle, unavailableMessage)
+local function CreateCheckbox(key, label, description, sideLogic, imagePath, requiresReload, onToggle, unavailableMessage, badge)
     if requiresReload == nil then requiresReload = true end
     local isUnavailable = unavailableMessage ~= nil
     local row = CreateFrame("Button", nil, content)
@@ -268,12 +268,90 @@ local function CreateCheckbox(key, label, description, sideLogic, imagePath, req
 
     local check = CreateFrame("CheckButton", "CP_Check_" .. key, row, "InterfaceOptionsCheckButtonTemplate")
     check:SetPoint("LEFT", 15, 0)
-    check:SetHitRectInsets(0, -320, 0, 0)
+    check:SetHitRectInsets(0, 0, 0, 0)
     _G[check:GetName() .. "Text"]:SetText(label)
     _G[check:GetName() .. "Text"]:SetFontObject("GameFontNormal")
     if isUnavailable then
         check:SetAlpha(0.55)
         _G[check:GetName() .. "Text"]:SetTextColor(0.55, 0.55, 0.55, 1)
+    end
+
+    if badge and badge.text then
+        local badgeFrame
+        local created
+        local ok = pcall(function()
+            created = CreateFrame("Frame", nil, row, "NewFeatureLabelNoAnimateTemplate")
+        end)
+
+        if ok and created then
+            badgeFrame = created
+            local checkLabel = _G[check:GetName() .. "Text"]
+            local labelWidth = checkLabel:GetWrappedWidth()
+            if labelWidth and labelWidth > 0 then
+                badgeFrame:SetPoint("LEFT", checkLabel, "LEFT", labelWidth - 12, 0)
+            else
+                badgeFrame:SetPoint("LEFT", checkLabel, "RIGHT", -10, 0)
+            end
+            local textRegions = {}
+            for _, region in ipairs({ badgeFrame:GetRegions() }) do
+                if region.SetText then
+                    textRegions[#textRegions + 1] = region
+                elseif region.SetVertexColor then
+                    if region.SetDesaturated then
+                        region:SetDesaturated(true)
+                    end
+                    region:SetVertexColor(0.42, 1, 0.38, 1)
+                end
+            end
+            local badgeText = textRegions[#textRegions]
+            for _, region in ipairs(textRegions) do
+                if region == badgeText then
+                    region:SetText(badge.text)
+                    if region.SetTextColor then
+                        region:SetTextColor(0.58, 1, 0.42, 1)
+                    end
+                    if region.SetShadowColor then
+                        region:SetShadowColor(0.34, 1, 0.28, 0.85)
+                        region:SetShadowOffset(0, 0)
+                    end
+                else
+                    region:SetText("")
+                    if region.Hide then
+                        region:Hide()
+                    end
+                end
+            end
+        else
+            badgeFrame = CreateFrame("Frame", nil, row)
+            badgeFrame:SetSize(42, 18)
+            badgeFrame:SetPoint("LEFT", _G[check:GetName() .. "Text"], "RIGHT", 8, 0)
+
+            local badgeText = badgeFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+            badgeText:SetPoint("CENTER", 0, 0)
+            badgeText:SetText(badge.text)
+            badgeText:SetTextColor(0.58, 1, 0.42, 1)
+            badgeText:SetShadowColor(0, 0, 0, 1)
+            badgeText:SetShadowOffset(1, -1)
+        end
+
+        badgeFrame:SetFrameLevel((check:GetFrameLevel() or row:GetFrameLevel() or 1) + 10)
+        badgeFrame:EnableMouse(true)
+        badgeFrame:Show()
+
+        badgeFrame:SetScript("OnEnter", function(self)
+            if GameTooltip then
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                GameTooltip:SetText(badge.tooltipTitle or badge.text, 1.0, 0.78, 0.36, 1, true)
+                if badge.tooltipText then
+                    GameTooltip:AddLine(badge.tooltipText, 0.9, 0.9, 0.9, true)
+                end
+                GameTooltip:Show()
+            end
+        end)
+
+        badgeFrame:SetScript("OnLeave", function()
+            if GameTooltip then GameTooltip:Hide() end
+        end)
     end
 
     local function ResetUnavailableOption()
@@ -397,7 +475,8 @@ local function RenderSections(sections)
                         option.image,
                         option.requiresReload,
                         option.onToggle,
-                        option.unavailableMessage
+                        option.unavailableMessage,
+                        option.badge
                     )
                 end
             end

@@ -40,6 +40,9 @@ Modules\HideUIElements.lua
 
 # Interface
 Modules\MenuTransparency.lua
+Modules\MinimapClutter\MinimapClutterFrames.lua
+Modules\MinimapClutter\MinimapClutterFader.lua
+Modules\MinimapClutter\MinimapClutter.lua
 Modules\EnhanceTooltip.lua
 Modules\ExtraAbilityScale.lua
 
