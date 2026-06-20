@@ -492,6 +492,14 @@ local fixtures = {
         requireColor = "|cff40ff40Wightwalker went offline|r",
     },
     {
+        name = "loot method keeps display casing",
+        event = "CHAT_MSG_SYSTEM",
+        groupMembers = 2,
+        message = "Looting changed to free-for-all.",
+        expectPlain = "Loot: Free for all",
+        requireColors = { "|cffffffffLoot: |r", "|cffaaaaffFree for all|r" },
+    },
+    {
         name = "quest accepted",
         event = "CHAT_MSG_SYSTEM",
         message = "Quest accepted: The Missing Diplomat",

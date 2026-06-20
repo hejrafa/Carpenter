@@ -35,6 +35,29 @@ function Social.Create(config)
         return (text and text:gsub("^%s+", ""):gsub("%s+$", "") or "")
     end
 
+    local function GlobalText(key, fallback)
+        local text = _G and _G[key]
+        if type(text) == "string" and text ~= "" then
+            return text
+        end
+        return fallback
+    end
+
+    local lootMethodNames = {
+        ["free for all"] = GlobalText("FREE_FOR_ALL", "Free for all"),
+        ["round robin"] = GlobalText("ROUND_ROBIN", "Round robin"),
+        ["master looter"] = GlobalText("MASTER_LOOTER", "Master looter"),
+        ["group loot"] = GlobalText("GROUP_LOOT", "Group Loot"),
+        ["need before greed"] = GlobalText("NEED_BEFORE_GREED", "Need Before Greed"),
+        ["personal loot"] = GlobalText("PERSONAL_LOOT", "Personal Loot"),
+    }
+
+    local function NormalizeLootMethodDisplay(method)
+        method = Trim(method):gsub("%.?%s*$", "")
+        local key = method:lower():gsub("[_%-%s]+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+        return lootMethodNames[key] or method
+    end
+
     local function ShortPlayerName(name)
         if not name or type(name) ~= "string" then return "" end
         name = name:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
@@ -386,7 +409,7 @@ function Social.Create(config)
         local lootMethod = plainMsg:match("[Ll]ooting changed to%s+(.+)$") or plainMsg:match("[Ll]oot method set to%s+(.+)$") or
             plainMsg:match("[Ll]oot method changed to%s+(.+)$") or plainMsg:match("[Ll]oot%s+changed to%s+(.+)$")
         if lootMethod and lootMethod ~= "" then
-            lootMethod = lootMethod:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%.?%s*$", "")
+            lootMethod = NormalizeLootMethodDisplay(lootMethod)
             return colorWhite .. T("CHAT_LOOT_LABEL", "Loot:") .. " |r" .. groupColor .. lootMethod .. "|r"
         end
         local died = plainMsg:match("^%s*(.-)%s+has died%.?%s*$")
