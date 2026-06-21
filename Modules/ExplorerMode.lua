@@ -106,6 +106,52 @@ local frameNames = {
     "VehicleSeatIndicator",
 }
 
+local classicOrTBCBottomBarFrameNames = {
+    -- Classic/TBC action bar art and page controls
+    "MainMenuBarArtFrame",
+    "MainMenuBarTexture0",
+    "MainMenuBarTexture1",
+    "MainMenuBarTexture2",
+    "MainMenuBarTexture3",
+    "MainMenuBarLeftEndCap",
+    "MainMenuBarRightEndCap",
+    "ActionBarUpButton",
+    "ActionBarDownButton",
+    "MainMenuBarPageNumber",
+    -- Micro menu and bag containers
+    "MicroButtonAndBagsBar",
+    "MicroMenuContainer",
+    "BagsBar",
+    "BagBarExpandToggle",
+    -- Bag buttons
+    "MainMenuBarBackpackButton",
+    "KeyRingButton",
+    "KeyringButton",
+    "CharacterBag0Slot",
+    "CharacterBag1Slot",
+    "CharacterBag2Slot",
+    "CharacterBag3Slot",
+    "CharacterReagentBag0Slot",
+    -- Micro menu buttons
+    "MainMenuBarPerformanceBar",
+    "CharacterMicroButton",
+    "SpellbookMicroButton",
+    "TalentMicroButton",
+    "ProfessionMicroButton",
+    "QuestLogMicroButton",
+    "AchievementMicroButton",
+    "SocialsMicroButton",
+    "GuildMicroButton",
+    "PVPMicroButton",
+    "LFGMicroButton",
+    "CollectionsMicroButton",
+    "EJMicroButton",
+    "StoreMicroButton",
+    "MainMenuMicroButton",
+    "HelpMicroButton",
+    "WorldMapMicroButton",
+}
+
 local repeatedFramePrefixes = {
     { prefix = "PartyMemberFrame", suffix = "", count = 4 },
     { prefix = "PartyMemberFrame", suffix = "PetFrame", count = 4 },
@@ -225,6 +271,10 @@ local actionBarManagedFrameNames = {
     ZoneAbilityFrame = true,
 }
 
+local classicOrTBCActionBarVisualFrameNames = {
+    MainMenuBarArtFrame = true,
+}
+
 local actionBarClusterFrameNames = {
     MainMenuBar = true,
     MainMenuBarArtFrame = true,
@@ -243,6 +293,10 @@ local actionBarClusterFrameNames = {
     ExtraActionBarFrame = true,
     ZoneAbilityFrame = true,
 }
+
+for _, name in ipairs(classicOrTBCBottomBarFrameNames) do
+    actionBarClusterFrameNames[name] = true
+end
 
 local actionButtonNamePatterns = {
     "^ActionButton%d+$",
@@ -374,6 +428,11 @@ end
 
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled(FEATURE_KEY)
+end
+
+local function IsClassicOrTBCClient()
+    local client = Carpenter and Carpenter.Client
+    return client and (client.isVanilla or client.isTBC or client.isClassic)
 end
 
 local function IsEditModeSupportedClient()
@@ -618,6 +677,12 @@ local function RefreshManagedFrames()
         AddFrameByName(name)
     end
 
+    if IsClassicOrTBCClient() then
+        for _, name in ipairs(classicOrTBCBottomBarFrameNames) do
+            AddFrameByName(name)
+        end
+    end
+
     for _, name in ipairs(unitFramePieces) do
         AddFrameByName(name)
     end
@@ -756,6 +821,10 @@ local function IsNamedFrameInSet(frameObject, nameSet)
 end
 
 local function IsActionBarManagedFrame(frameObject)
+    if IsClassicOrTBCClient() and IsNamedFrameInSet(frameObject, classicOrTBCActionBarVisualFrameNames) then
+        return false
+    end
+
     return IsNamedFrameInSet(frameObject, actionBarManagedFrameNames)
 end
 
@@ -1187,6 +1256,12 @@ end
 
 local function IsActionBarClusterHovered()
     local hovered = false
+    ForEachActionBarClusterFrame(function(frameObject)
+        if not hovered and not IsActionBarManagedFrame(frameObject) and IsMouseOverFrame(frameObject) then
+            hovered = true
+        end
+    end)
+
     ForEachActionButton(function(button)
         if not hovered and IsMouseOverFrame(button) then
             hovered = true
