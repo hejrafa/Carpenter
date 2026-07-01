@@ -203,6 +203,25 @@ local function IsWellFedFood(tooltipData, spellText)
     return ContainsAny(text, TOOLTIP_KEYWORDS.wellFed)
 end
 
+local function HasBuffDuration(text)
+    if not text or text == "" then return false end
+    return text:find("for %d[%d%.,]* min") ~= nil
+        or text:find("for %d[%d%.,]* hour") ~= nil
+        or text:find("für %d[%d%.,]* min") ~= nil
+        or text:find("für %d[%d%.,]* stund") ~= nil
+end
+
+local function HasStatBuffText(tooltipData, spellText)
+    local text = ((tooltipData and tooltipData.text) or "") .. " " .. (spellText or "")
+    text = text:lower()
+    if not HasBuffDuration(text) then return false end
+    return ContainsAny(text, TOOLTIP_KEYWORDS.statBuff)
+end
+
+local function IsBuffFood(tooltipData, spellText)
+    return IsWellFedFood(tooltipData, spellText) or HasStatBuffText(tooltipData, spellText)
+end
+
 local function StripWellFedTiming(text)
     if not text or text == "" then return "" end
 
@@ -371,7 +390,7 @@ local function ScoreItem(item, tooltipData, spellText, category)
 
     if category == "Food" then
         score = ExtractRestoreValue(GetRestoreText(tooltipData), TOOLTIP_KEYWORDS.health, UnitHealthMax("player") or 0)
-        if not IsWellFedFood(tooltipData, spellText) then
+        if not IsBuffFood(tooltipData, spellText) then
             score = score + 2000000000
         end
         if IsConjuredFoodOrWater(item, tooltipData, category) then

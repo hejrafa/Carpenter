@@ -22,6 +22,7 @@
 - Kept Retail minimap clock/calendar and AddOn Compartment controls clickable while their surrounding cleanup art fades.
 - Treated the full Retail minimap cluster as the hover area so gaps between the minimap, zone text, clock, and controls do not flicker the fade.
 - Improved Retail flying performance by throttling Explorer Mode action-button refreshes and letting settled minimap fade drivers sleep while idle.
+- Extended Smart Macros food auto-selection to skip stat-buff foods (stamina, strength, agility, intellect, spirit, attack power, spell power, MP5) whose tooltips do not say Well Fed, matching English and German tooltips.
 
 ## 1.6.8
 

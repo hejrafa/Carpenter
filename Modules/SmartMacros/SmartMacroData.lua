@@ -53,6 +53,14 @@ Data.TooltipKeywords = {
     wellFed = { "well fed", "gut genährt", "gut genaehrt", "satt" },
     foodAndDrink = { "remain seated while", "sitzen bleiben" },
     conjured = { "conjured item", "conjured", "mana bun", "mana strudel", "mana biscuit", "mana cake", "mana pie", "herbeigezauberter gegenstand", "herbeigezaubert" },
+    statBuff = {
+        "stamina", "strength", "agility", "intellect", "spirit",
+        "attack power", "spell power", "spell damage", "healing power",
+        "mana every 5", "mana per 5", "mp5",
+        "ausdauer", "stärke", "staerke", "beweglichkeit",
+        "intelligenz", "willenskraft",
+        "angriffskraft", "zaubermacht",
+    },
 }
 
 -- Hard fallback for common Classic/TBC foods in case item info or tooltip text is sparse.
