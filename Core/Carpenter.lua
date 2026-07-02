@@ -22,6 +22,7 @@ local defaults = {
     worldMapCleanupEnabled = false,
     worldMapPOIIconsEnabled = false,
     professionIconPortraitEnabled = false,
+    talentIconPortraitEnabled = false,
     enhanceTooltipEnabled = false,
     scaleExtraAbilityEnabled = false,
     -- Unit Frames

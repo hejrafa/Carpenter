@@ -148,6 +148,13 @@ function Options.Create(context)
                     requiresReload = false,
                 },
                 {
+                    key = "talentIconPortraitEnabled",
+                    label = L.OPTION_TALENT_ICON_PORTRAIT or "Talent Icon Portrait",
+                    description = Description("DESC_TALENT_ICON_PORTRAIT"),
+                    image = GetSettingsImage("talents.png"),
+                    requiresReload = false,
+                },
+                {
                     key = "enhanceTooltipEnabled",
                     label = L.OPTION_ENHANCE_TOOLTIP or "Enhanced Tooltip",
                     description = Description("DESC_ENHANCE_TOOLTIP"),

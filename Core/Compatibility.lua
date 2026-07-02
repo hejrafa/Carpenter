@@ -38,6 +38,7 @@ local classicFeatures = {
     minimapClutterEnabled = true,
     worldMapCleanupEnabled = true,
     professionIconPortraitEnabled = true,
+    talentIconPortraitEnabled = true,
     enhanceTooltipEnabled = true,
     classHealthColorsEnabled = true,
     threatIndicatorEnabled = true,
