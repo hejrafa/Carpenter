@@ -48,8 +48,8 @@ local POISON_MACROS = {
         macroName = "CarpenterDamage",
         legacyName = "CarpenterInstant",
         missingText = "No damage poison found.",
-        normalPriority = { "Deadly", "Instant" },
-        shiftPriority = { "Wound", "Instant" },
+        normalPriority = { "Instant", "Deadly" },
+        shiftPriority = { "Deadly", "Wound" },
     },
     {
         macroName = "CarpenterUtility",
