@@ -123,7 +123,7 @@ function Sidebar.Create(context)
             end
         end
         if _G["CP_PoisonPreview_Instant"] then
-            for _, n in ipairs({ "Instant", "Crippling" }) do
+            for _, n in ipairs({ "Instant", "Crippling", "Tea" }) do
                 if _G["CP_PoisonPreview_" .. n] then _G["CP_PoisonPreview_" .. n]:Hide() end
             end
         end
@@ -248,9 +248,13 @@ function Sidebar.Create(context)
     local function ShowPoisonMacroPreviews()
         ShowSideContent()
         if not _G["CP_PoisonPreview_Instant"] then
+            local teaIcon = (C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(7676))
+                or (GetItemIcon and GetItemIcon(7676))
+                or "Interface\\Icons\\INV_Drink_Milk_05"
             local poisons = {
                 { key = "Instant", label = L.POISON_DAMAGE or "Damage", macro = "CarpenterDamage", icon = "Interface\\Icons\\Ability_Poisons" },
                 { key = "Crippling", label = L.POISON_UTILITY or "Utility", macro = "CarpenterUtility", icon = "Interface\\Icons\\Ability_PoisonSting" },
+                { key = "Tea", label = L.POISON_TEA or "Tea", macro = "CarpenterTea", icon = teaIcon },
             }
             local iconSize, spacing = 34, 12
             local totalWidth = (#poisons * iconSize) + ((#poisons - 1) * spacing)
@@ -272,7 +276,7 @@ function Sidebar.Create(context)
                 end)
             end
         end
-        for _, n in ipairs({ "Instant", "Crippling" }) do
+        for _, n in ipairs({ "Instant", "Crippling", "Tea" }) do
             if _G["CP_PoisonPreview_" .. n] then _G["CP_PoisonPreview_" .. n]:Show() end
         end
     end

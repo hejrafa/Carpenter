@@ -95,6 +95,7 @@ Modules\SmartMacros\SmartMacroScanner.lua
 Modules\SmartMacros\SmartMacroBuilder.lua
 Modules\SmartMacros\SmartMacros.lua
 Modules\PoisonMacros.lua
+Modules\ThistleTeaMacro.lua
 Modules\AutoTrackQuests\AutoTrackQuestState.lua
 Modules\AutoTrackQuests\AutoTrackQuestLayout.lua
 Modules\AutoTrackQuests\AutoTrackQuests.lua

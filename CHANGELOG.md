@@ -2,6 +2,8 @@
 
 ## 1.7.0
 
+- Renamed Poison Macros to Rogue Macros and added a draggable Thistle Tea macro that opens Cooking and brews every available Thistle Tea in one press while standing at a fire.
+- Swapped the damage poison macro to apply Instant Poison by default and Deadly Poison while holding Shift.
 - Added a Classic/TBC Talent Icon Portrait option that replaces the talent window player portrait with the icon of the currently selected talent tree, updating live while switching tabs.
 
 - Added a hidden Classic/TBC Transmog settings page behind the footer version number.

@@ -296,12 +296,19 @@ end
 
 local feature = {}
 
+local function GetThistleTeaMacro()
+    return ns.Private and ns.Private.ThistleTeaMacro
+end
+
 function feature:Enable()
     if not IsSupportedClient() then return end
     frame:RegisterEvent("BAG_UPDATE")
     frame:RegisterEvent("BAG_UPDATE_DELAYED")
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
     MarkDirty(1.5, true)
+
+    local tea = GetThistleTeaMacro()
+    if tea and tea.Enable then tea:Enable() end
 end
 
 function feature:Disable()
@@ -309,6 +316,9 @@ function feature:Disable()
     isDirty = false
     forceNextUpdate = false
     updateScheduled = false
+
+    local tea = GetThistleTeaMacro()
+    if tea and tea.Disable then tea:Disable() end
 end
 
 if Carpenter and Carpenter.RegisterFeature then

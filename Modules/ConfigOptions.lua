@@ -334,7 +334,7 @@ function Options.Create(context)
                 {
                     key = "poisonMacrosEnabled",
                     class = "ROGUE",
-                    label = L.OPTION_POISON_MACROS or "Poison Macros",
+                    label = L.OPTION_POISON_MACROS or "Rogue Macros",
                     description = Description("DESC_POISON_MACROS"),
                     sideLogic = ShowPoisonMacroPreviews,
                     image = GetSettingsImage("poisonmacro.png"),
