@@ -4,6 +4,8 @@
 local _, ns = ...
 ns.Private = ns.Private or {}
 
+local L = (Carpenter and Carpenter.L) or {}
+
 local frame = CreateFrame("Frame")
 
 local POISON_FAMILIES = {
@@ -47,14 +49,14 @@ local POISON_MACROS = {
     {
         macroName = "CarpenterDamage",
         legacyName = "CarpenterInstant",
-        missingText = "No damage poison found.",
+        missingText = L.POISON_DAMAGE_MISSING or "No damage poison found.",
         normalPriority = { "Instant", "Deadly" },
         shiftPriority = { "Deadly", "Wound" },
     },
     {
         macroName = "CarpenterUtility",
         legacyName = "CarpenterCrippling",
-        missingText = "No utility poison found.",
+        missingText = L.POISON_UTILITY_MISSING or "No utility poison found.",
         normalPriority = { "Crippling", "Mind" },
         shiftPriority = { "Crippling", "Mind" },
     },

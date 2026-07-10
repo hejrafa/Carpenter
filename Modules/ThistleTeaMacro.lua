@@ -8,6 +8,8 @@ local _, ns = ...
 ns = ns or {}
 ns.Private = ns.Private or {}
 
+local L = (Carpenter and Carpenter.L) or {}
+
 local FEATURE_KEY = "poisonMacrosEnabled"
 local MACRO_NAME = "CarpenterTea"
 local TEA_ITEM_ID = 7676
@@ -77,7 +79,7 @@ local function TryBrew()
     local teaName = GetTeaName()
     if not teaName then
         pendingUntil = nil
-        Print("Thistle Tea item data is not loaded yet. Try again.")
+        Print(L.THISTLE_TEA_NOT_LOADED or "Thistle Tea item data is not loaded yet. Try again.")
         return
     end
 
@@ -91,13 +93,13 @@ local function TryBrew()
             return
         end
         pendingUntil = nil
-        Print("Thistle Tea recipe not found in Cooking.")
+        Print(L.THISTLE_TEA_NO_RECIPE or "Thistle Tea recipe not found in Cooking.")
         return
     end
 
     pendingUntil = nil
     if numAvailable < 1 then
-        Print("Missing ingredients for Thistle Tea.")
+        Print(L.THISTLE_TEA_MISSING or "Missing ingredients for Thistle Tea.")
         return
     end
 

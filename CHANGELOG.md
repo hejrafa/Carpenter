@@ -5,7 +5,7 @@
 - Renamed Poison Macros to Rogue Macros and added a draggable Thistle Tea macro that opens Cooking and brews every available Thistle Tea in one press while standing at a fire.
 - Swapped the damage poison macro to apply Instant Poison by default and Deadly Poison while holding Shift.
 - Added a Classic/TBC Talent Icon Portrait option that replaces the talent window player portrait with the icon of the currently selected talent tree, updating live while switching tabs.
-
+- Localized the Rogue Macros chat notices for missing poisons and Thistle Tea brewing across all supported languages.
 - Added a hidden Classic/TBC Transmog settings page behind the footer version number.
 - Added a disabled Classic/TBC Hide Shoulders experiment that explains why live player shoulder armor cannot be hidden client-side by an addon.
 - Added a disabled Classic/TBC Back Sheath 1H Weapons idea for tracking weapon-sheath placement experiments.
