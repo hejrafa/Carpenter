@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.2
+
+- Fixed a Lua error on login for Classic Era and TBC clients that no longer provide `CompactUnitFrame_UpdateAuras`.
+- Enabled Resize Exp & Rep Bars and Fade Micro Menu & Bags on Classic Era.
+
 ## 1.7.1
 
 - Updated the Classic Era interface version for 1.15.9 and the TBC interface version for 2.5.6 so Carpenter no longer shows as out of date.

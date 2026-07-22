@@ -540,8 +540,11 @@ if _G.FocusFrame then
     end
 end
 
-hooksecurefunc("CompactUnitFrame_UpdateAuras", function(self)
-    if IsNameplateEnabled() and self.unit and self.unit:find("nameplate") then
-        OnNameplateUpdate(self, self.unit)
-    end
-end)
+-- Not present on every Classic build, so only hook it when the client has it
+if type(_G.CompactUnitFrame_UpdateAuras) == "function" then
+    hooksecurefunc("CompactUnitFrame_UpdateAuras", function(self)
+        if IsNameplateEnabled() and self.unit and self.unit:find("nameplate") then
+            OnNameplateUpdate(self, self.unit)
+        end
+    end)
+end
