@@ -63,7 +63,6 @@ function Options.Create(context)
     end
 
     local ApplyActionCam = OnToggleGlobal("Carpenter_ApplyActionCam")
-    local ApplyClassicSettingsPreset = OnToggleGlobal("Carpenter_ApplyClassicSettingsPreset")
     local ApplyExplorerMode = OnToggleGlobal("Carpenter_ApplyExplorerMode")
     local ApplyExtraAbilityScale = OnToggleGlobal("Carpenter_ApplyExtraAbilityScale")
     local ApplyRetailUnitFrames = OnToggleGlobal("Carpenter_ApplyRetailUnitFrameCleaner")
@@ -354,19 +353,6 @@ function Options.Create(context)
                     label = L.OPTION_HIDE_ERROR_MESSAGES or "Hide Error Messages",
                     description = Description("DESC_HIDE_ERROR_MESSAGES"),
                     image = GetSettingsImage("error.png"),
-                },
-            },
-        },
-        {
-            title = L.SECTION_SETTINGS or "Settings",
-            options = {
-                {
-                    key = "classicSettingsPresetEnabled",
-                    label = L.OPTION_SETTINGS_PRESET or "Preset",
-                    description = Description("DESC_SETTINGS_PRESET"),
-                    image = GetSettingsImage("preset.png"),
-                    requiresReload = false,
-                    onToggle = ApplyClassicSettingsPreset,
                 },
             },
         },

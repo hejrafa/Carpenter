@@ -72,7 +72,6 @@ local defaults = {
     hideShouldersEnabled = false,
     backSheathOneHandWeaponsEnabled = false,
     -- Settings
-    classicSettingsPresetEnabled = false,
     blankLuaErrorTraceEnabled = false,
 }
 
@@ -338,6 +337,7 @@ function Carpenter_InitializeSettings()
     end
     CarpenterDB.raidTargetIconAlignedEnabled = nil
     CarpenterDB.targetHealthPercentEnabled = nil
+    CarpenterDB.classicSettingsPresetEnabled = nil
 
     for key, value in pairs(defaults) do
         if CarpenterDB[key] == nil then

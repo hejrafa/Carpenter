@@ -21,12 +21,12 @@ local stateKeys = {
 -- feature support.
 local dormantOptionKeys = {
     hideGroupIndicatorEnabled = true,
-    classicSettingsPresetEnabled = true,
 }
 
 -- Removed settings that survive only in the upgrade migration, which clears
 -- them from saved variables. They intentionally have no defaults entry.
 local removedOptionKeys = {
+    classicSettingsPresetEnabled = true,
     nameplateCastNamesEnabled = true,
     raidTargetIconAlignedEnabled = true,
     targetHealthPercentEnabled = true,

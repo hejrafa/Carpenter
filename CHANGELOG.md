@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.3
+
+- Removed the Classic/TBC Preset option along with its now-empty Settings category. Settings the preset already applied, such as auto loot and the extra action bars, stay as they are.
+
 ## 1.7.2
 
 - Fixed a Lua error on login for Classic Era and TBC clients that no longer provide `CompactUnitFrame_UpdateAuras`.
