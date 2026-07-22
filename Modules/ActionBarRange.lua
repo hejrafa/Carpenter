@@ -79,45 +79,54 @@ end
 
 local hooked = false
 
+local function SafeHookGlobal(name, handler)
+    if Carpenter and Carpenter.SafeHook then
+        return Carpenter:SafeHook(name, handler)
+    end
+    if not hooksecurefunc or type(_G[name]) ~= "function" then return false end
+    return pcall(hooksecurefunc, name, handler) == true
+end
+
 local function HookRangeUpdates()
     if hooked then return end
-    hooked = true
 
-    if type(_G.ActionButton_UpdateRangeIndicator) == "function" then
-        -- Modern path: hook the Blizzard range updater (Dragonflight / 2.5.5 style).
-        hooksecurefunc("ActionButton_UpdateRangeIndicator", function(self, checksRange, inRange)
-            if not self or self:IsForbidden() then return end
+    -- Modern path: hook the Blizzard range updater (Dragonflight / 2.5.5 style).
+    hooked = SafeHookGlobal("ActionButton_UpdateRangeIndicator", function(self, checksRange, inRange)
+        if not self or self:IsForbidden() then return end
 
-            local outOfRange = ComputeOutOfRangeFromAction(self, checksRange, inRange)
+        local outOfRange = ComputeOutOfRangeFromAction(self, checksRange, inRange)
 
-            -- Only touch buttons while the feature is enabled or if we need
-            -- to clean up a previous override.
-            if IsEnabled() or self._Carpenter_RangeDimmed then
-                ApplyRangeState(self, outOfRange)
+        -- Only touch buttons while the feature is enabled or if we need
+        -- to clean up a previous override.
+        if IsEnabled() or self._Carpenter_RangeDimmed then
+            ApplyRangeState(self, outOfRange)
+        end
+    end)
+    if hooked then return end
+
+    -- Classic fallback: rely on ActionButton_OnUpdate + IsActionInRange.
+    hooked = SafeHookGlobal("ActionButton_OnUpdate", function(self, elapsed)
+        if not self or self:IsForbidden() then return end
+        if not self.action or self.action == 0 then return end
+
+        local inRange = IsActionInRange(self.action)
+        local outOfRange = false
+
+        if inRange ~= nil then
+            if type(inRange) == "boolean" then
+                outOfRange = (inRange == false)
+            else
+                outOfRange = (inRange == 0)
             end
-        end)
-    else
-        -- Classic fallback: rely on ActionButton_OnUpdate + IsActionInRange.
-        hooksecurefunc("ActionButton_OnUpdate", function(self, elapsed)
-            if not self or self:IsForbidden() then return end
-            if not self.action or self.action == 0 then return end
+        end
 
-            local inRange = IsActionInRange(self.action)
-            local outOfRange = false
+        if IsEnabled() or self._Carpenter_RangeDimmed then
+            ApplyRangeState(self, outOfRange)
+        end
+    end)
 
-            if inRange ~= nil then
-                if type(inRange) == "boolean" then
-                    outOfRange = (inRange == false)
-                else
-                    outOfRange = (inRange == 0)
-                end
-            end
-
-            if IsEnabled() or self._Carpenter_RangeDimmed then
-                ApplyRangeState(self, outOfRange)
-            end
-        end)
-    end
+    -- Neither global is present yet, so leave `hooked` false and try again on
+    -- the next login or zone in rather than giving up for the session.
 end
 
 local frame = CreateFrame("Frame")

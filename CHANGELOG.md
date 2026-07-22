@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.5
+
+- Fixed Out of Range Tint erroring on clients that provide neither action button range function, and stopped it giving up for the rest of the session when those functions were not ready yet.
+- Routed Explorer Mode's player health bar lookup through the shared helper so it cannot fall behind the other unit frame lookups.
+
 ## 1.7.4
 
 - Fixed class colored health not reaching Classic Era party frames after Edit Mode moved them.

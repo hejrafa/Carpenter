@@ -1,6 +1,8 @@
 --[[ Carpenter - Explorer Mode ]]
 -- Slowly fades the main HUD while out of combat, leaving the minimap alone.
 
+local _, ns = ...
+
 local FEATURE_KEY = "explorerModeEnabled"
 local EXPLORING_ALPHA = 0
 local VISIBLE_ALPHA = 1
@@ -516,16 +518,8 @@ local function IsGameEditModeActive()
 end
 
 local function GetPlayerHealthBar()
-    return (PlayerFrame
-            and PlayerFrame.PlayerFrameContent
-            and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain
-            and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain.HealthBarsContainer
-            and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain.HealthBarsContainer.HealthBar)
-        or PlayerFrameHealthBar
-        or (PlayerFrame
-            and PlayerFrame.PlayerFrameContent
-            and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain
-            and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain.HealthBar)
+    local Unit = ns and ns.Private and ns.Private.Unit
+    return Unit and Unit.FrameHealthBar and Unit.FrameHealthBar("player") or nil
 end
 
 local function IsPlayerHealthBarFull()
