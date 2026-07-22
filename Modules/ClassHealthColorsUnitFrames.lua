@@ -59,30 +59,28 @@ local function HookUnitFrameHealthBar(bar, unit)
     end)
 end
 
+local Unit = ns.Private.Unit or {}
+
 local function GetUnitFrameHealthBar(unit)
-    if unit == "target" then
-        return (TargetFrame and TargetFrame.TargetFrameContent and TargetFrame.TargetFrameContent.TargetFrameContentMain
-                and TargetFrame.TargetFrameContent.TargetFrameContentMain.HealthBarsContainer
-                and TargetFrame.TargetFrameContent.TargetFrameContentMain.HealthBarsContainer.HealthBar)
-            or TargetFrameHealthBar
-            or (TargetFrame and TargetFrame.TargetFrameContent and TargetFrame.TargetFrameContent.TargetFrameContentMain and TargetFrame.TargetFrameContent.TargetFrameContentMain.HealthBar)
-    elseif unit == "targettarget" then
-        return (TargetFrameToT and TargetFrameToT.HealthBar)
-            or TargetFrameToTHealthBar
-            or (TargetFrameToT and TargetFrameToT.healthbar)
-    elseif unit == "focus" then
-        return (FocusFrame and FocusFrame.TargetFrameContent and FocusFrame.TargetFrameContent.TargetFrameContentMain
-                and FocusFrame.TargetFrameContent.TargetFrameContentMain.HealthBarsContainer
-                and FocusFrame.TargetFrameContent.TargetFrameContentMain.HealthBarsContainer.HealthBar)
-            or FocusFrameHealthBar
-            or (FocusFrame and FocusFrame.TargetFrameContent and FocusFrame.TargetFrameContent.TargetFrameContentMain and FocusFrame.TargetFrameContent.TargetFrameContentMain.HealthBar)
-    elseif unit == "player" then
-        return (PlayerFrame and PlayerFrame.PlayerFrameContent and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain
-                and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain.HealthBarsContainer
-                and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain.HealthBarsContainer.HealthBar)
-            or PlayerFrameHealthBar
-            or (PlayerFrame and PlayerFrame.PlayerFrameContent and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain.HealthBar)
+    return Unit.FrameHealthBar and Unit.FrameHealthBar(unit) or nil
+end
+
+-- Party frames moved around when Edit Mode reached Classic, so try the nested
+-- container shapes before falling back to the old globals.
+local function GetPartyHealthBar(index)
+    local member = PartyFrame and PartyFrame["MemberFrame" .. index]
+    if member then
+        local container = member.HealthBarsContainer or member.HealthBarContainer
+        local bar = (container and (container.HealthBar or container.healthBar))
+            or member.HealthBar
+            or member.healthBar
+            or member.healthbar
+        if bar then return bar end
     end
+
+    local legacy = _G["PartyMemberFrame" .. index]
+    return _G["PartyMemberFrame" .. index .. "HealthBar"]
+        or (legacy and (legacy.HealthBar or legacy.healthBar or legacy.healthbar))
 end
 
 local function UpdateHealthBarColor(bar, unit)
@@ -117,9 +115,7 @@ local function RefreshUnitFrameColors()
     UpdateHealthBarColor(GetUnitFrameHealthBar("focus"), "focus")
 
     for i = 1, 4 do
-        local partyMember = PartyFrame and PartyFrame["MemberFrame" .. i]
-        local partyBar = (partyMember and partyMember.HealthBarContainer and partyMember.HealthBarContainer.HealthBar)
-            or _G["PartyMemberFrame" .. i .. "HealthBar"]
+        local partyBar = GetPartyHealthBar(i)
         if partyBar then
             UpdateHealthBarColor(partyBar, "party" .. i)
         end
@@ -154,11 +150,11 @@ local function HandleUnitFrameEvent(self, event, unit)
             UpdateHealthBarColor(GetUnitFrameHealthBar("player"), "player")
         elseif unit and unit:find("party") then
             for i = 1, 4 do
-                local partyMember = PartyFrame and PartyFrame["MemberFrame" .. i]
-                local partyBar = (partyMember and partyMember.HealthBarContainer and partyMember.HealthBarContainer.HealthBar)
-                    or _G["PartyMemberFrame" .. i .. "HealthBar"]
-                if partyBar and unit == "party" .. i then
-                    UpdateHealthBarColor(partyBar, unit)
+                if unit == "party" .. i then
+                    local partyBar = GetPartyHealthBar(i)
+                    if partyBar then
+                        UpdateHealthBarColor(partyBar, unit)
+                    end
                 end
             end
         end
@@ -199,10 +195,7 @@ function unitFrameFeature:Disable()
     RestoreDefaultUnitColor(GetUnitFrameHealthBar("focus"), "focus", true)
 
     for i = 1, 4 do
-        local partyMember = PartyFrame and PartyFrame["MemberFrame" .. i]
-        local partyBar = (partyMember and partyMember.HealthBarContainer and partyMember.HealthBarContainer.HealthBar)
-            or _G["PartyMemberFrame" .. i .. "HealthBar"]
-        RestoreDefaultUnitColor(partyBar, "party" .. i, true)
+        RestoreDefaultUnitColor(GetPartyHealthBar(i), "party" .. i, true)
     end
 
     unitFrameDriver:UnregisterAllEvents()

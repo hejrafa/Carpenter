@@ -14,11 +14,24 @@ if Carpenter and Carpenter.Client and Carpenter.Client.isRetail then
     return;
 end
 
+-- Offsets from the top of the target frame health bar, used when the health
+-- bar can be found. X pushes right because the portrait sits on the right, so
+-- the bar's center is left of the frame's. Y lifts the indicator clear of the
+-- frame border, which draws over it at this strata.
+local THREAT_OFFSET_X = 4;
+local THREAT_OFFSET_Y = 19;
+
 -- Robust version check
 if not AddOn.ClientVersionMajor then
     local version = GetBuildInfo();
     AddOn.ClientVersionMajor = tonumber(version:match("^(%d+)")) or 1;
 end
+
+-- Glow offsets from the unit frame's TOPLEFT. The glow wraps the whole frame,
+-- so it stays anchored to the frame rather than the health bar. Classic Era
+-- used to need its own offsets, but Edit Mode lined its frame up with TBC's.
+local THREAT_GLOW_OFFSET_X = -6;
+local THREAT_GLOW_OFFSET_Y = -3;
 
 ----------------------------------
 --[[	Options Defaults	]]
@@ -42,7 +55,28 @@ local ThreatStatusColors = {
 local CreateThreatIndicator; do --	function CreateThreatIndicator(unitframe)
     local function Indicator_Update(self)
         local unit = self.Unit;
-        local EnableNumeric, EnableGlow = AddOn.Options.ThreatIndicatorNumber, AddOn.Options.ThreatIndicatorGlow;
+        -- Gate the module's own sub-options behind Carpenter's setting, which
+        -- otherwise never reaches this adapted module.
+        local settingOn = not Carpenter or not Carpenter.IsEnabled or Carpenter:IsEnabled("threatIndicatorEnabled");
+        local EnableNumeric = settingOn and AddOn.Options.ThreatIndicatorNumber;
+        local EnableGlow = settingOn and AddOn.Options.ThreatIndicatorGlow;
+
+        -- /cpthreat preview: the real readout needs a group and live threat, so
+        -- show sample values instead while checking placement.
+        if AddOn.ThreatIndicatorTestMode then
+            if UnitExists(unit) then
+                local r, g, b = unpack(ThreatStatusColors[3]);
+                self.Text:SetFormattedText("%.0f%%", 100);
+                self.Background:SetVertexColor(r, g, b);
+                self:Show();
+                self.Glow:SetVertexColor(r, g, b);
+                self.Glow:Show();
+            else
+                self:Hide();
+                self.Glow:Hide();
+            end
+            return;
+        end
 
         if (EnableNumeric or EnableGlow) and UnitExists(unit) then
             local tanking, status, _, percent = UnitDetailedThreatSituation("player", unit);
@@ -97,7 +131,14 @@ local CreateThreatIndicator; do --	function CreateThreatIndicator(unitframe)
 
         -- Parent to UIParent so we don't taint the secure unit frame (fixes Set Focus / protected actions).
         local indicator = CreateFrame("Frame", nil, UIParent);
-        if AddOn.ClientVersionMajor < 2 then
+
+        -- Anchor above the health bar where it is available. Edit Mode changed
+        -- the outer frame's bounds, so offsets measured from it drift.
+        local Unit = AddOn.Private and AddOn.Private.Unit;
+        local healthBar = Unit and Unit.FrameHealthBar and Unit.FrameHealthBar(unit);
+        if healthBar then
+            indicator:SetPoint("BOTTOM", healthBar, "TOP", THREAT_OFFSET_X, THREAT_OFFSET_Y);
+        elseif AddOn.ClientVersionMajor < 2 then
             indicator:SetPoint("BOTTOM", unitframe, "TOP", -50, -23);
         else
             indicator:SetPoint("BOTTOM", unitframe, "TOP", -31, -25);
@@ -130,11 +171,7 @@ local CreateThreatIndicator; do --	function CreateThreatIndicator(unitframe)
         indicator.Glow = indicator:CreateTexture(nil, "BACKGROUND");
         indicator.Glow:SetTexture("Interface\\TargetingFrame\\UI-TargetingFrame-Flash");
         indicator.Glow:SetTexCoord(0, 0.9453125, 0, AddOn.ClientVersionMajor < 2 and 0.181640625 or 0.7265625);
-        if AddOn.ClientVersionMajor < 2 then
-            indicator.Glow:SetPoint("TOPLEFT", unitframe, "TOPLEFT", -24, -1);
-        else
-            indicator.Glow:SetPoint("TOPLEFT", unitframe, "TOPLEFT", -5, -3);
-        end
+        indicator.Glow:SetPoint("TOPLEFT", unitframe, "TOPLEFT", THREAT_GLOW_OFFSET_X, THREAT_GLOW_OFFSET_Y);
         indicator.Glow:SetSize(242, 93);
         indicator.Glow:Hide();
 
@@ -199,4 +236,23 @@ end
 if AddOn.RegisterFeature then
     AddOn.RegisterFeature("ThreatIndicatorNumber", Options_OnChanged);
     AddOn.RegisterFeature("ThreatIndicatorGlow", Options_OnChanged);
+end
+
+-- Refresh straight away when the Carpenter option is toggled, so the
+-- indicators hide without waiting for the next threat event.
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("threatIndicatorEnabled", {
+        Enable = Options_OnChanged,
+        Disable = Options_OnChanged,
+    });
+end
+
+SLASH_CARPENTERTHREATTEST1 = "/cpthreat";
+SlashCmdList["CARPENTERTHREATTEST"] = function()
+    AddOn.ThreatIndicatorTestMode = not AddOn.ThreatIndicatorTestMode;
+    Options_OnChanged();
+
+    local state = AddOn.ThreatIndicatorTestMode and "on" or "off";
+    local hint = AddOn.ThreatIndicatorTestMode and " Target something to see the placement." or "";
+    print("|cffffd200Carpenter:|r threat indicator preview " .. state .. "." .. hint);
 end

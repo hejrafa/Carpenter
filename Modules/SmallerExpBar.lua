@@ -4,6 +4,20 @@
 
 local OPACITY = 0.6 -- Set bars to 60% opacity
 
+-- Legacy Classic bars plus the containers Edit Mode introduced. The individual
+-- bars inside a container are faded too, since a bar that ignores parent alpha
+-- would otherwise stay bright.
+local BAR_NAMES = {
+    "MainMenuExpBar",
+    "ReputationWatchBar",
+}
+
+local CONTAINER_NAMES = {
+    "StatusTrackingBarManager",
+    "MainStatusTrackingBarContainer",
+    "SecondaryStatusTrackingBarContainer",
+}
+
 -- =========================
 -- Config
 -- =========================
@@ -14,27 +28,41 @@ end
 -- =========================
 -- Core
 -- =========================
-local function ApplyOpacity()
-    if not IsEnabled() then return end
+local function FadeFrame(frame, alpha)
+    if frame and frame.SetAlpha then
+        pcall(frame.SetAlpha, frame, alpha)
+    end
+end
 
-    -- 1. Main Menu Experience Bar (Standard Classic)
-    if MainMenuExpBar then
-        MainMenuExpBar:SetAlpha(OPACITY)
+local function ForEachTrackingBar(callback)
+    for _, name in ipairs(BAR_NAMES) do
+        callback(_G[name])
     end
 
-    -- 2. Reputation Watch Bar (Standard Classic)
-    if ReputationWatchBar then
-        ReputationWatchBar:SetAlpha(OPACITY)
-    end
-
-    -- 3. Modern Manager (If present in your client version)
-    local m = StatusTrackingBarManager
-    if m then
-        m:SetAlpha(OPACITY)
-        -- Sometimes the container needs the opacity instead of the manager
-        if m.BarContainer then
-            m.BarContainer:SetAlpha(OPACITY)
+    for _, name in ipairs(CONTAINER_NAMES) do
+        local container = _G[name]
+        if container then
+            callback(container)
+            callback(container.BarContainer)
+            if type(container.bars) == "table" then
+                for _, bar in ipairs(container.bars) do
+                    callback(bar)
+                end
+            end
         end
+    end
+end
+
+local applied = false
+
+local function Apply()
+    if IsEnabled() then
+        ForEachTrackingBar(function(frame) FadeFrame(frame, OPACITY) end)
+        applied = true
+    elseif applied then
+        -- Only hand the bars back if we were the ones who dimmed them.
+        ForEachTrackingBar(function(frame) FadeFrame(frame, 1) end)
+        applied = false
     end
 end
 
@@ -45,23 +73,47 @@ local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("PLAYER_LEVEL_UP")
+frame:RegisterEvent("PLAYER_XP_UPDATE")
+frame:RegisterEvent("UPDATE_FACTION")
 frame:RegisterEvent("UPDATE_EXHAUSTION")
 frame:RegisterEvent("CVAR_UPDATE")
 frame:RegisterEvent("UI_SCALE_CHANGED")
 
 frame:SetScript("OnEvent", function()
-    ApplyOpacity()
+    Apply()
 end)
 
--- Hook specific update functions to re-apply opacity if Blizzard resets it
-if MainMenuExpBar_Update then
-    hooksecurefunc("MainMenuExpBar_Update", ApplyOpacity)
+-- Re-apply opacity whenever Blizzard redraws the bars. Which of these exist
+-- depends on the client, so install whichever are present.
+local hookedUpdates = {}
+
+local function HookBarUpdates()
+    for _, name in ipairs({ "MainMenuExpBar_Update", "ReputationWatchBar_Update", "StatusTrackingBarManager_Update" }) do
+        if not hookedUpdates[name] and type(_G[name]) == "function" then
+            if pcall(hooksecurefunc, name, Apply) then
+                hookedUpdates[name] = true
+            end
+        end
+    end
+
+    local manager = _G.StatusTrackingBarManager
+    if manager and not hookedUpdates.managerUpdate and type(manager.UpdateBarsShown) == "function" then
+        if pcall(hooksecurefunc, manager, "UpdateBarsShown", Apply) then
+            hookedUpdates.managerUpdate = true
+        end
+    end
 end
 
-if ReputationWatchBar_Update then
-    hooksecurefunc("ReputationWatchBar_Update", ApplyOpacity)
-end
+HookBarUpdates()
 
--- Periodically enforce it (Blizzard UI loves to reset these on zone in/reload)
-C_Timer.After(1, ApplyOpacity)
-C_Timer.After(5, ApplyOpacity)
+-- Blizzard UI loves to reset these on zone in/reload, and the status bar
+-- manager may not exist yet at load, so retry the hooks with the passes.
+if Carpenter and Carpenter.RunStartupPasses then
+    Carpenter:RunStartupPasses("SmallerExpBar:startup", { 0, 1, 5 }, function()
+        HookBarUpdates()
+        Apply()
+    end)
+else
+    C_Timer.After(1, Apply)
+    C_Timer.After(5, Apply)
+end

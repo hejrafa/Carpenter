@@ -16,6 +16,35 @@ local function CanAccessValue(value)
     return true
 end
 
+-- The health bar is the part of a unit frame that keeps its place across
+-- layout changes, so anchor to it rather than the frame's outer bounds.
+-- Edit Mode nests it, older clients expose a global, so try both.
+function Unit.FrameHealthBar(unit)
+    if unit == "player" then
+        local content = PlayerFrame and PlayerFrame.PlayerFrameContent
+            and PlayerFrame.PlayerFrameContent.PlayerFrameContentMain
+        return (content and content.HealthBarsContainer and content.HealthBarsContainer.HealthBar)
+            or PlayerFrameHealthBar
+            or (content and content.HealthBar)
+    elseif unit == "target" then
+        local content = TargetFrame and TargetFrame.TargetFrameContent
+            and TargetFrame.TargetFrameContent.TargetFrameContentMain
+        return (content and content.HealthBarsContainer and content.HealthBarsContainer.HealthBar)
+            or TargetFrameHealthBar
+            or (content and content.HealthBar)
+    elseif unit == "focus" then
+        local content = FocusFrame and FocusFrame.TargetFrameContent
+            and FocusFrame.TargetFrameContent.TargetFrameContentMain
+        return (content and content.HealthBarsContainer and content.HealthBarsContainer.HealthBar)
+            or FocusFrameHealthBar
+            or (content and content.HealthBar)
+    elseif unit == "targettarget" then
+        return (TargetFrameToT and TargetFrameToT.HealthBar)
+            or TargetFrameToTHealthBar
+            or (TargetFrameToT and TargetFrameToT.healthbar)
+    end
+end
+
 function Unit.IsToken(value)
     local ok, isToken = pcall(function()
         return CanAccessValue(value) and type(value) == "string" and value ~= ""

@@ -38,7 +38,6 @@ local defaults = {
     hideBossFramesEnabled = false,
     hideRestAnimationEnabled = false,
     hideHealthLossFxEnabled = false,
-    hideGroupIndicatorEnabled = false,
     hideRealmIndicatorEnabled = false,
     hidePlayerCornerIconEnabled = false,
     hidePartyFrameTitleEnabled = false,
@@ -338,6 +337,7 @@ function Carpenter_InitializeSettings()
     CarpenterDB.raidTargetIconAlignedEnabled = nil
     CarpenterDB.targetHealthPercentEnabled = nil
     CarpenterDB.classicSettingsPresetEnabled = nil
+    CarpenterDB.hideGroupIndicatorEnabled = nil
 
     for key, value in pairs(defaults) do
         if CarpenterDB[key] == nil then

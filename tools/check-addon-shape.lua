@@ -19,14 +19,13 @@ local stateKeys = {
 
 -- Kept in defaults/settings definitions for history, but currently hidden by
 -- feature support.
-local dormantOptionKeys = {
-    hideGroupIndicatorEnabled = true,
-}
+local dormantOptionKeys = {}
 
 -- Removed settings that survive only in the upgrade migration, which clears
 -- them from saved variables. They intentionally have no defaults entry.
 local removedOptionKeys = {
     classicSettingsPresetEnabled = true,
+    hideGroupIndicatorEnabled = true,
     nameplateCastNamesEnabled = true,
     raidTargetIconAlignedEnabled = true,
     targetHealthPercentEnabled = true,
@@ -235,6 +234,25 @@ local function collectLuaRuntimeText()
     return table.concat(chunks, "\n")
 end
 
+-- Modules commonly hold their key in a local, as in
+-- `local FEATURE_KEY = "..."` followed by `Carpenter:IsEnabled(FEATURE_KEY)`.
+-- Resolve that per file so those options are not mistaken for unread ones.
+local function collectIndirectlyConsumedKeys()
+    local keys = {}
+    for runtimePath in pairs(collectRuntimeFiles()) do
+        if runtimePath:match("%.lua$") then
+            local text = readFile(repo .. "/" .. runtimePath)
+            for name, key in text:gmatch("local%s+([%a_][%w_]*)%s*=%s*[\"']([%a_][%w_]*)[\"']") do
+                if text:match(":IsEnabled%s*%(%s*" .. name .. "%s*[,%)]")
+                    or text:match("RegisterFeature%s*%(%s*" .. name .. "%s*,") then
+                    keys[key] = true
+                end
+            end
+        end
+    end
+    return keys
+end
+
 local function collectPatternKeys(text, pattern)
     local keys = {}
     for key in text:gmatch(pattern) do
@@ -279,6 +297,25 @@ for runtimePath in pairs(runtimeFiles) do
     if not tocReferences[runtimePath] then
         fail("runtime file is not referenced by any TOC: " .. runtimePath)
     end
+end
+
+-- A settings option nothing reads is a dead checkbox: it saves a value and
+-- changes nothing, which is invisible until someone toggles it in game.
+local consumedOptionKeys = {}
+mergeKeys(consumedOptionKeys, isEnabledKeys)
+mergeKeys(consumedOptionKeys, registeredFeatureKeys)
+mergeKeys(consumedOptionKeys, savedVariableKeys)
+mergeKeys(consumedOptionKeys, collectIndirectlyConsumedKeys())
+
+local unreadOptions = {}
+for key in pairs(optionKeys) do
+    if not consumedOptionKeys[key] then
+        unreadOptions[#unreadOptions + 1] = key
+    end
+end
+table.sort(unreadOptions)
+if #unreadOptions > 0 then
+    fail("config options are never read by a module: " .. table.concat(unreadOptions, ", "))
 end
 
 requireKnownKeys("config options", optionKeys, defaults)

@@ -23,6 +23,17 @@ function Nameplates.GetForUnit(unit)
     if ok then return plate end
 end
 
+-- The health bar is the part of a nameplate players actually see resize, so
+-- anchor to it rather than the plate's outer bounds. Accepts either the plate
+-- or its UnitFrame.
+function Nameplates.GetHealthBar(frame)
+    if not frame then return nil end
+    local unitFrame = frame.UnitFrame
+    return (unitFrame and (unitFrame.healthBar or unitFrame.HealthBar))
+        or frame.healthBar
+        or frame.HealthBar
+end
+
 function Nameplates.GetAll()
     if not C_NamePlate or type(C_NamePlate.GetNamePlates) ~= "function" then
         return {}

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.4
+
+- Fixed class colored health not reaching Classic Era party frames after Edit Mode moved them.
+- Fixed the experience and reputation bars not fading on Classic Era, including bars that ignored the container's opacity and the fade being lost whenever Blizzard redrew them.
+- Fixed the threat percentage and its glow sitting off to the left of the target frame after Edit Mode changed the frame's bounds.
+- Fixed the Threat Percentage option doing nothing: the module never read the setting, so it stayed on no matter what the checkbox said.
+- Anchored nameplate combo points and debuffs to the health bar so they keep their place when nameplate size changes, and retuned their size and position.
+- Added `/cpthreat` to preview the threat indicator's placement without needing a group or live threat.
+- Removed the Hide Group Indicator option, which no module had ever read.
+
 ## 1.7.3
 
 - Removed the Classic/TBC Preset option along with its now-empty Settings category. Settings the preset already applied, such as auto loot and the extra action bars, stay as they are.

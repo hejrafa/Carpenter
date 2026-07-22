@@ -8,10 +8,7 @@ local ClassHealth = ns.Private.ClassHealthColors or {}
 local Nameplates = ns.Private.Nameplates or {}
 
 local function GetNameplateHealthBar(plate)
-    return plate
-        and ((plate.UnitFrame and (plate.UnitFrame.healthBar or plate.UnitFrame.HealthBar))
-            or plate.healthBar
-            or plate.HealthBar)
+    return Nameplates.GetHealthBar and Nameplates.GetHealthBar(plate) or nil
 end
 
 local function RestoreSelectionColor(bar, unit)

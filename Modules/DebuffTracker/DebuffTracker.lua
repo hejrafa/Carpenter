@@ -16,9 +16,12 @@ local SetIconCooldown = Icons.SetIconCooldown
 local SetStackText = Icons.SetStackText
 local SyncNameplateIconLayers = Icons.SyncNameplateIconLayers
 
--- Gap between the nameplate's top edge and the debuff row. Lower it to tuck the
--- icons closer to the plate; negative values overlap it.
-local NAMEPLATE_DEBUFF_GAP = -27
+-- Offsets from the top of the nameplate health bar to the debuff row. Anchored
+-- to the health bar so the icons keep their place when nameplate size changes.
+-- The row centers on the bar on its own, so X only trims the slight drift left
+-- by the bar's own artwork.
+local NAMEPLATE_DEBUFF_GAP = 21
+local NAMEPLATE_DEBUFF_OFFSET_X = 8
 local NAMEPLATE_ICON_SIZE = Icons.NAMEPLATE_ICON_SIZE or 26
 
 -- Slows / movement debuffs: show on nameplates but NOT on unit frame portraits (root spell IDs)
@@ -306,15 +309,23 @@ local function GetNameplateContainer(self)
         local parent = (self.GetParent and self:GetParent()) or self
         local container = CreateFrame("Frame", nil, parent)
         container:SetSize(1, NAMEPLATE_ICON_SIZE)
-        container:SetPoint("BOTTOM", self, "TOP", 0, NAMEPLATE_DEBUFF_GAP)
         self.CP_DebuffContainer = container
         self.CP_DebuffIcons = {}
     end
     self.CP_DebuffIcons = self.CP_DebuffIcons or {}
-    if self.CP_DebuffContainer.SetFrameLevel and self.GetFrameLevel then
-        self.CP_DebuffContainer:SetFrameLevel((self:GetFrameLevel() or 0) + 30)
+
+    local container = self.CP_DebuffContainer
+    container:SetHeight(NAMEPLATE_ICON_SIZE)
+
+    -- Re-anchor on every pass so a resized or rebuilt health bar is picked up.
+    local anchor = (Nameplates.GetHealthBar and Nameplates.GetHealthBar(self)) or self
+    container:ClearAllPoints()
+    container:SetPoint("BOTTOM", anchor, "TOP", NAMEPLATE_DEBUFF_OFFSET_X, NAMEPLATE_DEBUFF_GAP)
+
+    if container.SetFrameLevel and self.GetFrameLevel then
+        container:SetFrameLevel((self:GetFrameLevel() or 0) + 30)
     end
-    return self.CP_DebuffContainer
+    return container
 end
 
 local function HideNameplateDebuffs(self)

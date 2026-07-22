@@ -119,7 +119,7 @@ function Options.Create(context)
                 },
                 {
                     key = "smallerExpBarEnabled",
-                    label = L.OPTION_SMALLER_EXP_BAR or "Resize Exp & Rep Bars",
+                    label = L.OPTION_SMALLER_EXP_BAR or "Fade Exp & Rep Bars",
                     description = Description("DESC_SMALLER_EXP_BAR"),
                     image = GetSettingsImage("repbar.png"),
                 },
@@ -232,14 +232,6 @@ function Options.Create(context)
                     label = L.OPTION_HIDE_POWER_BAR or "Hide Combo/Power Bar",
                     description = Description("DESC_HIDE_POWER_BAR"),
                     image = GetSettingsImage("nameplatecombo.png"),
-                    requiresReload = false,
-                    onToggle = ApplyRetailUnitFrames,
-                },
-                {
-                    key = "hideGroupIndicatorEnabled",
-                    label = L.OPTION_HIDE_GROUP_INDICATOR or "Hide Group Indicator",
-                    description = Description("DESC_HIDE_GROUP_INDICATOR"),
-                    image = GetSettingsImage("unitnumbers.png"),
                     requiresReload = false,
                     onToggle = ApplyRetailUnitFrames,
                 },

@@ -17,12 +17,12 @@ local COMBO_TEXTURE = "Interface\\ComboFrame\\ComboPoint"
 -- below keep their proportions.
 local COMBO_SCALE = 1.25
 
--- Offsets from the nameplate's BOTTOM edge, in nameplate pixels. They are
--- divided by COMBO_SCALE at anchor time so resizing the group does not also
--- move it. X sits slightly right of the nameplate center; Y lifts the group
--- clear of the nameplate art.
-local OFFSET_X = -8
-local OFFSET_Y = 15
+-- Offsets from the bottom of the nameplate health bar, in nameplate pixels.
+-- Anchoring to the health bar keeps the points in place when nameplate size
+-- changes. They are divided by COMBO_SCALE at anchor time so resizing the
+-- group does not also move it.
+local OFFSET_X = 0
+local OFFSET_Y = 3
 
 -- =========================================================
 -- Configuration
@@ -148,7 +148,10 @@ local function update()
         resourceFrame:SetIgnoreParentAlpha(true)
     end
 
-    resourceFrame:SetPoint("CENTER", plate, "BOTTOM", OFFSET_X / COMBO_SCALE, OFFSET_Y / COMBO_SCALE)
+    -- Anchor under the health bar when it is available so the points follow
+    -- nameplate size changes, and fall back to the plate itself otherwise.
+    local anchor = (Nameplates.GetHealthBar and Nameplates.GetHealthBar(plate)) or plate
+    resourceFrame:SetPoint("TOP", anchor, "BOTTOM", OFFSET_X / COMBO_SCALE, OFFSET_Y / COMBO_SCALE)
 
     setComboVisual(cp)
     if StartFollowTicker then StartFollowTicker() end
