@@ -64,14 +64,11 @@ Modules\UnitFrameClassIcon\UnitFrameClassIconApply.lua
 Modules\UnitFrameClassIcon\UnitFrameClassIconHooks.lua
 Modules\UnitFrameClassIcon.lua
 Modules\ThreatIndicator.lua
-Modules\TargetHealthPercent.lua
 Modules\HideUnitFrameCombatText.lua
 
 # Nameplates
 Modules\ClassHealthColorsNameplates.lua
-Modules\NameplateCastNames.lua
 Modules\NameplateComboPoints.lua
-Modules\RaidTargetIconAligned.lua
 
 # Chat
 Modules\ChatCleaner\ChatCleanerUtils.lua

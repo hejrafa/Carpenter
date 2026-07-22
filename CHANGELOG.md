@@ -5,6 +5,12 @@
 - Fixed a Lua error on login for Classic Era and TBC clients that no longer provide `CompactUnitFrame_UpdateAuras`.
 - Enabled Fade Exp & Rep Bars and Fade Micro Menu & Bags on Classic Era.
 - Dropped the experience and reputation bar resizing and kept only the opacity change, since Edit Mode now owns bar size and position on Classic Era and TBC.
+- Raised and enlarged nameplate combo points so they sit on the nameplate instead of hanging below it after the Classic nameplate changes.
+- Enlarged nameplate debuff icons and moved them down closer to the nameplate.
+- Removed the nameplate Cast Bar option now that the Classic clients draw their own enemy nameplate cast bars. Anyone who had it enabled gets Blizzard's cast bars switched back on automatically, since the option used to suppress them.
+- Removed the Raid Target Icon Aligned option now that raid target icons sit correctly on their own.
+- Removed the Target Percentages option.
+- Hid the Classic/TBC Preset option while its settings are reconsidered.
 
 ## 1.7.1
 

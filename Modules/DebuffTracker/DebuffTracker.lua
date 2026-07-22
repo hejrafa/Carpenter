@@ -16,6 +16,11 @@ local SetIconCooldown = Icons.SetIconCooldown
 local SetStackText = Icons.SetStackText
 local SyncNameplateIconLayers = Icons.SyncNameplateIconLayers
 
+-- Gap between the nameplate's top edge and the debuff row. Lower it to tuck the
+-- icons closer to the plate; negative values overlap it.
+local NAMEPLATE_DEBUFF_GAP = -27
+local NAMEPLATE_ICON_SIZE = Icons.NAMEPLATE_ICON_SIZE or 26
+
 -- Slows / movement debuffs: show on nameplates but NOT on unit frame portraits (root spell IDs)
 local DEBUFFS_HIDDEN_ON_UNIT_FRAME = {
     [3409] = true,   -- Crippling Poison
@@ -300,8 +305,8 @@ local function GetNameplateContainer(self)
     if not self.CP_DebuffContainer then
         local parent = (self.GetParent and self:GetParent()) or self
         local container = CreateFrame("Frame", nil, parent)
-        container:SetSize(1, 26)
-        container:SetPoint("BOTTOM", self, "TOP", 0, 4)
+        container:SetSize(1, NAMEPLATE_ICON_SIZE)
+        container:SetPoint("BOTTOM", self, "TOP", 0, NAMEPLATE_DEBUFF_GAP)
         self.CP_DebuffContainer = container
         self.CP_DebuffIcons = {}
     end
@@ -365,7 +370,7 @@ local function OnNameplateUpdate(self, unit)
 
     container:Show()
     local spacing = 2
-    local iconSize = 26
+    local iconSize = NAMEPLATE_ICON_SIZE
     local totalWidth = (#activeDebuffs * iconSize) + ((#activeDebuffs - 1) * spacing)
     container:SetWidth(totalWidth)
 

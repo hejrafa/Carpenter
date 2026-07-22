@@ -15,6 +15,10 @@ local DEBUFF_COLORS = {
     ["none"]    = { r = 0.80, g = 0, b = 0 },    -- Default red
 }
 
+-- Shared so the nameplate container and icon layout stay in step with the icons
+local NAMEPLATE_ICON_SIZE = 30
+Icons.NAMEPLATE_ICON_SIZE = NAMEPLATE_ICON_SIZE
+
 local NAMEPLATE_COOLDOWN_TEXT_SIZE = 12
 local UNIT_FRAME_COOLDOWN_TEXT_SIZE = 24
 local EXTERNAL_COOLDOWN_COUNT_ADDONS = {
@@ -144,7 +148,7 @@ function Icons.CreateBaseIcon(parent, isNameplate)
     local f = CreateFrame("Frame", nil, parent)
 
     if isNameplate then
-        f:SetSize(26, 26)
+        f:SetSize(NAMEPLATE_ICON_SIZE, NAMEPLATE_ICON_SIZE)
         f.icon = f:CreateTexture(nil, "BACKGROUND", nil, 1)
         f.icon:SetPoint("TOPLEFT", f, "TOPLEFT", 1, -1)
         f.icon:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)

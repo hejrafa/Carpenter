@@ -67,7 +67,6 @@ function Options.Create(context)
     local ApplyExplorerMode = OnToggleGlobal("Carpenter_ApplyExplorerMode")
     local ApplyExtraAbilityScale = OnToggleGlobal("Carpenter_ApplyExtraAbilityScale")
     local ApplyRetailUnitFrames = OnToggleGlobal("Carpenter_ApplyRetailUnitFrameCleaner")
-    local ApplyTargetHealthPercent = OnToggleGlobal("Carpenter_UpdateTargetHealthPercent")
     local ApplyUnitFrameAuras = OnToggleGlobal("Carpenter_UpdateUnitFrameAuras")
     local ApplyWorldMapCleanup = OnToggleGlobal("Carpenter_ApplyWorldMapCleanup")
     local ApplyRetailUnitFramesAndCombatText = OnToggleRetailUnitFramesAndCombatText("cleanUpUnitFramesEnabled")
@@ -194,14 +193,6 @@ function Options.Create(context)
                     image = GetSettingsImage("threat.png"),
                 },
                 {
-                    key = "targetHealthPercentEnabled",
-                    label = L.OPTION_TARGET_HEALTH_PERCENT or "Target Percentages",
-                    description = Description("DESC_TARGET_HEALTH_PERCENT"),
-                    image = GetSettingsImage("targetpercentage.png"),
-                    requiresReload = false,
-                    onToggle = ApplyTargetHealthPercent,
-                },
-                {
                     key = "unitFrameDebuffsEnabled",
                     label = L.OPTION_DEBUFFS or "Debuffs",
                     description = Description("DESC_UNIT_FRAME_DEBUFFS"),
@@ -271,22 +262,10 @@ function Options.Create(context)
                     image = GetSettingsImage("nameplatecombo.png"),
                 },
                 {
-                    key = "nameplateCastNamesEnabled",
-                    label = L.OPTION_CAST_BAR or "Cast Bar",
-                    description = Description("DESC_CAST_BAR"),
-                    image = GetSettingsImage("spellname.png"),
-                },
-                {
                     key = "nameplateClassHealthEnabled",
                     label = L.OPTION_CLASS_HEALTH_COLORS or "Class Colored Health",
                     description = Description("DESC_NAMEPLATE_CLASS_HEALTH"),
                     image = GetSettingsImage("classhealthnameplate.png"),
-                },
-                {
-                    key = "raidTargetIconAlignedEnabled",
-                    label = L.OPTION_RAID_TARGET_ICON_ALIGNED or "Raid Target Icon Aligned",
-                    description = Description("DESC_RAID_TARGET_ICON_ALIGNED"),
-                    image = GetSettingsImage("raidtarget.png"),
                 },
             },
         },

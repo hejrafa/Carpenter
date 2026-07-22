@@ -28,7 +28,6 @@ local defaults = {
     -- Unit Frames
     classHealthColorsEnabled = false,
     threatIndicatorEnabled = false,
-    targetHealthPercentEnabled = false,
     unitFrameDebuffsEnabled = false,
     unitFrameBuffsEnabled = false,
     unitFrameClassIconEnabled = false,
@@ -47,9 +46,7 @@ local defaults = {
     -- Nameplates
     debuffTrackerEnabled = false,
     nameplateComboEnabled = false,
-    nameplateCastNamesEnabled = false,
     nameplateClassHealthEnabled = false,
-    raidTargetIconAlignedEnabled = false,
     -- Chat
     chatFilterEnabled = false,
     filterTradeBotsEnabled = false,
@@ -330,6 +327,17 @@ function Carpenter_InitializeSettings()
             end
         end
     end
+
+    -- The removed nameplate cast bar suppressed Blizzard's enemy cast bars via
+    -- CVar and never restored them, so hand them back to anyone who had it on.
+    if CarpenterDB.nameplateCastNamesEnabled ~= nil then
+        if CarpenterDB.nameplateCastNamesEnabled == true then
+            pcall(SetCVar, "nameplateShowEnemyCastBars", "1")
+        end
+        CarpenterDB.nameplateCastNamesEnabled = nil
+    end
+    CarpenterDB.raidTargetIconAlignedEnabled = nil
+    CarpenterDB.targetHealthPercentEnabled = nil
 
     for key, value in pairs(defaults) do
         if CarpenterDB[key] == nil then

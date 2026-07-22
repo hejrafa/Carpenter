@@ -13,6 +13,17 @@ local resourcePoints = {
 -- Using the same sprite sheet for both states
 local COMBO_TEXTURE = "Interface\\ComboFrame\\ComboPoint"
 
+-- Scales the whole group at once so the socket, dot, and alignment tuning
+-- below keep their proportions.
+local COMBO_SCALE = 1.25
+
+-- Offsets from the nameplate's BOTTOM edge, in nameplate pixels. They are
+-- divided by COMBO_SCALE at anchor time so resizing the group does not also
+-- move it. X sits slightly right of the nameplate center; Y lifts the group
+-- clear of the nameplate art.
+local OFFSET_X = -8
+local OFFSET_Y = 15
+
 -- =========================================================
 -- Configuration
 -- =========================================================
@@ -29,7 +40,7 @@ local function ensureResourceFrame()
     -- Create the main container
     resourceFrame = CreateFrame("Frame", "CarpenterComboFrame", UIParent)
     resourceFrame:Hide()
-    resourceFrame:SetScale(1.0)
+    resourceFrame:SetScale(COMBO_SCALE)
 
     -- Base 9x10 keeps the sockets compact while making them easier to read.
     local texW, texH = 9, 10
@@ -137,9 +148,7 @@ local function update()
         resourceFrame:SetIgnoreParentAlpha(true)
     end
 
-    -- Anchor logic:
-    -- Moved from -10 to -8 to shift the entire group slightly to the right relative to the nameplate center.
-    resourceFrame:SetPoint("CENTER", plate, "BOTTOM", -8, 1)
+    resourceFrame:SetPoint("CENTER", plate, "BOTTOM", OFFSET_X / COMBO_SCALE, OFFSET_Y / COMBO_SCALE)
 
     setComboVisual(cp)
     if StartFollowTicker then StartFollowTicker() end

@@ -44,16 +44,13 @@ local classicFeatures = {
     enhanceTooltipEnabled = true,
     classHealthColorsEnabled = true,
     threatIndicatorEnabled = true,
-    targetHealthPercentEnabled = true,
     unitFrameDebuffsEnabled = true,
     unitFrameBuffsEnabled = true,
     unitFrameClassIconEnabled = true,
     hideUnitFrameCombatTextEnabled = true,
     debuffTrackerEnabled = true,
     nameplateComboEnabled = true,
-    nameplateCastNamesEnabled = true,
     nameplateClassHealthEnabled = true,
-    raidTargetIconAlignedEnabled = true,
     chatFilterEnabled = true,
     chatCleanerEnabled = true,
     hideChatButtonsEnabled = true,
@@ -69,14 +66,15 @@ local classicFeatures = {
     explorerModeEnabled = true,
     hideShouldersEnabled = true,
     backSheathOneHandWeaponsEnabled = true,
-    classicSettingsPresetEnabled = true,
+    -- Hidden for now while the preset's settings are reconsidered. Uncomment to
+    -- bring the option back; the module and saved setting are still in place.
+    -- classicSettingsPresetEnabled = true,
 }
 
 local featureSupport = {
     vanilla = classicFeatures,
     tbc = setmetatable({
         actionBarFaderEnabled = true,
-        targetHealthPercentEnabled = false,
     }, { __index = classicFeatures }),
     retail = {
         hideMacroNamesEnabled = true,
