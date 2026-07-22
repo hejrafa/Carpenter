@@ -3,7 +3,8 @@
 ## 1.7.2
 
 - Fixed a Lua error on login for Classic Era and TBC clients that no longer provide `CompactUnitFrame_UpdateAuras`.
-- Enabled Resize Exp & Rep Bars and Fade Micro Menu & Bags on Classic Era.
+- Enabled Fade Exp & Rep Bars and Fade Micro Menu & Bags on Classic Era.
+- Dropped the experience and reputation bar resizing and kept only the opacity change, since Edit Mode now owns bar size and position on Classic Era and TBC.
 
 ## 1.7.1
 
