@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.1
+
+- Updated the Classic Era interface version for 1.15.9 and the TBC interface version for 2.5.6 so Carpenter no longer shows as out of date.
+
 ## 1.7.0
 
 - Renamed Poison Macros to Rogue Macros and added a draggable Thistle Tea macro that opens Cooking and brews every available Thistle Tea in one press while standing at a fire.
