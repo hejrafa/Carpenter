@@ -21,6 +21,15 @@ local stateKeys = {
 -- feature support.
 local dormantOptionKeys = {
     hideGroupIndicatorEnabled = true,
+    classicSettingsPresetEnabled = true,
+}
+
+-- Removed settings that survive only in the upgrade migration, which clears
+-- them from saved variables. They intentionally have no defaults entry.
+local removedOptionKeys = {
+    nameplateCastNamesEnabled = true,
+    raidTargetIconAlignedEnabled = true,
+    targetHealthPercentEnabled = true,
 }
 
 local failures = {}
@@ -276,7 +285,10 @@ requireKnownKeys("config options", optionKeys, defaults)
 requireKnownKeys("feature support", featureSupportKeys, defaults)
 requireKnownKeys("registered features", registeredFeatureKeys, defaults)
 requireKnownKeys("IsEnabled calls", isEnabledKeys, defaults)
-requireKnownKeys("saved-variable reads/writes", savedVariableKeys, defaults, stateKeys)
+local savedVariableAllowlist = {}
+mergeKeys(savedVariableAllowlist, stateKeys)
+mergeKeys(savedVariableAllowlist, removedOptionKeys)
+requireKnownKeys("saved-variable reads/writes", savedVariableKeys, defaults, savedVariableAllowlist)
 
 local unsupportedOptions = {}
 for key in pairs(optionKeys) do

@@ -66,9 +66,9 @@ local classicFeatures = {
     explorerModeEnabled = true,
     hideShouldersEnabled = true,
     backSheathOneHandWeaponsEnabled = true,
-    -- Hidden for now while the preset's settings are reconsidered. Uncomment to
-    -- bring the option back; the module and saved setting are still in place.
-    -- classicSettingsPresetEnabled = true,
+    -- Classic/TBC Preset is intentionally absent while its settings are
+    -- reconsidered. The module, option, and saved setting all stay in place, so
+    -- restoring it means listing the key here again.
 }
 
 local featureSupport = {
