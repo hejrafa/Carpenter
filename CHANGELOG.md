@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.6
+
+- Added Retail interface support for 12.1.0.
+- Removed the Nameplate Class Colored Health option.
+- Added a `/cpdebuff` command that reports why the current target's nameplate debuffs are or are not tracked.
+
 ## 1.7.5
 
 - Fixed Out of Range Tint erroring on clients that provide neither action button range function, and stopped it giving up for the rest of the session when those functions were not ready yet.

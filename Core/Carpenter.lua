@@ -45,7 +45,6 @@ local defaults = {
     -- Nameplates
     debuffTrackerEnabled = false,
     nameplateComboEnabled = false,
-    nameplateClassHealthEnabled = false,
     -- Chat
     chatFilterEnabled = false,
     filterTradeBotsEnabled = false,
@@ -338,6 +337,7 @@ function Carpenter_InitializeSettings()
     CarpenterDB.targetHealthPercentEnabled = nil
     CarpenterDB.classicSettingsPresetEnabled = nil
     CarpenterDB.hideGroupIndicatorEnabled = nil
+    CarpenterDB.nameplateClassHealthEnabled = nil
 
     for key, value in pairs(defaults) do
         if CarpenterDB[key] == nil then

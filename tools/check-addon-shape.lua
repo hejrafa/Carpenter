@@ -27,6 +27,7 @@ local removedOptionKeys = {
     classicSettingsPresetEnabled = true,
     hideGroupIndicatorEnabled = true,
     nameplateCastNamesEnabled = true,
+    nameplateClassHealthEnabled = true,
     raidTargetIconAlignedEnabled = true,
     targetHealthPercentEnabled = true,
 }

@@ -50,7 +50,6 @@ local classicFeatures = {
     hideUnitFrameCombatTextEnabled = true,
     debuffTrackerEnabled = true,
     nameplateComboEnabled = true,
-    nameplateClassHealthEnabled = true,
     chatFilterEnabled = true,
     chatCleanerEnabled = true,
     hideChatButtonsEnabled = true,

@@ -15,10 +15,6 @@ function Shared.IsUnitFrameEnabled()
     return Carpenter and Carpenter:IsEnabled("classHealthColorsEnabled")
 end
 
-function Shared.IsNameplateEnabled()
-    return Carpenter and Carpenter:IsEnabled("nameplateClassHealthEnabled")
-end
-
 function Shared.IsPlayerUnit(unit)
     return Unit.IsPlayer and Unit.IsPlayer(unit)
 end

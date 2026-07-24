@@ -252,12 +252,6 @@ function Options.Create(context)
                     description = Description("DESC_COMBO_POINTS"),
                     image = GetSettingsImage("nameplatecombo.png"),
                 },
-                {
-                    key = "nameplateClassHealthEnabled",
-                    label = L.OPTION_CLASS_HEALTH_COLORS or "Class Colored Health",
-                    description = Description("DESC_NAMEPLATE_CLASS_HEALTH"),
-                    image = GetSettingsImage("classhealthnameplate.png"),
-                },
             },
         },
         {

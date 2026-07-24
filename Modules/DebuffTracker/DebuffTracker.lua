@@ -564,3 +564,31 @@ if type(_G.CompactUnitFrame_UpdateAuras) == "function" then
         end
     end)
 end
+
+-- Diagnostic: dumps why the current target's debuffs are or are not tracked.
+SLASH_CARPENTERDEBUFFDIAG1 = "/cpdebuff"
+SlashCmdList["CARPENTERDEBUFFDIAG"] = function()
+    local function say(msg) if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("Carpenter: " .. msg) end end
+
+    say(string.format("locale=%s nameplateEnabled=%s ticker=%s plates=%d",
+        (GetLocale and GetLocale()) or "?",
+        tostring(IsNameplateEnabled()),
+        tostring(nameplateRefreshTickerActive),
+        #((Nameplates.GetAll and Nameplates.GetAll()) or {})))
+
+    if not UnitExists("target") then say("no target - target the mob whose debuff is missing, then rerun"); return end
+
+    local plate = Nameplates.GetForUnit and Nameplates.GetForUnit("target")
+    say(string.format("target=%s plateFound=%s plate.UnitFrame=%s",
+        UnitName("target") or "?", tostring(plate ~= nil), tostring(plate and plate.UnitFrame ~= nil)))
+
+    local any = false
+    for i = 1, 40 do
+        local name, _, _, _, _, _, _, _, _, spellId = UnitDebuff("target", i)
+        if not name then break end
+        any = true
+        local important = IsImportantNameplateDebuff(name, spellId)
+        say(string.format("  [%d] %s (id %s) important=%s", i, name, tostring(spellId), tostring(important)))
+    end
+    if not any then say("  UnitDebuff returned nothing for target") end
+end
