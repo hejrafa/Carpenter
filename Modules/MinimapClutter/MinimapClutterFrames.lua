@@ -21,9 +21,19 @@ function Frames.Create(config)
     config = config or {}
     local isEnabled = config.IsEnabled or function() return false end
     local isRetailClient = config.IsRetailClient or function() return false end
+    local hiddenFrames = {}
 
     local function HideMinimapFrame(frame)
         if not frame then return end
+
+        if not hiddenFrames[frame] then
+            local shown = frame.IsShown and frame:IsShown()
+            local alpha = frame.GetAlpha and frame:GetAlpha()
+            hiddenFrames[frame] = {
+                shown = shown,
+                alpha = alpha,
+            }
+        end
 
         frame:Hide()
         frame:SetAlpha(0)
@@ -37,6 +47,22 @@ function Frames.Create(config)
             end)
             frame.IsCPMinimapHooked = true
         end
+    end
+
+    local function RestoreMinimapFrames()
+        for hiddenFrame, state in pairs(hiddenFrames) do
+            if hiddenFrame then
+                if hiddenFrame.SetAlpha then
+                    hiddenFrame:SetAlpha(state.alpha ~= nil and state.alpha or 1)
+                end
+                if state.shown == false then
+                    if hiddenFrame.Hide then hiddenFrame:Hide() end
+                elseif hiddenFrame.Show then
+                    hiddenFrame:Show()
+                end
+            end
+        end
+        hiddenFrames = {}
     end
 
     local function ApplyClusterTweaks()
@@ -59,25 +85,13 @@ function Frames.Create(config)
     function api.Apply(enabled)
         if isRetailClient() then
             if not enabled then
-                for _, name in ipairs(MINIMAP_FRAMES) do
-                    local frame = _G[name]
-                    if frame then
-                        frame:SetAlpha(1)
-                        frame:Show()
-                    end
-                end
+                RestoreMinimapFrames()
             end
             return
         end
 
         if not enabled then
-            for _, name in ipairs(MINIMAP_FRAMES) do
-                local frame = _G[name]
-                if frame then
-                    frame:SetAlpha(1)
-                    frame:Show()
-                end
-            end
+            RestoreMinimapFrames()
             return
         end
 
