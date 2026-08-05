@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.7
+
+- Fixed Out of Range Tint so action buttons stay dimmed when a target is either too close or too far away, including after Blizzard redraws the buttons.
+- Added experience and reputation bars to Explorer Mode's HUD fade.
+- Smoothed Explorer Mode action bar fade-outs so refreshed bars no longer disappear abruptly.
+- Fixed Remove Minimap Clutter restoring each hidden minimap frame's previous visibility and opacity when the option is disabled.
+
 ## 1.7.6
 
 - Added Retail interface support for 12.1.0.
