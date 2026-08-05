@@ -37,6 +37,7 @@ Modules\ActionBarFader.lua
 Modules\ActionBarRange.lua
 
 # Interface
+Modules\StatusTrackingBars.lua
 Modules\SmallerExpBar.lua
 Modules\MenuTransparency.lua
 Modules\MinimapClutter\MinimapClutterFrames.lua

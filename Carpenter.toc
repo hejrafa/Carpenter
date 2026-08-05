@@ -39,6 +39,7 @@ SpellData.lua
 Modules\HideUIElements.lua
 
 # Interface
+Modules\StatusTrackingBars.lua
 Modules\MenuTransparency.lua
 Modules\MinimapClutter\MinimapClutterFrames.lua
 Modules\MinimapClutter\MinimapClutterFader.lua

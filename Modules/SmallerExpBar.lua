@@ -2,27 +2,23 @@
 -- Sets the visible XP/Rep tracking bars to 60% opacity. Sizing and placement
 -- are left alone because Edit Mode now owns those bars.
 
+local _, ns = ...
+ns = ns or {}
+ns.Private = ns.Private or {}
+
+local TrackingBars = ns.Private.StatusTrackingBars or {}
 local OPACITY = 0.6 -- Set bars to 60% opacity
-
--- Legacy Classic bars plus the containers Edit Mode introduced. The individual
--- bars inside a container are faded too, since a bar that ignores parent alpha
--- would otherwise stay bright.
-local BAR_NAMES = {
-    "MainMenuExpBar",
-    "ReputationWatchBar",
-}
-
-local CONTAINER_NAMES = {
-    "StatusTrackingBarManager",
-    "MainStatusTrackingBarContainer",
-    "SecondaryStatusTrackingBarContainer",
-}
 
 -- =========================
 -- Config
 -- =========================
 local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("smallerExpBarEnabled")
+end
+
+local function IsExplorerModeFaded()
+    local explorerMode = ns.Private and ns.Private.ExplorerMode
+    return explorerMode and explorerMode.IsFaded and explorerMode.IsFaded() == true
 end
 
 -- =========================
@@ -34,35 +30,42 @@ local function FadeFrame(frame, alpha)
     end
 end
 
-local function ForEachTrackingBar(callback)
-    for _, name in ipairs(BAR_NAMES) do
-        callback(_G[name])
-    end
+local managedFrames = {}
 
-    for _, name in ipairs(CONTAINER_NAMES) do
-        local container = _G[name]
-        if container then
-            callback(container)
-            callback(container.BarContainer)
-            if type(container.bars) == "table" then
-                for _, bar in ipairs(container.bars) do
-                    callback(bar)
-                end
-            end
+local function ApplyAlpha(frame, alpha)
+    if not frame or not frame.SetAlpha then return end
+    if not managedFrames[frame] then
+        local originalAlpha = 1
+        if frame.GetAlpha then
+            local ok, alphaValue = pcall(frame.GetAlpha, frame)
+            if ok and type(alphaValue) == "number" then originalAlpha = alphaValue end
         end
+        managedFrames[frame] = originalAlpha
     end
+    FadeFrame(frame, alpha)
 end
 
-local applied = false
+local function RestoreFrames()
+    for managedFrame, originalAlpha in pairs(managedFrames) do
+        FadeFrame(managedFrame, originalAlpha)
+    end
+    managedFrames = {}
+end
 
 local function Apply()
-    if IsEnabled() then
-        ForEachTrackingBar(function(frame) FadeFrame(frame, OPACITY) end)
-        applied = true
-    elseif applied then
-        -- Only hand the bars back if we were the ones who dimmed them.
-        ForEachTrackingBar(function(frame) FadeFrame(frame, 1) end)
-        applied = false
+    local targetAlpha
+    if IsExplorerModeFaded() then
+        targetAlpha = 0
+    elseif IsEnabled() then
+        targetAlpha = OPACITY
+    end
+
+    if targetAlpha ~= nil then
+        if TrackingBars.ForEach then
+            TrackingBars.ForEach(function(frame) ApplyAlpha(frame, targetAlpha) end)
+        end
+    elseif next(managedFrames) then
+        RestoreFrames()
     end
 end
 

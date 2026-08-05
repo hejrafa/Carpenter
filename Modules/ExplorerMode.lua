@@ -2,6 +2,12 @@
 -- Slowly fades the main HUD while out of combat, leaving the minimap alone.
 
 local _, ns = ...
+ns = ns or {}
+ns.Private = ns.Private or {}
+
+local ExplorerMode = ns.Private.ExplorerMode or {}
+ns.Private.ExplorerMode = ExplorerMode
+local TrackingBars = ns.Private.StatusTrackingBars or {}
 
 local FEATURE_KEY = "explorerModeEnabled"
 local EXPLORING_ALPHA = 0
@@ -90,11 +96,6 @@ local frameNames = {
     "OverrideActionBar",
     "ExtraActionBarFrame",
     "ZoneAbilityFrame",
-    -- Bottom status bars
-    "MainMenuExpBar",
-    "ReputationWatchBar",
-    "ArtifactWatchBar",
-    "HonorWatchBar",
     -- Quest and watch frames
     "QuestWatchFrame",
     "WatchFrame",
@@ -432,6 +433,10 @@ local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled(FEATURE_KEY)
 end
 
+function ExplorerMode.IsFaded()
+    return IsEnabled() and explorerFaded == true
+end
+
 local function IsClassicOrTBCClient()
     local client = Carpenter and Carpenter.Client
     return client and (client.isVanilla or client.isTBC or client.isClassic)
@@ -669,6 +674,10 @@ end
 local function RefreshManagedFrames()
     for _, name in ipairs(frameNames) do
         AddFrameByName(name)
+    end
+
+    if TrackingBars.ForEachRoot then
+        TrackingBars.ForEachRoot(AddManagedFrame, true)
     end
 
     if IsClassicOrTBCClient() then
@@ -1164,12 +1173,12 @@ fadeDriver:SetScript("OnUpdate", function(self, elapsed)
     end
 end)
 
-local function FadeFrame(frameObject, targetAlpha, duration)
+local function FadeFrame(frameObject, targetAlpha, duration, forceApply)
     if not frameObject or IsForbiddenFrame(frameObject) or not frameObject.SetAlpha then
         return
     end
 
-    if frameTargets[frameObject] == targetAlpha then
+    if not forceApply and frameTargets[frameObject] == targetAlpha then
         return
     end
     frameTargets[frameObject] = targetAlpha
@@ -1380,6 +1389,19 @@ local function ApplyTargetAlpha(targetAlpha, duration)
     end
 end
 
+local function RefreshExplorerTargets()
+    RefreshManagedFrames()
+    for frameObject in pairs(managedFrames) do
+        if not IsActionBarManagedFrame(frameObject) then
+            local targetAlpha = frameTargets[frameObject]
+            if targetAlpha == nil then targetAlpha = EXPLORING_ALPHA end
+            FadeFrame(frameObject, targetAlpha, 0, true)
+        end
+    end
+
+    FadeActionButtonVisuals(actionButtonTargetAlpha or EXPLORING_ALPHA, 0, true)
+end
+
 local function CancelScheduledRefresh()
     if Carpenter and Carpenter.Deferred then
         Carpenter.Deferred["ExplorerMode:refresh"] = nil
@@ -1438,8 +1460,7 @@ end
 local function ScheduleRefresh()
     local callback = function()
         if IsEnabled() and explorerFaded and not IsInCombat() and IsPlayerAtFullHealth() and not IsGameEditModeActive() then
-            ApplyTargetAlpha(EXPLORING_ALPHA, 0)
-            FadeActionButtonVisuals(EXPLORING_ALPHA, 0, true)
+            RefreshExplorerTargets()
         end
     end
 
@@ -1562,7 +1583,7 @@ local function ApplyExplorerMode(forceVisible)
     elseif not IsPlayerAtFullHealth() then
         RestoreVisible(HOVER_FADE_IN_SECONDS)
     elseif explorerFaded then
-        ApplyTargetAlpha(EXPLORING_ALPHA, 0)
+        RefreshExplorerTargets()
         hoverDriver:Show()
         ScheduleRefresh()
     else
