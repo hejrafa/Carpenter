@@ -16,9 +16,10 @@ local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("smallerExpBarEnabled")
 end
 
-local function IsExplorerModeFaded()
+local function GetExplorerTargetAlpha(frame)
     local explorerMode = ns.Private and ns.Private.ExplorerMode
-    return explorerMode and explorerMode.IsFaded and explorerMode.IsFaded() == true
+    if not (explorerMode and explorerMode.GetStatusTrackingTargetAlpha) then return nil end
+    return explorerMode.GetStatusTrackingTargetAlpha(frame)
 end
 
 -- =========================
@@ -45,27 +46,36 @@ local function ApplyAlpha(frame, alpha)
     FadeFrame(frame, alpha)
 end
 
-local function RestoreFrames()
-    for managedFrame, originalAlpha in pairs(managedFrames) do
-        FadeFrame(managedFrame, originalAlpha)
-    end
-    managedFrames = {}
-end
-
 local function Apply()
-    local targetAlpha
-    if IsExplorerModeFaded() then
-        targetAlpha = 0
-    elseif IsEnabled() then
-        targetAlpha = OPACITY
+    local seen = {}
+    local forEachRoot = TrackingBars.ForEachRoot or TrackingBars.ForEach
+
+    if forEachRoot then
+        forEachRoot(function(frame)
+            seen[frame] = true
+            local targetAlpha = GetExplorerTargetAlpha(frame)
+            if targetAlpha == nil and IsEnabled() then
+                targetAlpha = OPACITY
+            end
+
+            if targetAlpha ~= nil then
+                ApplyAlpha(frame, targetAlpha)
+            elseif managedFrames[frame] ~= nil then
+                FadeFrame(frame, managedFrames[frame])
+                managedFrames[frame] = nil
+            end
+        end)
     end
 
-    if targetAlpha ~= nil then
-        if TrackingBars.ForEach then
-            TrackingBars.ForEach(function(frame) ApplyAlpha(frame, targetAlpha) end)
+    local staleFrames = {}
+    for managedFrame in pairs(managedFrames) do
+        if not seen[managedFrame] then
+            staleFrames[#staleFrames + 1] = managedFrame
         end
-    elseif next(managedFrames) then
-        RestoreFrames()
+    end
+    for _, staleFrame in ipairs(staleFrames) do
+        FadeFrame(staleFrame, managedFrames[staleFrame])
+        managedFrames[staleFrame] = nil
     end
 end
 

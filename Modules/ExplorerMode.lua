@@ -30,6 +30,7 @@ local managedAlphas = {}
 local frameTargets = {}
 local activeFades = {}
 local hoverFadeOutAt = {}
+local trackingBarHoverSources = setmetatable({}, { __mode = "k" })
 local explorerFaded = false
 local actionButtonTargetAlpha = nil
 local IsShownFrame
@@ -258,7 +259,6 @@ local actionButtonNames = {
 local actionBarManagedFrameNames = {
     MainMenuBar = true,
     MainMenuBarArtFrame = true,
-    MainMenuBarVehicleLeaveButton = true,
     MultiBarBottomLeft = true,
     MultiBarBottomRight = true,
     MultiBarRight = true,
@@ -604,6 +604,33 @@ local function IsMouseOverFrame(frameObject)
     return false
 end
 
+local function IsCursorWithinFrameBounds(frameObject)
+    if not (frameObject and GetCursorPosition and frameObject.GetLeft and frameObject.GetRight
+        and frameObject.GetTop and frameObject.GetBottom) then
+        return false
+    end
+
+    local ok, hovering = pcall(function()
+        local left = frameObject:GetLeft()
+        local right = frameObject:GetRight()
+        local top = frameObject:GetTop()
+        local bottom = frameObject:GetBottom()
+        if not (left and right and top and bottom) then return false end
+
+        local scale = 1
+        if UIParent and UIParent.GetEffectiveScale then
+            scale = UIParent:GetEffectiveScale() or 1
+        end
+        if scale <= 0 then scale = 1 end
+
+        local cursorX, cursorY = GetCursorPosition()
+        cursorX, cursorY = cursorX / scale, cursorY / scale
+        return cursorX >= left and cursorX <= right and cursorY >= bottom and cursorY <= top
+    end)
+
+    return ok and hovering == true
+end
+
 local function IsManagedAncestorHovered(frameObject)
     if not frameObject or not frameObject.GetParent then
         return false
@@ -671,14 +698,43 @@ local function AddFrameByName(name)
     AddManagedFrame(_G[name])
 end
 
+local function RefreshTrackingBarFrames()
+    local roots = {}
+    trackingBarHoverSources = setmetatable({}, { __mode = "k" })
+
+    if not TrackingBars.ForEachRoot then return end
+
+    TrackingBars.ForEachRoot(function(root)
+        AddManagedFrame(root)
+        roots[root] = true
+        trackingBarHoverSources[root] = setmetatable({ [root] = true }, { __mode = "k" })
+    end, true)
+
+    if not TrackingBars.ForEach then return end
+
+    TrackingBars.ForEach(function(object)
+        local current = object
+        local depth = 0
+        while current and depth < 16 do
+            if roots[current] then
+                trackingBarHoverSources[current][object] = true
+                return
+            end
+            if not current.GetParent then return end
+            local ok, parent = pcall(current.GetParent, current)
+            if not ok then return end
+            current = parent
+            depth = depth + 1
+        end
+    end, true)
+end
+
 local function RefreshManagedFrames()
     for _, name in ipairs(frameNames) do
         AddFrameByName(name)
     end
 
-    if TrackingBars.ForEachRoot then
-        TrackingBars.ForEachRoot(AddManagedFrame, true)
-    end
+    RefreshTrackingBarFrames()
 
     if IsClassicOrTBCClient() then
         for _, name in ipairs(classicOrTBCBottomBarFrameNames) do
@@ -741,6 +797,18 @@ local function GetManagedTargetForFrame(frameObject)
     end
 
     return nil, nil
+end
+
+function ExplorerMode.GetStatusTrackingTargetAlpha(frameObject)
+    if not (IsEnabled() and explorerFaded) then return nil end
+
+    local targetAlpha, managedRoot = GetManagedTargetForFrame(frameObject)
+    if managedRoot ~= frameObject or not trackingBarHoverSources[managedRoot] then
+        return nil
+    end
+
+    if targetAlpha == nil then targetAlpha = EXPLORING_ALPHA end
+    return TargetAlphaForObject(managedRoot, targetAlpha)
 end
 
 local ApplyActionButtonOverlayAlpha
@@ -831,8 +899,18 @@ local function IsActionBarManagedFrame(frameObject)
     return IsNamedFrameInSet(frameObject, actionBarManagedFrameNames)
 end
 
+local function IsTrackingBarHovered(frameObject)
+    local sources = trackingBarHoverSources[frameObject]
+    if not sources then return false end
+
+    for source in pairs(sources) do
+        if IsMouseOverFrame(source) or IsCursorWithinFrameBounds(source) then return true end
+    end
+    return false
+end
+
 local function IsActionBarClusterFrame(frameObject)
-    return IsNamedFrameInSet(frameObject, actionBarClusterFrameNames)
+    return trackingBarHoverSources[frameObject] ~= nil or IsNamedFrameInSet(frameObject, actionBarClusterFrameNames)
 end
 
 local function IsCooldownFrame(frameObject)
@@ -1189,7 +1267,17 @@ local function FadeFrame(frameObject, targetAlpha, duration, forceApply)
 
     local starts = {}
     local targets = {}
-    CollectAlphaTargets(frameObject, starts, targets, targetAlpha, 0)
+    if trackingBarHoverSources[frameObject] then
+        -- Blizzard animates the status bar containers independently. Fade only
+        -- their shared root so revealing it cannot restore a child to the
+        -- template's initial zero alpha.
+        RememberAlpha(frameObject)
+        local target = TargetAlphaForObject(frameObject, targetAlpha)
+        starts[frameObject] = ReadFrameAlpha(frameObject, target)
+        targets[frameObject] = target
+    else
+        CollectAlphaTargets(frameObject, starts, targets, targetAlpha, 0)
+    end
 
     if duration == nil or duration <= 0 then
         ApplyActionButtonVisualAlphasForManagedFrame(frameObject, targetAlpha)
@@ -1260,7 +1348,8 @@ end
 local function IsActionBarClusterHovered()
     local hovered = false
     ForEachActionBarClusterFrame(function(frameObject)
-        if not hovered and not IsActionBarManagedFrame(frameObject) and IsMouseOverFrame(frameObject) then
+        if not hovered and not IsActionBarManagedFrame(frameObject)
+            and (IsMouseOverFrame(frameObject) or IsTrackingBarHovered(frameObject)) then
             hovered = true
         end
     end)
@@ -1359,7 +1448,7 @@ hoverDriver:SetScript("OnUpdate", function(self, elapsed)
     for frameObject in pairs(managedFrames) do
         if IsActionBarClusterFrame(frameObject) then
             hoverFadeOutAt[frameObject] = nil
-        elseif IsMouseOverFrame(frameObject) or IsManagedAncestorHovered(frameObject) then
+        elseif IsMouseOverFrame(frameObject) or IsTrackingBarHovered(frameObject) or IsManagedAncestorHovered(frameObject) then
             hoverFadeOutAt[frameObject] = nil
             FadeFrame(frameObject, VISIBLE_ALPHA, HOVER_FADE_IN_SECONDS)
         elseif frameTargets[frameObject] == VISIBLE_ALPHA then
@@ -1452,6 +1541,7 @@ local function RestoreManagedFrames()
     managedFrames = {}
     managedAlphas = {}
     frameTargets = {}
+    trackingBarHoverSources = setmetatable({}, { __mode = "k" })
     hoverFadeOutAt = {}
     actionButtonTargetAlpha = nil
     explorerFaded = false
