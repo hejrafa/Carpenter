@@ -8,7 +8,7 @@
 ## Notes-ptBR: Oferece vários recursos de limpeza da interface e qualidade de vida.|n|nAbra as configurações com o comando:|n/carpenter ou /cp
 ## Notes-ruRU: Добавляет разные функции очистки интерфейса и удобства игры.|n|nОткрыть настройки командой:|n/carpenter или /cp
 ## SavedVariables: CarpenterDB
-## Version: 1.7.7
+## Version: 1.7.8
 ## Author: Rafael Polutta
 ## IconTexture: Interface\AddOns\Carpenter\Art\Icons\Carpenter_Logo
 ## AddonCompartmentFunc: Carpenter_AddonCompartment_OnClick

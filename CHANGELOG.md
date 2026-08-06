@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.8
+
+- Fixed Explorer Mode experience and reputation bars not revealing reliably, and grouped them with the action bars so hovering either reveals the entire bottom HUD.
+- Added the taxi Request Stop button to Explorer Mode's action bar fade and hover group.
+
 ## 1.7.7
 
 - Fixed Out of Range Tint so action buttons stay dimmed when a target is either too close or too far away, including after Blizzard redraws the buttons.
