@@ -1,22 +1,7 @@
 --[[ Carpenter - ActionCam ]]
--- One option: on = DynamicCam-style over-shoulder framing. Off = reset camera cvars.
+-- One option: on = DynamicCam-style over-shoulder framing. Turning it off resets
+-- the camera CVars Carpenter changed; loading with it off leaves camera CVars alone.
 -- Uses default camera framing, then eases to a mounted zoom value while mounted.
-
--- Suppress Blizzard's "experimental camera features" / "visual discomfort" popup and sound.
--- Same approach as YUI-Dialogue (https://github.com/Peterodox/YUI-Dialogue): unregister the
--- event so the confirmation never fires (no popup, no sound, no taint).
-local function suppressCameraWarning()
-    UIParent:UnregisterEvent("EXPERIMENTAL_CVAR_CONFIRMATION_NEEDED")
-end
-suppressCameraWarning()
--- In case the default UI registers it after we load:
-local f = CreateFrame("Frame")
-f:RegisterEvent("ADDON_LOADED")
-f:SetScript("OnEvent", function(_, _, addonName)
-    if addonName == "Carpenter" then
-        suppressCameraWarning()
-    end
-end)
 
 local function SetSpellOverlayPosition(x, y)
     local overlay = SpellActivationOverlayFrame
@@ -51,6 +36,7 @@ local spellOverlayHooked = false
 local spellOverlayApplying = false
 local uiParentVisibilityHooked = false
 local uiParentHiddenForActionCam = false
+local cameraSettingsApplied = false
 local narcissusHooks = {}
 local HookSpellOverlay
 local UpdateSpellOverlayOffset
@@ -69,6 +55,19 @@ end
 
 local function IsRetail()
     return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+end
+
+-- Carpenter only owns Blizzard's experimental-camera warning while Action Cam is
+-- active. In 12.1 Blizzard moved the handler behind GameEvent, so cover both paths.
+local function SuppressCameraWarning()
+    if not IsEnabled() then return end
+
+    if UIParent and UIParent.UnregisterEvent then
+        UIParent:UnregisterEvent("EXPERIMENTAL_CVAR_CONFIRMATION_NEEDED")
+    end
+    if GameEvent and GameEvent.UnregisterInternalEvent then
+        pcall(GameEvent.UnregisterInternalEvent, "EXPERIMENTAL_CVAR_CONFIRMATION_NEEDED")
+    end
 end
 
 local function GetCurrentZoom()
@@ -197,7 +196,7 @@ local function ScheduleCameraZoomCheck(delay)
 end
 
 local function ResetCameraCVarsToDefaults()
-    -- Reset all camera CVars to safe defaults so Blizzard doesn't show the warning
+    -- Called only after Carpenter enabled Action Cam during this UI session.
     SetCVar("test_cameraOverShoulder", 0)
     SetCVar("test_cameraDynamicPitch", 0)
     SetCVar("test_cameraDynamicPitchBaseFovPad", 0.4)  -- default
@@ -208,6 +207,8 @@ end
 
 local function UpdateCameraSettings()
     if IsEnabled() then
+        SuppressCameraWarning()
+        cameraSettingsApplied = true
         SetCVar("test_cameraOverShoulder", OVER_SHOULDER_OFFSET)
         SetCVar("cameraSmoothingStyle", 0) -- required for offset
 
@@ -222,7 +223,10 @@ local function UpdateCameraSettings()
         UpdateSpellOverlayOffset()
     else
         CancelZoomTransition()
-        ResetCameraCVarsToDefaults()
+        if cameraSettingsApplied then
+            ResetCameraCVarsToDefaults()
+            cameraSettingsApplied = false
+        end
         UpdateSpellOverlayOffset()
     end
 end
@@ -337,10 +341,6 @@ frame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_SHOW")
 
 local function HandleActionCamEvent(self, event, addon, unit)
     if event == "ADDON_LOADED" and addon == "Carpenter" then
-        -- Reset CVars immediately if Action Cam is disabled (before Blizzard checks them)
-        if not IsEnabled() then
-            ResetCameraCVarsToDefaults()
-        end
         C_Timer.After(0.1, UpdateCameraSettings)
     elseif event == "ADDON_LOADED" and addon == "Narcissus" then
         HookNarcissusCamera()
@@ -355,10 +355,6 @@ local function HandleActionCamEvent(self, event, addon, unit)
         ScheduleSpellOverlayOffset(0.1)
     elseif event == "PLAYER_ENTERING_WORLD" then
         HookUIParentVisibility()
-        -- Also reset on entering world if disabled (in case CVars were set by another addon)
-        if not IsEnabled() then
-            ResetCameraCVarsToDefaults()
-        end
         UpdateCameraSettings()
         if C_Timer and C_Timer.After then
             C_Timer.After(0.5, UpdateSpellOverlayOffset)

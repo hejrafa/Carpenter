@@ -2,8 +2,9 @@
 -- When enabled, hides only the error messages in the hide list (and their sound).
 -- Add phrases here as you find ones you want to suppress.
 
--- Phrases in ALWAYS_HIDE are suppressed regardless of the option (e.g. Blizzard camera warning).
-local ALWAYS_HIDE = {
+-- These belong to Action Cam and must not affect Blizzard warnings from other
+-- addons when Carpenter's camera feature is disabled.
+local ACTION_CAM_HIDE_PHRASES = {
     "experimental camera features",
     "visual discomfort",
 }
@@ -63,8 +64,10 @@ local function ShouldHideError(message)
     for _, phrase in ipairs(NEVER_HIDE) do
         if lower:find(phrase:lower(), 1, true) then return false end
     end
-    for _, phrase in ipairs(ALWAYS_HIDE) do
-        if lower:find(phrase:lower(), 1, true) then return true end
+    if Carpenter and Carpenter:IsEnabled("actionCamEnabled") then
+        for _, phrase in ipairs(ACTION_CAM_HIDE_PHRASES) do
+            if lower:find(phrase:lower(), 1, true) then return true end
+        end
     end
     if not (Carpenter and Carpenter:IsEnabled("hideErrorMessagesEnabled")) then return false end
     for _, phrase in ipairs(HIDE_PHRASES) do
