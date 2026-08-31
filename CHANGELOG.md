@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.9
+
+- Fixed disabled Action Cam writing experimental camera CVars during login and reload, which could trigger Blizzard's visual-discomfort confirmation while the feature was off.
+
 ## 1.7.8
 
 - Fixed Explorer Mode experience and reputation bars not revealing reliably, and grouped them with the action bars so hovering either reveals the entire bottom HUD.
