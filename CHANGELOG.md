@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.10
+
+- Fixed chat-button, minimap-button, and extra-action-bar fading on clients where the legacy global mouseover API is unavailable.
+
 ## 1.7.9
 
 - Fixed disabled Action Cam writing experimental camera CVars during login and reload, which could trigger Blizzard's visual-discomfort confirmation while the feature was off.
