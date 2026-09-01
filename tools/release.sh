@@ -88,8 +88,9 @@ check() {
   while IFS= read -r file; do
     files+=("$file")
   done < <(lua_files)
-  luac -p "${files[@]}" "$ROOT/tools/action-cam-fixtures.lua" "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT/tools/auto-track-quest-fixtures.lua" "$ROOT/tools/check-localization.lua" "$ROOT/tools/check-assets.lua" "$ROOT/tools/check-addon-shape.lua"
+  luac -p "${files[@]}" "$ROOT/tools/action-cam-fixtures.lua" "$ROOT/tools/hide-chat-buttons-fixtures.lua" "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT/tools/auto-track-quest-fixtures.lua" "$ROOT/tools/check-localization.lua" "$ROOT/tools/check-assets.lua" "$ROOT/tools/check-addon-shape.lua"
   lua "$ROOT/tools/action-cam-fixtures.lua" "$ROOT"
+  lua "$ROOT/tools/hide-chat-buttons-fixtures.lua" "$ROOT"
   lua "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT"
   lua "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT"
   lua "$ROOT/tools/auto-track-quest-fixtures.lua" "$ROOT"

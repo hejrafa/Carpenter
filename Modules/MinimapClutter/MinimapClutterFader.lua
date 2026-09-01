@@ -124,10 +124,10 @@ function Fader.Create(config)
     end
 
     local function IsMouseOverManagedMinimapButton()
-        if not MouseIsOver then return false end
-
         for _, button in ipairs(hoverTargets) do
-            if button and button.IsShown and button:IsShown() and MouseIsOver(button) then
+            if button and button.IsShown and button:IsShown() and
+                button.IsMouseOver and button:IsMouseOver()
+            then
                 return true
             end
         end
@@ -136,8 +136,9 @@ function Fader.Create(config)
     end
 
     local function ShouldShowFadedMinimapButtons()
-        if not isEnabled() or not MouseIsOver then return false end
-        return (Minimap and MouseIsOver(Minimap)) or IsMouseOverManagedMinimapButton()
+        if not isEnabled() then return false end
+        return (Minimap and Minimap.IsMouseOver and Minimap:IsMouseOver()) or
+            IsMouseOverManagedMinimapButton()
     end
 
     local function UpdateFadedMinimapButtonTargets(wakeFader)

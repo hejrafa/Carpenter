@@ -19,6 +19,20 @@ local function ShouldManageSocialButtons()
     return Carpenter and Carpenter.Client and Carpenter.Client.isClassic
 end
 
+local function IsMouseOverFrame(frame)
+    if not frame then return false end
+
+    if type(frame.IsMouseOver) == "function" then
+        return frame:IsMouseOver() == true
+    end
+
+    if type(MouseIsOver) == "function" then
+        return MouseIsOver(frame) == true
+    end
+
+    return false
+end
+
 -- =========================
 -- Core Logic: Hover Fading
 -- =========================
@@ -201,14 +215,14 @@ hoverFrame:SetScript("OnUpdate", function(self, elapsed)
     self.elapsed = 0
 
     -- Check if mouse is over the hover frame OR any of the buttons themselves
-    local mouseOverButtons = MouseIsOver(self)
+    local mouseOverButtons = IsMouseOverFrame(self)
     
     -- Also check each button individually
     if not mouseOverButtons then
         RefreshChatFrames()
         for _, buttonName in ipairs(GetManagedChatButtons()) do
             local button = _G[buttonName]
-            if button and MouseIsOver(button) then
+            if IsMouseOverFrame(button) then
                 mouseOverButtons = true
                 break
             end
@@ -217,7 +231,7 @@ hoverFrame:SetScript("OnUpdate", function(self, elapsed)
 
     if not mouseOverButtons then
         for _, chatFrame in ipairs(chatFrames) do
-            if chatFrame and MouseIsOver(chatFrame) then
+            if IsMouseOverFrame(chatFrame) then
                 mouseOverButtons = true
                 break
             end
@@ -226,7 +240,7 @@ hoverFrame:SetScript("OnUpdate", function(self, elapsed)
 
     if not mouseOverButtons then
         for _, tab in ipairs(chatTabs) do
-            if tab and MouseIsOver(tab) then
+            if IsMouseOverFrame(tab) then
                 mouseOverButtons = true
                 break
             end

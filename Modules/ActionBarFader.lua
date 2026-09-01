@@ -34,7 +34,7 @@ local function SetupFader(barName)
 
         bar:HookScript("OnLeave", function(self)
             if not IsEnabled() then return end
-            if not MouseIsOver(self) then
+            if not self.IsMouseOver or not self:IsMouseOver() then
                 FadeFrame(self, ALPHA_HIDDEN)
             end
         end)
@@ -66,8 +66,11 @@ local function ApplyActionBarFader()
                     if IsEnabled() then FadeFrame(_G[barName], ALPHA_VISIBLE) end
                 end)
                 btn:HookScript("OnLeave", function()
-                    if IsEnabled() and not MouseIsOver(_G[barName]) then
-                        FadeFrame(_G[barName], ALPHA_HIDDEN)
+                    local parentBar = _G[barName]
+                    if IsEnabled() and parentBar and
+                        (not parentBar.IsMouseOver or not parentBar:IsMouseOver())
+                    then
+                        FadeFrame(parentBar, ALPHA_HIDDEN)
                     end
                 end)
                 btn._Carpenter_FaderHooked = true
