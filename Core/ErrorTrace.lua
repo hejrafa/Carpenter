@@ -4,6 +4,7 @@ local installed = false
 local previousHandler
 local handling = false
 local lastNoticeAt = 0
+local MAX_BLOCKED_ACTION_ENTRIES = 8
 
 local function IsEnabled()
     return CarpenterDB and CarpenterDB.blankLuaErrorTraceEnabled == true
@@ -130,4 +131,39 @@ end
 
 if IsEnabled() then
     Install()
+end
+
+local function AddBlockedAction(event, action)
+    if not CarpenterDB then return end
+    CarpenterDB.blockedActionLog = CarpenterDB.blockedActionLog or {}
+    local log = CarpenterDB.blockedActionLog
+    log[#log + 1] = {
+        time = date and date("%Y-%m-%d %H:%M:%S") or tostring(GetTime and GetTime() or ""),
+        event = event,
+        action = tostring(action or "unknown"),
+    }
+    while #log > MAX_BLOCKED_ACTION_ENTRIES do
+        table.remove(log, 1)
+    end
+end
+
+local blockedActionFrame = CreateFrame("Frame")
+blockedActionFrame:RegisterEvent("ADDON_ACTION_BLOCKED")
+blockedActionFrame:RegisterEvent("ADDON_ACTION_FORBIDDEN")
+blockedActionFrame:SetScript("OnEvent", function(_, event, addon, action)
+    local addonName = Carpenter and Carpenter.AddonName or "Carpenter"
+    if addon ~= addonName and addon ~= "Carpenter" then return end
+    AddBlockedAction(event, action)
+end)
+
+SLASH_CARPENTERBLOCKEDACTION1 = "/cpblocked"
+SlashCmdList["CARPENTERBLOCKEDACTION"] = function()
+    local log = CarpenterDB and CarpenterDB.blockedActionLog
+    local entry = log and log[#log]
+    if not entry then
+        print("|cffffd200Carpenter:|r no blocked action has been captured this session.")
+        return
+    end
+    print(string.format("|cffffd200Carpenter blocked action|r %s: %s (%s)",
+        entry.time or "", entry.action or "unknown", entry.event or "unknown"))
 end

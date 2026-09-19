@@ -4,8 +4,6 @@
 local SCALE_MULTIPLIER = 0.8
 
 local originalScales = setmetatable({}, { __mode = "k" })
-local hookedFrames = setmetatable({}, { __mode = "k" })
-local applyingScale = false
 local pendingCombatApply = false
 
 local function IsRetail()
@@ -37,9 +35,7 @@ local function SetManagedScale(frame, enabled)
     local currentScale = frame:GetScale() or 1
     if math.abs(currentScale - desiredScale) <= 0.001 then return end
 
-    applyingScale = true
     frame:SetScale(desiredScale)
-    applyingScale = false
 end
 
 local function ScheduleApply(delay)
@@ -47,24 +43,6 @@ local function ScheduleApply(delay)
         Carpenter:After(delay or 0, Carpenter_ApplyExtraAbilityScale)
     elseif C_Timer and C_Timer.After then
         C_Timer.After(delay or 0, Carpenter_ApplyExtraAbilityScale)
-    end
-end
-
-local function HookFrame(frame)
-    if not frame or hookedFrames[frame] then return end
-    hookedFrames[frame] = true
-
-    if frame.HookScript then
-        frame:HookScript("OnShow", function()
-            ScheduleApply(0)
-        end)
-    end
-
-    if hooksecurefunc and frame.SetScale then
-        hooksecurefunc(frame, "SetScale", function()
-            if applyingScale or not IsEnabled() then return end
-            ScheduleApply(0)
-        end)
     end
 end
 
@@ -90,7 +68,6 @@ function Carpenter_ApplyExtraAbilityScale()
     local enabled = IsEnabled()
     local frames = GetFrames()
     for _, frame in ipairs(frames) do
-        HookFrame(frame)
         SetManagedScale(frame, enabled)
     end
 end

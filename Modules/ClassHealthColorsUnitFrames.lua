@@ -10,10 +10,6 @@ local function IsRetailClient()
     return ClassHealth.IsRetail and ClassHealth.IsRetail()
 end
 
-local function UsesSafePartyFrameOverlay()
-    return Carpenter and Carpenter.Client and Carpenter.Client.isForever
-end
-
 local function RestoreDefaultUnitColor(bar, unit, force)
     if not bar then return end
     if not force and not bar._Carpenter_IsUnitClassColored then return end
@@ -65,6 +61,72 @@ end
 
 local Unit = ns.Private.Unit or {}
 local PARTY_MEMBER_FRAME_COUNT = 5
+local FOREVER_PARTY_CLASS_COLOR_CVAR = "raidFramesDisplayClassColor"
+local secureCallFunction = securecallfunction
+local foreverPartyClassColorOriginal
+local foreverPartyClassColorManaged = false
+local pendingForeverPartyClassColor
+local foreverPartyClassColorDriver = CreateFrame("Frame")
+foreverPartyClassColorDriver:Hide()
+
+local function IsForeverClient()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isForever == true
+end
+
+local function GetForeverPartyClassColorCVarAPI()
+    if C_CVar and type(C_CVar.GetCVar) == "function" and type(C_CVar.SetCVar) == "function" then
+        return C_CVar.GetCVar, C_CVar.SetCVar
+    end
+    if type(GetCVar) == "function" and type(SetCVar) == "function" then
+        return GetCVar, SetCVar
+    end
+end
+
+local function SetForeverPartyClassColor(enabled)
+    if not IsForeverClient() or type(secureCallFunction) ~= "function" then return false end
+
+    local getter, setter = GetForeverPartyClassColorCVarAPI()
+    if not getter or not setter then return false end
+
+    if enabled then
+        if not foreverPartyClassColorManaged then
+            local ok, value = pcall(getter, FOREVER_PARTY_CLASS_COLOR_CVAR)
+            if not ok or value == nil then return false end
+            foreverPartyClassColorOriginal = value
+            foreverPartyClassColorManaged = true
+        end
+
+        secureCallFunction(setter, FOREVER_PARTY_CLASS_COLOR_CVAR, "1")
+        return true
+    end
+
+    if foreverPartyClassColorManaged then
+        secureCallFunction(setter, FOREVER_PARTY_CLASS_COLOR_CVAR, foreverPartyClassColorOriginal or "0")
+        foreverPartyClassColorOriginal = nil
+        foreverPartyClassColorManaged = false
+    end
+    return true
+end
+
+local function ApplyForeverPartyClassColor(enabled)
+    if not IsForeverClient() then return false end
+
+    if InCombatLockdown and InCombatLockdown() then
+        pendingForeverPartyClassColor = enabled
+        foreverPartyClassColorDriver:RegisterEvent("PLAYER_REGEN_ENABLED")
+        return false
+    end
+
+    pendingForeverPartyClassColor = nil
+    foreverPartyClassColorDriver:UnregisterAllEvents()
+    return SetForeverPartyClassColor(enabled)
+end
+
+foreverPartyClassColorDriver:SetScript("OnEvent", function(_, event)
+    if event == "PLAYER_REGEN_ENABLED" and pendingForeverPartyClassColor ~= nil then
+        ApplyForeverPartyClassColor(pendingForeverPartyClassColor)
+    end
+end)
 
 local function GetUnitFrameHealthBar(unit)
     return Unit.FrameHealthBar and Unit.FrameHealthBar(unit) or nil
@@ -119,30 +181,11 @@ local function UpdateHealthBarColor(bar, unit)
 end
 
 local function UpdatePartyHealthBarColor(bar, unit)
-    if not UsesSafePartyFrameOverlay() then
-        UpdateHealthBarColor(bar, unit)
-        return
-    end
-
-    if not bar then return end
-    if not ClassHealth.IsUnitFrameEnabled()
-        or not unit
-        or not ClassHealth.UnitExists(unit)
-        or not ClassHealth.IsPlayerUnit(unit)
-    then
-        if ClassHealth.ClearCompactUnitFrameClassColor then
-            ClassHealth.ClearCompactUnitFrameClassColor(bar)
-        end
-        return
-    end
-
-    if not ClassHealth.ApplyCompactUnitFrameClassColor
-        or not ClassHealth.ApplyCompactUnitFrameClassColor(bar, unit)
-    then
-        if ClassHealth.ClearCompactUnitFrameClassColor then
-            ClassHealth.ClearCompactUnitFrameClassColor(bar)
-        end
-    end
+    -- Retail-style compact party frames expose restricted StatusBar state. Never
+    -- mutate those bars: Forever class coloring is delegated to Blizzard through
+    -- raidFramesDisplayClassColor instead.
+    if IsRetailClient() then return end
+    UpdateHealthBarColor(bar, unit)
 end
 
 local function RefreshPartyFrameColors(onlyUnit)
@@ -210,6 +253,7 @@ end)
 local unitFrameFeature = {}
 
 function unitFrameFeature:Enable()
+    ApplyForeverPartyClassColor(true)
     unitFrameDriver:RegisterEvent("PLAYER_TARGET_CHANGED")
     unitFrameDriver:RegisterEvent("PLAYER_FOCUS_CHANGED")
     unitFrameDriver:RegisterUnitEvent("UNIT_HEALTH", "player", "target", "targettarget", "focus", "party1", "party2", "party3", "party4")
@@ -224,6 +268,7 @@ function unitFrameFeature:Enable()
 end
 
 function unitFrameFeature:Disable()
+    ApplyForeverPartyClassColor(false)
     RestoreDefaultUnitColor(GetUnitFrameHealthBar("player"), "player", true)
     RestoreDefaultUnitColor(GetUnitFrameHealthBar("target"), "target", true)
     RestoreDefaultUnitColor(GetUnitFrameHealthBar("targettarget"), "targettarget", true)
@@ -231,11 +276,7 @@ function unitFrameFeature:Disable()
 
     for i = 1, PARTY_MEMBER_FRAME_COUNT do
         local partyBar, partyUnit = GetPartyHealthBar(i)
-        if UsesSafePartyFrameOverlay() then
-            if ClassHealth.ClearCompactUnitFrameClassColor then
-                ClassHealth.ClearCompactUnitFrameClassColor(partyBar)
-            end
-        else
+        if not IsRetailClient() then
             RestoreDefaultUnitColor(partyBar, partyUnit, true)
         end
     end

@@ -25,6 +25,7 @@ local defaults = {
     talentIconPortraitEnabled = false,
     enhanceTooltipEnabled = false,
     scaleExtraAbilityEnabled = false,
+    hideQuestTrackerTitlesEnabled = false,
     -- Unit Frames
     classHealthColorsEnabled = false,
     threatIndicatorEnabled = false,

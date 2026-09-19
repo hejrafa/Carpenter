@@ -130,6 +130,13 @@ function Options.Create(context)
                     image = GetSettingsImage("minimapclutter.png"),
                 },
                 {
+                    key = "hideQuestTrackerTitlesEnabled",
+                    label = L.OPTION_HIDE_QUEST_TRACKER_TITLES or "Hide Quest Tracker Titles",
+                    description = Description("DESC_HIDE_QUEST_TRACKER_TITLES"),
+                    image = GetSettingsImage("questtrack.png"),
+                    requiresReload = false,
+                },
+                {
                     key = "worldMapCleanupEnabled",
                     label = L.OPTION_WORLD_MAP_CLEANUP or "World Map Cleanup",
                     description = Description("DESC_WORLD_MAP_CLEANUP"),

@@ -11,6 +11,7 @@ local STANCE_BAR_FRAMES = { "StanceBar", "StanceBarFrame", "ShapeshiftBarFrame" 
 local hiddenStanceFrames = setmetatable({}, { __mode = "k" })
 local hiddenHotkeys = setmetatable({}, { __mode = "k" })
 local hiddenMacroNames = setmetatable({}, { __mode = "k" })
+local secureCallFunction = securecallfunction
 
 local function IsStanceBarEnabled()
     return Carpenter and Carpenter:IsEnabled("hideStanceBarEnabled")
@@ -24,38 +25,41 @@ local function IsMacroNamesEnabled()
     return Carpenter and Carpenter:IsEnabled("hideMacroNamesEnabled")
 end
 
+local function CanSecurelyStyleActionButtonText()
+    local client = Carpenter and Carpenter.Client
+    return client and client.isForever and type(secureCallFunction) == "function"
+end
+
+local function SetActionButtonTextAlpha(region, alpha)
+    local setAlpha = region and region.SetAlpha
+    if type(setAlpha) ~= "function" then return false end
+
+    if CanSecurelyStyleActionButtonText() then
+        -- FontString widget methods are provided through the UI object's
+        -- metatable. securecallmethod uses raw lookup and therefore cannot find
+        -- SetAlpha here; pass the resolved native method to the secure barrier.
+        secureCallFunction(setAlpha, region, alpha)
+    else
+        setAlpha(region, alpha)
+    end
+    return true
+end
+
 local function ApplyStanceBarHide()
     if not IsStanceBarEnabled() then return end
     if InCombatLockdown() then return end
 
-    if not CP_HiddenParent then
-        CP_HiddenParent = CreateFrame("Frame")
-        CP_HiddenParent:Hide()
-    end
-
     for _, name in ipairs(STANCE_BAR_FRAMES) do
         local frame = _G[name]
-        if frame then
+        if frame and frame.SetAlpha then
             if hiddenStanceFrames[frame] == nil then
-                hiddenStanceFrames[frame] = frame:GetParent() or UIParent
+                hiddenStanceFrames[frame] = frame.GetAlpha and frame:GetAlpha() or 1
             end
-            frame:UnregisterAllEvents()
-            frame:Hide()
-            frame:SetParent(CP_HiddenParent)
-
-            if not frame.IsCPHooked then
-                hooksecurefunc(frame, "SetShown", function(self, shown)
-                    if shown and IsStanceBarEnabled() and not InCombatLockdown() then
-                        self:Hide()
-                    end
-                end)
-                hooksecurefunc(frame, "Show", function(self)
-                    if IsStanceBarEnabled() and not InCombatLockdown() then
-                        self:Hide()
-                    end
-                end)
-                frame.IsCPHooked = true
-            end
+            -- Stance bars are protected and share Blizzard's combat visibility
+            -- controller with the other action bars. Parenting or hiding one of
+            -- them taints that controller; alpha is visual-only and leaves its
+            -- secure ownership and visibility state intact.
+            frame:SetAlpha(0)
         end
     end
 end
@@ -64,10 +68,9 @@ local function RestoreStanceBar()
     if IsStanceBarEnabled() then return end
     if InCombatLockdown() then return end
 
-    for frame, originalParent in pairs(hiddenStanceFrames) do
-        if frame then
-            frame:SetParent(originalParent or UIParent)
-            frame:Show()
+    for frame, originalAlpha in pairs(hiddenStanceFrames) do
+        if frame and frame.SetAlpha then
+            frame:SetAlpha(originalAlpha or 1)
         end
         hiddenStanceFrames[frame] = nil
     end
@@ -76,6 +79,12 @@ end
 local function UpdateActionBars()
     -- Ensure database is initialized
     if not CarpenterDB then return end
+
+    -- Blizzard updates protected action buttons while combat state changes. Even
+    -- visual writes to their child regions from that call path can taint the
+    -- remaining secure update and make entire bars fail to show. The regen event
+    -- below reapplies pending visual changes once combat ends.
+    if InCombatLockdown and InCombatLockdown() then return end
 
     local hideStanceBar = IsStanceBarEnabled()
     local hideKeybinds = IsKeybindsEnabled()
@@ -94,6 +103,16 @@ local function UpdateActionBars()
         ApplyStanceBarHide()
     else
         RestoreStanceBar()
+    end
+
+    -- Retail-style restricted clients associate action-button child regions with
+    -- the protected button's execution context. Forever exposes securecallfunction,
+    -- which provides a secure barrier for this visual write; other Retail clients
+    -- remain unsupported because a normal SetAlpha taints secret cooldown updates.
+    if Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+        and not CanSecurelyStyleActionButtonText()
+    then
+        return
     end
 
     -- 2. MACRO NAMES & KEYBIND TEXT LOGIC
@@ -117,16 +136,10 @@ local function UpdateActionBars()
                 -- Handle Keybinds (HotKey)
                 if hotkey then
                     if hideKeybinds then
-                        hotkey:SetAlpha(0)
+                        SetActionButtonTextAlpha(hotkey, 0)
                         hiddenHotkeys[hotkey] = true
-                        if not hotkey.IsCPHooked then
-                            hooksecurefunc(hotkey, "Show", function(self)
-                                if IsKeybindsEnabled() then self:SetAlpha(0) end
-                            end)
-                            hotkey.IsCPHooked = true
-                        end
                     elseif hiddenHotkeys[hotkey] then
-                        hotkey:SetAlpha(1)
+                        SetActionButtonTextAlpha(hotkey, 1)
                         hiddenHotkeys[hotkey] = nil
                     end
                 end
@@ -134,16 +147,10 @@ local function UpdateActionBars()
                 -- Handle Macro Names (Name)
                 if name then
                     if hideMacroNames then
-                        name:SetAlpha(0)
+                        SetActionButtonTextAlpha(name, 0)
                         hiddenMacroNames[name] = true
-                        if not name.IsCPHooked then
-                            hooksecurefunc(name, "Show", function(self)
-                                if IsMacroNamesEnabled() then self:SetAlpha(0) end
-                            end)
-                            name.IsCPHooked = true
-                        end
                     elseif hiddenMacroNames[name] then
-                        name:SetAlpha(1)
+                        SetActionButtonTextAlpha(name, 1)
                         hiddenMacroNames[name] = nil
                     end
                 end

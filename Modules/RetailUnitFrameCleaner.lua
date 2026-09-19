@@ -8,6 +8,7 @@ local Targets = ns.Private.RetailUnitFrameCleanerTargets or {}
 local Realm = ns.Private.RetailUnitFrameCleanerRealm or {}
 
 local lastFeatureState = {}
+local partyTitleOriginalAlpha = setmetatable({}, { __mode = "k" })
 
 local function IsRetail()
     return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
@@ -89,10 +90,8 @@ local function ApplyFrameFeature(featureKey, getFrames, predicate, alphaOnly)
         for _, frame in ipairs(getFrames()) do
             if alphaOnly then
                 Visuals.HideFrameAlpha(frame)
-                Visuals.HookAlphaHide(frame, predicate)
             else
                 Visuals.HideFrame(frame)
-                Visuals.HookHide(frame, predicate)
             end
         end
     else
@@ -121,6 +120,25 @@ local function ApplyRealmIndicatorFeature()
     lastFeatureState.realmIndicator = enabled
 end
 
+local function ApplyPartyFrameTitleFeature()
+    local enabled = ShouldHidePartyFrameTitle()
+    if not enabled and not lastFeatureState.partyFrameTitle then return end
+
+    for _, frame in ipairs(Targets.GetPartyFrameTitleFrames()) do
+        if enabled then
+            if partyTitleOriginalAlpha[frame] == nil and frame.GetAlpha then
+                partyTitleOriginalAlpha[frame] = frame:GetAlpha()
+            end
+            if frame.SetAlpha then frame:SetAlpha(0) end
+        elseif partyTitleOriginalAlpha[frame] ~= nil then
+            if frame.SetAlpha then frame:SetAlpha(partyTitleOriginalAlpha[frame]) end
+            partyTitleOriginalAlpha[frame] = nil
+        end
+    end
+
+    lastFeatureState.partyFrameTitle = enabled
+end
+
 local function Apply()
     if not IsRetail() then return end
     if not ShouldRunCleaner() then return end
@@ -135,7 +153,10 @@ local function Apply()
         Visuals.RestoreFrame(frame)
     end
     ApplyFrameFeature("playerCornerIcon", Targets.GetPlayerCornerIconFrames, ShouldHidePlayerCornerIcon, false)
-    ApplyFrameFeature("partyFrameTitle", Targets.GetPartyFrameTitleFrames, ShouldHidePartyFrameTitle, false)
+    -- CompactPartyFrameTitle participates in Blizzard's secure Edit Mode party
+    -- refresh. Limit this feature to alpha only: no hooks, parenting, visibility,
+    -- scripts, events, or custom fields on that frame.
+    ApplyPartyFrameTitleFeature()
     -- Match BetterBlizzFrames' narrow Retail approach: only hide the actual reputation
     -- color texture, not the surrounding name/background pieces that affect layout.
     ApplyFrameFeature("targetReputationColor", Targets.GetTargetReputationColorFrames, ShouldHideTargetReputationColor, false)

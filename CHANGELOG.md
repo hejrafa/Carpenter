@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.0
+
+- Fixed WoW Forever taint from Carpenter touching protected compact unit frames and action-button update paths.
+- Restored Hide Macro Names on WoW Forever through secure native widget calls without combat-time writes.
+- Restored class-colored party frames on WoW Forever through Blizzard's native compact-frame class-color setting.
+- Added Hide Quest Tracker Titles for the All Objectives and Quests headers, including their backgrounds and header buttons.
+
 ## 1.7.10
 
 - Fixed chat-button, minimap-button, and extra-action-bar fading on clients where the legacy global mouseover API is unavailable.

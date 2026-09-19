@@ -196,13 +196,6 @@ function Targets.GetRealmIndicatorNameStrings()
     Targets.AddNameString(strings, TargetFrameTextureFrameName)
     Targets.AddNameString(strings, FocusFrameTextureFrameName)
 
-    for i = 1, 5 do
-        Targets.AddNameString(strings, _G["CompactPartyFrameMember" .. i .. "Name"])
-    end
-    for i = 1, 40 do
-        Targets.AddNameString(strings, _G["CompactRaidFrame" .. i .. "Name"])
-    end
-
     for _, plate in ipairs((Nameplates.GetAll and Nameplates.GetAll()) or {}) do
         if plate.UnitFrame then
             Targets.AddNameString(strings, plate.UnitFrame.name)

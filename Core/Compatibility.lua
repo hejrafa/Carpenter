@@ -74,12 +74,12 @@ local featureSupport = {
         actionBarFaderEnabled = true,
     }, { __index = classicFeatures }),
     retail = {
-        hideMacroNamesEnabled = true,
         hideStanceBarEnabled = true,
         menuTransparencyEnabled = true,
         minimapClutterEnabled = true,
         enhanceTooltipEnabled = true,
         scaleExtraAbilityEnabled = true,
+        hideQuestTrackerTitlesEnabled = true,
         classHealthColorsEnabled = true,
         threatIndicatorEnabled = false,
         cleanUpUnitFramesEnabled = true,
@@ -110,6 +110,9 @@ local foreverUnsupportedFeatures = {
 }
 
 function Carpenter:IsFeatureAvailable(configKey)
+    if Carpenter.Client.isForever and configKey == "hideMacroNamesEnabled" then
+        return type(securecallfunction) == "function"
+    end
     if Carpenter.Client.isForever and foreverUnsupportedFeatures[configKey] then
         return false
     end

@@ -1,5 +1,6 @@
 #!/usr/bin/env lua
--- Verifies Forever colors compact party frames without writing StatusBar state.
+-- Verifies Forever delegates compact party class colors to Blizzard's native
+-- CVar without writing protected StatusBar state.
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then
@@ -12,6 +13,11 @@ local partyFill = {}
 local partyOverlay
 local partyBar = { statusBarWrites = 0 }
 local driver
+local inCombat = false
+local cvarValue = "0"
+local cvarSetCalls = 0
+local secureCallCount = 0
+local createdFrames = {}
 
 function playerBar:SetStatusBarColor()
     self.applications = self.applications + 1
@@ -25,7 +31,7 @@ end
 
 function partyBar:SetStatusBarColor()
     self.statusBarWrites = self.statusBarWrites + 1
-    error("Forever compact party bars must not receive SetStatusBarColor")
+    error("Retail compact party bars must not receive SetStatusBarColor")
 end
 
 function partyBar:CreateTexture()
@@ -59,12 +65,33 @@ local ns = {
 }
 
 Carpenter = {
-    Client = { isRetail = true, isForever = true },
+    Client = { isRetail = true, isForever = false },
     IsEnabled = function(_, key) return key == "classHealthColorsEnabled" end,
     RegisterFeature = function(_, key, feature)
         if key == "classHealthColorsEnabled" then registeredFeature = feature end
     end,
 }
+
+C_CVar = {
+    GetCVar = function(name)
+        assert(name == "raidFramesDisplayClassColor")
+        return cvarValue
+    end,
+    SetCVar = function(name, value)
+        assert(name == "raidFramesDisplayClassColor")
+        cvarValue = value
+        cvarSetCalls = cvarSetCalls + 1
+    end,
+}
+
+function securecallfunction(func, ...)
+    secureCallCount = secureCallCount + 1
+    return func(...)
+end
+
+function InCombatLockdown()
+    return inCombat
+end
 
 PartyFrame = {
     MemberFrame1 = { HealthBar = partyBar, unit = "player" },
@@ -78,6 +105,7 @@ function CreateFrame()
     function driver:RegisterUnitEvent(event) self.events[event] = true end
     function driver:UnregisterAllEvents() self.events = {} end
     function driver:SetScript(_, handler) self.OnEvent = handler end
+    createdFrames[#createdFrames + 1] = driver
     return driver
 end
 
@@ -88,15 +116,35 @@ unitFramesChunk("Carpenter", ns)
 
 assert(registeredFeature and registeredFeature.Enable, "Class Health Colors feature was not registered")
 registeredFeature:Enable()
-assert(playerBar.applications == 1, "Forever should still color the player health bar")
-assert(partyBar.statusBarWrites == 0, "Forever must not write compact party StatusBar colors")
-assert(partyOverlay and partyOverlay.shown, "Forever should show the safe party-frame color overlay")
-assert(partyOverlay.anchor == partyFill, "party-frame overlay should follow Blizzard's health fill")
-assert(partyOverlay.color[1] == 0.2 and partyOverlay.color[2] == 0.4 and partyOverlay.color[3] == 0.8,
-    "party-frame overlay should use the unit class color")
+assert(playerBar.applications == 1, "Retail should still color the player health bar")
+assert(partyBar.statusBarWrites == 0, "Retail must not write compact party StatusBar colors")
+assert(partyOverlay == nil, "Retail must not add regions to compact party health bars")
+assert(cvarSetCalls == 0, "mainline must not change the Forever party class-color CVar")
 
 registeredFeature:Disable()
-assert(not partyOverlay.shown, "disabling should hide the party-frame color overlay")
 assert(partyBar.statusBarWrites == 0, "disabling must not write compact party StatusBar colors")
+
+Carpenter.Client.isForever = true
+playerBar.applications = 0
+registeredFeature:Enable()
+assert(playerBar.applications == 1, "Forever should still color the player health bar")
+assert(partyBar.statusBarWrites == 0, "Forever must not write compact party StatusBar colors")
+assert(partyOverlay == nil, "Forever must not add regions to compact party health bars")
+assert(cvarValue == "1", "Forever should enable Blizzard's native party class colors")
+assert(secureCallCount > 0, "Forever must change the class-color CVar through securecallfunction")
+
+registeredFeature:Disable()
+assert(partyBar.statusBarWrites == 0, "Forever disabling must not write compact party StatusBar colors")
+assert(cvarValue == "0", "Forever should restore the original party class-color CVar")
+
+inCombat = true
+registeredFeature:Enable()
+assert(cvarValue == "0", "Forever must defer its class-color CVar change during combat")
+inCombat = false
+assert(createdFrames[1] and createdFrames[1].OnEvent, "Forever CVar driver was not installed")
+createdFrames[1].OnEvent(createdFrames[1], "PLAYER_REGEN_ENABLED")
+assert(cvarValue == "1", "Forever should apply deferred class colors after combat")
+registeredFeature:Disable()
+assert(cvarValue == "0", "Forever should restore the CVar after a deferred enable")
 
 print("class-health-colors fixtures: passed")

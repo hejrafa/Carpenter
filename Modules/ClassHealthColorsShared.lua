@@ -64,50 +64,6 @@ function Shared.ApplyUnitFrameClassColor(bar, unit)
     return true
 end
 
--- Forever treats compact-unit-frame StatusBar colors as restricted state. Writing
--- the color directly makes Blizzard's later GetStatusBarColor results secret and
--- taints CompactUnitFrame_UpdateHealthColor. A texture anchored to the existing
--- fill follows the bar's value without changing that protected state.
-function Shared.ApplyCompactUnitFrameClassColor(bar, unit)
-    if not bar then return false end
-    local color = Shared.GetClassColor(unit)
-    if not color then return false end
-
-    local fill = bar.GetStatusBarTexture and bar:GetStatusBarTexture()
-    if not fill or not bar.CreateTexture then return false end
-
-    local overlay = bar._Carpenter_ClassColorOverlay
-    if not overlay then
-        overlay = bar:CreateTexture(nil, "ARTWORK", nil, 7)
-        if not overlay then return false end
-        bar._Carpenter_ClassColorOverlay = overlay
-    end
-
-    if overlay._Carpenter_Anchor ~= fill then
-        if overlay.ClearAllPoints then
-            overlay:ClearAllPoints()
-        end
-        overlay:SetAllPoints(fill)
-        overlay._Carpenter_Anchor = fill
-    end
-
-    if overlay.SetColorTexture then
-        overlay:SetColorTexture(color.r, color.g, color.b, 1)
-    else
-        overlay:SetTexture("Interface\\Buttons\\WHITE8X8")
-        overlay:SetVertexColor(color.r, color.g, color.b, 1)
-    end
-    overlay:Show()
-    return true
-end
-
-function Shared.ClearCompactUnitFrameClassColor(bar)
-    local overlay = bar and bar._Carpenter_ClassColorOverlay
-    if not overlay then return false end
-    overlay:Hide()
-    return true
-end
-
 function Shared.ApplyNameplateClassColor(bar, unit)
     if not bar then return false end
     local color = Shared.GetClassColor(unit)
