@@ -135,8 +135,13 @@ function Data.IsRetail()
     return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
 end
 
+function Data.UsesClassicMacros()
+    return Carpenter and Carpenter.Client and
+        (Carpenter.Client.isClassic or Carpenter.Client.isForever)
+end
+
 function Data.GetActiveItems()
-    return Data.IsRetail() and Data.RetailItems or Data.Items
+    return Data.UsesClassicMacros() and Data.Items or Data.RetailItems
 end
 
 function Data.GetScanCategories()

@@ -71,6 +71,7 @@ reloadBtn:SetScript("OnClick", function() ReloadUI() end)
 reloadBtn:Disable()
 
 local configBaseline = {}
+local SyncCheckboxesFromDatabase
 
 local function SnapshotBaseline()
     configBaseline = {}
@@ -101,6 +102,9 @@ local function UpdateReloadButton()
 end
 
 frame:SetScript("OnShow", function()
+    if SyncCheckboxesFromDatabase then
+        SyncCheckboxesFromDatabase()
+    end
     SnapshotBaseline()
     UpdateReloadButton()
 end)
@@ -269,6 +273,7 @@ local function CreateCheckbox(key, label, description, sideLogic, imagePath, req
     local check = CreateFrame("CheckButton", "CP_Check_" .. key, row, "InterfaceOptionsCheckButtonTemplate")
     check:SetPoint("LEFT", 15, 0)
     check:SetHitRectInsets(0, 0, 0, 0)
+    check:SetChecked(CarpenterDB and CarpenterDB[key] == true)
     _G[check:GetName() .. "Text"]:SetText(label)
     _G[check:GetName() .. "Text"]:SetFontObject("GameFontNormal")
     if isUnavailable then
@@ -420,12 +425,6 @@ local OPTION_SECTIONS = ConfigOptions.Create and ConfigOptions.Create({
     SideLogic = sidebarApi.SideLogic,
 }) or {}
 
-local HIDDEN_OPTION_SECTIONS = ConfigOptions.CreateHidden and ConfigOptions.CreateHidden({
-    L = L,
-    LightGrey = LightGrey,
-    LighterCream = LighterCream,
-}) or {}
-
 local function IsOptionAvailable(option)
     if not Carpenter:IsFeatureAvailable(option.key) then return false end
     if option.class then
@@ -433,14 +432,6 @@ local function IsOptionAvailable(option)
         if class ~= option.class then return false end
     end
     return true
-end
-
-local function ShowWidget(widget, shown)
-    if shown then
-        widget:Show()
-    else
-        widget:Hide()
-    end
 end
 
 local function RenderSections(sections)
@@ -486,9 +477,7 @@ local function RenderSections(sections)
     return widgets, yPos
 end
 
-local mainWidgets, mainYPos = RenderSections(OPTION_SECTIONS)
-local hiddenWidgets, hiddenYPos = RenderSections(HIDDEN_OPTION_SECTIONS)
-local hasHiddenSettings = #hiddenWidgets > 0
+local _, mainYPos = RenderSections(OPTION_SECTIONS)
 
 -- =========================
 -- Footer
@@ -501,57 +490,41 @@ footerVersion:SetAllPoints(footerVersionButton)
 footerVersion:SetJustifyH("RIGHT")
 
 local versionText = "v" .. ((Carpenter and Carpenter.GetVersion and Carpenter:GetVersion()) or "1.7.0")
-local hiddenSettingsShown = false
+footerVersion:SetText(LightGrey .. versionText .. "|r")
 
-local function UpdateFooterVersionText(isHovered)
-    footerVersion:SetText((isHovered and hasHiddenSettings and "|cffdddddd" or LightGrey) .. versionText .. "|r")
-end
-
-local function SetSettingsView(showHidden)
-    hiddenSettingsShown = hasHiddenSettings and showHidden == true
-    for _, widget in ipairs(mainWidgets) do
-        ShowWidget(widget, not hiddenSettingsShown)
-    end
-    for _, widget in ipairs(hiddenWidgets) do
-        ShowWidget(widget, hiddenSettingsShown)
-    end
-
-    local footerYPos = (hiddenSettingsShown and hiddenYPos or mainYPos) - 48
-    footerVersionButton:ClearAllPoints()
-    footerVersionButton:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, footerYPos - 3)
-    SetSidebarDefault()
-    scrollFrame:SetVerticalScroll(0)
+local footerYPos = mainYPos - 48
+footerVersionButton:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, footerYPos - 3)
+SetSidebarDefault()
+scrollFrame:SetVerticalScroll(0)
 
 -- Keep the scroll child close to the frame edges without crowding the footer.
-    local FOOTER_LINE_HEIGHT = 14
-    local SIDEBAR_BOTTOM_INSET = 10
-    local SCROLL_CONTENT_BOTTOM_PADDING = SIDE_GAP + SIDEBAR_BOTTOM_INSET
-    content:SetHeight(-footerYPos + FOOTER_LINE_HEIGHT + SCROLL_CONTENT_BOTTOM_PADDING)
-end
+local FOOTER_LINE_HEIGHT = 14
+local SIDEBAR_BOTTOM_INSET = 10
+local SCROLL_CONTENT_BOTTOM_PADDING = SIDE_GAP + SIDEBAR_BOTTOM_INSET
+content:SetHeight(-footerYPos + FOOTER_LINE_HEIGHT + SCROLL_CONTENT_BOTTOM_PADDING)
 
-footerVersionButton:SetScript("OnEnter", function()
-    UpdateFooterVersionText(true)
-end)
-footerVersionButton:SetScript("OnLeave", function()
-    UpdateFooterVersionText(false)
-end)
-footerVersionButton:SetScript("OnClick", function()
-    if not hasHiddenSettings then return end
-    SetSettingsView(not hiddenSettingsShown)
-end)
+SyncCheckboxesFromDatabase = function()
+    if not CarpenterDB then return end
 
-UpdateFooterVersionText(false)
-SetSettingsView(false)
-
--- Sync on Login
-local init = CreateFrame("Frame")
-init:RegisterEvent("PLAYER_ENTERING_WORLD")
-init:SetScript("OnEvent", function(self)
-    if CarpenterDB then
-        for key, _ in pairs(CarpenterDB) do
-            local cb = _G["CP_Check_" .. key]
-            if cb then cb:SetChecked(CarpenterDB[key]) end
+    for key, value in pairs(CarpenterDB) do
+        local checkbox = _G["CP_Check_" .. key]
+        if checkbox then
+            checkbox:SetChecked(value == true)
         end
     end
-    self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+end
+
+-- Saved variables are guaranteed by ADDON_LOADED. Keep the world event as a
+-- fallback for clients that defer parts of settings initialization.
+local init = CreateFrame("Frame")
+init:RegisterEvent("ADDON_LOADED")
+init:RegisterEvent("VARIABLES_LOADED")
+init:RegisterEvent("PLAYER_ENTERING_WORLD")
+init:SetScript("OnEvent", function(self, event, loadedAddonName)
+    if event == "ADDON_LOADED" and loadedAddonName ~= addonName then
+        return
+    end
+
+    SyncCheckboxesFromDatabase()
+    self:UnregisterEvent(event)
 end)

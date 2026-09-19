@@ -131,6 +131,21 @@ local failures = {}
 local fixtureCount = 0
 local scanner = ns.Private.SmartMacroScanner
 local classifier = ns.Private.SmartMacroClassifier
+local macroData = ns.Private.SmartMacroData
+
+Carpenter.Client = { isRetail = true, isForever = true }
+if not macroData.IsRetail() then
+    failures[#failures + 1] = "Forever API flavor: expected Retail tooltip behavior"
+end
+if not macroData.UsesClassicMacros() then
+    failures[#failures + 1] = "Forever macro flavor: expected Classic macro behavior"
+end
+if not macroData.GetActiveItems().Band then
+    failures[#failures + 1] = "Forever macro flavor: expected the Classic bandage macro"
+end
+Carpenter.Client = { isRetail = false, isForever = false }
+fixtureCount = fixtureCount + 3
+
 local firstFingerprint = scanner.GetBagFingerprint()
 
 bagSlots[0][1] = {

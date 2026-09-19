@@ -9,6 +9,7 @@ local ColorPlus = Colors and Colors.gray and Colors.gray.colorCode or "|cffc8c8c
 local ColorJunk = Colors and Colors.quality and Colors.quality[0] and Colors.quality[0].colorCode or "|cff9d9d9d"
 
 local sellAttemptedThisMerchant = false
+local GetItemDetails = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo
 
 local function SellGreyItems()
     if sellAttemptedThisMerchant then return end
@@ -22,9 +23,31 @@ local function SellGreyItems()
     local getNumSlots = (C_Container and C_Container.GetContainerNumSlots) or GetContainerNumSlots
     local getItemInfo = (C_Container and C_Container.GetContainerItemInfo) or GetContainerItemInfo
     local getItemLink = (C_Container and C_Container.GetContainerItemLink) or GetContainerItemLink
-    local useContainerItem = UseContainerItem or (C_Container and C_Container.UseContainerItem)
+    local useContainerItem = (C_Container and C_Container.UseContainerItem) or _G.UseContainerItem
 
-    if not getNumSlots or not useContainerItem then return end
+    if not getNumSlots or not getItemInfo or not useContainerItem then return end
+
+    local function GetSlotInfo(bag, slot)
+        local values = { getItemInfo(bag, slot) }
+        if type(values[1]) == "table" then
+            local info = values[1]
+            return {
+                hyperlink = info.hyperlink,
+                itemID = info.itemID,
+                stackCount = info.stackCount or info.quantity,
+                quality = info.quality,
+                hasNoValue = info.hasNoValue,
+            }
+        end
+
+        return {
+            hyperlink = values[7],
+            itemID = values[10],
+            stackCount = values[2],
+            quality = values[4],
+            hasNoValue = values[9],
+        }
+    end
 
     local totalSold = 0
     local totalValue = 0
@@ -33,25 +56,25 @@ local function SellGreyItems()
         local numSlots = getNumSlots(bag)
         if numSlots and numSlots > 0 then
             for slot = 1, numSlots do
-                local itemLink = getItemLink(bag, slot)
-                if itemLink then
-                    local _, _, quality = GetItemInfo(itemLink)
-                    if quality == 0 then -- Poor quality (grey)
-                        local info = getItemInfo(bag, slot)
-                        if info and info.stackCount and info.stackCount > 0 and not info.hasNoValue then
-                            -- Use the appropriate API to sell the item
-                            if useContainerItem then
-                                useContainerItem(bag, slot)
-                                totalSold = totalSold + info.stackCount
-                                -- Track the total vendor value of junk sold so we
-                                -- can show an immediate, stable gold amount that
-                                -- isn't affected by repairs or other purchases.
-                                local _, _, _, _, _, _, _, _, _, _, vendorPrice = GetItemInfo(itemLink)
-                                if vendorPrice and vendorPrice > 0 then
-                                    totalValue = totalValue + (vendorPrice * info.stackCount)
-                                end
-                            end
-                        end
+                local info = GetSlotInfo(bag, slot)
+                local itemLink = info.hyperlink or (getItemLink and getItemLink(bag, slot))
+                local quality = info.quality
+                local vendorPrice
+
+                if GetItemDetails and (info.itemID or itemLink) then
+                    local _, _, itemQuality, _, _, _, _, _, _, _, itemVendorPrice =
+                        GetItemDetails(info.itemID or itemLink)
+                    quality = quality or itemQuality
+                    vendorPrice = itemVendorPrice
+                end
+
+                if quality == 0 and info.stackCount and info.stackCount > 0 and not info.hasNoValue then
+                    useContainerItem(bag, slot)
+                    totalSold = totalSold + info.stackCount
+                    -- Track the total vendor value of junk sold so we can show
+                    -- an immediate amount unaffected by repairs or purchases.
+                    if vendorPrice and vendorPrice > 0 then
+                        totalValue = totalValue + (vendorPrice * info.stackCount)
                     end
                 end
             end

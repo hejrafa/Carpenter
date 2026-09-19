@@ -12,8 +12,8 @@ local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("smartMacrosEnabled")
 end
 
-local function IsRetail()
-    return Data.IsRetail and Data.IsRetail()
+local function UsesClassicMacros()
+    return Data.UsesClassicMacros and Data.UsesClassicMacros()
 end
 
 local function GetActiveItems()
@@ -54,7 +54,7 @@ local function ProcessUpdate(forceRescan)
         end
     end
 
-    if IsRetail() and Builder.DeleteMacroByName and Data.Items then
+    if not UsesClassicMacros() and Builder.DeleteMacroByName and Data.Items then
         Builder.DeleteMacroByName(Data.Items.Band.name)
         Builder.DeleteMacroByName(Data.Items.Band.legacyName)
     end

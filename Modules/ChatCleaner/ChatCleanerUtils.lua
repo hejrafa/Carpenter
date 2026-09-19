@@ -4,6 +4,7 @@ ns.Private = ns.Private or {}
 
 local Utils = ns.Private.ChatCleanerUtils or {}
 ns.Private.ChatCleanerUtils = Utils
+local GetItemInfo = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo
 
 local LINK_OPEN  = "\255\255CP_L\255\255"
 local LINK_CLOSE = "\255\255CP_R\255\255"
@@ -105,6 +106,7 @@ end
 
 function Utils.GetItemLinkWithQualityColor(itemLink)
     if not itemLink or not itemLink:find("|Hitem:") then return itemLink end
+    if not GetItemInfo then return itemLink end
 
     local name, link, quality = GetItemInfo(itemLink)
     if link and link ~= "" then

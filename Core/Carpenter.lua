@@ -66,11 +66,20 @@ local defaults = {
     -- Immersion
     actionCamEnabled = false,
     explorerModeEnabled = false,
-    -- Transmog
-    hideShouldersEnabled = false,
-    backSheathOneHandWeaponsEnabled = false,
     -- Settings
     blankLuaErrorTraceEnabled = false,
+}
+
+-- The Forever Beta currently writes SavedVariables but does not restore them.
+-- Force every usable option on after each load so reload-only behavior can be
+-- tested until Blizzard repairs the SavedVariables loader.
+local foreverDefaultOff = {
+    actionCamEnabled = true,
+    blankLuaErrorTraceEnabled = true,
+    explorerModeEnabled = true,
+    hideUnitFramePowerBarEnabled = true,
+    menuTransparencyEnabled = true,
+    minimapClutterEnabled = true,
 }
 
 Carpenter.Defaults = defaults
@@ -296,10 +305,12 @@ function Carpenter:AddChatMessage(msg)
 end
 
 function Carpenter_InitializeSettings()
-    if CarpenterDB then
-        CarpenterDB.hideShouldersEnabled = false
-        CarpenterDB.backSheathOneHandWeaponsEnabled = false
+    if type(CarpenterDB) ~= "table" then
+        CarpenterDB = {}
     end
+
+    CarpenterDB.hideShouldersEnabled = nil
+    CarpenterDB.backSheathOneHandWeaponsEnabled = nil
 
     if CarpenterDB and Carpenter.Client and Carpenter.Client.isRetail and
         CarpenterDB.hideUnitFrameCombatTextEnabled == true and
@@ -340,7 +351,9 @@ function Carpenter_InitializeSettings()
     CarpenterDB.nameplateClassHealthEnabled = nil
 
     for key, value in pairs(defaults) do
-        if CarpenterDB[key] == nil then
+        if Carpenter.Client and Carpenter.Client.isForever and type(value) == "boolean" then
+            CarpenterDB[key] = not foreverDefaultOff[key]
+        elseif CarpenterDB[key] == nil then
             CarpenterDB[key] = value
         end
     end
@@ -353,6 +366,45 @@ SlashCmdList["CARPENTER"] = function()
         Carpenter_OpenConfig()
     else
         print("|cffff0000Carpenter:|r " .. (L.CONFIG_NOT_LOADED or "Config UI not loaded."))
+    end
+end
+
+SLASH_CARPENTERSTATE1 = "/cpstate"
+SlashCmdList["CARPENTERSTATE"] = function()
+    local client = Carpenter.Client or {}
+    local tocInterface
+    if C_AddOns and C_AddOns.GetAddOnInterfaceVersion then
+        tocInterface = C_AddOns.GetAddOnInterfaceVersion(Carpenter.AddonName)
+    elseif C_AddOns and C_AddOns.GetAddOnMetadata then
+        tocInterface = C_AddOns.GetAddOnMetadata(Carpenter.AddonName, "Interface")
+    elseif GetAddOnMetadata then
+        tocInterface = GetAddOnMetadata(Carpenter.AddonName, "Interface")
+    end
+
+    print(string.format(
+        "|cff00aaffCarpenter state|r build=%s toc=%s flavor=%s forever=%s retail=%s classic=%s db=%s variablesLoaded=%s",
+        tostring(client.interfaceVersion),
+        tostring(tocInterface),
+        tostring(client.flavor),
+        tostring(client.isForever == true),
+        tostring(client.isRetail == true),
+        tostring(client.isClassic == true),
+        tostring(type(CarpenterDB)),
+        tostring(Carpenter.VariablesLoaded == true)
+    ))
+
+    for _, key in ipairs({ "hideStanceBarEnabled", "classHealthColorsEnabled" }) do
+        local checkbox = _G["CP_Check_" .. key]
+        local module = Carpenter.Features and Carpenter.Features[key]
+        print(string.format(
+            "%s: db=%s available=%s enabled=%s module=%s checkbox=%s",
+            key,
+            tostring(type(CarpenterDB) == "table" and CarpenterDB[key]),
+            tostring(Carpenter.IsFeatureAvailable and Carpenter:IsFeatureAvailable(key)),
+            tostring(Carpenter:IsEnabled(key)),
+            tostring(module and module.enabled),
+            tostring(checkbox and checkbox:GetChecked())
+        ))
     end
 end
 
@@ -436,15 +488,33 @@ SlashCmdList["CARPENTERPERF"] = function(msg)
     end
 end
 
+local addonLoaded = false
+local variablesLoaded = false
+local settingsInitialized = false
+
+local function TryInitializeSettings()
+    if settingsInitialized or not addonLoaded or not variablesLoaded then
+        return
+    end
+
+    settingsInitialized = true
+    Carpenter_InitializeSettings()
+    Carpenter:RefreshFeatures()
+end
+
 local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
-f:RegisterEvent("PLAYER_ENTERING_WORLD")
+f:RegisterEvent("VARIABLES_LOADED")
 f:SetScript("OnEvent", function(self, event, addon)
-    if (event == "ADDON_LOADED" and addon == addonName) or event == "PLAYER_ENTERING_WORLD" then
-        Carpenter_InitializeSettings()
-        Carpenter:RefreshFeatures()
-        if event == "PLAYER_ENTERING_WORLD" then
-            self:UnregisterEvent("PLAYER_ENTERING_WORLD")
-        end
+    if event == "ADDON_LOADED" then
+        if addon ~= addonName then return end
+        addonLoaded = true
+        self:UnregisterEvent("ADDON_LOADED")
+    elseif event == "VARIABLES_LOADED" then
+        variablesLoaded = true
+        Carpenter.VariablesLoaded = true
+        self:UnregisterEvent("VARIABLES_LOADED")
     end
+
+    TryInitializeSettings()
 end)

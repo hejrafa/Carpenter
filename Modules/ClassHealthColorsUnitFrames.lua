@@ -10,6 +10,10 @@ local function IsRetailClient()
     return ClassHealth.IsRetail and ClassHealth.IsRetail()
 end
 
+local function UsesSafePartyFrameOverlay()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isForever
+end
+
 local function RestoreDefaultUnitColor(bar, unit, force)
     if not bar then return end
     if not force and not bar._Carpenter_IsUnitClassColored then return end
@@ -60,6 +64,7 @@ local function HookUnitFrameHealthBar(bar, unit)
 end
 
 local Unit = ns.Private.Unit or {}
+local PARTY_MEMBER_FRAME_COUNT = 5
 
 local function GetUnitFrameHealthBar(unit)
     return Unit.FrameHealthBar and Unit.FrameHealthBar(unit) or nil
@@ -75,12 +80,17 @@ local function GetPartyHealthBar(index)
             or member.HealthBar
             or member.healthBar
             or member.healthbar
-        if bar then return bar end
+        if bar then
+            return bar, member.unit or member.displayedUnit
+        end
     end
 
     local legacy = _G["PartyMemberFrame" .. index]
-    return _G["PartyMemberFrame" .. index .. "HealthBar"]
+    local bar = _G["PartyMemberFrame" .. index .. "HealthBar"]
         or (legacy and (legacy.HealthBar or legacy.healthBar or legacy.healthbar))
+    if bar then
+        return bar, "party" .. index
+    end
 end
 
 local function UpdateHealthBarColor(bar, unit)
@@ -108,18 +118,49 @@ local function UpdateHealthBarColor(bar, unit)
     end
 end
 
+local function UpdatePartyHealthBarColor(bar, unit)
+    if not UsesSafePartyFrameOverlay() then
+        UpdateHealthBarColor(bar, unit)
+        return
+    end
+
+    if not bar then return end
+    if not ClassHealth.IsUnitFrameEnabled()
+        or not unit
+        or not ClassHealth.UnitExists(unit)
+        or not ClassHealth.IsPlayerUnit(unit)
+    then
+        if ClassHealth.ClearCompactUnitFrameClassColor then
+            ClassHealth.ClearCompactUnitFrameClassColor(bar)
+        end
+        return
+    end
+
+    if not ClassHealth.ApplyCompactUnitFrameClassColor
+        or not ClassHealth.ApplyCompactUnitFrameClassColor(bar, unit)
+    then
+        if ClassHealth.ClearCompactUnitFrameClassColor then
+            ClassHealth.ClearCompactUnitFrameClassColor(bar)
+        end
+    end
+end
+
+local function RefreshPartyFrameColors(onlyUnit)
+    for i = 1, PARTY_MEMBER_FRAME_COUNT do
+        local partyBar, partyUnit = GetPartyHealthBar(i)
+        if partyBar and (not onlyUnit or partyUnit == onlyUnit) then
+            UpdatePartyHealthBarColor(partyBar, partyUnit)
+        end
+    end
+end
+
 local function RefreshUnitFrameColors()
     UpdateHealthBarColor(GetUnitFrameHealthBar("player"), "player")
     UpdateHealthBarColor(GetUnitFrameHealthBar("target"), "target")
     UpdateHealthBarColor(GetUnitFrameHealthBar("targettarget"), "targettarget")
     UpdateHealthBarColor(GetUnitFrameHealthBar("focus"), "focus")
 
-    for i = 1, 4 do
-        local partyBar = GetPartyHealthBar(i)
-        if partyBar then
-            UpdateHealthBarColor(partyBar, "party" .. i)
-        end
-    end
+    RefreshPartyFrameColors()
 end
 
 local unitFrameDriver = CreateFrame("Frame")
@@ -148,15 +189,9 @@ local function HandleUnitFrameEvent(self, event, unit)
             UpdateHealthBarColor(GetUnitFrameHealthBar("focus"), "focus")
         elseif unit == "player" then
             UpdateHealthBarColor(GetUnitFrameHealthBar("player"), "player")
+            RefreshPartyFrameColors("player")
         elseif unit and unit:find("party") then
-            for i = 1, 4 do
-                if unit == "party" .. i then
-                    local partyBar = GetPartyHealthBar(i)
-                    if partyBar then
-                        UpdateHealthBarColor(partyBar, unit)
-                    end
-                end
-            end
+            RefreshPartyFrameColors(unit)
         end
     elseif event == "UNIT_TARGET" and unit == "target" then
         UpdateHealthBarColor(GetUnitFrameHealthBar("targettarget"), "targettarget")
@@ -194,8 +229,15 @@ function unitFrameFeature:Disable()
     RestoreDefaultUnitColor(GetUnitFrameHealthBar("targettarget"), "targettarget", true)
     RestoreDefaultUnitColor(GetUnitFrameHealthBar("focus"), "focus", true)
 
-    for i = 1, 4 do
-        RestoreDefaultUnitColor(GetPartyHealthBar(i), "party" .. i, true)
+    for i = 1, PARTY_MEMBER_FRAME_COUNT do
+        local partyBar, partyUnit = GetPartyHealthBar(i)
+        if UsesSafePartyFrameOverlay() then
+            if ClassHealth.ClearCompactUnitFrameClassColor then
+                ClassHealth.ClearCompactUnitFrameClassColor(partyBar)
+            end
+        else
+            RestoreDefaultUnitColor(partyBar, partyUnit, true)
+        end
     end
 
     unitFrameDriver:UnregisterAllEvents()

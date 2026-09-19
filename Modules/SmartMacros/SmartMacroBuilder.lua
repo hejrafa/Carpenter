@@ -8,8 +8,8 @@ ns.Private.SmartMacroBuilder = Builder
 local Data = ns.Private.SmartMacroData or {}
 local CLASS_HEAL_SPELLS = Data.ClassHealSpells or {}
 
-local function IsRetail()
-    return Data.IsRetail and Data.IsRetail()
+local function UsesClassicMacros()
+    return Data.UsesClassicMacros and Data.UsesClassicMacros()
 end
 
 local function GetSpellName(spellID, fallback)
@@ -67,7 +67,7 @@ local function BuildHealthMacroBody(potion, healthstone)
     local _, class = UnitClass("player")
     local tooltip
 
-    if recuperate and (IsRetail() or IsSpellKnown(CLASS_HEAL_SPELLS.RECUPERATE)) then
+    if recuperate and (not UsesClassicMacros() or IsSpellKnown(CLASS_HEAL_SPELLS.RECUPERATE)) then
         tooltip = tooltip or ("[nocombat] " .. recuperate)
         entries[#entries + 1] = {
             line = "/cast [nocombat] " .. recuperate,

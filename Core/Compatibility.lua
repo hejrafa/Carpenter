@@ -6,9 +6,11 @@ ns = ns or {}
 local _, _, _, interfaceVersion = GetBuildInfo()
 local projectID = WOW_PROJECT_ID
 
-local isRetail = (WOW_PROJECT_MAINLINE and projectID == WOW_PROJECT_MAINLINE) or interfaceVersion >= 100000
-local isTBC = (WOW_PROJECT_BURNING_CRUSADE_CLASSIC and projectID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC) or (interfaceVersion >= 20000 and interfaceVersion < 30000)
-local isVanilla = (WOW_PROJECT_CLASSIC and projectID == WOW_PROJECT_CLASSIC) or (interfaceVersion >= 10000 and interfaceVersion < 20000)
+-- WoW Forever/Camelot uses the retail-style API with its own interface range.
+local isForever = interfaceVersion >= 16000 and interfaceVersion < 17000
+local isRetail = (WOW_PROJECT_MAINLINE and projectID == WOW_PROJECT_MAINLINE) or interfaceVersion >= 100000 or isForever
+local isTBC = not isForever and ((WOW_PROJECT_BURNING_CRUSADE_CLASSIC and projectID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC) or (interfaceVersion >= 20000 and interfaceVersion < 30000))
+local isVanilla = not isForever and ((WOW_PROJECT_CLASSIC and projectID == WOW_PROJECT_CLASSIC) or (interfaceVersion >= 10000 and interfaceVersion < 20000))
 
 local flavor = "unknown"
 if isRetail then
@@ -25,6 +27,7 @@ Carpenter.Client = {
     interfaceVersion = interfaceVersion,
     projectID = projectID,
     isRetail = isRetail,
+    isForever = isForever,
     isTBC = isTBC,
     isVanilla = isVanilla,
     isClassic = isVanilla or isTBC,
@@ -63,8 +66,6 @@ local classicFeatures = {
     hideErrorMessagesEnabled = true,
     actionCamEnabled = true,
     explorerModeEnabled = true,
-    hideShouldersEnabled = true,
-    backSheathOneHandWeaponsEnabled = true,
 }
 
 local featureSupport = {
@@ -104,7 +105,14 @@ local featureSupport = {
 
 Carpenter.FeatureSupport = featureSupport
 
+local foreverUnsupportedFeatures = {
+    hideUnitFramePowerBarEnabled = true,
+}
+
 function Carpenter:IsFeatureAvailable(configKey)
+    if Carpenter.Client.isForever and foreverUnsupportedFeatures[configKey] then
+        return false
+    end
     local flavorSupport = featureSupport[Carpenter.Client.flavor]
     return flavorSupport and flavorSupport[configKey] == true
 end

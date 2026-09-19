@@ -6,7 +6,7 @@ if repo:sub(-1) == "/" then
     repo = repo:sub(1, -2)
 end
 
-local tocs = { "Carpenter.toc", "Carpenter_TBC.toc", "Carpenter_Vanilla.toc" }
+local tocs = { "Carpenter.toc", "Carpenter_Camelot.toc", "Carpenter_TBC.toc", "Carpenter_Vanilla.toc" }
 
 -- Saved state tables that intentionally live inside CarpenterDB but are not
 -- settings toggles.
@@ -24,8 +24,10 @@ local dormantOptionKeys = {}
 -- Removed settings that survive only in the upgrade migration, which clears
 -- them from saved variables. They intentionally have no defaults entry.
 local removedOptionKeys = {
+    backSheathOneHandWeaponsEnabled = true,
     classicSettingsPresetEnabled = true,
     hideGroupIndicatorEnabled = true,
+    hideShouldersEnabled = true,
     nameplateCastNamesEnabled = true,
     nameplateClassHealthEnabled = true,
     raidTargetIconAlignedEnabled = true,

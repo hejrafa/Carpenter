@@ -980,8 +980,12 @@ local function RestoreActionButtonCooldownDrawStates()
     end
 end
 
+local function IsForeverClient()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isForever == true
+end
+
 local function ApplyCooldownDrawState(cooldown, targetAlpha)
-    if not IsCooldownFrame(cooldown) or IsForbiddenFrame(cooldown) then
+    if IsForeverClient() or not IsCooldownFrame(cooldown) or IsForbiddenFrame(cooldown) then
         return
     end
 
@@ -1070,6 +1074,10 @@ local function CollectAlphaTargets(root, starts, targets, targetAlpha, depth)
 end
 
 local function ApplyActionButtonCooldownDrawStates(button, targetAlpha)
+    if IsForeverClient() then
+        return
+    end
+
     local cooldowns = {}
     CollectActionButtonCooldownFrames(button, cooldowns)
 
@@ -1148,6 +1156,10 @@ local function ApplyActionButtonCooldownDrawStatesForManagedFrame(frameObject, t
 end
 
 local function ApplyCooldownFrameAlpha(cooldown)
+    if IsForeverClient() then
+        return
+    end
+
     local button = FindActionButtonAncestor(cooldown)
     if button then
         ApplyActionButtonOverlayAlpha(button)
@@ -1155,7 +1167,7 @@ local function ApplyCooldownFrameAlpha(cooldown)
 end
 
 local function HookActionButtonCooldownFrame(cooldown)
-    if not cooldown or actionButtonCooldownHookedFrames[cooldown] or not cooldown.HookScript then
+    if IsForeverClient() or not cooldown or actionButtonCooldownHookedFrames[cooldown] or not cooldown.HookScript then
         return
     end
 
@@ -1164,6 +1176,10 @@ local function HookActionButtonCooldownFrame(cooldown)
 end
 
 function RefreshActionButtonCooldownHooks()
+    if IsForeverClient() then
+        return
+    end
+
     ForEachActionButton(function(button)
         local cooldowns = {}
         CollectActionButtonCooldownFrames(button, cooldowns)
@@ -1174,6 +1190,10 @@ function RefreshActionButtonCooldownHooks()
 end
 
 local function HookActionButtonOverlayFunctions()
+    if IsForeverClient() then
+        return
+    end
+
     if actionButtonOverlayHooksInstalled or not hooksecurefunc then
         if RefreshActionButtonCooldownHooks then
             RefreshActionButtonCooldownHooks()

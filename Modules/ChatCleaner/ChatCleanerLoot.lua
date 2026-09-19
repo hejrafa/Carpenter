@@ -5,6 +5,7 @@ ns.Private = ns.Private or {}
 local Utils = ns.Private.ChatCleanerUtils or {}
 local Loot = ns.Private.ChatCleanerLoot or {}
 ns.Private.ChatCleanerLoot = Loot
+local GetItemInfo = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo
 
 local function StripBrackets(text)
     return Utils.StripBrackets and Utils.StripBrackets(text) or text
@@ -175,7 +176,7 @@ local rollTypeByItem = {}
 function Loot.GetRollItemKey(itemPart, msg)
     if not itemPart or itemPart == "" then
         local link = GetItemLinkFromMessage(msg or "")
-        if link then
+        if link and GetItemInfo then
             local name = GetItemInfo(link)
             if name then return name end
         end

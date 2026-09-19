@@ -372,38 +372,3 @@ function Options.Create(context)
 
     return sections
 end
-
-function Options.CreateHidden(context)
-    context = context or {}
-    local L = context.L or {}
-    local LightGrey = context.LightGrey or "|cffaaaaaa"
-    local LighterCream = context.LighterCream or "|cffffff99"
-
-    local function Description(key)
-        local text = L[key] or key
-        text = text:gsub("{hl}", LighterCream):gsub("{/hl}", LightGrey)
-        return LightGrey .. text
-    end
-
-    return {
-        {
-            title = L.SECTION_TRANSMOG or "Transmog",
-            options = {
-                {
-                    key = "hideShouldersEnabled",
-                    label = L.OPTION_HIDE_SHOULDERS or "Hide Shoulders",
-                    description = Description("DESC_HIDE_SHOULDERS"),
-                    requiresReload = false,
-                    unavailableMessage = L.HIDE_SHOULDERS_UNAVAILABLE or "Live character shoulders cannot be hidden client-side by an addon.",
-                },
-                {
-                    key = "backSheathOneHandWeaponsEnabled",
-                    label = L.OPTION_BACK_SHEATH_ONE_HAND_WEAPONS or "Back Sheath 1H Weapons",
-                    description = Description("DESC_BACK_SHEATH_ONE_HAND_WEAPONS"),
-                    requiresReload = false,
-                    unavailableMessage = L.BACK_SHEATH_ONE_HAND_WEAPONS_UNAVAILABLE or "Live one-hand weapon sheath placement cannot be changed by an addon.",
-                },
-            },
-        },
-    }
-end

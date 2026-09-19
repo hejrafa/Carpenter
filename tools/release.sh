@@ -18,7 +18,7 @@ validate_tocs() {
   local toc line path expected_version toc_version
   expected_version="$(version)"
 
-  for toc in Carpenter.toc Carpenter_TBC.toc Carpenter_Vanilla.toc; do
+  for toc in Carpenter.toc Carpenter_Camelot.toc Carpenter_TBC.toc Carpenter_Vanilla.toc; do
     toc_version="$(awk -F': ' '/^## Version:/{print $2; exit}' "$ROOT/$toc")"
     [[ "$toc_version" == "$expected_version" ]] || fail "$toc version is $toc_version, expected $expected_version"
 
@@ -88,12 +88,14 @@ check() {
   while IFS= read -r file; do
     files+=("$file")
   done < <(lua_files)
-  luac -p "${files[@]}" "$ROOT/tools/action-cam-fixtures.lua" "$ROOT/tools/hide-chat-buttons-fixtures.lua" "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT/tools/auto-track-quest-fixtures.lua" "$ROOT/tools/check-localization.lua" "$ROOT/tools/check-assets.lua" "$ROOT/tools/check-addon-shape.lua"
+  luac -p "${files[@]}" "$ROOT/tools/action-cam-fixtures.lua" "$ROOT/tools/hide-chat-buttons-fixtures.lua" "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT/tools/auto-track-quest-fixtures.lua" "$ROOT/tools/auto-sell-greys-fixtures.lua" "$ROOT/tools/class-health-colors-fixtures.lua" "$ROOT/tools/check-localization.lua" "$ROOT/tools/check-assets.lua" "$ROOT/tools/check-addon-shape.lua"
   lua "$ROOT/tools/action-cam-fixtures.lua" "$ROOT"
   lua "$ROOT/tools/hide-chat-buttons-fixtures.lua" "$ROOT"
   lua "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT"
   lua "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT"
   lua "$ROOT/tools/auto-track-quest-fixtures.lua" "$ROOT"
+  lua "$ROOT/tools/auto-sell-greys-fixtures.lua" "$ROOT"
+  lua "$ROOT/tools/class-health-colors-fixtures.lua" "$ROOT"
   lua "$ROOT/tools/check-localization.lua" "$ROOT"
   lua "$ROOT/tools/check-assets.lua" "$ROOT"
   lua "$ROOT/tools/check-addon-shape.lua" "$ROOT"
