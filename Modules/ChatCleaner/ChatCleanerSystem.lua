@@ -16,8 +16,11 @@ function System.Create(config)
     local colorBluePurple = config.ColorBluePurple or "|cff9d8cff"
     local colorQueue = config.ColorQueue or "|cff80b0ff"
     local colorPurple = config.ColorPurple or "|cffb794f4"
+    local colorTransmog = config.ColorTransmog or "|cffff80ff"
     local colorTeal = config.ColorTeal or "|cff00ccaa"
     local colorYellow = config.ColorYellow or "|cffffd200"
+    local getItemLinkFromMessage = config.GetItemLinkFromMessage or function() return nil end
+    local isRetailClient = config.IsRetailClient or function() return false end
     local L = config.L or (Carpenter and Carpenter.L) or {}
 
     local function T(key, fallback, ...)
@@ -358,6 +361,26 @@ function System.Create(config)
         end
 
         return nil
+    end
+
+    function api.FormatAppearanceCollectionMessage(event, message, plainText, prefixPlus)
+        if event ~= "CHAT_MSG_SYSTEM" or not isRetailClient() then return nil end
+        if not message or type(message) ~= "string" then return nil end
+        plainText = (type(plainText) == "string" and plainText) or message
+
+        local appearance = plainText:match("^%s*(.-)%s+has been added to your appearance collection%.?%s*$")
+        if not appearance or appearance == "" then return nil end
+
+        local itemLink = getItemLinkFromMessage(message)
+        local display
+        if itemLink then
+            itemLink = itemLink:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+            display = colorTransmog .. itemLink .. "|r"
+        else
+            display = colorTransmog .. cleanPunctuation(stripBrackets(appearance)) .. "|r"
+        end
+
+        return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_APPEARANCE_LABEL", "Appearance:") .. " |r" .. display)
     end
 
     function api.ApplyLevelUpGlobalStringStyling()

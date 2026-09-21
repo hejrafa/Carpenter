@@ -75,12 +75,9 @@ local defaults = {
 -- Force every usable option on after each load so reload-only behavior can be
 -- tested until Blizzard repairs the SavedVariables loader.
 local foreverDefaultOff = {
-    actionCamEnabled = true,
     blankLuaErrorTraceEnabled = true,
     explorerModeEnabled = true,
     hideUnitFramePowerBarEnabled = true,
-    menuTransparencyEnabled = true,
-    minimapClutterEnabled = true,
 }
 
 Carpenter.Defaults = defaults

@@ -5,6 +5,14 @@ ns.Private = ns.Private or {}
 local Sidebar = ns.Private.ConfigSidebar or {}
 ns.Private.ConfigSidebar = Sidebar
 
+function Sidebar.GetSmartMacroPreviewOrder()
+    local client = Carpenter and Carpenter.Client
+    if client and (client.isClassic or client.isForever) then
+        return { "Food", "WellFed", "Water", "Pot", "Mana", "Band" }
+    end
+    return { "Food", "WellFed", "Water", "Pot", "Mana" }
+end
+
 function Sidebar.Create(context)
     context = context or {}
     local frame = context.Frame
@@ -136,15 +144,8 @@ function Sidebar.Create(context)
         end
     end
 
-    local function IsRetailClient()
-        return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
-    end
-
     local function GetSmartMacroPreviewOrder()
-        if IsRetailClient() then
-            return { "Food", "WellFed", "Water", "Pot", "Mana" }
-        end
-        return { "Food", "WellFed", "Water", "Pot", "Mana", "Band" }
+        return Sidebar.GetSmartMacroPreviewOrder()
     end
 
     local function StyleMacroPreviewButton(button, iconTexture)

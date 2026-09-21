@@ -23,6 +23,7 @@ local ColorRed        = Colors and Colors.red and Colors.red.colorCode or "|cfff
 
 -- Accent colors
 local ColorPurple     = Colors and Colors.xpValue and Colors.xpValue.colorCode or "|cffb794f4"         -- Skill / spell names
+local ColorTransmog   = "|cffff80ff"                                                        -- Blizzard appearance collection pink
 local ColorBluePurple = Colors and Colors.faction and Colors.faction.Alliance and Colors.faction.Alliance.colorCode or "|cff9d8cff" -- Reputation faction
 local ColorTeal       = Colors and Colors.power and Colors.power.ESSENCE and Colors.power.ESSENCE.colorCode or "|cff00ccaa"        -- Discovery zone
 local ColorQueue      = Colors and Colors.zone and Colors.zone.sanctuary and Colors.zone.sanctuary.colorCode or "|cff80b0ff"       -- BG / queue name
@@ -172,8 +173,13 @@ local systemFormatter = ChatCleanerSystem.Create and ChatCleanerSystem.Create({
     ColorBluePurple = ColorBluePurple,
     ColorQueue = ColorQueue,
     ColorPurple = ColorPurple,
+    ColorTransmog = ColorTransmog,
     ColorTeal = ColorTeal,
     ColorYellow = ColorYellow,
+    GetItemLinkFromMessage = GetItemLinkFromMessage,
+    IsRetailClient = function()
+        return Carpenter.Client and Carpenter.Client.isRetail == true
+    end,
     LearnedSkillDedupSeconds = 3,
 }) or {}
 local IsLevelUpRewardEvent = systemFormatter.IsLevelUpRewardEvent
@@ -183,6 +189,7 @@ local FormatLevelUpRewardMessage = systemFormatter.FormatLevelUpRewardMessage
 local FormatReputationMessage = systemFormatter.FormatReputationMessage
 local FormatQueueNotice = systemFormatter.FormatQueueNotice
 local FormatSkillMessage = systemFormatter.FormatSkillMessage
+local FormatAppearanceCollectionMessage = systemFormatter.FormatAppearanceCollectionMessage
 local ApplyLevelUpGlobalStringStyling = systemFormatter.ApplyLevelUpGlobalStringStyling
 
 local rewardFormatter = ChatCleanerRewards.Create and ChatCleanerRewards.Create({
@@ -237,6 +244,7 @@ local postProcessor = ChatCleanerPostProcess.Create and ChatCleanerPostProcess.C
     L = L,
     RemoveLinkBrackets = RemoveLinkBrackets,
     FormatLevelUpRewardMessage = FormatLevelUpRewardMessage,
+    FormatAppearanceCollectionMessage = FormatAppearanceCollectionMessage,
     ParseRetailMoneyGain = ParseRetailMoneyGain,
     SpaceBeforeX = SpaceBeforeX,
     ColorPlus = ColorPlus,
@@ -352,6 +360,12 @@ local function ChatFilterImpl(self, event, msg, author, ...)
         return true
     elseif queueNotice then
         return false, queueNotice, author, ...
+    end
+
+    -- 2.5 Retail/Forever appearance collection notices
+    local appearanceCollectionMessage = FormatAppearanceCollectionMessage and FormatAppearanceCollectionMessage(event, msg, plainSys, prefixPlus)
+    if appearanceCollectionMessage then
+        return false, appearanceCollectionMessage, author, ...
     end
 
     -- 4. Auction Messages

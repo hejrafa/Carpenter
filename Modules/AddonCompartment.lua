@@ -1,8 +1,10 @@
 --[[ Carpenter - Blizzard AddOn Compartment ]]
--- Callback functions used by Retail's TOC-driven AddOn Compartment registration.
+-- Register at runtime so a disabled Carpenter does not leave callback names in
+-- TOC metadata for Blizzard's AddOn Compartment to call without loading us.
 
 local addonName, ns = ...
 ns = ns or {}
+local registered = false
 
 local function OpenConfig()
     if type(Carpenter_OpenConfig) == "function" then
@@ -17,29 +19,41 @@ local function OnClick(_, menuInputData)
     end
 end
 
-local function OnEnter(owner, menuButton)
-    local tooltipOwner = owner
-    if tooltipOwner and not (tooltipOwner.GetObjectType or tooltipOwner.IsObjectType) then
-        tooltipOwner = menuButton
+local function GetMetadata(field)
+    if C_AddOns and type(C_AddOns.GetAddOnMetadata) == "function" then
+        return C_AddOns.GetAddOnMetadata(addonName, field)
     end
-    if tooltipOwner and not (tooltipOwner.GetObjectType or tooltipOwner.IsObjectType) then
-        tooltipOwner = nil
-    end
-    if not GameTooltip or not tooltipOwner then return end
-
-    GameTooltip:SetOwner(tooltipOwner, "ANCHOR_RIGHT")
-    local L = (Carpenter and Carpenter.L) or {}
-    GameTooltip:SetText(L.ADDON_NAME or addonName or "Carpenter")
-    GameTooltip:AddLine(L.OPEN_SETTINGS or "Open settings", 1, 1, 1)
-    GameTooltip:Show()
-end
-
-local function OnLeave()
-    if GameTooltip then
-        GameTooltip:Hide()
+    if type(GetAddOnMetadata) == "function" then
+        return GetAddOnMetadata(addonName, field)
     end
 end
 
-_G.Carpenter_AddonCompartment_OnClick = OnClick
-_G.Carpenter_AddonCompartment_OnEnter = OnEnter
-_G.Carpenter_AddonCompartment_OnLeave = OnLeave
+local function RegisterAddonCompartment()
+    if registered then return true end
+
+    local compartment = _G.AddonCompartmentFrame
+    if not compartment or type(compartment.RegisterAddon) ~= "function" then
+        return false
+    end
+
+    compartment:RegisterAddon({
+        text = GetMetadata("Title") or addonName or "Carpenter",
+        icon = GetMetadata("IconTexture"),
+        notCheckable = true,
+        func = OnClick,
+    })
+    registered = true
+    return true
+end
+
+if not RegisterAddonCompartment() and type(CreateFrame) == "function" then
+    local eventFrame = CreateFrame("Frame")
+    eventFrame:RegisterEvent("ADDON_LOADED")
+    eventFrame:RegisterEvent("PLAYER_LOGIN")
+    eventFrame:SetScript("OnEvent", function(self, event, loadedAddonName)
+        if event == "ADDON_LOADED" and loadedAddonName ~= "Blizzard_Minimap" then return end
+        if RegisterAddonCompartment() then
+            self:UnregisterAllEvents()
+        end
+    end)
+end

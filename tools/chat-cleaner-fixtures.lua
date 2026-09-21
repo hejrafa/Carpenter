@@ -406,6 +406,29 @@ local fixtures = {
         rejectColor = "|cffc69b6d",
     },
     {
+        name = "retail plain appearance collection",
+        event = "CHAT_MSG_SYSTEM",
+        isRetail = true,
+        message = "Ragged Leather Bracers has been added to your appearance collection.",
+        expectPlain = "+ Appearance: Ragged Leather Bracers",
+        requireColors = { "|cffc8c8c8+|r", "|cffffffffAppearance: |r", "|cffff80ffRagged Leather Bracers|r" },
+    },
+    {
+        name = "forever linked appearance collection",
+        path = "post",
+        event = "CHAT_MSG_SYSTEM",
+        isRetail = true,
+        message = "|cff1eff00|Hitem:1418::::::::|h[Ragged Leather Bracers]|h|r has been added to your appearance collection.",
+        expectPlain = "+ Appearance: Ragged Leather Bracers",
+        requireColors = { "|cffc8c8c8+|r", "|cffffffffAppearance: |r", "|cffff80ff|Hitem:1418::::::::|hRagged Leather Bracers|h|r" },
+    },
+    {
+        name = "classic appearance collection remains unchanged",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Ragged Leather Bracers has been added to your appearance collection.",
+        expectPlain = "Ragged Leather Bracers has been added to your appearance collection.",
+    },
+    {
         name = "other player level up keeps name",
         event = "CHAT_MSG_SYSTEM",
         message = "Mirella has reached level 13.",
@@ -559,6 +582,7 @@ for _, fixture in ipairs(fixtures) do
     groupMembers = fixture.groupMembers or 0
     inRaid = fixture.inRaid or false
     inCombatLockdown = fixture.inCombatLockdown == true
+    Carpenter.Client.isRetail = fixture.isRetail == true
     if fixture.path == "post" then
         local frame = {}
         local captured = nil
@@ -597,6 +621,7 @@ for _, fixture in ipairs(fixtures) do
     end
 end
 inCombatLockdown = false
+Carpenter.Client.isRetail = false
 
 do
     local keys = {

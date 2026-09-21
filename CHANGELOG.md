@@ -6,6 +6,16 @@
 - Restored Hide Macro Names on WoW Forever through secure native widget calls without combat-time writes.
 - Restored class-colored party frames on WoW Forever through Blizzard's native compact-frame class-color setting.
 - Added Hide Quest Tracker Titles for the All Objectives and Quests headers, including their backgrounds and header buttons.
+- Fixed the AddOn Compartment menu calling a missing Carpenter hover callback.
+- Enabled Action Cam by default on WoW Forever while its SavedVariables loader is unavailable.
+- Fixed Action Cam stopping before dynamic camera settings were applied because it used the wrong smoothing CVar name.
+- Disabled WoW Forever's character-centering camera gates while preserving Carpenter's usual steady shoulder camera without head movement or automatic target focus.
+- Corrected the Unit Frame Cleanup description so it no longer claims to hide PvP icons.
+- Narrowed Remove Minimap Clutter to addon and queue buttons, the day/night icon, and Classic zoom controls, and enabled it by default on WoW Forever.
+- Restored the Bandage macro button in the WoW Forever Consumable Macros settings pane.
+- Brought World Map Cleanup to WoW Forever with an 85% centered maximized map, no fullscreen blackout, and the Silithus hover-highlight repair.
+- Styled Retail and WoW Forever appearance-collection notices in Chat Cleaner with Blizzard's transmog color while preserving clickable item links.
+- Enabled Fade Micro Menu & Bags by default on the WoW Forever beta.
 
 ## 1.7.10
 

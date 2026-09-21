@@ -11,9 +11,6 @@
 ## Version: 1.8.0
 ## Author: Rafael Polutta
 ## IconTexture: Interface\AddOns\Carpenter\Art\Icons\Carpenter_Logo
-## AddonCompartmentFunc: Carpenter_AddonCompartment_OnClick
-## AddonCompartmentFuncOnEnter: Carpenter_AddonCompartment_OnEnter
-## AddonCompartmentFuncOnLeave: Carpenter_AddonCompartment_OnLeave
 
 # Core
 Core\Compatibility.lua
@@ -24,6 +21,7 @@ Localization\frFR.lua
 Localization\ptBR.lua
 Localization\ruRU.lua
 Core\Carpenter.lua
+Modules\AddonCompartment.lua
 Core\Unit.lua
 Core\Nameplates.lua
 Core\ErrorTrace.lua
@@ -32,7 +30,6 @@ Core\ErrorTrace.lua
 Modules\ConfigSidebar.lua
 Modules\ConfigOptions.lua
 config.lua
-Modules\AddonCompartment.lua
 SpellData.lua
 
 # Action Bars

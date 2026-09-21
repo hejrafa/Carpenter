@@ -37,6 +37,7 @@ local spellOverlayApplying = false
 local uiParentVisibilityHooked = false
 local uiParentHiddenForActionCam = false
 local cameraSettingsApplied = false
+local originalCameraCVars = {}
 local narcissusHooks = {}
 local HookSpellOverlay
 local UpdateSpellOverlayOffset
@@ -55,6 +56,38 @@ end
 
 local function IsRetail()
     return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+end
+
+local function IsForever()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isForever
+end
+
+local function SetCameraCVar(name, value)
+    if type(SetCVar) ~= "function" then return false end
+    return pcall(SetCVar, name, value) == true
+end
+
+local function SetOwnedCameraCVar(name, value)
+    if originalCameraCVars[name] == nil then
+        local original = false
+        if type(GetCVar) == "function" then
+            local ok, current = pcall(GetCVar, name)
+            if ok and current ~= nil then
+                original = current
+            end
+        end
+        originalCameraCVars[name] = original
+    end
+    return SetCameraCVar(name, value)
+end
+
+local function RestoreOwnedCameraCVars()
+    for name, value in pairs(originalCameraCVars) do
+        if value ~= false then
+            SetCameraCVar(name, value)
+        end
+        originalCameraCVars[name] = nil
+    end
 end
 
 -- Carpenter only owns Blizzard's experimental-camera warning while Action Cam is
@@ -197,26 +230,46 @@ end
 
 local function ResetCameraCVarsToDefaults()
     -- Called only after Carpenter enabled Action Cam during this UI session.
-    SetCVar("test_cameraOverShoulder", 0)
-    SetCVar("test_cameraDynamicPitch", 0)
-    SetCVar("test_cameraDynamicPitchBaseFovPad", 0.4)  -- default
-    SetCVar("test_cameraDynamicPitchBaseFovPadFlying", 0.75)  -- default
-    SetCVar("test_cameraDynamicPitchBaseFovPadDownScale", 0.25)  -- default
-    SetCVar("test_cameraDynamicPitchSmartPivotCutoffDist", 10)  -- default
+    SetCameraCVar("test_cameraOverShoulder", 0)
+    SetCameraCVar("test_cameraDynamicPitch", 0)
+    SetCameraCVar("test_cameraDynamicPitchBaseFovPad", 0.4)  -- default
+    SetCameraCVar("test_cameraDynamicPitchBaseFovPadFlying", 0.75)  -- default
+    SetCameraCVar("test_cameraDynamicPitchBaseFovPadDownScale", 0.25)  -- default
+    SetCameraCVar("test_cameraDynamicPitchSmartPivotCutoffDist", 10)  -- default
+    SetCameraCVar("test_cameraHeadMovementStrength", 0)
+    SetCameraCVar("test_cameraTargetFocusEnemyEnable", 0)
+    SetCameraCVar("test_cameraTargetFocusInteractEnable", 0)
+    RestoreOwnedCameraCVars()
+end
+
+local function ApplyForeverCameraOverrides()
+    if not IsForever() then return end
+
+    -- These modern accessibility camera options override the experimental
+    -- Action Cam CVars unless they are disabled.
+    SetOwnedCameraCVar("CameraKeepCharacterCentered", 0)
+    SetOwnedCameraCVar("CameraReduceUnexpectedMovement", 0)
+
+    -- Carpenter's established profile is steady: no head movement and no
+    -- automatic camera pull toward enemies or interaction targets.
+    SetCameraCVar("test_cameraHeadMovementStrength", 0)
+    SetCameraCVar("test_cameraTargetFocusEnemyEnable", 0)
+    SetCameraCVar("test_cameraTargetFocusInteractEnable", 0)
 end
 
 local function UpdateCameraSettings()
     if IsEnabled() then
         SuppressCameraWarning()
+        ApplyForeverCameraOverrides()
         cameraSettingsApplied = true
-        SetCVar("test_cameraOverShoulder", OVER_SHOULDER_OFFSET)
-        SetCVar("cameraSmoothingStyle", 0) -- required for offset
+        SetCameraCVar("test_cameraOverShoulder", OVER_SHOULDER_OFFSET)
+        SetOwnedCameraCVar("cameraSmoothStyle", 0) -- required for offset
 
-        SetCVar("test_cameraDynamicPitch", 1)
-        SetCVar("test_cameraDynamicPitchBaseFovPad", DYNAMIC_PITCH_GROUND)
-        SetCVar("test_cameraDynamicPitchBaseFovPadFlying", DYNAMIC_PITCH_FLYING)
-        SetCVar("test_cameraDynamicPitchBaseFovPadDownScale", DYNAMIC_PITCH_DOWN_SCALE)
-        SetCVar("test_cameraDynamicPitchSmartPivotCutoffDist", SMART_PIVOT_CUTOFF_DISTANCE)
+        SetCameraCVar("test_cameraDynamicPitch", 1)
+        SetCameraCVar("test_cameraDynamicPitchBaseFovPad", DYNAMIC_PITCH_GROUND)
+        SetCameraCVar("test_cameraDynamicPitchBaseFovPadFlying", DYNAMIC_PITCH_FLYING)
+        SetCameraCVar("test_cameraDynamicPitchBaseFovPadDownScale", DYNAMIC_PITCH_DOWN_SCALE)
+        SetCameraCVar("test_cameraDynamicPitchSmartPivotCutoffDist", SMART_PIVOT_CUTOFF_DISTANCE)
         
         -- Update zoom based on mount status
         UpdateCameraZoom()

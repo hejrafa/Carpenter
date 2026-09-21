@@ -126,12 +126,14 @@ loadAddonFile("Modules/SmartMacros/SmartMacroData.lua")
 loadAddonFile("Modules/SmartMacros/SmartMacroClassifier.lua")
 loadAddonFile("Modules/SmartMacros/SmartMacroScanner.lua")
 loadAddonFile("Modules/SmartMacros/SmartMacros.lua")
+loadAddonFile("Modules/ConfigSidebar.lua")
 
 local failures = {}
 local fixtureCount = 0
 local scanner = ns.Private.SmartMacroScanner
 local classifier = ns.Private.SmartMacroClassifier
 local macroData = ns.Private.SmartMacroData
+local configSidebar = ns.Private.ConfigSidebar
 
 Carpenter.Client = { isRetail = true, isForever = true }
 if not macroData.IsRetail() then
@@ -143,8 +145,17 @@ end
 if not macroData.GetActiveItems().Band then
     failures[#failures + 1] = "Forever macro flavor: expected the Classic bandage macro"
 end
+local foreverPreviewOrder = configSidebar.GetSmartMacroPreviewOrder()
+if foreverPreviewOrder[6] ~= "Band" then
+    failures[#failures + 1] = "Forever settings pane: expected the Bandage macro preview"
+end
+Carpenter.Client = { isRetail = true, isForever = false, isClassic = false }
+local retailPreviewOrder = configSidebar.GetSmartMacroPreviewOrder()
+if #retailPreviewOrder ~= 5 then
+    failures[#failures + 1] = "Retail settings pane: did not expect the Classic bandage macro preview"
+end
 Carpenter.Client = { isRetail = false, isForever = false }
-fixtureCount = fixtureCount + 3
+fixtureCount = fixtureCount + 5
 
 local firstFingerprint = scanner.GetBagFingerprint()
 

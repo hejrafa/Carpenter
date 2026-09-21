@@ -15,59 +15,11 @@ local LFG_MINIMAP_BUTTONS = {
     "QueueStatusMinimapButton",
 }
 
-local CLASSIC_TRACKING_MINIMAP_BUTTONS = {
-    "MiniMapTracking",
-    "MiniMapTrackingFrame",
-    "MiniMapTrackingButton",
-}
-
-local RETAIL_MINIMAP_FRAMES = {
-    "MiniMapTracking",
-    "MiniMapTrackingFrame",
-    "MiniMapTrackingButton",
-    "MinimapZoneTextButton",
-    "MinimapZoneText",
-    "MinimapZoneTextButtonLeft",
-    "MinimapZoneTextButtonMiddle",
-    "MinimapZoneTextButtonRight",
-    "MinimapBorderTop",
-    "GameTimeFrame",
-    "GameTimeCalendarInvitesTexture",
-    "TimeManagerClockButton",
-    "TimeManagerClockTicker",
-    "TimeManagerClockButtonText",
-    "TimeManagerClockButtonBackground",
-    "TimeManagerClockButtonLeft",
-    "TimeManagerClockButtonMiddle",
-    "TimeManagerClockButtonRight",
-    "AddonCompartmentFrame",
-}
-
-local RETAIL_MINIMAP_CLUSTER_KEYS = {
-    "Tracking",
-    "TrackingButton",
-    "TrackingFrame",
-    "ZoneTextButton",
-    "ZoneTextFrame",
-    "ZoneText",
-    "BorderTop",
-    "CalendarButton",
-    "CalendarFrame",
-    "GameTimeFrame",
-    "ClockButton",
-    "ClockFrame",
-    "AddonCompartment",
-    "AddonCompartmentButton",
-    "AddonCompartmentFrame",
-}
-
 local FADE_SPEED = 6 -- higher = snappier fade
 
 function Fader.Create(config)
     config = config or {}
     local isEnabled = config.IsEnabled or function() return false end
-    local isClassicClient = config.IsClassicClient or function() return false end
-    local isRetailClient = config.IsRetailClient or function() return false end
 
     local fadeTargets = {}
     local hoverTargets = {}
@@ -82,6 +34,9 @@ function Fader.Create(config)
         if name == "Minimap"
             or name:find("MiniMapTracking")
             or name:find("MinimapZoneText")
+            or name:find("AddonCompartment")
+            or name:find("GameTime")
+            or name:find("TimeManagerClock")
             or name:find("MinimapCompassTexture")
             or name:find("MinimapNorthTag")
         then
@@ -219,78 +174,9 @@ function Fader.Create(config)
         end
     end
 
-    local function SetupRetailHoverFrame(frame, enabled)
-        if not enabled or not frame or frame == Minimap then return end
-
-        RegisterHoverTarget(frame)
-        HookFadeHoverTarget(frame)
-    end
-
-    local function SetupRetailMinimapVisuals(object, enabled, depth, includeFrame)
-        if not object or object == Minimap or type(object) ~= "table" then return end
-        depth = depth or 0
-
-        if includeFrame ~= false then
-            SetupRetailHoverFrame(object, enabled)
-        end
-
-        if object.GetRegions then
-            for i = 1, select("#", object:GetRegions()) do
-                SetupFadedMinimapButton(select(i, object:GetRegions()), enabled, false)
-            end
-        end
-
-        if not object.GetRegions and not object.GetChildren then
-            SetupFadedMinimapButton(object, enabled, false)
-        end
-
-        if depth >= 2 or not object.GetChildren then return end
-        for i = 1, object:GetNumChildren() do
-            SetupRetailMinimapVisuals(select(i, object:GetChildren()), enabled, depth + 1, false)
-        end
-    end
-
-    local function SetupRetailClusterMember(member, enabled)
-        if not member or member == Minimap then return end
-        if type(member) ~= "table" then return end
-
-        SetupRetailMinimapVisuals(member, enabled, 0, true)
-        if member.Button then
-            SetupRetailMinimapVisuals(member.Button, enabled, 0, true)
-        end
-        if member.Frame then
-            SetupRetailMinimapVisuals(member.Frame, enabled, 0, true)
-        end
-    end
-
-    local function ApplyRetailMinimapClutter(enabled)
-        for _, name in ipairs(RETAIL_MINIMAP_FRAMES) do
-            SetupRetailMinimapVisuals(_G[name], enabled, 0, true)
-        end
-
-        local cluster = _G.MinimapCluster
-        if not cluster then return end
-
-        SetupRetailHoverFrame(cluster, enabled)
-
-        for _, key in ipairs(RETAIL_MINIMAP_CLUSTER_KEYS) do
-            SetupRetailClusterMember(cluster[key], enabled)
-        end
-    end
-
     local function ApplyNamedMinimapButtonClutter(enabled)
         for _, name in ipairs(LFG_MINIMAP_BUTTONS) do
             SetupFadedMinimapButton(_G[name], enabled, true)
-        end
-
-        if isClassicClient() then
-            for _, name in ipairs(CLASSIC_TRACKING_MINIMAP_BUTTONS) do
-                SetupFadedMinimapButton(_G[name], enabled, true)
-            end
-        end
-
-        if isRetailClient() then
-            ApplyRetailMinimapClutter(enabled)
         end
     end
 

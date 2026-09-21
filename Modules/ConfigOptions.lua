@@ -30,6 +30,11 @@ function Options.Create(context)
         return Description(client and client.isVanilla and "DESC_MOUNT_SPEED_TRINKET_CLASSIC" or "DESC_MOUNT_SPEED_TRINKET")
     end
 
+    local function WorldMapCleanupDescription()
+        local client = Carpenter and Carpenter.Client
+        return Description(client and client.isForever and "DESC_WORLD_MAP_CLEANUP_FOREVER" or "DESC_WORLD_MAP_CLEANUP")
+    end
+
     local function RunGlobal(globalName)
         local callback = _G[globalName]
         if callback then callback() end
@@ -139,8 +144,8 @@ function Options.Create(context)
                 {
                     key = "worldMapCleanupEnabled",
                     label = L.OPTION_WORLD_MAP_CLEANUP or "World Map Cleanup",
-                    description = Description("DESC_WORLD_MAP_CLEANUP"),
-                    sideLogic = ShowWorldMapOptions,
+                    description = WorldMapCleanupDescription(),
+                    sideLogic = not (Carpenter and Carpenter.Client and Carpenter.Client.isForever) and ShowWorldMapOptions or nil,
                     image = GetSettingsImage("map.png"),
                     requiresReload = false,
                     onToggle = ApplyWorldMapCleanup,

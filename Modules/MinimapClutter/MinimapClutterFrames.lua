@@ -9,10 +9,6 @@ ns.Private.MinimapClutterFrames = Frames
 local MINIMAP_FRAMES = {
     "MinimapZoomIn",
     "MinimapZoomOut",
-    "GameTimeFrame",          -- Day/Night icon / clock frame
-    "MinimapZoneTextButton",  -- Clickable zone text
-    "MinimapZoneText",        -- Zone text fontstring
-    "MinimapBorderTop",       -- Old-style zone text background art/strip above the minimap
     "MinimapCloseButton",     -- Old-style close button sitting on that strip
     "MinimapToggleButton",    -- Old-style plus/minus minimap toggle button
 }
@@ -69,9 +65,6 @@ function Frames.Create(config)
         local cluster = _G["MinimapCluster"]
         if not cluster then return end
 
-        if cluster.BorderTop then
-            HideMinimapFrame(cluster.BorderTop)
-        end
         if cluster.CloseButton then
             HideMinimapFrame(cluster.CloseButton)
         end
@@ -80,20 +73,26 @@ function Frames.Create(config)
         end
     end
 
+    local function HideDayNightArtwork()
+        local cluster = _G["MinimapCluster"]
+        if cluster and cluster.DielFrame then
+            HideMinimapFrame(cluster.DielFrame)
+        end
+    end
+
     local api = {}
 
     function api.Apply(enabled)
-        if isRetailClient() then
-            if not enabled then
-                RestoreMinimapFrames()
-            end
-            return
-        end
-
         if not enabled then
             RestoreMinimapFrames()
             return
         end
+
+        -- Forever exposes its day/night artwork as a separate DielFrame. Keep
+        -- GameTimeFrame and all calendar artwork completely untouched.
+        HideDayNightArtwork()
+
+        if isRetailClient() then return end
 
         for _, name in ipairs(MINIMAP_FRAMES) do
             local frame = _G[name]

@@ -1,5 +1,5 @@
 --[[ Carpenter - World Map Cleanup Silithus highlight fix ]]
-if Carpenter and Carpenter.Client and not Carpenter.Client.isClassic then return end
+if Carpenter and Carpenter.Client and not (Carpenter.Client.isClassic or Carpenter.Client.isForever) then return end
 
 local _, ns = ...
 ns = ns or {}

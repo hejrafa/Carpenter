@@ -8,12 +8,18 @@ end
 
 local createdFrames = {}
 local cvarWrites = {}
+local currentCVars = {
+    CameraKeepCharacterCentered = "1",
+    CameraReduceUnexpectedMovement = "1",
+    cameraSmoothStyle = "2",
+}
+local failingCVar
 local uiWarningUnregisters = 0
 local internalWarningUnregisters = 0
 
 CarpenterDB = { actionCamEnabled = false }
 Carpenter = {
-    Client = { isRetail = true },
+    Client = { isRetail = true, isForever = true },
     IsEnabled = function(_, key)
         return CarpenterDB[key] == true
     end,
@@ -60,6 +66,14 @@ end
 
 function SetCVar(name, value)
     cvarWrites[#cvarWrites + 1] = { name = name, value = value }
+    if name == failingCVar then
+        error("unsupported CVar: " .. name)
+    end
+    currentCVars[name] = tostring(value)
+end
+
+function GetCVar(name)
+    return currentCVars[name]
 end
 
 local function loadAddonFile(path)
@@ -79,10 +93,30 @@ local function assertEqual(actual, expected, message)
     end
 end
 
+local function findLastWrite(name)
+    for index = #cvarWrites, 1, -1 do
+        if cvarWrites[index].name == name then
+            return cvarWrites[index], index
+        end
+    end
+end
+
 local function fire(frame, event, ...)
     local handler = frame.scripts.OnEvent
     if not handler then fail("frame has no OnEvent handler") end
     handler(frame, event, ...)
+end
+
+local coreFile = assert(io.open(repo .. "/Core/Carpenter.lua", "rb"))
+local coreSource = coreFile:read("*a")
+coreFile:close()
+local foreverDefaultOff = coreSource:match("local%s+foreverDefaultOff%s*=%s*(%b{})")
+if not foreverDefaultOff then fail("could not find the Forever forced-off defaults") end
+if foreverDefaultOff:match("actionCamEnabled%s*=") then
+    fail("Action Cam must be forced on for Forever while SavedVariables do not restore")
+end
+if foreverDefaultOff:match("menuTransparencyEnabled%s*=") then
+    fail("Fade Micro Menu & Bags must be forced on for Forever while SavedVariables do not restore")
 end
 
 loadAddonFile("Modules/ActionCam.lua")
@@ -103,16 +137,30 @@ assertEqual(internalWarningUnregisters, 0, "disabled startup unregistered the 12
 -- CVars and suppress the corresponding warning.
 CarpenterDB.actionCamEnabled = true
 Carpenter_ApplyActionCam()
-assertEqual(#cvarWrites, 7, "enabling Action Cam did not apply all camera settings")
+assertEqual(currentCVars.CameraKeepCharacterCentered, "0", "Forever kept the character centered")
+assertEqual(currentCVars.CameraReduceUnexpectedMovement, "0", "Forever kept unexpected-movement reduction enabled")
+assertEqual(currentCVars.test_cameraHeadMovementStrength, "0", "Forever enabled camera head movement")
+assertEqual(currentCVars.test_cameraTargetFocusEnemyEnable, "0", "Forever enabled enemy camera focus")
+assertEqual(currentCVars.test_cameraTargetFocusInteractEnable, "0", "Forever enabled interaction camera focus")
+assertEqual(currentCVars.test_cameraDynamicPitch, "1", "Forever did not enable dynamic pitch")
+assertEqual(currentCVars.test_cameraOverShoulder, "1", "Action Cam did not use Carpenter's established shoulder offset")
+if not findLastWrite("cameraSmoothStyle") then
+    fail("Action Cam did not use the camera smoothing CVar")
+end
 assertEqual(uiWarningUnregisters, 1, "enabling Action Cam did not suppress the UIParent warning")
 assertEqual(internalWarningUnregisters, 1, "enabling Action Cam did not suppress the 12.1 warning")
 
 -- Turning it off restores Carpenter's six experimental CVars exactly once.
 CarpenterDB.actionCamEnabled = false
 Carpenter_ApplyActionCam()
-assertEqual(#cvarWrites, 13, "disabling Action Cam did not restore its experimental CVars")
+assertEqual(currentCVars.CameraKeepCharacterCentered, "1", "disabling Action Cam did not restore character centering")
+assertEqual(currentCVars.CameraReduceUnexpectedMovement, "1", "disabling Action Cam did not restore unexpected-movement reduction")
+assertEqual(currentCVars.cameraSmoothStyle, "2", "disabling Action Cam did not restore camera smoothing")
+assertEqual(currentCVars.test_cameraHeadMovementStrength, "0", "disabling Action Cam did not stop head movement")
+assertEqual(currentCVars.test_cameraTargetFocusEnemyEnable, "0", "disabling Action Cam did not stop enemy focus")
+local disabledWriteCount = #cvarWrites
 Carpenter_ApplyActionCam()
-assertEqual(#cvarWrites, 13, "disabled refresh rewrote camera CVars")
+assertEqual(#cvarWrites, disabledWriteCount, "disabled refresh rewrote camera CVars")
 
 -- The text-error fallback follows the same ownership rule: with Action Cam off,
 -- Carpenter must pass an experimental-camera warning through to Blizzard.
@@ -139,5 +187,16 @@ assertEqual(passedErrorMessages, 1, "disabled Action Cam hid Blizzard's warning 
 CarpenterDB.actionCamEnabled = true
 UIErrorsFrame:onEvent("UI_ERROR_MESSAGE", 1, warning)
 assertEqual(passedErrorMessages, 1, "enabled Action Cam did not hide its warning text")
+
+-- One unavailable camera CVar must not prevent the remaining settings from
+-- being applied on clients whose camera CVar sets differ from Retail.
+cvarWrites = {}
+failingCVar = "cameraSmoothStyle"
+Carpenter_ApplyActionCam()
+local _, failedIndex = findLastWrite("cameraSmoothStyle")
+local _, dynamicPitchIndex = findLastWrite("test_cameraDynamicPitch")
+if not failedIndex or not dynamicPitchIndex or dynamicPitchIndex <= failedIndex then
+    fail("an unavailable camera CVar stopped dynamic pitch configuration")
+end
 
 print("action-cam fixtures: passed")

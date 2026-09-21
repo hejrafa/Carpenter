@@ -113,6 +113,9 @@ function Carpenter:IsFeatureAvailable(configKey)
     if Carpenter.Client.isForever and configKey == "hideMacroNamesEnabled" then
         return type(securecallfunction) == "function"
     end
+    if Carpenter.Client.isForever and configKey == "worldMapCleanupEnabled" then
+        return true
+    end
     if Carpenter.Client.isForever and foreverUnsupportedFeatures[configKey] then
         return false
     end

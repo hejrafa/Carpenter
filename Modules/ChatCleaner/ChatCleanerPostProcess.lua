@@ -57,6 +57,7 @@ function PostProcess.Create(config)
     local applyChannelStyling = config.ApplyChannelStyling or ApplyChannelStyling
     local removeLinkBrackets = config.RemoveLinkBrackets or function(text) return text end
     local formatLevelUpRewardMessage = config.FormatLevelUpRewardMessage or function() return nil end
+    local formatAppearanceCollectionMessage = config.FormatAppearanceCollectionMessage or function() return nil end
     local parseRetailMoneyGain = config.ParseRetailMoneyGain or function() return nil end
     local spaceBeforeX = config.SpaceBeforeX or function(text) return text end
     local colorPlus = config.ColorPlus or "|cffc8c8c8"
@@ -338,6 +339,12 @@ function PostProcess.Create(config)
         message = applyChannelStyling(tostring(message))
         message = removeLinkBrackets(message)
 
+        local plain = StripColorCodes(message)
+        local appearanceCollectionMessage = formatAppearanceCollectionMessage("CHAT_MSG_SYSTEM", message, plain, colorPlus .. "+|r ")
+        if appearanceCollectionMessage then
+            return originalAddMessage(frame, appearanceCollectionMessage, unpack(args))
+        end
+
         local directLootWin = FormatDirectLootWin(message)
         if directLootWin then
             return originalAddMessage(frame, directLootWin, unpack(args))
@@ -345,7 +352,7 @@ function PostProcess.Create(config)
 
         message = StyleLootRollNames(message)
 
-        local plain = StripColorCodes(message)
+        plain = StripColorCodes(message)
         local bareLootMessage = FormatBareLoot(message)
         if bareLootMessage then
             return originalAddMessage(frame, bareLootMessage, unpack(args))

@@ -26,8 +26,6 @@ local frameHelpers = FrameHelpers.Create and FrameHelpers.Create({
 
 local faderHelpers = FaderHelpers.Create and FaderHelpers.Create({
     IsEnabled = IsEnabled,
-    IsClassicClient = IsClassicClient,
-    IsRetailClient = IsRetailClient,
 }) or {}
 
 local function ApplyMinimapClutter()
@@ -61,7 +59,6 @@ function feature:Enable()
     RegisterEventSafe("PLAYER_ENTERING_WORLD")
     RegisterEventSafe("LFG_UPDATE")
     RegisterEventSafe("LFG_QUEUE_STATUS_UPDATE")
-    RegisterEventSafe("MINIMAP_UPDATE_TRACKING")
     ApplyMinimapClutter()
     -- Re-enforce shortly after login/zone to catch any late layout changes.
     if Carpenter and Carpenter.DeferMany then

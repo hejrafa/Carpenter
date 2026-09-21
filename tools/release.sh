@@ -88,8 +88,11 @@ check() {
   while IFS= read -r file; do
     files+=("$file")
   done < <(lua_files)
-  luac -p "${files[@]}" "$ROOT/tools/action-cam-fixtures.lua" "$ROOT/tools/hide-chat-buttons-fixtures.lua" "$ROOT/tools/hide-ui-elements-fixtures.lua" "$ROOT/tools/hide-quest-tracker-titles-fixtures.lua" "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT/tools/auto-track-quest-fixtures.lua" "$ROOT/tools/auto-sell-greys-fixtures.lua" "$ROOT/tools/class-health-colors-fixtures.lua" "$ROOT/tools/check-localization.lua" "$ROOT/tools/check-assets.lua" "$ROOT/tools/check-addon-shape.lua"
+  luac -p "${files[@]}" "$ROOT/tools/action-cam-fixtures.lua" "$ROOT/tools/addon-compartment-fixtures.lua" "$ROOT/tools/minimap-clutter-fixtures.lua" "$ROOT/tools/world-map-forever-fixtures.lua" "$ROOT/tools/hide-chat-buttons-fixtures.lua" "$ROOT/tools/hide-ui-elements-fixtures.lua" "$ROOT/tools/hide-quest-tracker-titles-fixtures.lua" "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT/tools/auto-track-quest-fixtures.lua" "$ROOT/tools/auto-sell-greys-fixtures.lua" "$ROOT/tools/class-health-colors-fixtures.lua" "$ROOT/tools/check-localization.lua" "$ROOT/tools/check-assets.lua" "$ROOT/tools/check-addon-shape.lua"
   lua "$ROOT/tools/action-cam-fixtures.lua" "$ROOT"
+  lua "$ROOT/tools/addon-compartment-fixtures.lua" "$ROOT"
+  lua "$ROOT/tools/minimap-clutter-fixtures.lua" "$ROOT"
+  lua "$ROOT/tools/world-map-forever-fixtures.lua" "$ROOT"
   lua "$ROOT/tools/hide-chat-buttons-fixtures.lua" "$ROOT"
   lua "$ROOT/tools/hide-ui-elements-fixtures.lua" "$ROOT"
   lua "$ROOT/tools/hide-quest-tracker-titles-fixtures.lua" "$ROOT"
