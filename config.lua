@@ -132,6 +132,7 @@ local LightGrey = "|cffaaaaaa"
 
 local ConfigSidebar = ns and ns.Private and ns.Private.ConfigSidebar or {}
 local ConfigOptions = ns and ns.Private and ns.Private.ConfigOptions or {}
+local EditModeLayout = ns and ns.Private and ns.Private.EditModeLayout or {}
 local sidebarApi = ConfigSidebar.Create and ConfigSidebar.Create({
     Frame = frame,
     L = L,
@@ -146,7 +147,10 @@ local sideReloadHint = sidebarApi.ReloadHint
 local sideContent = sidebarApi.Content
 local SetSidebarDefault = sidebarApi.SetDefault or function() end
 local ToggleSideImage = sidebarApi.ToggleImage or function() end
+local ShowSidebarContent = sidebarApi.ShowContent or function() end
 local SIDE_GAP = sidebarApi.SideGap or 16
+local hiddenSettingsShown = false
+local ShowEditModeLayoutSidebar
 
 -- =========================
 -- Main Scroll Area
@@ -170,7 +174,13 @@ scrollFrame:SetScript("OnMouseWheel", function(self, delta)
     self:SetVerticalScroll(new)
 end)
 
-scrollFrame:SetScript("OnLeave", SetSidebarDefault)
+scrollFrame:SetScript("OnLeave", function()
+    if hiddenSettingsShown and ShowEditModeLayoutSidebar then
+        ShowEditModeLayoutSidebar()
+    else
+        SetSidebarDefault()
+    end
+end)
 
 local content = CreateFrame("Frame", nil, scrollFrame)
 content:SetHeight(1000)
@@ -434,6 +444,88 @@ local function IsOptionAvailable(option)
     return true
 end
 
+local function ShowWidget(widget, shown)
+    if shown then
+        widget:Show()
+    else
+        widget:Hide()
+    end
+end
+
+local function CreateListItem(label, showDetails)
+    local row = CreateFrame("Button", nil, content)
+    row:SetHeight(32)
+    row:SetPoint("TOPLEFT", 0, yPos)
+    row:SetPoint("TOPRIGHT", 0, yPos)
+    row:EnableMouse(true)
+
+    local text = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    text:SetPoint("LEFT", row, "LEFT", 42, 0)
+    text:SetText(label)
+
+    local textures = {}
+    local function CreateLine(anchor, gStart, gEnd)
+        local texture = row:CreateTexture(nil, "OVERLAY")
+        texture:SetHeight(0.5)
+        texture:SetTexture("Interface\\BUTTONS\\WHITE8X8")
+        texture:SetGradient("HORIZONTAL", gStart, gEnd)
+
+        if anchor == "TOPLEFT" then
+            texture:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
+            texture:SetPoint("RIGHT", row, "TOP", 0, 0)
+        elseif anchor == "TOPRIGHT" then
+            texture:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, 0)
+            texture:SetPoint("LEFT", row, "TOP", 0, 0)
+        elseif anchor == "BOTTOMLEFT" then
+            texture:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)
+            texture:SetPoint("RIGHT", row, "BOTTOM", 0, 0)
+        elseif anchor == "BOTTOMRIGHT" then
+            texture:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, 0)
+            texture:SetPoint("LEFT", row, "BOTTOM", 0, 0)
+        end
+
+        texture:Hide()
+        return texture
+    end
+
+    textures.lineTopL = CreateLine("TOPLEFT", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, 0.8))
+    textures.lineTopR = CreateLine("TOPRIGHT", CreateColor(1, 1, 1, 0.8), CreateColor(1, 1, 1, 0))
+    textures.lineBotL = CreateLine("BOTTOMLEFT", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, 0.8))
+    textures.lineBotR = CreateLine("BOTTOMRIGHT", CreateColor(1, 1, 1, 0.8), CreateColor(1, 1, 1, 0))
+
+    local bgLeft = row:CreateTexture(nil, "BACKGROUND")
+    bgLeft:SetPoint("TOPLEFT")
+    bgLeft:SetPoint("BOTTOMLEFT")
+    bgLeft:SetPoint("RIGHT", row, "CENTER")
+    bgLeft:SetTexture("Interface\\BUTTONS\\WHITE8X8")
+    bgLeft:SetGradient("HORIZONTAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, 0.06))
+    bgLeft:Hide()
+
+    local bgRight = row:CreateTexture(nil, "BACKGROUND")
+    bgRight:SetPoint("TOPRIGHT")
+    bgRight:SetPoint("BOTTOMRIGHT")
+    bgRight:SetPoint("LEFT", row, "CENTER")
+    bgRight:SetTexture("Interface\\BUTTONS\\WHITE8X8")
+    bgRight:SetGradient("HORIZONTAL", CreateColor(1, 1, 1, 0.06), CreateColor(1, 1, 1, 0))
+    bgRight:Hide()
+
+    row:SetScript("OnEnter", function()
+        bgLeft:Show()
+        bgRight:Show()
+        for _, texture in pairs(textures) do texture:Show() end
+        showDetails()
+    end)
+    row:SetScript("OnLeave", function()
+        bgLeft:Hide()
+        bgRight:Hide()
+        for _, texture in pairs(textures) do texture:Hide() end
+    end)
+    row:SetScript("OnClick", showDetails)
+
+    yPos = yPos - 32
+    return row
+end
+
 local function RenderSections(sections)
     local widgets = {}
     yPos = -SCROLL_CONTENT_TOP_PADDING
@@ -477,7 +569,73 @@ local function RenderSections(sections)
     return widgets, yPos
 end
 
-local _, mainYPos = RenderSections(OPTION_SECTIONS)
+local mainWidgets, mainYPos = RenderSections(OPTION_SECTIONS)
+
+local function SetEditModeLayoutStatus(message, success)
+    local status = _G.CP_EditModeLayoutStatus
+    if not status then return end
+    status:SetText((success and "|cff55ff55" or "|cffff6060") .. message .. "|r")
+end
+
+local function EnsureEditModeLayoutSidebarControls()
+    if _G.CP_EditModeLayoutInstall then return end
+
+    local installButton = CreateFrame("Button", "CP_EditModeLayoutInstall", sideContent, "UIPanelButtonTemplate")
+    installButton:SetSize(190, 24)
+    installButton:SetPoint("TOPLEFT", sideContent, "TOPLEFT", 0, 0)
+    installButton:SetText(L.CREATE_EDIT_MODE_LAYOUT or "Create Carpenter Layout")
+    installButton:SetScript("OnClick", function()
+        local ok, result = EditModeLayout.Install and EditModeLayout.Install()
+        if ok then
+            local message = result == "updated"
+                and (L.EDIT_MODE_LAYOUT_UPDATED or "Carpenter layout updated. Open Edit Mode to select it.")
+                or (L.EDIT_MODE_LAYOUT_CREATED or "Carpenter layout created. Open Edit Mode to select it.")
+            SetEditModeLayoutStatus(message, true)
+        else
+            local message = result == "combat"
+                and (L.EDIT_MODE_LAYOUT_COMBAT or "The layout cannot be changed during combat.")
+                or (L.EDIT_MODE_LAYOUT_FAILED or "Carpenter could not create the layout.")
+            SetEditModeLayoutStatus(message, false)
+        end
+    end)
+
+    local status = sideContent:CreateFontString("CP_EditModeLayoutStatus", "OVERLAY", "GameFontHighlightSmall")
+    status:SetPoint("TOPLEFT", installButton, "BOTTOMLEFT", 5, -12)
+    status:SetPoint("RIGHT", sideContent, "RIGHT", -5, 0)
+    status:SetHeight(50)
+    status:SetJustifyH("LEFT")
+    status:SetJustifyV("TOP")
+    status:SetWordWrap(true)
+    status:SetText("")
+end
+
+ShowEditModeLayoutSidebar = function()
+    ToggleSideImage(nil)
+    local description = L.EDIT_MODE_LAYOUT_DESCRIPTION or "This is the addon author's preferred {hl}Edit Mode{/hl} layout.\n\nCreate or update the account-wide {hl}Carpenter{/hl} layout, then select it in Edit Mode."
+    description = description:gsub("{hl}", LighterCream):gsub("{/hl}", LightGrey)
+    sideDesc:SetText(LightGrey .. description .. "|r")
+    sideReloadHint:Hide()
+    ShowSidebarContent()
+    EnsureEditModeLayoutSidebarControls()
+    _G.CP_EditModeLayoutInstall:Show()
+    _G.CP_EditModeLayoutStatus:Show()
+end
+
+local function CreateHiddenEditModePage()
+    if not (EditModeLayout.IsAvailable and EditModeLayout.IsAvailable()) then
+        return {}, -SCROLL_CONTENT_TOP_PADDING
+    end
+
+    local widgets = {}
+    yPos = -SCROLL_CONTENT_TOP_PADDING
+    widgets[#widgets + 1] = CreateHeader(L.SECTION_EDIT_MODE_LAYOUT or "Layout")
+    widgets[#widgets + 1] = CreateListItem(L.EDIT_MODE_LAYOUT_NAME or "Carpenter", ShowEditModeLayoutSidebar)
+
+    return widgets, yPos
+end
+
+local hiddenWidgets, hiddenYPos = CreateHiddenEditModePage()
+local hasHiddenSettings = #hiddenWidgets > 0
 
 -- =========================
 -- Footer
@@ -490,18 +648,47 @@ footerVersion:SetAllPoints(footerVersionButton)
 footerVersion:SetJustifyH("RIGHT")
 
 local versionText = "v" .. ((Carpenter and Carpenter.GetVersion and Carpenter:GetVersion()) or "1.8.0")
-footerVersion:SetText(LightGrey .. versionText .. "|r")
+local function UpdateFooterVersionText(isHovered)
+    footerVersion:SetText((isHovered and hasHiddenSettings and "|cffdddddd" or LightGrey) .. versionText .. "|r")
+end
 
-local footerYPos = mainYPos - 48
-footerVersionButton:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, footerYPos - 3)
-SetSidebarDefault()
-scrollFrame:SetVerticalScroll(0)
+local function SetSettingsView(showHidden)
+    hiddenSettingsShown = hasHiddenSettings and showHidden == true
+    for _, widget in ipairs(mainWidgets) do
+        ShowWidget(widget, not hiddenSettingsShown)
+    end
+    for _, widget in ipairs(hiddenWidgets) do
+        ShowWidget(widget, hiddenSettingsShown)
+    end
+
+    local footerYPos = (hiddenSettingsShown and hiddenYPos or mainYPos) - 48
+    footerVersionButton:ClearAllPoints()
+    footerVersionButton:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, footerYPos - 3)
+    SetSidebarDefault()
+    if hiddenSettingsShown then
+        ShowEditModeLayoutSidebar()
+    end
+    scrollFrame:SetVerticalScroll(0)
 
 -- Keep the scroll child close to the frame edges without crowding the footer.
-local FOOTER_LINE_HEIGHT = 14
-local SIDEBAR_BOTTOM_INSET = 10
-local SCROLL_CONTENT_BOTTOM_PADDING = SIDE_GAP + SIDEBAR_BOTTOM_INSET
-content:SetHeight(-footerYPos + FOOTER_LINE_HEIGHT + SCROLL_CONTENT_BOTTOM_PADDING)
+    local FOOTER_LINE_HEIGHT = 14
+    local SIDEBAR_BOTTOM_INSET = 10
+    local SCROLL_CONTENT_BOTTOM_PADDING = SIDE_GAP + SIDEBAR_BOTTOM_INSET
+    content:SetHeight(-footerYPos + FOOTER_LINE_HEIGHT + SCROLL_CONTENT_BOTTOM_PADDING)
+end
+
+footerVersionButton:SetScript("OnEnter", function()
+    UpdateFooterVersionText(true)
+end)
+footerVersionButton:SetScript("OnLeave", function()
+    UpdateFooterVersionText(false)
+end)
+footerVersionButton:SetScript("OnClick", function()
+    SetSettingsView(not hiddenSettingsShown)
+end)
+
+UpdateFooterVersionText(false)
+SetSettingsView(false)
 
 SyncCheckboxesFromDatabase = function()
     if not CarpenterDB then return end

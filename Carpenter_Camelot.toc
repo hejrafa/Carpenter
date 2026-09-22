@@ -28,6 +28,7 @@ Core\Nameplates.lua
 Core\ErrorTrace.lua
 
 # Settings
+Modules\EditModeLayout.lua
 Modules\ConfigSidebar.lua
 Modules\ConfigOptions.lua
 config.lua

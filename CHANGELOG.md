@@ -16,6 +16,7 @@
 - Brought World Map Cleanup to WoW Forever with an 85% centered maximized map, no fullscreen blackout, and the Silithus hover-highlight repair.
 - Styled Retail and WoW Forever appearance-collection notices in Chat Cleaner with Blizzard's transmog color while preserving clickable item links.
 - Enabled Fade Micro Menu & Bags by default on the WoW Forever beta.
+- Restored the hidden version-number page with a Layout group, a Carpenter entry, and its Edit Mode layout installer in the standard detail pane.
 
 ## 1.7.10
 

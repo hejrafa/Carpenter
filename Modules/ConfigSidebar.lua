@@ -142,6 +142,9 @@ function Sidebar.Create(context)
         if _G["CP_WorldMap_POIIcons"] then
             _G["CP_WorldMap_POIIcons"]:Hide()
         end
+        for _, name in ipairs({ "CP_EditModeLayoutInstall", "CP_EditModeLayoutStatus" }) do
+            if _G[name] then _G[name]:Hide() end
+        end
     end
 
     local function GetSmartMacroPreviewOrder()
@@ -349,6 +352,8 @@ function Sidebar.Create(context)
         Content = sideContent,
         SetDefault = SetSidebarDefault,
         ToggleImage = ToggleSideImage,
+        ShowContent = ShowSideContent,
+        HideAllContent = HideAllSideContent,
         SideLogic = {
             FilterOptions = ShowFilterOptions,
             CarrotSlots = ShowCarrotSlots,
