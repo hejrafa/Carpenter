@@ -74,6 +74,7 @@ local featureSupport = {
         actionBarFaderEnabled = true,
     }, { __index = classicFeatures }),
     retail = {
+        hideMacroNamesEnabled = true,
         hideStanceBarEnabled = true,
         menuTransparencyEnabled = true,
         minimapClutterEnabled = true,
@@ -110,7 +111,7 @@ local foreverUnsupportedFeatures = {
 }
 
 function Carpenter:IsFeatureAvailable(configKey)
-    if Carpenter.Client.isForever and configKey == "hideMacroNamesEnabled" then
+    if Carpenter.Client.isRetail and configKey == "hideMacroNamesEnabled" then
         return type(securecallfunction) == "function"
     end
     if Carpenter.Client.isForever and configKey == "worldMapCleanupEnabled" then

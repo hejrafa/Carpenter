@@ -89,11 +89,15 @@ assert(hotkey.alpha == 0, "hotkeys should be reapplied after combat")
 Carpenter.Client.isRetail = true
 macroName.alpha = 1
 hotkey.alpha = 1
+local secureCallsBeforeRetail = secureCallCount
 eventFrame.OnEvent(eventFrame, "PLAYER_ENTERING_WORLD")
-assert(macroName.alpha == 1, "Retail must not modify protected macro-name regions")
-assert(hotkey.alpha == 1, "Retail must not modify protected hotkey regions")
+assert(macroName.alpha == 0, "Retail should hide macro names through a secure call")
+assert(hotkey.alpha == 0, "Retail should hide hotkeys through a secure call")
+assert(secureCallCount > secureCallsBeforeRetail, "Retail action-button text writes must use securecallfunction")
 
 Carpenter.Client.isForever = true
+macroName.alpha = 1
+hotkey.alpha = 1
 eventFrame.OnEvent(eventFrame, "PLAYER_ENTERING_WORLD")
 assert(macroName.alpha == 0, "Forever should hide macro names through a secure call")
 assert(hotkey.alpha == 0, "Forever should hide hotkeys through a secure call")

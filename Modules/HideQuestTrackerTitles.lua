@@ -4,13 +4,13 @@
 
 local FEATURE_KEY = "hideQuestTrackerTitlesEnabled"
 local COLLAPSED_HEADER_HEIGHT = 0.001
+local MODULE_HEIGHT_MODIFIER = "CarpenterHiddenHeader"
 local secureCallFunction = securecallfunction
 local originalAlphas = setmetatable({}, { __mode = "k" })
 local originalHeights = setmetatable({}, { __mode = "k" })
 local managedModuleHeights = setmetatable({}, { __mode = "k" })
 local managedModuleAnchors = setmetatable({}, { __mode = "k" })
 local hookedTrackers = setmetatable({}, { __mode = "k" })
-local hookedQuestModules = setmetatable({}, { __mode = "k" })
 local containerUpdateHookInstalled = false
 local pendingCombatApply = false
 
@@ -28,22 +28,44 @@ local function AddUniqueFrame(frames, seen, frame)
     frames[#frames + 1] = frame
 end
 
+local function GetQuestTrackerModules()
+    local modules = {}
+    local seen = {}
+
+    local function AddModule(module)
+        if module and not seen[module] then
+            seen[module] = true
+            modules[#modules + 1] = module
+        end
+    end
+
+    AddModule(_G.QuestObjectiveTracker)
+    AddModule(_G.QUEST_TRACKER_MODULE)
+
+    local client = Carpenter and Carpenter.Client
+    if not (client and client.isForever) then
+        AddModule(_G.CampaignQuestObjectiveTracker)
+        AddModule(_G.CAMPAIGN_QUEST_TRACKER_MODULE)
+    end
+
+    return modules
+end
+
 local function GetQuestTrackerHeaders()
     local frames = {}
     local seen = {}
     local tracker = _G.ObjectiveTrackerFrame
     local blocksFrame = _G.ObjectiveTrackerBlocksFrame or (tracker and tracker.BlocksFrame)
-    local questTracker = _G.QuestObjectiveTracker
-    local questModule = _G.QUEST_TRACKER_MODULE
 
     -- Current Objective Tracker layout.
     AddUniqueFrame(frames, seen, tracker and tracker.Header)
-    AddUniqueFrame(frames, seen, questTracker and questTracker.Header)
+    for _, module in ipairs(GetQuestTrackerModules()) do
+        AddUniqueFrame(frames, seen, module.Header)
+    end
 
     -- Dragonflight-era and Classic-compatible layouts.
     AddUniqueFrame(frames, seen, tracker and tracker.HeaderMenu)
     AddUniqueFrame(frames, seen, blocksFrame and blocksFrame.QuestHeader)
-    AddUniqueFrame(frames, seen, questModule and questModule.Header)
 
     return frames
 end
@@ -158,13 +180,31 @@ local function CollapseQuestModuleHeight(module, removedHeight)
     if not module or not removedHeight or removedHeight <= 0 then return end
     if type(module.GetHeight) ~= "function" then return end
 
+    local layoutHeaderHeight = module.headerHeight
+    if type(layoutHeaderHeight) ~= "number" or layoutHeaderHeight <= 0 then
+        layoutHeaderHeight = removedHeight
+    end
+
+    local state = managedModuleHeights[module]
+    if type(module.SetHeightModifier) == "function"
+        and type(module.ClearHeightModifier) == "function"
+    then
+        if state and state.usesHeightModifier and state.removedHeight == layoutHeaderHeight then return end
+
+        managedModuleHeights[module] = {
+            usesHeightModifier = true,
+            removedHeight = layoutHeaderHeight,
+        }
+        CallWidgetMethodSecurely(module, "SetHeightModifier", MODULE_HEIGHT_MODIFIER, -layoutHeaderHeight)
+        return
+    end
+
     local ok, currentHeight = pcall(module.GetHeight, module)
     if not ok or type(currentHeight) ~= "number" then return end
 
-    local state = managedModuleHeights[module]
-    if state and currentHeight == state.appliedHeight then return end
+    if state and math.abs(currentHeight - state.appliedHeight) < 0.5 then return end
 
-    local collapsedHeight = math.max(COLLAPSED_HEADER_HEIGHT, currentHeight - removedHeight)
+    local collapsedHeight = math.max(COLLAPSED_HEADER_HEIGHT, currentHeight - layoutHeaderHeight)
     managedModuleHeights[module] = {
         originalHeight = currentHeight,
         appliedHeight = collapsedHeight,
@@ -184,9 +224,11 @@ local function RestoreHeaders()
     end
 
     for module, state in pairs(managedModuleHeights) do
-        if type(module.GetHeight) == "function" then
+        if state.usesHeightModifier then
+            CallWidgetMethodSecurely(module, "ClearHeightModifier", MODULE_HEIGHT_MODIFIER)
+        elseif type(module.GetHeight) == "function" then
             local ok, currentHeight = pcall(module.GetHeight, module)
-            if ok and currentHeight == state.appliedHeight then
+            if ok and math.abs(currentHeight - state.appliedHeight) < 0.5 then
                 CallWidgetMethodSecurely(module, "SetHeight", state.originalHeight)
             end
         end
@@ -226,14 +268,14 @@ local function ApplyQuestTrackerTitleVisibility()
     end
 
     local tracker = _G.ObjectiveTrackerFrame
-    local questTracker = _G.QuestObjectiveTracker
-
     for _, header in ipairs(GetQuestTrackerHeaders()) do
         CollapseHeader(header)
     end
 
     MoveFirstModuleToTop(tracker)
-    CollapseQuestModuleHeight(questTracker, questTracker and originalHeights[questTracker.Header])
+    for _, module in ipairs(GetQuestTrackerModules()) do
+        CollapseQuestModuleHeight(module, module.Header and originalHeights[module.Header])
+    end
 end
 
 local function EnsureTrackerUpdateHook()
@@ -251,21 +293,6 @@ local function EnsureTrackerUpdateHook()
         end)
         if ok then
             containerUpdateHookInstalled = true
-        end
-    end
-
-    local questModule = _G.QuestObjectiveTracker or _G.QUEST_TRACKER_MODULE
-    if questModule
-        and not hookedQuestModules[questModule]
-        and type(questModule.UpdateHeight) == "function"
-    then
-        local ok = pcall(hooksecurefunc, questModule, "UpdateHeight", function()
-            if IsEnabled() then
-                ApplyQuestTrackerTitleVisibility()
-            end
-        end)
-        if ok then
-            hookedQuestModules[questModule] = true
         end
     end
 
