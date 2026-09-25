@@ -28,19 +28,6 @@ local function newWidget(name)
     return widget
 end
 
-local coreFile = assert(io.open(root .. "/Core/Carpenter.lua", "r"))
-local coreSource = coreFile:read("*a")
-coreFile:close()
-local foreverDefaultOff = assert(
-    coreSource:match("local%s+foreverDefaultOff%s*=%s*(%b{})"),
-    "could not find the Forever forced-off defaults"
-)
-assertEqual(
-    foreverDefaultOff:match("minimapClutterEnabled%s*="),
-    nil,
-    "Remove Minimap Clutter is forced on for Forever"
-)
-
 local addonButton = newWidget("LibDBIcon10_Test")
 local trackingButton = newWidget("MiniMapTrackingButton")
 local zoneButton = newWidget("MinimapZoneTextButton")

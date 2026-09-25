@@ -71,14 +71,7 @@ local defaults = {
     blankLuaErrorTraceEnabled = false,
 }
 
--- The Forever Beta currently writes SavedVariables but does not restore them.
--- Force every usable option on after each load so reload-only behavior can be
--- tested until Blizzard repairs the SavedVariables loader.
-local foreverDefaultOff = {
-    blankLuaErrorTraceEnabled = true,
-    explorerModeEnabled = true,
-    hideUnitFramePowerBarEnabled = true,
-}
+local FOREVER_DEFAULTS_RESET_VERSION = 1
 
 Carpenter.Defaults = defaults
 Carpenter.MerchantState = _G["Carpenter_MerchantState"] or {}
@@ -348,10 +341,23 @@ function Carpenter_InitializeSettings()
     CarpenterDB.hideGroupIndicatorEnabled = nil
     CarpenterDB.nameplateClassHealthEnabled = nil
 
+    -- Older Forever builds could not restore SavedVariables, so Carpenter
+    -- temporarily forced every usable boolean feature on after each load. Now
+    -- that persistence works, clear the workaround-generated profile once and
+    -- let subsequent user choices persist normally.
+    if Carpenter.Client and Carpenter.Client.isForever
+        and CarpenterDB.foreverDefaultsResetVersion ~= FOREVER_DEFAULTS_RESET_VERSION
+    then
+        for key, value in pairs(defaults) do
+            if type(value) == "boolean" then
+                CarpenterDB[key] = false
+            end
+        end
+        CarpenterDB.foreverDefaultsResetVersion = FOREVER_DEFAULTS_RESET_VERSION
+    end
+
     for key, value in pairs(defaults) do
-        if Carpenter.Client and Carpenter.Client.isForever and type(value) == "boolean" then
-            CarpenterDB[key] = not foreverDefaultOff[key]
-        elseif CarpenterDB[key] == nil then
+        if CarpenterDB[key] == nil then
             CarpenterDB[key] = value
         end
     end

@@ -107,18 +107,6 @@ local function fire(frame, event, ...)
     handler(frame, event, ...)
 end
 
-local coreFile = assert(io.open(repo .. "/Core/Carpenter.lua", "rb"))
-local coreSource = coreFile:read("*a")
-coreFile:close()
-local foreverDefaultOff = coreSource:match("local%s+foreverDefaultOff%s*=%s*(%b{})")
-if not foreverDefaultOff then fail("could not find the Forever forced-off defaults") end
-if foreverDefaultOff:match("actionCamEnabled%s*=") then
-    fail("Action Cam must be forced on for Forever while SavedVariables do not restore")
-end
-if foreverDefaultOff:match("menuTransparencyEnabled%s*=") then
-    fail("Fade Micro Menu & Bags must be forced on for Forever while SavedVariables do not restore")
-end
-
 loadAddonFile("Modules/ActionCam.lua")
 
 local eventFrame = createdFrames[1]

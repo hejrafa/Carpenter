@@ -15,6 +15,7 @@ local stateKeys = {
     blankLuaErrorTraceLog = true,
     blockedActionLog = true,
     explorerModeChatWindowRepairVersion = true,
+    foreverDefaultsResetVersion = true,
     noObjectiveQuestWatches = true,
 }
 

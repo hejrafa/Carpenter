@@ -23,14 +23,16 @@ chunk("Carpenter", ns)
 
 local layout = assert(ns.Private.EditModeLayout, "Edit Mode layout module did not load")
 local value = assert(layout.LayoutString, "Edit Mode layout string is missing")
-assert(#value > 2000, "Edit Mode layout string looks truncated")
-assert(value:match("^3 59 "), "Edit Mode layout string has the wrong header")
+assert(#value == 2707, "Edit Mode layout string has the wrong length")
+assert(value:match("^4 0 59 "), "Edit Mode layout string has the wrong header")
 assert(value:match("29 2 1 7 7 UIParent 0%.0 400%.0 %-1 #&%$U%%#&D&%%'2%(%$%)%$$"), "Edit Mode layout string has the wrong ending")
 assert(not value:find("\n", 1, true), "Edit Mode layout string must be a single line")
 assert(not value:find("\\", 1, true), "Edit Mode layout string contains an escaped Markdown asterisk")
 assertContains(value, "CompactRaidFrameManager", "raid-frame placement")
 assertContains(value, "MicroMenuContainer", "micro-menu placement")
 assertContains(value, "Minimap -68.0 -68.0", "minimap placement")
+assertContains(value, "0 12 0 0 2 StanceBar 4.0 0.0", "stance-bar placement")
+assertContains(value, "26 0 0 1 1 UIParent -729.6 -559.0", "encounter-bar placement")
 
 assert(layout.IsAvailable() == true, "Retail should expose the hidden layout page")
 Carpenter.Client.isRetail = false
