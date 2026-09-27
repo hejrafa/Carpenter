@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.1
+
+- Added Hide Macro Names support on Retail through secure native widget calls.
+- Extended Hide Quest Tracker Titles to the Campaign header on Retail while keeping WoW Forever limited to All Objectives and Quests.
+- Fixed quest tracker sections overlapping when their headers are hidden.
+- Returned WoW Forever features to disabled defaults now that addon settings persist, with a one-time reset of the previous beta defaults and normal saving of subsequent choices.
+- Updated the Carpenter Edit Mode layout to the author's latest layout preferences.
+
 ## 1.8.0
 
 - Fixed WoW Forever taint from Carpenter touching protected compact unit frames and action-button update paths.

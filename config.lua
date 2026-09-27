@@ -647,7 +647,7 @@ local footerVersion = footerVersionButton:CreateFontString(nil, "OVERLAY", "Game
 footerVersion:SetAllPoints(footerVersionButton)
 footerVersion:SetJustifyH("RIGHT")
 
-local versionText = "v" .. ((Carpenter and Carpenter.GetVersion and Carpenter:GetVersion()) or "1.8.0")
+local versionText = "v" .. ((Carpenter and Carpenter.GetVersion and Carpenter:GetVersion()) or "1.8.1")
 local function UpdateFooterVersionText(isHovered)
     footerVersion:SetText((isHovered and hasHiddenSettings and "|cffdddddd" or LightGrey) .. versionText .. "|r")
 end
