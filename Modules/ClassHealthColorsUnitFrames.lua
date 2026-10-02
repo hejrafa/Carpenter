@@ -61,72 +61,85 @@ end
 
 local Unit = ns.Private.Unit or {}
 local PARTY_MEMBER_FRAME_COUNT = 5
-local FOREVER_PARTY_CLASS_COLOR_CVAR = "raidFramesDisplayClassColor"
-local secureCallFunction = securecallfunction
-local foreverPartyClassColorOriginal
-local foreverPartyClassColorManaged = false
-local pendingForeverPartyClassColor
-local foreverPartyClassColorDriver = CreateFrame("Frame")
-foreverPartyClassColorDriver:Hide()
+local PARTY_HEALTH_ATLAS = "UI-HUD-UnitFrame-Party-PortraitOn-Bar-Health"
+local PARTY_HEALTH_STATUS_ATLAS = "UI-HUD-UnitFrame-Party-PortraitOn-Bar-Health-Status"
+local CHARACTER_PARTY_HEALTH_ATLAS = "UI-HUD-UnitFrame-CharacterFrameOnParty-PortraitOn-Bar-Health"
+local CHARACTER_PARTY_HEALTH_STATUS_ATLAS = "UI-HUD-UnitFrame-CharacterFrameOnParty-PortraitOn-Bar-Health-Status"
+local USE_ATLAS_SIZE = TextureKitConstants and TextureKitConstants.UseAtlasSize
 
-local function IsForeverClient()
-    return Carpenter and Carpenter.Client and Carpenter.Client.isForever == true
+local function GetPartyMemberFrame(index)
+    return PartyFrame and PartyFrame["MemberFrame" .. index]
 end
 
-local function GetForeverPartyClassColorCVarAPI()
-    if C_CVar and type(C_CVar.GetCVar) == "function" and type(C_CVar.SetCVar) == "function" then
-        return C_CVar.GetCVar, C_CVar.SetCVar
+local function GetPartyHealthTexture(member)
+    local container = member and member.HealthBarContainer
+    local bar = container and container.HealthBar
+    return bar and bar.HealthBarTexture
+end
+
+local function GetPartyHealthAtlases(member)
+    if member.frameType == "CharacterFrameOn" then
+        return CHARACTER_PARTY_HEALTH_ATLAS, CHARACTER_PARTY_HEALTH_STATUS_ATLAS
     end
-    if type(GetCVar) == "function" and type(SetCVar) == "function" then
-        return GetCVar, SetCVar
+    return PARTY_HEALTH_ATLAS, PARTY_HEALTH_STATUS_ATLAS
+end
+
+-- Retail-style party health bars are secure StatusBars: SetStatusBarColor writes
+-- restricted state that taints Blizzard's later reads. Blizzard locks their color
+-- (lockColor) and only swaps the fill atlas in ToPlayerArt/ToVehicleArt, so tint
+-- the fill texture region instead, on the grayscale atlas Blizzard uses for
+-- heal prediction fills.
+local function RestorePartyMemberColor(member)
+    local texture = GetPartyHealthTexture(member)
+    if not texture or not texture._Carpenter_PartyClassColored then return end
+    texture._Carpenter_PartyClassColored = nil
+
+    texture:SetVertexColor(1, 1, 1)
+    -- Vehicle art already replaced the atlas; only undo the one we swapped in.
+    if member.state == "player" then
+        texture:SetAtlas((GetPartyHealthAtlases(member)), USE_ATLAS_SIZE)
     end
 end
 
-local function SetForeverPartyClassColor(enabled)
-    if not IsForeverClient() or type(secureCallFunction) ~= "function" then return false end
+local function ApplyPartyMemberColor(member)
+    local texture = GetPartyHealthTexture(member)
+    if not texture then return end
 
-    local getter, setter = GetForeverPartyClassColorCVarAPI()
-    if not getter or not setter then return false end
+    local unit = member.unit
+    local color = member.state == "player"
+        and ClassHealth.IsUnitFrameEnabled()
+        and ClassHealth.IsPlayerUnit(unit)
+        and ClassHealth.GetClassColor(unit)
+    if not color then
+        RestorePartyMemberColor(member)
+        return
+    end
 
-    if enabled then
-        if not foreverPartyClassColorManaged then
-            local ok, value = pcall(getter, FOREVER_PARTY_CLASS_COLOR_CVAR)
-            if not ok or value == nil then return false end
-            foreverPartyClassColorOriginal = value
-            foreverPartyClassColorManaged = true
+    local _, statusAtlas = GetPartyHealthAtlases(member)
+    if texture:GetAtlas() ~= statusAtlas then
+        texture:SetAtlas(statusAtlas, USE_ATLAS_SIZE)
+    end
+    texture:SetVertexColor(color.r, color.g, color.b)
+    texture._Carpenter_PartyClassColored = true
+end
+
+local function HookPartyMemberArt(member)
+    if member._CarpenterPartyClassColorHooked then return end
+    member._CarpenterPartyClassColorHooked = true
+
+    local function OnArtChanged(self)
+        if self.state ~= "player" then
+            RestorePartyMemberColor(self)
+            return
         end
-
-        secureCallFunction(setter, FOREVER_PARTY_CLASS_COLOR_CVAR, "1")
-        return true
+        ApplyPartyMemberColor(self)
     end
-
-    if foreverPartyClassColorManaged then
-        secureCallFunction(setter, FOREVER_PARTY_CLASS_COLOR_CVAR, foreverPartyClassColorOriginal or "0")
-        foreverPartyClassColorOriginal = nil
-        foreverPartyClassColorManaged = false
+    for _, method in ipairs({ "ToPlayerArt", "ToCharacterStyleArt", "ToVehicleArt" }) do
+        if type(member[method]) == "function" then
+            hooksecurefunc(member, method, OnArtChanged)
+        end
     end
-    return true
 end
-
-local function ApplyForeverPartyClassColor(enabled)
-    if not IsForeverClient() then return false end
-
-    if InCombatLockdown and InCombatLockdown() then
-        pendingForeverPartyClassColor = enabled
-        foreverPartyClassColorDriver:RegisterEvent("PLAYER_REGEN_ENABLED")
-        return false
-    end
-
-    pendingForeverPartyClassColor = nil
-    foreverPartyClassColorDriver:UnregisterAllEvents()
-    return SetForeverPartyClassColor(enabled)
-end
-
-foreverPartyClassColorDriver:SetScript("OnEvent", function(_, event)
-    if event == "PLAYER_REGEN_ENABLED" and pendingForeverPartyClassColor ~= nil then
-        ApplyForeverPartyClassColor(pendingForeverPartyClassColor)
-    end
-end)
 
 local function GetUnitFrameHealthBar(unit)
     return Unit.FrameHealthBar and Unit.FrameHealthBar(unit) or nil
@@ -181,18 +194,23 @@ local function UpdateHealthBarColor(bar, unit)
 end
 
 local function UpdatePartyHealthBarColor(bar, unit)
-    -- Retail-style compact party frames expose restricted StatusBar state. Never
-    -- mutate those bars: Forever class coloring is delegated to Blizzard through
-    -- raidFramesDisplayClassColor instead.
     if IsRetailClient() then return end
     UpdateHealthBarColor(bar, unit)
 end
 
 local function RefreshPartyFrameColors(onlyUnit)
     for i = 1, PARTY_MEMBER_FRAME_COUNT do
-        local partyBar, partyUnit = GetPartyHealthBar(i)
-        if partyBar and (not onlyUnit or partyUnit == onlyUnit) then
-            UpdatePartyHealthBarColor(partyBar, partyUnit)
+        if IsRetailClient() then
+            local member = GetPartyMemberFrame(i)
+            if member and GetPartyHealthTexture(member) and (not onlyUnit or member.unit == onlyUnit) then
+                HookPartyMemberArt(member)
+                ApplyPartyMemberColor(member)
+            end
+        else
+            local partyBar, partyUnit = GetPartyHealthBar(i)
+            if partyBar and (not onlyUnit or partyUnit == onlyUnit) then
+                UpdatePartyHealthBarColor(partyBar, partyUnit)
+            end
         end
     end
 end
@@ -253,7 +271,6 @@ end)
 local unitFrameFeature = {}
 
 function unitFrameFeature:Enable()
-    ApplyForeverPartyClassColor(true)
     unitFrameDriver:RegisterEvent("PLAYER_TARGET_CHANGED")
     unitFrameDriver:RegisterEvent("PLAYER_FOCUS_CHANGED")
     unitFrameDriver:RegisterUnitEvent("UNIT_HEALTH", "player", "target", "targettarget", "focus", "party1", "party2", "party3", "party4")
@@ -268,15 +285,16 @@ function unitFrameFeature:Enable()
 end
 
 function unitFrameFeature:Disable()
-    ApplyForeverPartyClassColor(false)
     RestoreDefaultUnitColor(GetUnitFrameHealthBar("player"), "player", true)
     RestoreDefaultUnitColor(GetUnitFrameHealthBar("target"), "target", true)
     RestoreDefaultUnitColor(GetUnitFrameHealthBar("targettarget"), "targettarget", true)
     RestoreDefaultUnitColor(GetUnitFrameHealthBar("focus"), "focus", true)
 
     for i = 1, PARTY_MEMBER_FRAME_COUNT do
-        local partyBar, partyUnit = GetPartyHealthBar(i)
-        if not IsRetailClient() then
+        if IsRetailClient() then
+            RestorePartyMemberColor(GetPartyMemberFrame(i))
+        else
+            local partyBar, partyUnit = GetPartyHealthBar(i)
             RestoreDefaultUnitColor(partyBar, partyUnit, true)
         end
     end

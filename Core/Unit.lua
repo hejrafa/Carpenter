@@ -104,7 +104,8 @@ end
 function Unit.Class(unit)
     if not Unit.IsPlayer(unit) or not UnitClass then return nil, nil end
     local ok, className, classToken = pcall(UnitClass, unit)
-    if ok then return className, classToken end
+    -- Secret class tokens cannot be used as table keys, so treat them as unknown.
+    if ok and CanAccessValue(classToken) then return className, classToken end
     return nil, nil
 end
 

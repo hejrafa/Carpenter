@@ -1,23 +1,20 @@
 #!/usr/bin/env lua
--- Verifies Forever delegates compact party class colors to Blizzard's native
--- CVar without writing protected StatusBar state.
+-- Verifies Retail-style (Retail and Forever) party class colors tint the fill
+-- texture without writing protected StatusBar state or CVars.
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then
     repo = repo:sub(1, -2)
 end
 
+local PARTY_ATLAS = "UI-HUD-UnitFrame-Party-PortraitOn-Bar-Health"
+local PARTY_STATUS_ATLAS = "UI-HUD-UnitFrame-Party-PortraitOn-Bar-Health-Status"
+local VEHICLE_ATLAS = "UI-HUD-UnitFrame-Party-PortraitOn-Vehicle-Bar-Health"
+
 local registeredFeature
 local playerBar = { applications = 0 }
-local partyFill = {}
-local partyOverlay
-local partyBar = { statusBarWrites = 0 }
-local driver
-local inCombat = false
-local cvarValue = "0"
-local cvarSetCalls = 0
-local secureCallCount = 0
-local createdFrames = {}
+local cvarWrites = 0
+local secretClass = false
 
 function playerBar:SetStatusBarColor()
     self.applications = self.applications + 1
@@ -25,26 +22,42 @@ end
 
 function playerBar:SetStatusBarDesaturated() end
 
-function partyBar:GetStatusBarTexture()
-    return partyFill
-end
+local partyTexture = { atlas = PARTY_ATLAS, color = { 1, 1, 1 } }
+
+function partyTexture:SetAtlas(atlas) self.atlas = atlas end
+function partyTexture:GetAtlas() return self.atlas end
+function partyTexture:SetVertexColor(r, g, b) self.color = { r, g, b } end
+
+local partyBar = { HealthBarTexture = partyTexture, statusBarWrites = 0 }
 
 function partyBar:SetStatusBarColor()
     self.statusBarWrites = self.statusBarWrites + 1
-    error("Retail compact party bars must not receive SetStatusBarColor")
+    error("Retail-style party bars must not receive SetStatusBarColor")
 end
 
-function partyBar:CreateTexture()
-    partyOverlay = {
-        shown = false,
-        SetAllPoints = function(self, anchor) self.anchor = anchor end,
-        ClearAllPoints = function(self) self.anchor = nil end,
-        SetColorTexture = function(self, r, g, b, a) self.color = { r, g, b, a } end,
-        Show = function(self) self.shown = true end,
-        Hide = function(self) self.shown = false end,
-    }
-    return partyOverlay
+function partyBar:SetStatusBarDesaturated()
+    error("Retail-style party bars must not receive SetStatusBarDesaturated")
 end
+
+local member = {
+    unit = "party1",
+    state = "player",
+    frameType = "Party",
+    HealthBarContainer = { HealthBar = partyBar },
+}
+
+function member:ToPlayerArt()
+    self.state = "player"
+    partyTexture:SetAtlas(PARTY_ATLAS)
+end
+
+function member:ToVehicleArt()
+    self.state = "vehicle"
+    partyTexture:SetAtlas(VEHICLE_ATLAS)
+end
+
+PartyFrame = { MemberFrame1 = member }
+TextureKitConstants = { UseAtlasSize = true }
 
 local ns = {
     Private = {
@@ -56,57 +69,55 @@ local ns = {
             ClassColor = function(unit)
                 if unit == "player" then
                     return { r = 0.2, g = 0.4, b = 0.8 }
+                elseif unit == "party1" and not secretClass then
+                    return { r = 0.9, g = 0.1, b = 0.3 }
                 end
             end,
-            Exists = function(unit) return unit == "player" end,
-            IsPlayer = function(unit) return unit == "player" end,
+            Exists = function(unit) return unit == "player" or unit == "party1" end,
+            IsPlayer = function(unit) return unit == "player" or unit == "party1" end,
         },
     },
 }
 
 Carpenter = {
-    Client = { isRetail = true, isForever = false },
-    IsEnabled = function(_, key) return key == "classHealthColorsEnabled" end,
+    Client = { isRetail = true, isForever = true },
+    IsEnabled = function(_, key) return key == "classHealthColorsEnabled" and Carpenter.enabled end,
     RegisterFeature = function(_, key, feature)
         if key == "classHealthColorsEnabled" then registeredFeature = feature end
     end,
+    enabled = true,
 }
 
 C_CVar = {
-    GetCVar = function(name)
-        assert(name == "raidFramesDisplayClassColor")
-        return cvarValue
-    end,
-    SetCVar = function(name, value)
-        assert(name == "raidFramesDisplayClassColor")
-        cvarValue = value
-        cvarSetCalls = cvarSetCalls + 1
-    end,
+    GetCVar = function() return "0" end,
+    SetCVar = function() cvarWrites = cvarWrites + 1 end,
 }
 
-function securecallfunction(func, ...)
-    secureCallCount = secureCallCount + 1
-    return func(...)
+function hooksecurefunc(target, method, hook)
+    local original = target[method]
+    target[method] = function(...)
+        local results = { original(...) }
+        hook(...)
+        return table.unpack(results)
+    end
 end
 
-function InCombatLockdown()
-    return inCombat
-end
-
-PartyFrame = {
-    MemberFrame1 = { HealthBar = partyBar, unit = "player" },
-}
+function InCombatLockdown() return false end
 
 function CreateFrame()
-    driver = { events = {} }
-    function driver:Hide() end
-    function driver:Show() end
-    function driver:RegisterEvent(event) self.events[event] = true end
-    function driver:RegisterUnitEvent(event) self.events[event] = true end
-    function driver:UnregisterAllEvents() self.events = {} end
-    function driver:SetScript(_, handler) self.OnEvent = handler end
-    createdFrames[#createdFrames + 1] = driver
-    return driver
+    local frame = { events = {} }
+    function frame:Hide() end
+    function frame:Show() end
+    function frame:RegisterEvent(event) self.events[event] = true end
+    function frame:RegisterUnitEvent(event) self.events[event] = true end
+    function frame:UnregisterAllEvents() self.events = {} end
+    function frame:SetScript(_, handler) self.OnEvent = handler end
+    return frame
+end
+
+local function AssertColor(expected, message)
+    local actual = partyTexture.color
+    assert(actual[1] == expected[1] and actual[2] == expected[2] and actual[3] == expected[3], message)
 end
 
 local sharedChunk = assert(loadfile(repo .. "/Modules/ClassHealthColorsShared.lua"))
@@ -116,35 +127,37 @@ unitFramesChunk("Carpenter", ns)
 
 assert(registeredFeature and registeredFeature.Enable, "Class Health Colors feature was not registered")
 registeredFeature:Enable()
-assert(playerBar.applications == 1, "Retail should still color the player health bar")
-assert(partyBar.statusBarWrites == 0, "Retail must not write compact party StatusBar colors")
-assert(partyOverlay == nil, "Retail must not add regions to compact party health bars")
-assert(cvarSetCalls == 0, "mainline must not change the Forever party class-color CVar")
+assert(playerBar.applications == 1, "player health bar should still be class colored")
+assert(partyTexture.atlas == PARTY_STATUS_ATLAS, "party fill should switch to the grayscale status atlas")
+AssertColor({ 0.9, 0.1, 0.3 }, "party fill should be tinted with the class color")
+
+member:ToPlayerArt()
+assert(partyTexture.atlas == PARTY_STATUS_ATLAS, "Blizzard art refresh should be followed by a recolor")
+AssertColor({ 0.9, 0.1, 0.3 }, "party fill should keep its class color after an art refresh")
+
+member:ToVehicleArt()
+assert(partyTexture.atlas == VEHICLE_ATLAS, "vehicle art must be left to Blizzard")
+AssertColor({ 1, 1, 1 }, "vehicle art must not keep the class tint")
+
+member:ToPlayerArt()
+AssertColor({ 0.9, 0.1, 0.3 }, "leaving the vehicle should restore the class tint")
 
 registeredFeature:Disable()
-assert(partyBar.statusBarWrites == 0, "disabling must not write compact party StatusBar colors")
+Carpenter.enabled = false
+assert(partyTexture.atlas == PARTY_ATLAS, "disabling should restore Blizzard's party health atlas")
+AssertColor({ 1, 1, 1 }, "disabling should clear the class tint")
 
-Carpenter.Client.isForever = true
-playerBar.applications = 0
+member:ToPlayerArt()
+assert(partyTexture.atlas == PARTY_ATLAS, "art hooks must stay inert while disabled")
+
+Carpenter.enabled = true
+secretClass = true
 registeredFeature:Enable()
-assert(playerBar.applications == 1, "Forever should still color the player health bar")
-assert(partyBar.statusBarWrites == 0, "Forever must not write compact party StatusBar colors")
-assert(partyOverlay == nil, "Forever must not add regions to compact party health bars")
-assert(cvarValue == "1", "Forever should enable Blizzard's native party class colors")
-assert(secureCallCount > 0, "Forever must change the class-color CVar through securecallfunction")
-
+assert(partyTexture.atlas == PARTY_ATLAS, "secret class tokens should leave Blizzard's art alone")
+AssertColor({ 1, 1, 1 }, "secret class tokens should not tint the party fill")
 registeredFeature:Disable()
-assert(partyBar.statusBarWrites == 0, "Forever disabling must not write compact party StatusBar colors")
-assert(cvarValue == "0", "Forever should restore the original party class-color CVar")
 
-inCombat = true
-registeredFeature:Enable()
-assert(cvarValue == "0", "Forever must defer its class-color CVar change during combat")
-inCombat = false
-assert(createdFrames[1] and createdFrames[1].OnEvent, "Forever CVar driver was not installed")
-createdFrames[1].OnEvent(createdFrames[1], "PLAYER_REGEN_ENABLED")
-assert(cvarValue == "1", "Forever should apply deferred class colors after combat")
-registeredFeature:Disable()
-assert(cvarValue == "0", "Forever should restore the CVar after a deferred enable")
+assert(partyBar.statusBarWrites == 0, "party StatusBar colors must never be written")
+assert(cvarWrites == 0, "party class colors must not change CVars")
 
 print("class-health-colors fixtures: passed")
