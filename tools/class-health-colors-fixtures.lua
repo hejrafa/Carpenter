@@ -96,9 +96,8 @@ C_CVar = {
 function hooksecurefunc(target, method, hook)
     local original = target[method]
     target[method] = function(...)
-        local results = { original(...) }
+        original(...)
         hook(...)
-        return table.unpack(results)
     end
 end
 
