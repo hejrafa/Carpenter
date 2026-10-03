@@ -30,7 +30,7 @@ function Sidebar.Create(context)
     sidebar:SetPoint("TOPRIGHT", -10, -60)
     sidebar:SetPoint("BOTTOMRIGHT", -10, 10)
 
-    -- Sidebar spacing: same gap between image, description, "Requires UI reload", and extra content
+    -- Sidebar spacing: same gap between image, description, "Requires a UI reload", and extra content
     local SIDE_GAP = 16
 
     -- Image Container
@@ -47,7 +47,7 @@ function Sidebar.Create(context)
     end
 
     -- Sidebar: only the default (nothing hovered) text is centered; hovered options are top-to-bottom, left-aligned.
-    local SIDE_PLACEHOLDER = LightGrey .. (L.SIDEBAR_PLACEHOLDER or "Hover over an option to the left to see its description and settings.")
+    local SIDE_PLACEHOLDER = LightGrey .. (L.SIDEBAR_PLACEHOLDER or "Hover over an option to see what it does and how to tune it.")
     local sideDesc = sidebar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     sideDesc:SetSize(200, 0)
     sideDesc:SetPoint("CENTER", sidebar, "CENTER", 0, 0)
@@ -61,7 +61,7 @@ function Sidebar.Create(context)
     local sideReloadHint = sidebar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     sideReloadHint:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", -20, SIDE_GAP)
     sideReloadHint:SetJustifyH("RIGHT")
-    sideReloadHint:SetText(LightGrey .. (L.REQUIRES_RELOAD or "Requires UI reload") .. "|r")
+    sideReloadHint:SetText(LightGrey .. (L.REQUIRES_RELOAD or "Requires a UI reload") .. "|r")
     sideReloadHint:SetWordWrap(true)
     sideReloadHint:SetWidth(200)
     sideReloadHint:Hide()

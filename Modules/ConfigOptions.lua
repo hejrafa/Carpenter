@@ -372,7 +372,7 @@ function Options.Create(context)
                     badge = {
                         text = L.BADGE_BETA or "BETA",
                         tooltipTitle = L.BADGE_BETA_TITLE or "Beta",
-                        tooltipText = L.BADGE_BETA_EXPLORER_MODE or "This option is still being tuned. It is safe to try, but the fade targets and behavior may change as it gets more testing.",
+                        tooltipText = L.BADGE_BETA_EXPLORER_MODE or "Fresh off the workbench. It's safe to try, but what fades and when may still change as it gets more testing.",
                     },
                     image = GetSettingsImage("explorer.png"),
                     requiresReload = false,

@@ -49,14 +49,14 @@ local POISON_MACROS = {
     {
         macroName = "CarpenterDamage",
         legacyName = "CarpenterInstant",
-        missingText = L.POISON_DAMAGE_MISSING or "No damage poison found.",
+        missingText = L.POISON_DAMAGE_MISSING or "No damage poison in your bags.",
         normalPriority = { "Instant", "Deadly" },
         shiftPriority = { "Deadly", "Wound" },
     },
     {
         macroName = "CarpenterUtility",
         legacyName = "CarpenterCrippling",
-        missingText = L.POISON_UTILITY_MISSING or "No utility poison found.",
+        missingText = L.POISON_UTILITY_MISSING or "No utility poison in your bags.",
         normalPriority = { "Crippling", "Mind" },
         shiftPriority = { "Crippling", "Mind" },
     },

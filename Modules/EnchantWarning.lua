@@ -89,7 +89,7 @@ local function CheckEnchantments()
         local displayName = lastEnchantNameMH or (L.MAIN_HAND_POISON or "Main Hand Poison")
 
         if secondsLeft <= 120 and secondsLeft > 110 and not hasWarnedMH then
-            UIErrorsFrame:AddMessage(string.format(L.ENCHANT_FALLING_OFF_SOON or "%s falling off in 2 min", displayName), 1.0, 0.5, 0.0, 1.0, 5)
+            UIErrorsFrame:AddMessage(string.format(L.ENCHANT_FALLING_OFF_SOON or "%s wears off in 2 min!", displayName), 1.0, 0.5, 0.0, 1.0, 5)
             hasWarnedMH = true
         end
 
@@ -98,7 +98,7 @@ local function CheckEnchantments()
         end
     else
         if lastEnchantNameMH then
-            UIErrorsFrame:AddMessage(string.format(L.ENCHANT_NO_LONGER_ON_WEAPON or "%s is no longer on the weapon", lastEnchantNameMH), 1.0, 0.1, 0.0, 1.0, 5)
+            UIErrorsFrame:AddMessage(string.format(L.ENCHANT_NO_LONGER_ON_WEAPON or "%s has worn off your weapon!", lastEnchantNameMH), 1.0, 0.1, 0.0, 1.0, 5)
             lastEnchantNameMH = nil
         end
         hasWarnedMH = false
@@ -113,7 +113,7 @@ local function CheckEnchantments()
         local displayName = lastEnchantNameOH or (L.OFF_HAND_POISON or "Off Hand Poison")
 
         if secondsLeft <= 120 and secondsLeft > 110 and not hasWarnedOH then
-            UIErrorsFrame:AddMessage(string.format(L.ENCHANT_FALLING_OFF_SOON or "%s falling off in 2 min", displayName), 1.0, 0.5, 0.0, 1.0, 5)
+            UIErrorsFrame:AddMessage(string.format(L.ENCHANT_FALLING_OFF_SOON or "%s wears off in 2 min!", displayName), 1.0, 0.5, 0.0, 1.0, 5)
             hasWarnedOH = true
         end
 
@@ -122,7 +122,7 @@ local function CheckEnchantments()
         end
     else
         if lastEnchantNameOH then
-            UIErrorsFrame:AddMessage(string.format(L.ENCHANT_NO_LONGER_ON_WEAPON or "%s is no longer on the weapon", lastEnchantNameOH), 1.0, 0.1, 0.0, 1.0, 5)
+            UIErrorsFrame:AddMessage(string.format(L.ENCHANT_NO_LONGER_ON_WEAPON or "%s has worn off your weapon!", lastEnchantNameOH), 1.0, 0.1, 0.0, 1.0, 5)
             lastEnchantNameOH = nil
         end
         hasWarnedOH = false

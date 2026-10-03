@@ -1,12 +1,12 @@
 ## Interface: 11509
 ## Title: Carpenter
-## Notes: Provides a variety of UI cleanup and quality-of-life features.|n|nOpen Settings with Slash Command:|n/carpenter or /cp
-## Notes-deDE: Bietet verschiedene Funktionen zum Aufräumen der Benutzeroberfläche und zur Verbesserung der Bedienqualität.|n|nEinstellungen per Slash-Befehl öffnen:|n/carpenter oder /cp
-## Notes-esES: Ofrece varias funciones de limpieza de interfaz y mejoras de calidad de vida.|n|nAbre los ajustes con el comando:|n/carpenter o /cp
-## Notes-esMX: Ofrece varias funciones de limpieza de interfaz y mejoras de calidad de vida.|n|nAbre los ajustes con el comando:|n/carpenter o /cp
-## Notes-frFR: Ajoute plusieurs fonctions de nettoyage de l'interface et de confort.|n|nOuvrir les réglages avec la commande :|n/carpenter ou /cp
-## Notes-ptBR: Oferece vários recursos de limpeza da interface e qualidade de vida.|n|nAbra as configurações com o comando:|n/carpenter ou /cp
-## Notes-ruRU: Добавляет разные функции очистки интерфейса и удобства игры.|n|nОткрыть настройки командой:|n/carpenter или /cp
+## Notes: Measure twice, cut the clutter. Carpenter tidies up your interface and brings a toolbox full of handy quality-of-life features.|n|nOpen the workshop with|n/carpenter or /cp
+## Notes-deDE: Zweimal messen, einmal entrümpeln. Carpenter räumt deine Benutzeroberfläche auf und bringt einen Werkzeugkasten voller praktischer Komfortfunktionen mit.|n|nÖffne die Werkstatt mit|n/carpenter oder /cp
+## Notes-esES: Mide dos veces y corta el desorden. Carpenter pone orden en tu interfaz y trae una caja de herramientas llena de mejoras prácticas.|n|nAbre el taller con|n/carpenter o /cp
+## Notes-esMX: Mide dos veces y corta el desorden. Carpenter pone orden en tu interfaz y trae una caja de herramientas llena de mejoras prácticas.|n|nAbre el taller con|n/carpenter o /cp
+## Notes-frFR: Mesurer deux fois, désencombrer une fois. Carpenter range votre interface et apporte une boîte à outils pleine de petites améliorations pratiques.|n|nOuvrez l'atelier avec|n/carpenter ou /cp
+## Notes-ptBR: Meça duas vezes e corte a bagunça. O Carpenter arruma sua interface e traz uma caixa de ferramentas cheia de recursos práticos.|n|nAbra a oficina com|n/carpenter ou /cp
+## Notes-ruRU: Семь раз отмерь — один раз убери лишнее. Carpenter наводит порядок в интерфейсе и приносит целый ящик полезных инструментов.|n|nОткрыть мастерскую:|n/carpenter или /cp
 ## SavedVariables: CarpenterDB
 ## Version: 1.8.1
 ## Author: Rafael Polutta

@@ -369,7 +369,7 @@ SlashCmdList["CARPENTER"] = function()
     if type(Carpenter_OpenConfig) == "function" then
         Carpenter_OpenConfig()
     else
-        print("|cffff0000Carpenter:|r " .. (L.CONFIG_NOT_LOADED or "Config UI not loaded."))
+        print("|cffff0000Carpenter:|r " .. (L.CONFIG_NOT_LOADED or "The settings window isn't ready yet. Try again in a moment."))
     end
 end
 

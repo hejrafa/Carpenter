@@ -79,7 +79,7 @@ local function TryBrew()
     local teaName = GetTeaName()
     if not teaName then
         pendingUntil = nil
-        Print(L.THISTLE_TEA_NOT_LOADED or "Thistle Tea item data is not loaded yet. Try again.")
+        Print(L.THISTLE_TEA_NOT_LOADED or "The tea leaves are still steeping. Try again in a moment.")
         return
     end
 
@@ -93,13 +93,13 @@ local function TryBrew()
             return
         end
         pendingUntil = nil
-        Print(L.THISTLE_TEA_NO_RECIPE or "Thistle Tea recipe not found in Cooking.")
+        Print(L.THISTLE_TEA_NO_RECIPE or "You don't know how to brew Thistle Tea yet.")
         return
     end
 
     pendingUntil = nil
     if numAvailable < 1 then
-        Print(L.THISTLE_TEA_MISSING or "Missing ingredients for Thistle Tea.")
+        Print(L.THISTLE_TEA_MISSING or "You're missing ingredients for Thistle Tea.")
         return
     end
 
