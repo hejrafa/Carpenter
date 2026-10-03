@@ -1,107 +1,104 @@
 # Carpenter
 
-Make WoW's default UI quieter without replacing it. Carpenter trims visual noise, cleans up chat, improves combat readability, and adds small automations that save clicks.
+*Measure twice, cut the clutter.*
 
-It is built for players who like Blizzard's UI, but want it calmer, sharper, and less fussy. Every feature is optional and disabled by default. Open `/carpenter` or `/cp`, enable what you like, reload when prompted, and leave the rest alone.
+You like Blizzard's interface. You just wish it would stop shouting. Carpenter keeps the UI you know and gives it a good sanding: less visual noise, chat you can actually read, combat information where your eyes already are, and a handful of small automations that save you trips to the vendor.
+
+Every tool in the box is optional and switched off until you pick it up. Type `/carpenter` or `/cp`, enable what you like, reload when asked, and leave the rest on the workbench.
 
 ## Why Carpenter?
 
-- No full UI replacement, just focused cleanup toggles.
-- Every feature is optional and off by default.
-- Works across Retail/Mainline, Classic Era, Anniversary, and TBC with flavor-specific options.
-- Keeps Blizzard's UI recognizable while making common information easier to scan.
-- Adds quality-of-life automation without changing how the game plays.
+- **No full UI replacement.** Just focused, one-click cleanups.
+- **Nothing changes until you say so.** Every feature starts disabled.
+- **Still feels like World of Warcraft.** Blizzard's UI stays recognizable, only calmer and easier to scan.
+- **Quality of life, not autopilot.** The automations handle chores, never your gameplay.
+- **One addon for every client.** Options that don't apply to your game are hidden automatically.
 
 ## What It Fixes
 
 ### Chat Gets Readable Again
 
-Carpenter restyles loot, XP, reputation, money, rolls, repairs, auctions, learned skills, level-ups, and other system messages into compact, color-coded lines. It also filters common bot spam, gambling messages, and duplicate chat lines.
+Loot, experience, reputation, money, rolls, repairs, auctions, new abilities, and level-ups arrive as short, color-coded lines instead of paragraphs. Bot ads, gambling spam, and duplicate lines quietly disappear.
 
 ### Combat Information Is Easier To Scan
 
-Class-colored health bars, nameplate cast names, combo points, crowd-control tracking, threat percentage, class-icon portraits, and cleaner unit frames help important information stand out faster.
+Class-colored health bars, combo points on your target's nameplate, crowd control and bleed tracking, a threat percentage on the target frame, and class-icon portraits help the important things stand out at a glance.
 
 ### The Default UI Stops Shouting
 
-Hide macro names, hotkey labels, minimap clutter, chat buttons, stance bars, frame decoration, combat text on unit frames, error spam, and other visual noise that builds up around the default UI.
+Macro names, keybind labels, minimap buttons, chat buttons, the stance bar, frame decorations, portrait combat text, and red error spam can all take a step back.
 
 ### Small Chores Disappear
 
-Auto sell junk, auto repair, auto track newly accepted quests, swap mount-speed trinkets, generate consumable macros, and generate Rogue poison macros that follow your bags.
+Junk gets sold, gear gets repaired, new quests land in your tracker, mount-speed trinkets swap themselves, and your consumable and poison macros always point at the best thing in your bags.
 
 ## Features
 
 ### Action Bars
 
-- **Hide Macro Names** - Remove macro text from action buttons.
-- **Hide Keybind Text** - Remove hotkey labels from action buttons.
-- **Fade Extra Action Bars** - In TBC, fade bars 7 and 8 until you hover them.
-- **Out of Range Tint** - Darken abilities when your target is out of range.
-- **Hide Stance Bar** - Hide the stance, form, and stealth bar.
+- **Hide Macro Names** - Keep macro labels off your action buttons.
+- **Hide Keybind Text** - Keep hotkey labels off your action buttons.
+- **Fade Extra Action Bars** - Fade bars 7 and 8 until you hover over them.
+- **Out of Range Tint** - Darken abilities while your target is out of range.
+- **Hide Stance Bar** - Hide the bar for forms, stances, and stealth. Your keybinds keep working.
 
 ### Interface
 
-- **Fade Micro Menu & Bags** - Hide the micro menu and bag bar until you hover.
-- **Resize Exp & Rep Bars** - Make experience and reputation bars smaller and less visually loud.
-- **Remove Minimap Clutter** - Hide minimap zoom buttons, day/night icon, and zone text, and fade minimap buttons until hover.
-- **World Map Cleanup** - Lower the small map, remove fullscreen blackout, fade while moving, hide continent city clutter, and optionally show dungeon, raid, and same-faction travel pins.
-- **Enhanced Tooltip** - Clean up unit tooltips with clearer health, level, and target information.
-- **Scale Extra Ability** - Reduce oversized Retail extra action and zone ability buttons.
+- **Fade Micro Menu & Bags** - Fade the micro menu and bag bar until you hover over them or open your bags.
+- **Fade Exp & Rep Bars** - Lower the opacity of the experience and reputation bars.
+- **Remove Minimap Clutter** - Fade addon and queue buttons until you hover, and hide the day/night icon and zoom buttons.
+- **Hide Quest Tracker Titles** - Hide objective tracker section headers while keeping your objectives in view.
+- **World Map Cleanup** - Lower the small map, drop the fullscreen blackout, fade the map while you move, hide continent town icons, and optionally show dungeon, raid, and travel pins.
+- **Profession Icon Portrait** - Show your profession's icon in crafting windows.
+- **Talent Icon Portrait** - Show your talent tree's icon in the talent window.
+- **Enhanced Tooltip** - Tidy unit tooltips and show who the unit is targeting.
+- **Scale Extra Ability** - Shrink the Extra Action and Zone Ability buttons to 80%.
+- **Hide Boss Frames** - Fade boss unit frames and let your mouse pass through them.
 
 ### Unit Frames
 
-- **Class Colored Health** - Use class colors for player, target, focus, and party health bars where class information is available.
-- **Threat Percentage** - Show your threat percentage on the target frame.
-- **Target Percentages** - Show compact health and resource percentages on target frames.
-- **Debuffs** - Highlight important crowd control effects on player and target unit frames.
-- **Buffs** - Highlight important player buffs on the player unit frame.
-- **Class Icon Portrait** - Replace unit portraits with class icons.
-- **Hide Unit Frame Combat Text** - Remove floating combat numbers and state text from unit frames.
-- **Clean Unit Frame** - Hide Retail frame clutter such as PvP icons, rest animation, health-loss effects, realm indicators, party title text, and related decoration.
-- **Hide Boss Frames** - Fade Retail boss frames and disable mouse interaction.
-- **Hide Combo/Power Bar** - Hide Retail class resource widgets.
-- **Hide Group Indicator** - Hide the small group marker on the player frame.
+- **Class Colored Health** - Color player, target, focus, and party health bars by class.
+- **Threat Percentage** - Show your threat on the target frame.
+- **Debuffs** - Highlight stuns, polymorphs, fears, and other crowd control on the player and target frames.
+- **Buffs** - Highlight your big cooldowns and immunities on the player frame.
+- **Class Icon Portrait** - Swap unit portraits for class icons.
+- **Hide Unit Frame Combat Text** - Keep damage and healing numbers off your portraits.
+- **Clean Unit Frame** - Hide the combat sword, Zzz rest animation, health loss effects, realm indicators, party title text, and other small decorations.
+- **Hide Combo/Power Bar** - Hide class resource widgets such as combo points, runes, and holy power.
 
 ### Nameplates
 
-- **Debuffs** - Show important crowd control effects and bleeds above enemy nameplates.
-- **Combo Points** - Display combo points on the target nameplate.
-- **Cast Bar** - Show spell icons, names, progress, and interrupt feedback under enemy nameplates.
-- **Class Colored Health** - Use class colors for enemy player nameplate health bars.
-- **Raid Target Icon Aligned** - Move raid target icons closer to the nameplate they belong to.
+- **Debuffs** - Show important crowd control and bleeds above enemy nameplates.
+- **Combo Points** - Show your combo points on your target's nameplate.
 
 ### Chat
 
-- **Filter** - Block common bot spam, gambling messages, and duplicate lines.
-- **Cleaner** - Restyle system, loot, experience, reputation, money, skill, level-up, currency, repair, auction, and roll messages.
-- **Hide Chat Buttons** - Hide Social, Channels, Voice, scroll, and minimize buttons until you hover the chat area.
+- **Filter** - Block bot ads, gambling spam, and duplicate lines.
+- **Cleaner** - Restyle system and loot messages into short, color-coded lines.
+- **Hide Chat Buttons** - Fade the chat buttons until you hover over the chat.
 
 ### Automations
 
-- **Mount Speed Trinket** - Equip Carrot on a Stick in Classic Era, or Riding Crop/Carrot in TBC, when mounting.
-- **Consumable Macros** - Create draggable macros that track your best food, Well Fed buff food, water, health potion, mana potion, and supported bandage.
-- **Poison Macros** - Create Rogue poison macros with PvE priorities by default and PvP priorities while holding Shift.
-- **Auto Track Quests** - Add newly accepted quests to the objective tracker and keep tracked quests pinned after Classic's temporary auto-watch expires.
-- **Auto Sell Junk** - Sell grey items at vendors. Hold Shift to skip.
-- **Auto Repair** - Repair gear at vendors. Hold Shift to skip.
+- **Mount Speed Trinket** - Equip your Riding Crop or Carrot on a Stick when you mount up, and put your old trinket back when you land.
+- **Consumable Macros** - Draggable macros that always use your best food, Well Fed food, water, potions, and bandage.
+- **Rogue Macros** - Poison macros for each hand, with PvP picks on Shift, plus a Thistle Tea macro that brews everything you can.
+- **Auto Track Quests** - Add newly accepted quests to your tracker and keep them pinned.
+- **Auto Sell Junk** - Sell grey items at merchants. Hold Shift to skip.
+- **Auto Repair** - Repair your gear at vendors. Hold Shift to skip.
 
 ### Text
 
-- **Poison Warning** - Alert when your weapon buff is missing or about to expire.
-- **Hide Error Messages** - Silence common spam like "Out of range" and "Not enough energy" while keeping useful errors visible.
-
-### Settings
-
-- **Classic Settings Preset** - Apply a quick Classic baseline for auto loot, nameplates, health percentages, and extra action bars.
+- **Poison Warning** - Get a warning when your poison or other weapon buff is missing or about to wear off.
+- **Hide Error Messages** - Silence "Out of range", "Not enough energy", and friends, while important errors still get through.
 
 ### Immersion
 
-- **Action Cam** - Enable an over-the-shoulder cinematic camera.
+- **Action Cam** - See Azeroth from over your shoulder.
+- **Explorer Mode** - Slowly fade the HUD out of combat so the world gets the whole screen. *(Beta)*
 
 ## Installation
 
-Download Carpenter from CurseForge, Wago, or GitHub Releases. For a manual install, place the `Carpenter` folder in the matching client AddOns directory:
+Download Carpenter from CurseForge, Wago, or GitHub Releases. For a manual install, place the `Carpenter` folder in the AddOns directory of your game client, for example:
 
 ```text
 World of Warcraft/_retail_/Interface/AddOns/Carpenter
@@ -111,24 +108,26 @@ World of Warcraft/_anniversary_/Interface/AddOns/Carpenter
 
 ## Configuration
 
-Type `/carpenter` or `/cp` in-game to open the settings panel. Every feature is off by default, so enable only the pieces you want.
+Type `/carpenter` or `/cp` in-game to open the workshop. Hover over any option to see what it does before you switch it on.
 
-Some settings apply immediately. Others require a UI reload and will show a reload hint in the settings panel.
+Most options apply immediately. A few need a UI reload, and the settings panel will tell you when.
 
 ## Compatibility
 
-- Retail / Mainline
-- WoW Classic Era
-- WoW Classic Anniversary
-- WoW Classic TBC
+Carpenter runs on:
 
-Some options are only available on specific game flavors. Carpenter hides unsupported settings automatically.
+- World of Warcraft
+- WoW Classic Era and Anniversary realms
+- WoW Classic: The Burning Crusade
+- WoW Forever (beta)
+
+Not every option exists on every client. Carpenter only shows the ones your game supports.
 
 ## Project Structure
 
 - `Core/` - shared bootstrap, client detection, feature lifecycle helpers, and safe unit helpers
 - `Localization/` - English defaults plus German, Spanish, French, Portuguese, and Russian overrides
-- `Modules/` - feature modules loaded by the Retail, Classic Era, and TBC TOCs
+- `Modules/` - feature modules, loaded by each game client's TOC
 - `Art/` - addon icons, masks, and settings preview artwork
 - `tools/` - local validation, fixture, packaging, asset, localization, and worktree helper scripts
 - `DESCRIPTION.md` - CurseForge/Wago-facing project description
