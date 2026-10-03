@@ -118,14 +118,3 @@ Not every option exists on every client. Carpenter only shows the ones your game
 ## Configuration
 
 Type `/carpenter` or `/cp` in-game to open the workshop. Hover over any option to see what it does before you switch it on.
-
-## Gallery Ideas
-
-When updating the CurseForge gallery, the strongest screenshots would be:
-
-- A before/after chat cleanup example.
-- The settings panel with a hovered option preview.
-- World Map Cleanup before/after.
-- Nameplate combat readability with combo points and crowd control tracking.
-- Consumable or poison macro sidebar previews.
-- A clean hero image with the line: "Measure twice, cut the clutter."
