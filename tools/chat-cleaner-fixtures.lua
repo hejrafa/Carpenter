@@ -127,14 +127,6 @@ function CreateFrame()
     function frame:IsShown() return not self.hidden end
     return frame
 end
-SlashCmdList = {}
-function hooksecurefunc(target, method, hook)
-    local original = target[method]
-    target[method] = function(...)
-        original(...)
-        hook(...)
-    end
-end
 function ChatFrame_AddMessageEventFilter() end
 function ChatFrame_RemoveMessageEventFilter() end
 
@@ -630,6 +622,25 @@ for _, fixture in ipairs(fixtures) do
 end
 inCombatLockdown = false
 Carpenter.Client.isRetail = false
+
+do
+    local emoteSenders = {
+        { "You bow before Toxic Masculnity.", "T", "" },
+        { "You bow before Holy Capone.", "T", "T" },
+        { "Merrek Grimaldus salutes you with respect.", "Merrek Grimaldus", "Merrek Grimaldus" },
+        { "Merrek salutes you with respect.", "Merrek", "Merrek" },
+        { "Ann waves at Anneliese.", "Ann", "Ann" },
+        { "Anneliese waves at you.", "Ann", "" },
+    }
+    for _, case in ipairs(emoteSenders) do
+        local hidden, out, author = filter(nil, "CHAT_MSG_TEXT_EMOTE", case[1], case[2])
+        if hidden == true or out ~= case[1] then
+            failures[#failures + 1] = "text emote must pass through unchanged: " .. case[1]
+        elseif author ~= case[3] then
+            failures[#failures + 1] = "text emote sender for [" .. case[1] .. "] expected [" .. case[3] .. "] got [" .. tostring(author) .. "]"
+        end
+    end
+end
 
 do
     local keys = {
