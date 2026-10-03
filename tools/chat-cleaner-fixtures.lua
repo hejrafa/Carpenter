@@ -127,6 +127,14 @@ function CreateFrame()
     function frame:IsShown() return not self.hidden end
     return frame
 end
+SlashCmdList = {}
+function hooksecurefunc(target, method, hook)
+    local original = target[method]
+    target[method] = function(...)
+        original(...)
+        hook(...)
+    end
+end
 function ChatFrame_AddMessageEventFilter() end
 function ChatFrame_RemoveMessageEventFilter() end
 

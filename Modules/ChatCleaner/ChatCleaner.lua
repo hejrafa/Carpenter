@@ -474,3 +474,74 @@ ns.Private.ChatCleaner.PostProcessor = postProcessor
 if Carpenter and Carpenter.RegisterFeature then
     Carpenter:RegisterFeature("chatCleanerEnabled", chatCleanerFeature)
 end
+
+-- Diagnostic: /cpemote toggles a dump of raw text emotes, both as the event
+-- delivers them and as each chat frame finally receives them, with escape
+-- codes and non-ASCII bytes made visible. /run is unavailable on WoW Forever.
+local emoteCapture = { active = false, printing = false, hooked = {} }
+
+local function VisibleText(text)
+    if type(text) ~= "string" then return tostring(text) end
+    if canaccessvalue then
+        local ok, accessible = pcall(canaccessvalue, text)
+        if ok and accessible == false then return "<secret>" end
+    end
+    local ok, visible = pcall(function()
+        return (text:gsub("|", "||"):gsub("[%z\1-\31\127-\255]", function(byte)
+            return string.format("<%02X>", byte:byte())
+        end))
+    end)
+    return ok and visible or "<unreadable>"
+end
+
+local function CaptureSay(label, text)
+    local frame = DEFAULT_CHAT_FRAME
+    if not frame or emoteCapture.printing then return end
+    emoteCapture.printing = true
+    local addMessage = frame._CP_OriginalAddMessage or frame.AddMessage
+    pcall(addMessage, frame, "|cff80b0ffCarpenter " .. label .. ":|r " .. VisibleText(text), 1, 1, 1)
+    emoteCapture.printing = false
+end
+
+local emoteCaptureFrame = CreateFrame("Frame")
+emoteCaptureFrame:SetScript("OnEvent", function(_, _, msg, sender)
+    CaptureSay("event", msg)
+    CaptureSay("sender", sender)
+end)
+
+local function HookEmoteCaptureFrame(chatFrame)
+    if not chatFrame or emoteCapture.hooked[chatFrame] or not chatFrame.AddMessage then return end
+    emoteCapture.hooked[chatFrame] = true
+    hooksecurefunc(chatFrame, "AddMessage", function(self, message)
+        if not emoteCapture.active or emoteCapture.printing or type(message) ~= "string" then return end
+        local ok, isEmote = pcall(function()
+            local lower = message:lower()
+            return lower:find("you ", 1, true) and (lower:find(" before ", 1, true) or lower:find(" at ", 1, true))
+        end)
+        if not (ok and isEmote) then return end
+
+        CaptureSay("received", message)
+        -- Chat Cleaner replaces AddMessage, so this hook sees its input; replay
+        -- the post-processor to show what actually reached the frame.
+        if self._CP_AddMessageHooked and Carpenter and Carpenter:IsEnabled("chatCleanerEnabled") then
+            local cleaned
+            pcall(postProcessor.ProcessMessage, self, function(_, text) cleaned = text end, message, {})
+            CaptureSay("cleaned", cleaned)
+        end
+    end)
+end
+
+SLASH_CARPENTEREMOTE1 = "/cpemote"
+SlashCmdList["CARPENTEREMOTE"] = function()
+    emoteCapture.active = not emoteCapture.active
+    if emoteCapture.active then
+        for i = 1, (NUM_CHAT_WINDOWS or 1) do
+            HookEmoteCaptureFrame(_G["ChatFrame" .. i])
+        end
+        emoteCaptureFrame:RegisterEvent("CHAT_MSG_TEXT_EMOTE")
+        CaptureSay("emote capture", "on - /bow at someone, then /cpemote to stop")
+    else
+        emoteCaptureFrame:UnregisterAllEvents()
+        CaptureSay("emote capture", "off")
+    end
+end
