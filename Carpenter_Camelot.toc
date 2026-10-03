@@ -9,7 +9,7 @@
 ## Notes-ruRU: Семь раз отмерь — один раз убери лишнее. Carpenter наводит порядок в интерфейсе и приносит целый ящик полезных инструментов.|n|nОткрыть мастерскую:|n/carpenter или /cp
 ## LoadSavedVariablesFirst: 1
 ## SavedVariables: CarpenterDB
-## Version: 1.8.1
+## Version: 1.8.2
 ## Author: Rafael Polutta
 ## IconTexture: Interface\AddOns\Carpenter\Art\Icons\Carpenter_Logo
 

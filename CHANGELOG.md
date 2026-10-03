@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.2
+
+- Class Colored Health now colors party frames again, tinting only the bar artwork so Blizzard's secure frames stay untouched.
+- Fixed your own emotes coloring the first capital T of your target's name in chat.
+- Fixed a possible error when the game keeps a unit's class hidden.
+- Rewrote option descriptions, alerts, and the AddOns list note in a more playful, Azeroth-flavored voice, in every language.
+- Restored proper German umlauts and tidied terminology across all translations.
+- Brought the project description's feature list up to date.
+
 ## 1.8.1
 
 - Added Hide Macro Names support on Retail through secure native widget calls.
