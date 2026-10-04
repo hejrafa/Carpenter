@@ -573,7 +573,9 @@ local function IsPlayerAtFullHealth()
         return barFullHealth
     end
 
-    return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+    -- Health we cannot read (secret values) is never proof of full health,
+    -- so keep the HUD visible rather than fading while hurt.
+    return false
 end
 
 function IsShownFrame(frameObject)
