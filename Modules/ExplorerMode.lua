@@ -22,11 +22,16 @@ local ACTION_BUTTON_REFRESH_THROTTLE_SECONDS = 0.15
 local CHAT_REPAIR_VERSION = 1
 local ACTION_BAR_CLUSTER_KEY = "actionBarCluster"
 local ACTION_BUTTON_FADE_KEY = {}
+-- Health below this fraction of max keeps a gated frame fully visible.
+local HEALTH_GATE_EPSILON = 0.0001
 
 local frame = CreateFrame("Frame")
 local actionBarFrame = CreateFrame("Frame")
 local managedFrames = {}
 local managedAlphas = {}
+-- What we last asked each object to show; GetAlpha cannot be read back once
+-- the alpha came from a secret value.
+local appliedAlphas = setmetatable({}, { __mode = "k" })
 local frameTargets = {}
 local activeFades = {}
 local hoverFadeOutAt = {}
@@ -550,7 +555,10 @@ local function IsPlayerHealthBarFull()
     return nil
 end
 
-local function IsPlayerAtFullHealth()
+-- Returns true or false when health can be read, or nil when the client hides
+-- it behind secret values (retail and Forever). Cached per frame because every
+-- alpha write asks.
+local function ReadPlayerHealthState()
     if not UnitHealth or not UnitHealthMax then
         return true
     end
@@ -568,14 +576,89 @@ local function IsPlayerAtFullHealth()
         return fullHealth == true
     end
 
-    local barFullHealth = IsPlayerHealthBarFull()
-    if barFullHealth ~= nil then
-        return barFullHealth
+    return IsPlayerHealthBarFull()
+end
+
+local healthStateTime = nil
+local healthState = nil
+
+local function GetPlayerHealthState()
+    local now = GetTime and GetTime() or nil
+    if now == nil or now ~= healthStateTime then
+        healthState = ReadPlayerHealthState()
+        healthStateTime = now
+    end
+    return healthState
+end
+
+local function InvalidatePlayerHealthState()
+    healthStateTime = nil
+end
+
+-- Unreadable health is not known to be hurt; the alpha gate below still
+-- keeps the HUD visible in that case.
+local function IsPlayerKnownHurt()
+    return GetPlayerHealthState() == false
+end
+
+local function IsPlayerHealthSecret()
+    return GetPlayerHealthState() == nil
+end
+
+local healthGateCurves = {}
+
+local function RoundAlpha(alpha)
+    return math.floor((alpha * 100) + 0.5) / 100
+end
+
+local function GetHealthGateCurve(fadedAlpha, visibleAlpha)
+    local key = fadedAlpha .. ":" .. visibleAlpha
+    local curve = healthGateCurves[key]
+    if curve then
+        return curve
     end
 
-    -- Health we cannot read (secret values) is never proof of full health,
-    -- so keep the HUD visible rather than fading while hurt.
-    return false
+    local ok, created = pcall(function()
+        local newCurve = C_CurveUtil.CreateCurve()
+        if newCurve.SetType and Enum and Enum.LuaCurveType then
+            newCurve:SetType(Enum.LuaCurveType.Linear)
+        end
+        newCurve:AddPoint(0, visibleAlpha)
+        newCurve:AddPoint(1 - HEALTH_GATE_EPSILON, visibleAlpha)
+        newCurve:AddPoint(1, fadedAlpha)
+        return newCurve
+    end)
+
+    if not ok then
+        return nil
+    end
+
+    healthGateCurves[key] = created
+    return created
+end
+
+-- When the client hides health, let it pick the alpha instead: the curve
+-- maps 100% health to the faded alpha and anything less to fully visible.
+local function HealthGatedAlpha(visibleAlpha, alpha)
+    if alpha >= visibleAlpha or not IsPlayerHealthSecret() then
+        return alpha
+    end
+
+    if not (UnitHealthPercent and C_CurveUtil and C_CurveUtil.CreateCurve) then
+        return visibleAlpha
+    end
+
+    local curve = GetHealthGateCurve(RoundAlpha(alpha), RoundAlpha(visibleAlpha))
+    if not curve then
+        return visibleAlpha
+    end
+
+    local ok, gatedAlpha = pcall(UnitHealthPercent, "player", false, curve)
+    if ok and gatedAlpha ~= nil then
+        return gatedAlpha
+    end
+
+    return visibleAlpha
 end
 
 function IsShownFrame(frameObject)
@@ -677,6 +760,8 @@ local function ReadFrameAlpha(frameObject, fallback)
         return fallback
     end
 
+    fallback = appliedAlphas[frameObject] or fallback
+
     local ok, alpha = pcall(frameObject.GetAlpha, frameObject)
     if not ok then
         return fallback
@@ -771,7 +856,8 @@ local function SafeSetAlpha(object, alpha)
         return
     end
     RememberAlpha(object)
-    pcall(object.SetAlpha, object, alpha)
+    appliedAlphas[object] = alpha
+    pcall(object.SetAlpha, object, HealthGatedAlpha(SafeAlphaValue(managedAlphas[object], VISIBLE_ALPHA), alpha))
 end
 
 local function TargetAlphaForObject(object, targetAlpha)
@@ -810,7 +896,7 @@ function ExplorerMode.GetStatusTrackingTargetAlpha(frameObject)
     end
 
     if targetAlpha == nil then targetAlpha = EXPLORING_ALPHA end
-    return TargetAlphaForObject(managedRoot, targetAlpha)
+    return HealthGatedAlpha(SafeAlphaValue(managedAlphas[managedRoot], VISIBLE_ALPHA), TargetAlphaForObject(managedRoot, targetAlpha))
 end
 
 local ApplyActionButtonOverlayAlpha
@@ -1107,7 +1193,7 @@ function ApplyActionButtonOverlayAlpha(button, targetAlphaOverride)
         return
     end
 
-    if targetAlpha == EXPLORING_ALPHA and (IsInCombat() or not explorerFaded or not IsPlayerAtFullHealth()) then
+    if targetAlpha == EXPLORING_ALPHA and (IsInCombat() or not explorerFaded or IsPlayerKnownHurt()) then
         return
     end
 
@@ -1124,7 +1210,7 @@ local function ClampUpdatedActionButtonAlpha(button)
     if actionButtonTargetAlpha == nil then
         return
     end
-    if not (IsEnabled() and explorerFaded and not IsInCombat() and IsPlayerAtFullHealth() and not IsGameEditModeActive()) then
+    if not (IsEnabled() and explorerFaded and not IsInCombat() and not IsPlayerKnownHurt() and not IsGameEditModeActive()) then
         return
     end
 
@@ -1571,7 +1657,7 @@ end
 
 local function ScheduleRefresh()
     local callback = function()
-        if IsEnabled() and explorerFaded and not IsInCombat() and IsPlayerAtFullHealth() and not IsGameEditModeActive() then
+        if IsEnabled() and explorerFaded and not IsInCombat() and not IsPlayerKnownHurt() and not IsGameEditModeActive() then
             RefreshExplorerTargets()
         end
     end
@@ -1584,7 +1670,7 @@ local function ScheduleRefresh()
 end
 
 local function ShouldRefreshActionButtons()
-    if not (IsEnabled() and explorerFaded and not IsInCombat() and IsPlayerAtFullHealth() and not IsGameEditModeActive()) then
+    if not (IsEnabled() and explorerFaded and not IsInCombat() and not IsPlayerKnownHurt() and not IsGameEditModeActive()) then
         return false
     end
 
@@ -1654,7 +1740,7 @@ local function FadeOutForExploration()
         RestoreVisible(0, true)
         return
     end
-    if not IsPlayerAtFullHealth() then
+    if IsPlayerKnownHurt() then
         RestoreVisible(HOVER_FADE_IN_SECONDS)
         return
     end
@@ -1692,7 +1778,7 @@ local function ApplyExplorerMode(forceVisible)
         RestoreVisible(0)
     elseif IsGameEditModeActive() then
         RestoreVisible(0, true)
-    elseif not IsPlayerAtFullHealth() then
+    elseif IsPlayerKnownHurt() then
         RestoreVisible(HOVER_FADE_IN_SECONDS)
     elseif explorerFaded then
         RefreshExplorerTargets()
@@ -1709,6 +1795,14 @@ frame:SetScript("OnEvent", function(_, event, unit)
     end
     if event == "UNIT_HEALTH" or event == "UNIT_HEALTH_FREQUENT" or event == "UNIT_MAXHEALTH" then
         if unit ~= "player" then
+            return
+        end
+        InvalidatePlayerHealthState()
+        if IsEnabled() and IsPlayerHealthSecret() and not IsInCombat() and not IsGameEditModeActive() then
+            -- Hidden health could have dropped, so show the HUD and let the
+            -- gated fade try again once it stops changing.
+            RestoreVisible(HOVER_FADE_IN_SECONDS)
+            ScheduleFadeOut()
             return
         end
     end
