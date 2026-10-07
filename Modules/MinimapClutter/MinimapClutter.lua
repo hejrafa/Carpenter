@@ -26,6 +26,7 @@ local frameHelpers = FrameHelpers.Create and FrameHelpers.Create({
 
 local faderHelpers = FaderHelpers.Create and FaderHelpers.Create({
     IsEnabled = IsEnabled,
+    IsRetailClient = IsRetailClient,
 }) or {}
 
 local function ApplyMinimapClutter()

@@ -15,11 +15,25 @@ local LFG_MINIMAP_BUTTONS = {
     "QueueStatusMinimapButton",
 }
 
+-- The strip above Forever and Retail minimaps. Mail and crafting-order
+-- indicators stay visible so their alerts are never missed.
+local CLUSTER_HEADER_KEYS = {
+    "BorderTop",
+    "ZoneTextButton",
+    "Tracking",
+}
+
+local GLOBAL_HEADER_FRAMES = {
+    "GameTimeFrame",
+    "AddonCompartmentFrame",
+}
+
 local FADE_SPEED = 6 -- higher = snappier fade
 
 function Fader.Create(config)
     config = config or {}
     local isEnabled = config.IsEnabled or function() return false end
+    local isRetailClient = config.IsRetailClient or function() return false end
 
     local fadeTargets = {}
     local hoverTargets = {}
@@ -90,9 +104,27 @@ function Fader.Create(config)
         return false
     end
 
+    local function IsMouseOverFrame(frame)
+        return frame and frame.IsMouseOver and frame:IsMouseOver() == true
+    end
+
+    local function IsMenuOpen(button)
+        return button and button.IsMenuOpen and button:IsMenuOpen() == true
+    end
+
+    -- Keep the strip up while its tracking or compartment menu is open.
+    local function IsHeaderMenuOpen()
+        if not isRetailClient() then return false end
+        local cluster = _G.MinimapCluster
+        return IsMenuOpen(cluster and cluster.Tracking and cluster.Tracking.Button) or
+            IsMenuOpen(_G.AddonCompartmentFrame)
+    end
+
     local function ShouldShowFadedMinimapButtons()
         if not isEnabled() then return false end
-        return (Minimap and Minimap.IsMouseOver and Minimap:IsMouseOver()) or
+        return IsMouseOverFrame(Minimap) or
+            IsHeaderMenuOpen() or
+            (isRetailClient() and IsMouseOverFrame(_G.MinimapCluster)) or
             IsMouseOverManagedMinimapButton()
     end
 
@@ -123,6 +155,14 @@ function Fader.Create(config)
         local okEnter = pcall(target.HookScript, target, "OnEnter", WakeMinimapButtonFader)
         local okLeave = pcall(target.HookScript, target, "OnLeave", WakeMinimapButtonFader)
         target.CP_MinimapFadeHooked = okEnter or okLeave
+    end
+
+    local function HookClusterHover()
+        local cluster = _G.MinimapCluster
+        if not cluster or cluster.CP_MinimapFadeHoverHooked or not cluster.HookScript then return end
+        cluster.CP_MinimapFadeHoverHooked = true
+        cluster:HookScript("OnEnter", WakeMinimapButtonFader)
+        cluster:HookScript("OnLeave", WakeMinimapButtonFader)
     end
 
     local function HookMinimapHover()
@@ -166,7 +206,7 @@ function Fader.Create(config)
             button.CP_CurrentAlpha = button.CP_CurrentAlpha or 0
             button.CP_TargetAlpha = ShouldShowFadedMinimapButtons() and 1 or 0
             button:SetAlpha(button.CP_CurrentAlpha)
-        else
+        elseif button.CP_MinimapFadeManaged then
             button.CP_TargetAlpha = nil
             button.CP_CurrentAlpha = nil
             button:SetAlpha(1)
@@ -176,6 +216,26 @@ function Fader.Create(config)
 
     local function ApplyNamedMinimapButtonClutter(enabled)
         for _, name in ipairs(LFG_MINIMAP_BUTTONS) do
+            SetupFadedMinimapButton(_G[name], enabled, true)
+        end
+    end
+
+    -- Fades the zone name, tracking, calendar, and addon compartment with the
+    -- rest of the minimap extras; hovering anywhere on the minimap brings them back.
+    local function ApplyHeaderClutter(enabled)
+        if not isRetailClient() then return end
+
+        local cluster = _G.MinimapCluster
+        if enabled then
+            HookClusterHover()
+        end
+
+        if cluster then
+            for _, key in ipairs(CLUSTER_HEADER_KEYS) do
+                SetupFadedMinimapButton(cluster[key], enabled, true)
+            end
+        end
+        for _, name in ipairs(GLOBAL_HEADER_FRAMES) do
             SetupFadedMinimapButton(_G[name], enabled, true)
         end
     end
@@ -195,6 +255,7 @@ function Fader.Create(config)
         end
 
         ApplyNamedMinimapButtonClutter(enabled)
+        ApplyHeaderClutter(enabled)
         UpdateFadedMinimapButtonTargets(enabled)
     end
 
@@ -232,7 +293,8 @@ function Fader.Create(config)
             end
         end
 
-        if not changed then
+        -- Keep polling while a header menu is open so the strip fades once it closes.
+        if not changed and not IsHeaderMenuOpen() then
             self:Hide()
         end
     end)

@@ -124,6 +124,65 @@ assertEqual(MinimapCluster.DielFrame.shown, false, "Forever day/night artwork is
 assertEqual(GameTimeFrame.shown, true, "Forever calendar remains shown")
 assertEqual(MinimapZoomIn.shown, true, "Forever zoom controls remain client-managed")
 
+-- Forever and Retail fade the strip above the minimap and keep it up on hover.
+local mouseOverCluster = false
+local menuOpen = false
+MinimapCluster.ZoneTextButton = newWidget("ClusterZoneTextButton")
+MinimapCluster.Tracking = newWidget("ClusterTracking")
+MinimapCluster.Tracking.Button = newWidget("ClusterTrackingButton")
+function MinimapCluster.Tracking.Button:IsMenuOpen() return menuOpen end
+MinimapCluster.IndicatorFrame = newWidget("ClusterIndicatorFrame")
+function MinimapCluster:IsMouseOver() return mouseOverCluster end
+function MinimapCluster:HookScript(event, callback) self[event] = callback end
+AddonCompartmentFrame = newWidget("AddonCompartmentFrame")
+GameTimeFrame.alpha = 1
+
+local retailFader = assert(faderNamespace.Private.MinimapClutterFader.Create)({
+    IsEnabled = function() return true end,
+    IsRetailClient = function() return true end,
+})
+retailFader.Apply(true)
+local headerFrames = {
+    MinimapCluster.BorderTop,
+    MinimapCluster.ZoneTextButton,
+    MinimapCluster.Tracking,
+    GameTimeFrame,
+    AddonCompartmentFrame,
+}
+for _, frame in ipairs(headerFrames) do
+    assertEqual(frame.CP_MinimapFadeManaged, true, frame.name .. " is managed")
+    assertEqual(frame.alpha, 0, frame.name .. " starts faded")
+end
+assertEqual(MinimapCluster.IndicatorFrame.CP_MinimapFadeManaged, nil, "mail and crafting indicators stay visible")
+assert(MinimapCluster.OnEnter and MinimapCluster.OnLeave, "cluster hover is hooked")
+
+local function RunFader()
+    for _ = 1, 20 do
+        if faderFrame.scripts.OnUpdate then faderFrame.scripts.OnUpdate(faderFrame, 0.05) end
+    end
+end
+
+mouseOverCluster = true
+MinimapCluster.OnEnter(MinimapCluster)
+RunFader()
+assertEqual(GameTimeFrame.alpha, 1, "hovering the minimap reveals the calendar")
+assertEqual(MinimapCluster.ZoneTextButton.alpha, 1, "hovering the minimap reveals the zone name")
+
+mouseOverCluster = false
+menuOpen = true
+MinimapCluster.OnLeave(MinimapCluster)
+RunFader()
+assertEqual(MinimapCluster.Tracking.alpha, 1, "open tracking menu keeps the strip visible")
+
+menuOpen = false
+RunFader()
+assertEqual(MinimapCluster.Tracking.alpha, 0, "strip fades once the menu closes")
+
+retailFader.Apply(false)
+for _, frame in ipairs(headerFrames) do
+    assertEqual(frame.alpha, 1, frame.name .. " restores on disable")
+end
+
 local localizationFiles = {
     "deDE.lua",
     "enUS.lua",

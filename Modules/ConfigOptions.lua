@@ -30,6 +30,11 @@ function Options.Create(context)
         return Description(client and client.isVanilla and "DESC_MOUNT_SPEED_TRINKET_CLASSIC" or "DESC_MOUNT_SPEED_TRINKET")
     end
 
+    local function MinimapClutterDescription()
+        local client = Carpenter and Carpenter.Client
+        return Description(client and client.isRetail and "DESC_MINIMAP_CLUTTER_RETAIL" or "DESC_MINIMAP_CLUTTER")
+    end
+
     local function WorldMapCleanupDescription()
         local client = Carpenter and Carpenter.Client
         return Description(client and client.isForever and "DESC_WORLD_MAP_CLEANUP_FOREVER" or "DESC_WORLD_MAP_CLEANUP")
@@ -131,7 +136,7 @@ function Options.Create(context)
                 {
                     key = "minimapClutterEnabled",
                     label = L.OPTION_MINIMAP_CLUTTER or "Remove Minimap Clutter",
-                    description = Description("DESC_MINIMAP_CLUTTER"),
+                    description = MinimapClutterDescription(),
                     image = GetSettingsImage("minimapclutter.png"),
                 },
                 {

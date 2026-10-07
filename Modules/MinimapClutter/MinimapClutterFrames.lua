@@ -88,8 +88,8 @@ function Frames.Create(config)
             return
         end
 
-        -- Forever exposes its day/night artwork as a separate DielFrame. Keep
-        -- GameTimeFrame and all calendar artwork completely untouched.
+        -- Forever exposes its day/night artwork as a separate DielFrame. Never
+        -- hide the calendar here; the fader fades it with the minimap header.
         HideDayNightArtwork()
 
         if isRetailClient() then return end
