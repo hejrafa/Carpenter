@@ -1,11 +1,11 @@
---[[ Carpenter - Chat Slang glossary ]]
+--[[ Carpenter - Chat Glossary terms ]]
 -- Glossary text and usage examples come from SlangSight 0.1.8-beta1 by PacHD,
 -- used under the MIT License. See LICENSE-SlangSight.txt in this folder.
 local _, ns = ...
 ns.Private = ns.Private or {}
 
 local entries = {}
-ns.Private.ChatSlangGlossary = entries
+ns.Private.ChatGlossaryTerms = entries
 
 local RAW = [==[
 10-MAN|Ten-player raid|Raids|A raid for ten players; availability depends on the game version.

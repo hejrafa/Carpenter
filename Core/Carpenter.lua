@@ -53,7 +53,7 @@ local defaults = {
     filterDuplicatesEnabled = false,
     chatCleanerEnabled = false,
     hideChatButtonsEnabled = false,
-    chatSlangTooltipsEnabled = false,
+    chatGlossaryEnabled = false,
     -- Automations
     autoCarrotEnabled = false,
     autoCarrotSlot = 14,

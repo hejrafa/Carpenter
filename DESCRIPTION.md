@@ -84,7 +84,7 @@ Players looking for a full UI replacement, a custom layout framework, or a compl
 - **Filter** - Block bot ads, gambling spam, and duplicate lines.
 - **Cleaner** - Restyle system and loot messages into short, color-coded lines.
 - **Hide Chat Buttons** - Fade the chat buttons until you hover over the chat.
-- **Slang Tooltips** - Hover over abbreviations like LFM, HR, or PST to see what they mean, with the whole message spelled out in plain words. WoW Forever only. Glossary by SlangSight (MIT).
+- **Glossary** - Hover over abbreviations like LFM, HR, or PST to see what they mean, with the whole message spelled out in plain words. WoW Forever only.
 
 ### Automations
 

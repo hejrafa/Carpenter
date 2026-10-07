@@ -1,4 +1,4 @@
---[[ Carpenter - Chat Slang tooltips ]]
+--[[ Carpenter - Chat Glossary ]]
 -- Turns known abbreviations in player chat into hover links. Hovering one
 -- explains the term and spells the whole line out in plain words.
 --
@@ -8,12 +8,16 @@
 local _, ns = ...
 ns.Private = ns.Private or {}
 
-local Engine = ns.Private.ChatSlangEngine
+local Engine = ns.Private.ChatGlossaryEngine
 local L = ns.L or Carpenter.L or {}
 
-local FEATURE_KEY = "chatSlangTooltipsEnabled"
-local LINK_PREFIX = "addon:Carpenter:slang:"
+local FEATURE_KEY = "chatGlossaryEnabled"
+local LINK_PREFIX = "addon:Carpenter:glossary:"
 local MAX_CACHED_MESSAGES = 200
+-- Linked words lean this far toward gold so they read as hoverable without
+-- losing the channel's own color.
+local TINT_COLOR = { r = 1, g = 0.82, b = 0 }
+local TINT_STRENGTH = 0.35
 
 local CHAT_EVENTS = {
     "CHAT_MSG_SAY",
@@ -73,23 +77,46 @@ local function Remember(id, record)
     end
 end
 
-local function Convert(message)
+local function GetTintCode(event, channelNumber)
+    local chatType = type(event) == "string" and event:match("^CHAT_MSG_(.+)$")
+    if chatType == "CHANNEL" and type(channelNumber) == "number" then
+        chatType = "CHANNEL" .. channelNumber
+    end
+    local info = chatType and ChatTypeInfo and ChatTypeInfo[chatType]
+    local r, g, b = 1, 1, 1
+    if info and type(info.r) == "number" then
+        r, g, b = info.r, info.g or 1, info.b or 1
+    end
+    local function Mix(base, tint)
+        return math.floor((base + (tint - base) * TINT_STRENGTH) * 255 + 0.5)
+    end
+    return ("|cff%02x%02x%02x"):format(Mix(r, TINT_COLOR.r), Mix(g, TINT_COLOR.g), Mix(b, TINT_COLOR.b))
+end
+
+local function Convert(message, tintCode)
     if not Engine or not Engine.IsPlainString(message) then return message end
     if message:find("|H" .. LINK_PREFIX, 1, true) then return message end
 
-    local cached = convertedBySource[message]
+    local sourceKey = (tintCode or "") .. message
+    local cached = convertedBySource[sourceKey]
     if cached then return cached end
 
     local id = nextMessageID + 1
-    local converted, plainWords, terms = Engine.Process(message, function(term, index, written)
-        return "|H" .. LINK_PREFIX .. id .. ":" .. index .. ":" .. EncodeKey(term.key) .. "|h" .. written .. "|h"
+    local converted, plainWords, terms = Engine.Process(message, function(term, index, written, insideColor)
+        local link = "|H" .. LINK_PREFIX .. id .. ":" .. index .. ":" .. EncodeKey(term.key) .. "|h" .. written .. "|h"
+        -- A |r here would also end the sender's own color, so leave those plain.
+        if tintCode and not insideColor then
+            return tintCode .. link .. "|r"
+        end
+        return link
     end)
     if not converted then return message end
 
     nextMessageID = id
     Remember(id, {
         id = id,
-        source = message,
+        source = sourceKey,
+        message = message,
         converted = converted,
         plainWords = plainWords,
         terms = terms,
@@ -97,11 +124,14 @@ local function Convert(message)
     return converted
 end
 
-local function ChatFilter(_, _, message, ...)
+local function ChatFilter(_, event, message, ...)
     if not Engine.IsPlainString(message) then
         return false, message, ...
     end
-    local ok, converted = pcall(Convert, message)
+    local channelNumber = select(7, ...)
+    local ok, converted = pcall(function()
+        return Convert(message, GetTintCode(event, channelNumber))
+    end)
     return false, ok and converted or message, ...
 end
 
@@ -137,18 +167,18 @@ local function ShowTooltip(chatFrame, link)
     GameTooltip:AddLine(entry.desc, 0.75, 0.75, 0.75, true)
 
     if term.uncertain then
-        GameTooltip:AddLine(L.SLANG_TOOLTIP_UNCLEAR, 1, 0.65, 0.25, true)
+        GameTooltip:AddLine(L.GLOSSARY_TOOLTIP_UNCLEAR, 1, 0.65, 0.25, true)
     elseif term.fromContext and entry.title:find(" / ", 1, true) then
-        GameTooltip:AddLine(L.SLANG_TOOLTIP_ALSO:format(entry.title), 0.55, 0.55, 0.55, true)
+        GameTooltip:AddLine(L.GLOSSARY_TOOLTIP_ALSO:format(entry.title), 0.55, 0.55, 0.55, true)
     end
 
-    if record and record.plainWords ~= record.source then
+    if record and record.plainWords ~= record.message then
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine(L.SLANG_TOOLTIP_PLAIN_WORDS, 1, 0.82, 0)
+        GameTooltip:AddLine(L.GLOSSARY_TOOLTIP_PLAIN_WORDS, 1, 0.82, 0)
         GameTooltip:AddLine(EscapeTooltipText(record.plainWords), 0.65, 0.85, 1, true)
     elseif entry.example then
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine(L.SLANG_TOOLTIP_EXAMPLE, 1, 0.82, 0)
+        GameTooltip:AddLine(L.GLOSSARY_TOOLTIP_EXAMPLE, 1, 0.82, 0)
         GameTooltip:AddLine(EscapeTooltipText(entry.example.sentence), 0.65, 0.85, 1, true)
         GameTooltip:AddLine(EscapeTooltipText(entry.example.meaning), 0.75, 0.75, 0.75, true)
     end
@@ -215,8 +245,8 @@ function feature:Disable()
     HideTooltip()
 end
 
--- Exposed for tools/chat-slang-fixtures.lua.
-ns.Private.ChatSlang = {
+-- Exposed for tools/chat-glossary-fixtures.lua.
+ns.Private.ChatGlossary = {
     Convert = Convert,
     ParseLink = ParseLink,
 }

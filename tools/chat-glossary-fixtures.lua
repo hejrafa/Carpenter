@@ -1,5 +1,5 @@
 #!/usr/bin/env lua
--- Offline fixture checks for Slang Tooltips: which chat words link, which
+-- Offline fixture checks for Chat Glossary: which chat words link, which
 -- meaning context picks, and that existing chat markup survives untouched.
 
 local repo = arg and arg[1] or "."
@@ -14,7 +14,7 @@ local callbacks = {}
 Carpenter = {
     L = setmetatable({}, { __index = function(_, key) return key end }),
     RegisterFeature = function(_, key, feature)
-        assert(key == "chatSlangTooltipsEnabled", "unexpected feature key " .. tostring(key))
+        assert(key == "chatGlossaryEnabled", "unexpected feature key " .. tostring(key))
         registeredFeature = feature
     end,
 }
@@ -25,24 +25,29 @@ EventRegistry = {
     UnregisterCallback = function(_, event) callbacks[event] = nil end,
 }
 
+ChatTypeInfo = {
+    SAY = { r = 1, g = 1, b = 1 },
+    CHANNEL2 = { r = 1, g = 0.75, b = 0.75 },
+}
+
 local secret = {}
 issecretvalue = function(value) return value == secret end
 
 local ns = { Private = {}, L = Carpenter.L }
-for _, file in ipairs({ "ChatSlangGlossary", "ChatSlangEngine", "ChatSlang" }) do
-    local chunk = assert(loadfile(repo .. "/Modules/ChatSlang/" .. file .. ".lua"))
+for _, file in ipairs({ "ChatGlossaryTerms", "ChatGlossaryEngine", "ChatGlossary" }) do
+    local chunk = assert(loadfile(repo .. "/Modules/ChatGlossary/" .. file .. ".lua"))
     chunk("Carpenter", ns)
 end
 
-local Engine = ns.Private.ChatSlangEngine
-local ChatSlang = ns.Private.ChatSlang
+local Engine = ns.Private.ChatGlossaryEngine
+local ChatGlossary = ns.Private.ChatGlossary
 assert(registeredFeature, "feature was not registered")
 
 local function LinkedTerms(message)
-    local converted = ChatSlang.Convert(message)
+    local converted = ChatGlossary.Convert(message)
     local keys = {}
-    for link, written in converted:gmatch("|H(addon:Carpenter:slang:[^|]+)|h(.-)|h") do
-        local term = assert(ChatSlang.ParseLink(link), "link did not parse: " .. link)
+    for link, written in converted:gmatch("|H(addon:Carpenter:glossary:[^|]+)|h(.-)|h") do
+        local term = assert(ChatGlossary.ParseLink(link), "link did not parse: " .. link)
         keys[#keys + 1] = written .. "=" .. term.meaning
     end
     return table.concat(keys, ", "), converted
@@ -77,7 +82,7 @@ local linked, converted = LinkedTerms(message)
 assert(linked == "WTS=Want to sell, PST=whisper if interested", linked)
 assert(converted:find(item, 1, true), "item link was altered")
 assert(converted:find("|TInterface\\Icons\\INV_Misc_QuestionMark:0|t", 1, true), "texture was altered")
-local term, record = ChatSlang.ParseLink(converted:match("|H(addon:Carpenter:slang:[^|]+)|h"))
+local term, record = ChatGlossary.ParseLink(converted:match("|H(addon:Carpenter:glossary:[^|]+)|h"))
 assert(term and record, "cached record missing")
 assert(record.plainWords == "Want to sell [Thunderfury, Blessed Blade of the Windseeker] whisper if interested {skull} ",
     "plain words: " .. record.plainWords)
@@ -86,21 +91,21 @@ assert(record.plainWords == "Want to sell [Thunderfury, Blessed Blade of the Win
 Expect("oh |cff1eff00|Hitem:1::::::::60:::::|h[Sword of Weapons]|h|r", "")
 
 -- Repeated lines reuse one id; already converted lines pass through.
-assert(ChatSlang.Convert("WTB mats") == ChatSlang.Convert("WTB mats"), "repeat conversion changed")
-local once = ChatSlang.Convert("LFG UBRS")
-assert(ChatSlang.Convert(once) == once, "converted line was converted again")
+assert(ChatGlossary.Convert("WTB mats") == ChatGlossary.Convert("WTB mats"), "repeat conversion changed")
+local once = ChatGlossary.Convert("LFG UBRS")
+assert(ChatGlossary.Convert(once) == once, "converted line was converted again")
 
 -- Expired links fall back to the glossary entry; foreign links are ignored.
-local fallback = ChatSlang.ParseLink("addon:Carpenter:slang:999999:1:PW%3AS")
+local fallback = ChatGlossary.ParseLink("addon:Carpenter:glossary:999999:1:PW%3AS")
 assert(fallback and fallback.key == "PW:S", "expired link fallback failed")
-assert(ChatSlang.ParseLink("addon:OtherAddon:thing") == nil, "foreign link parsed")
-assert(ChatSlang.ParseLink(secret) == nil, "secret link parsed")
+assert(ChatGlossary.ParseLink("addon:OtherAddon:thing") == nil, "foreign link parsed")
+assert(ChatGlossary.ParseLink(secret) == nil, "secret link parsed")
 
 -- Secret and oversized messages are left alone.
-assert(ChatSlang.Convert(secret) == secret, "secret message touched")
+assert(ChatGlossary.Convert(secret) == secret, "secret message touched")
 local long = string.rep("LFM ", 1100)
-assert(ChatSlang.Convert(long) == long, "oversized message touched")
-local _, count = ChatSlang.Convert(string.rep("LFM ", 20)):gsub("|Haddon:", "")
+assert(ChatGlossary.Convert(long) == long, "oversized message touched")
+local _, count = ChatGlossary.Convert(string.rep("LFM ", 20)):gsub("|Haddon:", "")
 assert(count == 12, "expected 12 linked terms, got " .. count)
 
 -- Enable and disable register and clear every hook.
@@ -108,10 +113,14 @@ registeredFeature:Enable()
 assert(filters.CHAT_MSG_CHANNEL and filters.CHAT_MSG_SAY, "chat filters not registered")
 assert(callbacks["ChatFrame.OnHyperlinkEnter"] and callbacks["ChatFrame.OnHyperlinkLeave"], "hover callbacks not registered")
 local _, filtered = filters.CHAT_MSG_SAY(nil, "CHAT_MSG_SAY", "LFM", "Author")
-assert(filtered:find("|Haddon:Carpenter:slang:", 1, true), "filter did not convert")
+assert(filtered:match("^|cffffefa6|Haddon:Carpenter:glossary:[^|]+|hLFM|h|r$"), "say link not tinted: " .. filtered)
+_, filtered = filters.CHAT_MSG_CHANNEL(nil, "CHAT_MSG_CHANNEL", "WTS", "Author", "", "2. Trade", "", "", 0, 2, "Trade")
+assert(filtered:find("|cffffc57c|Haddon:", 1, true), "trade link not tinted from channel color: " .. filtered)
+_, filtered = filters.CHAT_MSG_SAY(nil, "CHAT_MSG_SAY", "|cff00ff00PST now|r", "Author")
+assert(filtered:match("^|cff00ff00|Haddon:[^|]+|hPST|h now|r$"), "link inside sender color was tinted: " .. filtered)
 registeredFeature:Disable()
 assert(next(filters) == nil and next(callbacks) == nil, "disable left hooks behind")
 
 assert(Engine.Lookup("lfm").title == "Looking For More", "lookup failed")
 
-print("chat slang fixtures passed")
+print("chat glossary fixtures passed")

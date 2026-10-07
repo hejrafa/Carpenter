@@ -1,14 +1,14 @@
---[[ Carpenter - Chat Slang engine ]]
+--[[ Carpenter - Chat Glossary engine ]]
 -- Finds glossary terms in a chat line, picks a meaning from nearby words, and
 -- spells the whole line out in plain words. The context rules are adapted from
 -- SlangSight by PacHD (MIT License, see LICENSE-SlangSight.txt).
 local _, ns = ...
 ns.Private = ns.Private or {}
 
-local Engine = ns.Private.ChatSlangEngine or {}
-ns.Private.ChatSlangEngine = Engine
+local Engine = ns.Private.ChatGlossaryEngine or {}
+ns.Private.ChatGlossaryEngine = Engine
 
-local glossary = ns.Private.ChatSlangGlossary or {}
+local glossary = ns.Private.ChatGlossaryTerms or {}
 Engine.Glossary = glossary
 
 local MAX_TERMS = 12
@@ -279,18 +279,26 @@ local function Segment(message)
 end
 
 -- Returns converted, plainWords, terms, or nil when nothing was found.
--- makeLink(term, index, written) returns the escape sequence that replaces the
--- written term in the converted line.
+-- makeLink(term, index, written, insideColor) returns the escape sequence that
+-- replaces the written term in the converted line. insideColor is true when the
+-- term sits inside the sender's own |c...|r span.
 function Engine.Process(message, makeLink)
     if not IsPlainString(message) or #message > MAX_MESSAGE_BYTES then return nil end
 
     local segments, context = Segment(message)
     local converted, plainWords, terms = {}, {}, {}
 
+    local insideColor = false
     for _, segment in ipairs(segments) do
         if not segment.plain then
             converted[#converted + 1] = segment.raw
             plainWords[#plainWords + 1] = segment.display
+            local escape = segment.raw:sub(1, 2)
+            if escape == "|c" then
+                insideColor = true
+            elseif escape == "|r" then
+                insideColor = false
+            end
         else
             local text = segment.raw
             local upper = text:upper()
@@ -324,7 +332,7 @@ function Engine.Process(message, makeLink)
                     converted[#converted + 1] = before
                     plainWords[#plainWords + 1] = before
                     terms[#terms + 1] = match
-                    converted[#converted + 1] = makeLink(match, #terms, match.written)
+                    converted[#converted + 1] = makeLink(match, #terms, match.written, insideColor)
                     plainWords[#plainWords + 1] = match.uncertain and ("[" .. match.meaning .. "]") or match.meaning
                     pos = match.finish + 1
                     flushed = pos

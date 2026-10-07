@@ -289,9 +289,9 @@ function Options.Create(context)
                     image = GetSettingsImage("chatbuttons.png"),
                 },
                 {
-                    key = "chatSlangTooltipsEnabled",
-                    label = L.OPTION_CHAT_SLANG_TOOLTIPS or "Slang Tooltips",
-                    description = Description("DESC_CHAT_SLANG_TOOLTIPS"),
+                    key = "chatGlossaryEnabled",
+                    label = L.OPTION_CHAT_GLOSSARY or "Glossary",
+                    description = Description("DESC_CHAT_GLOSSARY"),
                     requiresReload = false,
                 },
             },

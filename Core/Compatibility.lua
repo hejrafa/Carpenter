@@ -95,7 +95,7 @@ local featureSupport = {
         hideTargetReputationColorEnabled = true,
         chatCleanerEnabled = true,
         hideChatButtonsEnabled = true,
-        chatSlangTooltipsEnabled = true,
+        chatGlossaryEnabled = true,
         smartMacrosEnabled = true,
         autoSellGreys = true,
         autoRepair = true,
@@ -113,7 +113,7 @@ local foreverUnsupportedFeatures = {
 
 -- Only the WoW Forever TOC loads these modules.
 local foreverOnlyFeatures = {
-    chatSlangTooltipsEnabled = true,
+    chatGlossaryEnabled = true,
 }
 
 function Carpenter:IsFeatureAvailable(configKey)
