@@ -170,9 +170,12 @@ end
 assertEqual(MinimapCluster.IndicatorFrame.CP_MinimapFadeManaged, nil, "mail and crafting indicators stay visible")
 assert(MinimapCluster.OnEnter and MinimapCluster.OnLeave, "cluster hover is hooked")
 
+-- Like the client, only tick while the fader frame is shown.
 local function RunFader()
     for _ = 1, 20 do
-        if faderFrame.scripts.OnUpdate then faderFrame.scripts.OnUpdate(faderFrame, 0.05) end
+        if faderFrame.shown and faderFrame.scripts.OnUpdate then
+            faderFrame.scripts.OnUpdate(faderFrame, 0.05)
+        end
     end
 end
 
@@ -182,6 +185,16 @@ RunFader()
 assertEqual(GameTimeFrame.alpha, 1, "hovering the minimap reveals the calendar")
 assertEqual(MinimapCluster.ZoneTextButton.alpha, 1, "hovering the minimap reveals the zone name")
 
+-- Leaving through a frame the fader never hooked (mail icon, another addon)
+-- fires no leave event, so the fader has to notice on its own.
+mouseOverCluster = false
+RunFader()
+assertEqual(GameTimeFrame.alpha, 0, "strip fades after leaving through an unhooked frame")
+assertEqual(faderFrame.shown, false, "fader stops polling once the strip has faded")
+
+mouseOverCluster = true
+MinimapCluster.OnEnter(MinimapCluster)
+RunFader()
 mouseOverCluster = false
 menuOpen = true
 MinimapCluster.OnLeave(MinimapCluster)

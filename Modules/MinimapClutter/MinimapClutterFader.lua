@@ -295,7 +295,7 @@ function Fader.Create(config)
             return
         end
 
-        UpdateFadedMinimapButtonTargets(false)
+        local revealed = UpdateFadedMinimapButtonTargets(false)
 
         local changed = false
         for _, btn in ipairs(fadeTargets) do
@@ -319,8 +319,9 @@ function Fader.Create(config)
             end
         end
 
-        -- Keep polling while a header menu is open so the strip fades once it closes.
-        if not changed and not IsHeaderMenuOpen() then
+        -- Keep polling while revealed: the mouse can leave through a frame we
+        -- never hooked (mail icon, another addon's button) without a leave event.
+        if not changed and not revealed then
             self:Hide()
         end
     end)
