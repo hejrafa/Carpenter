@@ -18,6 +18,7 @@ function Frames.Create(config)
     local isEnabled = config.IsEnabled or function() return false end
     local isRetailClient = config.IsRetailClient or function() return false end
     local hiddenFrames = {}
+    local mutedButtons = {}
 
     local function HideMinimapFrame(frame)
         if not frame then return end
@@ -61,6 +62,29 @@ function Frames.Create(config)
         hiddenFrames = {}
     end
 
+    -- Forever and Retail show Minimap.ZoomIn/ZoomOut on every hover, and the
+    -- mouse wheel zooms by clicking them. Keep them shown but invisible and
+    -- unclickable instead of hiding them, so wheel zoom keeps working.
+    local function MuteZoomButton(button)
+        if not button or not button.SetAlpha then return end
+        if not mutedButtons[button] then
+            mutedButtons[button] = {
+                alpha = button.GetAlpha and button:GetAlpha(),
+                mouse = not button.IsMouseEnabled or button:IsMouseEnabled(),
+            }
+        end
+        button:SetAlpha(0)
+        if button.EnableMouse then button:EnableMouse(false) end
+    end
+
+    local function RestoreZoomButtons()
+        for button, state in pairs(mutedButtons) do
+            button:SetAlpha(state.alpha ~= nil and state.alpha or 1)
+            if button.EnableMouse then button:EnableMouse(state.mouse) end
+        end
+        mutedButtons = {}
+    end
+
     local function ApplyClusterTweaks()
         local cluster = _G["MinimapCluster"]
         if not cluster then return end
@@ -85,6 +109,7 @@ function Frames.Create(config)
     function api.Apply(enabled)
         if not enabled then
             RestoreMinimapFrames()
+            RestoreZoomButtons()
             return
         end
 
@@ -92,7 +117,13 @@ function Frames.Create(config)
         -- hide the calendar here; the fader fades it with the minimap header.
         HideDayNightArtwork()
 
-        if isRetailClient() then return end
+        if isRetailClient() then
+            if Minimap then
+                MuteZoomButton(Minimap.ZoomIn)
+                MuteZoomButton(Minimap.ZoomOut)
+            end
+            return
+        end
 
         for _, name in ipairs(MINIMAP_FRAMES) do
             local frame = _G[name]

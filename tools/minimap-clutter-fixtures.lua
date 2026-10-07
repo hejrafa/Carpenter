@@ -115,6 +115,17 @@ assertEqual(MinimapCluster.BorderTop.shown, true, "cluster zone border remains s
 frames.Apply(false)
 assertEqual(MinimapCluster.DielFrame.shown, true, "day/night artwork restores on disable")
 
+local function newZoomButton(name)
+    local button = newWidget(name)
+    button.shown = false
+    button.mouse = true
+    function button:EnableMouse(enabled) self.mouse = enabled end
+    function button:IsMouseEnabled() return self.mouse end
+    return button
+end
+Minimap.ZoomIn = newZoomButton("ZoomIn")
+Minimap.ZoomOut = newZoomButton("ZoomOut")
+
 local foreverFrames = assert(frameNamespace.Private.MinimapClutterFrames.Create)({
     IsEnabled = function() return true end,
     IsRetailClient = function() return true end,
@@ -122,7 +133,19 @@ local foreverFrames = assert(frameNamespace.Private.MinimapClutterFrames.Create)
 foreverFrames.Apply(true)
 assertEqual(MinimapCluster.DielFrame.shown, false, "Forever day/night artwork is hidden")
 assertEqual(GameTimeFrame.shown, true, "Forever calendar remains shown")
-assertEqual(MinimapZoomIn.shown, true, "Forever zoom controls remain client-managed")
+assertEqual(MinimapZoomIn.shown, true, "Forever leaves classic zoom globals alone")
+for _, button in ipairs({ Minimap.ZoomIn, Minimap.ZoomOut }) do
+    button:Show()
+    assertEqual(button.alpha, 0, button.name .. " stays invisible when the minimap shows it on hover")
+    assertEqual(button.mouse, false, button.name .. " cannot be clicked while invisible")
+    assertEqual(button.shown, true, button.name .. " stays shown so wheel zoom can click it")
+end
+
+foreverFrames.Apply(false)
+for _, button in ipairs({ Minimap.ZoomIn, Minimap.ZoomOut }) do
+    assertEqual(button.alpha, 1, button.name .. " restores alpha on disable")
+    assertEqual(button.mouse, true, button.name .. " restores mouse on disable")
+end
 
 -- Forever and Retail fade the strip above the minimap and keep it up on hover.
 local mouseOverCluster = false
