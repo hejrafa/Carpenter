@@ -95,6 +95,7 @@ local featureSupport = {
         hideTargetReputationColorEnabled = true,
         chatCleanerEnabled = true,
         hideChatButtonsEnabled = true,
+        chatSlangTooltipsEnabled = true,
         smartMacrosEnabled = true,
         autoSellGreys = true,
         autoRepair = true,
@@ -110,12 +111,20 @@ local foreverUnsupportedFeatures = {
     hideUnitFramePowerBarEnabled = true,
 }
 
+-- Only the WoW Forever TOC loads these modules.
+local foreverOnlyFeatures = {
+    chatSlangTooltipsEnabled = true,
+}
+
 function Carpenter:IsFeatureAvailable(configKey)
     if Carpenter.Client.isRetail and configKey == "hideMacroNamesEnabled" then
         return type(securecallfunction) == "function"
     end
     if Carpenter.Client.isForever and configKey == "worldMapCleanupEnabled" then
         return true
+    end
+    if foreverOnlyFeatures[configKey] and not Carpenter.Client.isForever then
+        return false
     end
     if Carpenter.Client.isForever and foreverUnsupportedFeatures[configKey] then
         return false

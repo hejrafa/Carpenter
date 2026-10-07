@@ -288,6 +288,12 @@ function Options.Create(context)
                     description = Description("DESC_HIDE_CHAT_BUTTONS"),
                     image = GetSettingsImage("chatbuttons.png"),
                 },
+                {
+                    key = "chatSlangTooltipsEnabled",
+                    label = L.OPTION_CHAT_SLANG_TOOLTIPS or "Slang Tooltips",
+                    description = Description("DESC_CHAT_SLANG_TOOLTIPS"),
+                    requiresReload = false,
+                },
             },
         },
         {
