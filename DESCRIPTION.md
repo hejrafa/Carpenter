@@ -54,7 +54,7 @@ Players looking for a full UI replacement, a custom layout framework, or a compl
 
 - **Fade Micro Menu & Bags** - Fade the micro menu and bag bar until you hover over them or open your bags.
 - **Fade Exp & Rep Bars** - Lower the opacity of the experience and reputation bars.
-- **Remove Minimap Clutter** - Fade addon and queue buttons until you hover, and hide the day/night icon and zoom buttons. On WoW Forever and Retail, the zone name, tracking, calendar, and addon compartment above the minimap fade too.
+- **Remove Minimap Clutter** - Fade addon and queue buttons until you hover, and hide the day/night icon and zoom buttons. On WoW Forever and Retail, the zone name, tracking, calendar, clock, and addon compartment above the minimap fade too, and the calendar stays visible while invites are waiting.
 - **Hide Quest Tracker Titles** - Hide objective tracker section headers while keeping your objectives in view.
 - **World Map Cleanup** - Lower the small map, drop the fullscreen blackout, fade the map while you move, hide continent town icons, and optionally show dungeon, raid, and travel pins.
 - **Profession Icon Portrait** - Show your profession's icon in crafting windows.

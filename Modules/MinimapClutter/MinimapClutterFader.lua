@@ -25,7 +25,15 @@ local CLUSTER_HEADER_KEYS = {
 
 local GLOBAL_HEADER_FRAMES = {
     "GameTimeFrame",
+    "TimeManagerClockButton",
     "AddonCompartmentFrame",
+}
+
+-- Header buttons stay visible while Blizzard shows their alert: pending
+-- calendar invites, or a ringing alarm on the clock.
+local HEADER_ALERT_TEXTURES = {
+    GameTimeFrame = "GameTimeCalendarInvitesTexture",
+    TimeManagerClockButton = "TimeManagerAlarmFiredTexture",
 }
 
 local FADE_SPEED = 6 -- higher = snappier fade
@@ -134,7 +142,12 @@ function Fader.Create(config)
 
         for _, button in ipairs(fadeTargets) do
             if button and button.CP_MinimapFadeManaged then
-                button.CP_TargetAlpha = targetAlpha
+                local alert = button.CP_MinimapFadeAlert
+                if alert and alert.IsShown and alert:IsShown() then
+                    button.CP_TargetAlpha = 1
+                else
+                    button.CP_TargetAlpha = targetAlpha
+                end
             end
         end
 
@@ -155,6 +168,13 @@ function Fader.Create(config)
         local okEnter = pcall(target.HookScript, target, "OnEnter", WakeMinimapButtonFader)
         local okLeave = pcall(target.HookScript, target, "OnLeave", WakeMinimapButtonFader)
         target.CP_MinimapFadeHooked = okEnter or okLeave
+    end
+
+    local function HookAlertTexture(alert)
+        if alert.CP_MinimapFadeAlertHooked or not hooksecurefunc then return end
+        alert.CP_MinimapFadeAlertHooked = true
+        hooksecurefunc(alert, "Show", WakeMinimapButtonFader)
+        hooksecurefunc(alert, "Hide", WakeMinimapButtonFader)
     end
 
     local function HookClusterHover()
@@ -236,7 +256,13 @@ function Fader.Create(config)
             end
         end
         for _, name in ipairs(GLOBAL_HEADER_FRAMES) do
-            SetupFadedMinimapButton(_G[name], enabled, true)
+            local frame = _G[name]
+            local alert = _G[HEADER_ALERT_TEXTURES[name]]
+            if frame and alert and enabled then
+                frame.CP_MinimapFadeAlert = alert
+                HookAlertTexture(alert)
+            end
+            SetupFadedMinimapButton(frame, enabled, true)
         end
     end
 

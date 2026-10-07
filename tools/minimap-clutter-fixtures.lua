@@ -135,7 +135,20 @@ MinimapCluster.IndicatorFrame = newWidget("ClusterIndicatorFrame")
 function MinimapCluster:IsMouseOver() return mouseOverCluster end
 function MinimapCluster:HookScript(event, callback) self[event] = callback end
 AddonCompartmentFrame = newWidget("AddonCompartmentFrame")
+TimeManagerClockButton = newWidget("TimeManagerClockButton")
+GameTimeCalendarInvitesTexture = newWidget("GameTimeCalendarInvitesTexture")
+GameTimeCalendarInvitesTexture.shown = false
+TimeManagerAlarmFiredTexture = newWidget("TimeManagerAlarmFiredTexture")
+TimeManagerAlarmFiredTexture.shown = false
 GameTimeFrame.alpha = 1
+
+function hooksecurefunc(target, method, hook)
+    local original = target[method]
+    target[method] = function(...)
+        original(...)
+        hook(...)
+    end
+end
 
 local retailFader = assert(faderNamespace.Private.MinimapClutterFader.Create)({
     IsEnabled = function() return true end,
@@ -147,6 +160,7 @@ local headerFrames = {
     MinimapCluster.ZoneTextButton,
     MinimapCluster.Tracking,
     GameTimeFrame,
+    TimeManagerClockButton,
     AddonCompartmentFrame,
 }
 for _, frame in ipairs(headerFrames) do
@@ -177,6 +191,25 @@ assertEqual(MinimapCluster.Tracking.alpha, 1, "open tracking menu keeps the stri
 menuOpen = false
 RunFader()
 assertEqual(MinimapCluster.Tracking.alpha, 0, "strip fades once the menu closes")
+
+faderFrame.shown = false
+GameTimeCalendarInvitesTexture:Show()
+assertEqual(faderFrame.shown, true, "a new calendar invite wakes the fader")
+RunFader()
+assertEqual(GameTimeFrame.alpha, 1, "pending invites keep the calendar visible")
+assertEqual(TimeManagerClockButton.alpha, 0, "the clock still fades without an alarm")
+assertEqual(MinimapCluster.ZoneTextButton.alpha, 0, "the zone name still fades with pending invites")
+
+GameTimeCalendarInvitesTexture:Hide()
+RunFader()
+assertEqual(GameTimeFrame.alpha, 0, "the calendar fades once invites are seen")
+
+TimeManagerAlarmFiredTexture:Show()
+RunFader()
+assertEqual(TimeManagerClockButton.alpha, 1, "a ringing alarm keeps the clock visible")
+TimeManagerAlarmFiredTexture:Hide()
+RunFader()
+assertEqual(TimeManagerClockButton.alpha, 0, "the clock fades once the alarm stops")
 
 retailFader.Apply(false)
 for _, frame in ipairs(headerFrames) do
