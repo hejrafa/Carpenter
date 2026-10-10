@@ -73,7 +73,6 @@ C_SuperTrack = {
 }
 
 function InCombatLockdown() return inCombat end
-SlashCmdList = {}
 function CreateFrame()
     local frame = { events = {} }
     function frame:RegisterEvent(event) self.events[event] = true end
