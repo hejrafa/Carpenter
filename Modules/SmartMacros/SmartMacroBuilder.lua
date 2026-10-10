@@ -82,15 +82,20 @@ local function BuildHealthMacroBody(potion, healthstone)
         }
     end
 
+    -- Only the first item without conditions can ever show, and listing more
+    -- makes WoW Forever pick the potion's icon. Name just that one.
+    local fallbackItem = (healthstone and healthstone.name) or (potion and potion.name)
+    if fallbackItem then
+        tooltip = tooltip and (tooltip .. "; " .. fallbackItem) or fallbackItem
+    end
+
     if healthstone and healthstone.name then
-        tooltip = tooltip and (tooltip .. "; " .. healthstone.name) or healthstone.name
         entries[#entries + 1] = {
             line = "/use " .. healthstone.name,
         }
     end
 
     if potion and potion.name then
-        tooltip = tooltip and (tooltip .. "; " .. potion.name) or potion.name
         entries[#entries + 1] = {
             line = "/use " .. potion.name,
         }
