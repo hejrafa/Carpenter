@@ -123,6 +123,7 @@ local foreverOnlyFeatures = {
 local foreverExtraFeatures = {
     worldMapCleanupEnabled = true,
     enchantWarningEnabled = true,
+    nameplateComboEnabled = true,
 }
 
 function Carpenter:IsFeatureAvailable(configKey)

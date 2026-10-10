@@ -13,6 +13,11 @@ local resourcePoints = {
 -- Using the same sprite sheet for both states
 local COMBO_TEXTURE = "Interface\\ComboFrame\\ComboPoint"
 
+-- WoW Forever draws combo points with Retail's rogue atlases; match them there.
+local FOREVER_SOCKET_ATLAS = "uf-roguecp-bg-dis"
+local FOREVER_POINT_ATLAS = "uf-roguecp-icon-red"
+local FOREVER_SOCKET_SIZE = 11
+
 -- Scales the whole group at once so the socket, dot, and alignment tuning
 -- below keep their proportions.
 local COMBO_SCALE = 1.25
@@ -31,6 +36,51 @@ local function isEnabled()
     return Carpenter and Carpenter:IsEnabled("nameplateComboEnabled")
 end
 
+local function GetAtlasSize(atlas)
+    local info = C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas)
+    if info and info.width and info.height and info.width > 0 then
+        return info.width, info.height
+    end
+end
+
+local function UseForeverArt()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isForever
+        and GetAtlasSize(FOREVER_SOCKET_ATLAS) ~= nil
+        and GetAtlasSize(FOREVER_POINT_ATLAS) ~= nil
+end
+
+-- Builds the sockets and points from Forever's atlases, scaled so a socket is
+-- FOREVER_SOCKET_SIZE wide and the point keeps its size relative to it.
+local function CreateForeverPoints()
+    local socketW, socketH = GetAtlasSize(FOREVER_SOCKET_ATLAS)
+    local pointW, pointH = GetAtlasSize(FOREVER_POINT_ATLAS)
+    local scale = FOREVER_SOCKET_SIZE / socketW
+    local padding = 1
+    socketW, socketH = socketW * scale, socketH * scale
+
+    resourceFrame:SetSize((socketW * 5) + (padding * 4), socketH)
+
+    for i = 1, 5 do
+        local base = resourceFrame:CreateTexture(nil, "BACKGROUND")
+        base:SetAtlas(FOREVER_SOCKET_ATLAS)
+        base:SetSize(socketW, socketH)
+        if i == 1 then
+            base:SetPoint("LEFT", resourceFrame, "LEFT", 0, 0)
+        else
+            base:SetPoint("LEFT", resourcePoints.base[i - 1], "RIGHT", padding, 0)
+        end
+
+        local active = resourceFrame:CreateTexture(nil, "OVERLAY")
+        active:SetAtlas(FOREVER_POINT_ATLAS)
+        active:SetSize(pointW * scale, pointH * scale)
+        active:SetPoint("CENTER", base, "CENTER", 0, 0)
+        active:Hide()
+
+        resourcePoints.base[i] = base
+        resourcePoints.active[i] = active
+    end
+end
+
 -- =========================================================
 -- Visual Setup
 -- =========================================================
@@ -41,6 +91,11 @@ local function ensureResourceFrame()
     resourceFrame = CreateFrame("Frame", "CarpenterComboFrame", UIParent)
     resourceFrame:Hide()
     resourceFrame:SetScale(COMBO_SCALE)
+
+    if UseForeverArt() then
+        CreateForeverPoints()
+        return
+    end
 
     -- Base 9x10 keeps the sockets compact while making them easier to read.
     local texW, texH = 9, 10
@@ -131,6 +186,9 @@ local function update()
 
     -- 3. Get Combo Points
     local cp = GetComboPoints("player", "target") or 0
+    if issecretvalue and issecretvalue(cp) then
+        cp = 0
+    end
 
     -- 4. Anchor and Display
     ensureResourceFrame()
@@ -191,6 +249,10 @@ function feature:Enable()
     addonFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
     addonFrame:RegisterUnitEvent("UNIT_POWER_UPDATE", "player")
     addonFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    -- WoW Forever moves points to a new target without a power event.
+    if Carpenter.SafeRegisterEvent then
+        Carpenter:SafeRegisterEvent(addonFrame, "COMBO_TARGET_CHANGED")
+    end
     update()
 end
 
