@@ -87,6 +87,7 @@ Modules\AutoRepair.lua
 
 # Text
 Modules\HideErrorMessages.lua
+Modules\EnchantWarning.lua
 
 # Immersion
 Modules\ActionCam.lua

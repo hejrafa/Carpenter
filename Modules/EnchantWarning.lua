@@ -15,9 +15,47 @@ local delayTimer = 0
 local scanTooltip = CreateFrame("GameTooltip", "CarpenterScanTooltip", nil, "GameTooltipTemplate")
 scanTooltip:SetOwner(WorldFrame, "ANCHOR_NONE")
 
+local function IsSecret(value)
+    return issecretvalue and issecretvalue(value)
+end
+
+local function ParseEnchantLine(text, r, g, b)
+    if type(text) ~= "string" or IsSecret(text) then
+        return nil
+    end
+    if type(r) ~= "number" or type(g) ~= "number" or type(b) ~= "number"
+        or IsSecret(r) or IsSecret(g) or IsSecret(b) then
+        return nil
+    end
+    -- Green text indicates enchants
+    if g > 0.9 and r < 0.5 and b < 0.5 then
+        -- Check if the line contains a time indicator like "(15 min)" or "(30 sec)"
+        if text:find("%(%d+ min%)") or text:find("%(%d+ sec%)") or text:find("%(%d+ hr%)") then
+            -- Strip the time part for a cleaner message
+            return (text:gsub(" %(%d+ %a+%)", ""))
+        end
+    end
+    return nil
+end
+
 local function GetEnchantName(slot)
     -- Scan weapon tooltip for temp enchant (green text)
     -- slot 16 = main hand, slot 17 = off hand
+
+    -- WoW Forever reads tooltip data directly instead of filling a hidden tooltip.
+    local client = Carpenter and Carpenter.Client
+    if client and client.isForever and C_TooltipInfo and C_TooltipInfo.GetInventoryItem then
+        local data = C_TooltipInfo.GetInventoryItem("player", slot)
+        for _, line in ipairs(data and data.lines or {}) do
+            local color = line.leftColor
+            local name = color and ParseEnchantLine(line.leftText, color.r, color.g, color.b)
+            if name then
+                return name
+            end
+        end
+        return nil
+    end
+
     scanTooltip:SetOwner(UIParent, "ANCHOR_NONE")
     scanTooltip:ClearLines()
     scanTooltip:SetInventoryItem("player", slot)
@@ -26,19 +64,10 @@ local function GetEnchantName(slot)
     for i = 1, scanTooltip:NumLines() do
         local line = _G["CarpenterScanTooltipTextLeft" .. i]
         if line then
-            local text = line:GetText()
-            if text then
-                local r, g, b = line:GetTextColor()
-                -- Green text indicates enchants
-                if g and g > 0.9 and r and r < 0.5 and b and b < 0.5 then
-                    -- Check if the line contains a time indicator like "(15 min)" or "(30 sec)"
-                    if text:find("%(%d+ min%)") or text:find("%(%d+ sec%)") or text:find("%(%d+ hr%)") then
-                        -- Strip the time part for a cleaner message
-                        local name = text:gsub(" %(%d+ %a+%)", "")
-                        scanTooltip:Hide()
-                        return name
-                    end
-                end
+            local name = ParseEnchantLine(line:GetText(), line:GetTextColor())
+            if name then
+                scanTooltip:Hide()
+                return name
             end
         end
     end
@@ -79,6 +108,9 @@ local function CheckEnchantments()
 
     -- Check hand enchants
     local hasMainEnchant, mainTimeLeft, _, _, hasOffEnchant, offTimeLeft = GetWeaponEnchantInfo()
+    if IsSecret(hasMainEnchant) or IsSecret(mainTimeLeft) or IsSecret(hasOffEnchant) or IsSecret(offTimeLeft) then
+        return
+    end
 
     -- Main hand logic
     if hasMainEnchant then

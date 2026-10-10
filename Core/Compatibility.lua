@@ -99,6 +99,7 @@ local featureSupport = {
         smartMacrosEnabled = true,
         autoSellGreys = true,
         autoRepair = true,
+        enchantWarningEnabled = true,
         hideErrorMessagesEnabled = true,
         actionCamEnabled = true,
         explorerModeEnabled = true,
@@ -114,6 +115,7 @@ local foreverUnsupportedFeatures = {
 -- Only the WoW Forever TOC loads these modules.
 local foreverOnlyFeatures = {
     chatGlossaryEnabled = true,
+    enchantWarningEnabled = true,
 }
 
 function Carpenter:IsFeatureAvailable(configKey)
