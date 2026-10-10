@@ -53,7 +53,7 @@ Junk gets sold, gear gets repaired, new quests land in your tracker, mount-speed
 - **Profession Icon Portrait** - Show your profession's icon in crafting windows.
 - **Talent Icon Portrait** - Show your talent tree's icon in the talent window.
 - **Enhanced Tooltip** - Tidy unit tooltips and show who the unit is targeting.
-- **Scale Extra Ability** - Shrink the Extra Action and Zone Ability buttons to 80%.
+- **Scale Extra Ability** - Shrink the Extra Action and Zone Ability buttons to 80%. Retail only.
 - **Hide Boss Frames** - Fade boss unit frames and let your mouse pass through them.
 
 ### Unit Frames

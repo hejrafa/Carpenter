@@ -110,6 +110,7 @@ Carpenter.FeatureSupport = featureSupport
 
 local foreverUnsupportedFeatures = {
     hideUnitFramePowerBarEnabled = true,
+    scaleExtraAbilityEnabled = true,
 }
 
 -- Only the WoW Forever TOC loads these modules.

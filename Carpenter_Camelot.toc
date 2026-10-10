@@ -44,7 +44,6 @@ Modules\MinimapClutter\MinimapClutterFrames.lua
 Modules\MinimapClutter\MinimapClutterFader.lua
 Modules\MinimapClutter\MinimapClutter.lua
 Modules\EnhanceTooltip.lua
-Modules\ExtraAbilityScale.lua
 Modules\HideQuestTrackerTitles.lua
 Modules\QuestTrackerSort.lua
 Modules\WorldMapCleanup\WorldMapCleanupSilithus.lua
