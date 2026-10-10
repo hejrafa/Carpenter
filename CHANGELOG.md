@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.8.3
+
+- Added Glossary for WoW Forever chat: hover over abbreviations like LFM, HR, or PST to see what they mean, with the whole message spelled out in plain words.
+- Added Sort Quests by Level for WoW Forever, listing your tracked quests from lowest to highest level.
+- Brought nameplate Combo Points to WoW Forever, drawn with Forever's own combo point art and animations.
+- Brought Poison Warning to WoW Forever.
+- Remove Minimap Clutter now also fades the zone name, tracking, calendar, clock, and addon compartment above the minimap on WoW Forever and Retail. The calendar stays visible while invites are waiting and the clock while an alarm rings.
+- Remove Minimap Clutter keeps the WoW Forever and Retail zoom buttons out of sight while mouse-wheel zoom keeps working.
+- Fixed minimap extras sometimes staying visible after the mouse left the minimap.
+- Explorer Mode on WoW Forever and Retail, where the game hides your health from addons, now waits until your health has settled before fading the HUD instead of fading while you are hurt.
+- Most options now take effect the moment you toggle them, and the reload hint only shows where a reload is still needed. Hide Stance Bar, Hide Keybinds, Hide Macro Names, Smaller Exp Bar, Debuffs, and Chat Cleaner now turn on and off without a reload.
+- Turning off Chat Cleaner now restores the chat input box, level-up messages, and AFK/DND tags, and it no longer changes the AFK/DND tags while it is off.
+- Turning off Extra Ability Scale, Hide Boss Frames, or Unit Frame Cleanup during combat now restores those frames once combat ends.
+- Fixed Enhance Tooltip hiding the tooltip health bar even while it was turned off.
+- Fixed the health macro showing the potion's icon on WoW Forever when a healthstone comes first.
+- Turning off Remove Minimap Clutter on Classic now also removes its mouse-wheel zoom.
+- Scale Extra Ability is no longer offered on WoW Forever, which has no Extra Action or Zone Ability buttons.
+
 ## 1.8.2
 
 - Class Colored Health now colors party frames again, tinting only the bar artwork so Blizzard's secure frames stay untouched.
