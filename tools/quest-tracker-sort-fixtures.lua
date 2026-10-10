@@ -47,7 +47,8 @@ C_QuestLog = {
     AddQuestWatch = function(questID)
         watchChanges = watchChanges + 1
         RemoveFromList(questID)
-        watchList[#watchList + 1] = questID
+        -- Forever puts a newly watched quest at the top.
+        table.insert(watchList, 1, questID)
         if not keepsInsertionOrder then
             table.sort(watchList)
         end
@@ -129,8 +130,8 @@ watchChanges = 0
 Fire("QUEST_WATCH_LIST_CHANGED")
 assert(watchChanges == 0, "sorted list should not be touched")
 
--- Only quests from the first out-of-place one are re-added.
-watchList = { 104, 102, 105, 103, 101 }
+-- Only quests up to the last out-of-place one are re-added.
+watchList = { 103, 104, 102, 101, 105 }
 watchChanges = 0
 Fire("QUEST_ACCEPTED")
 assert(Order() == "104,102,103,101,105", "expected level order got " .. Order())

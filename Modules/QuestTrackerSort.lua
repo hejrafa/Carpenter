@@ -2,6 +2,7 @@
 -- Orders tracked quests from lowest to highest level on WoW Forever.
 -- Blizzard's tracker lists quests in watch-list order, so this reorders the
 -- watch list itself instead of touching the tracker (which would taint it).
+-- Forever puts a newly watched quest at the top of the list.
 local _, ns = ...
 ns = ns or {}
 ns.Private = ns.Private or {}
@@ -97,14 +98,14 @@ local function SortWatchList(force)
     local quests = GetWatchedQuests()
     local sorted = QuestTrackerSort.GetSortedOrder(quests)
 
-    local firstMismatch
-    for i, quest in ipairs(sorted) do
-        if quests[i].questID ~= quest.questID then
-            firstMismatch = i
+    local lastMismatch
+    for i = #sorted, 1, -1 do
+        if quests[i].questID ~= sorted[i].questID then
+            lastMismatch = i
             break
         end
     end
-    if not firstMismatch then
+    if not lastMismatch then
         lastAttemptedOrder = nil
         return
     end
@@ -116,14 +117,14 @@ local function SortWatchList(force)
     -- Untracking the super-tracked quest can clear the waypoint; put it back.
     local superTrackedQuestID = C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID and C_SuperTrack.GetSuperTrackedQuestID()
 
-    -- Quests before the first mismatch are already in place. Re-adding the rest
-    -- appends them to the watch list in level order.
+    -- Quests after the last mismatch are already in place. Re-adding the rest
+    -- highest level first leaves the lowest level on top.
     local results = {}
-    for i = firstMismatch, #sorted do
+    for i = lastMismatch, 1, -1 do
         results[#results + 1] = { questID = sorted[i].questID, removed = C_QuestLog.RemoveQuestWatch(sorted[i].questID) }
     end
-    for i = firstMismatch, #sorted do
-        results[i - firstMismatch + 1].added = C_QuestLog.AddQuestWatch(sorted[i].questID)
+    for i, result in ipairs(results) do
+        result.added = C_QuestLog.AddQuestWatch(result.questID)
     end
 
     if IsUsable(superTrackedQuestID) and superTrackedQuestID ~= 0
