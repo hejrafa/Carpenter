@@ -26,6 +26,7 @@ local defaults = {
     enhanceTooltipEnabled = false,
     scaleExtraAbilityEnabled = false,
     hideQuestTrackerTitlesEnabled = false,
+    sortQuestsByLevelEnabled = false,
     -- Unit Frames
     classHealthColorsEnabled = false,
     threatIndicatorEnabled = false,

@@ -154,6 +154,13 @@ function Options.Create(context)
                     requiresReload = false,
                 },
                 {
+                    key = "sortQuestsByLevelEnabled",
+                    label = L.OPTION_SORT_QUESTS_BY_LEVEL or "Sort Quests by Level",
+                    description = Description("DESC_SORT_QUESTS_BY_LEVEL"),
+                    image = GetSettingsImage("questtrack.png"),
+                    requiresReload = false,
+                },
+                {
                     key = "worldMapCleanupEnabled",
                     label = L.OPTION_WORLD_MAP_CLEANUP or "World Map Cleanup",
                     description = WorldMapCleanupDescription(),

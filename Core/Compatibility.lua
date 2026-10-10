@@ -81,6 +81,7 @@ local featureSupport = {
         enhanceTooltipEnabled = true,
         scaleExtraAbilityEnabled = true,
         hideQuestTrackerTitlesEnabled = true,
+        sortQuestsByLevelEnabled = true,
         classHealthColorsEnabled = true,
         threatIndicatorEnabled = false,
         cleanUpUnitFramesEnabled = true,
@@ -114,6 +115,7 @@ local foreverUnsupportedFeatures = {
 -- Only the WoW Forever TOC loads these modules.
 local foreverOnlyFeatures = {
     chatGlossaryEnabled = true,
+    sortQuestsByLevelEnabled = true,
 }
 
 -- Classic features that WoW Forever also loads on top of the retail set.
