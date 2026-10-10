@@ -84,8 +84,8 @@ function QuestTrackerSort.GetSortedOrder(quests)
     return sorted
 end
 
-local function SortWatchList()
-    if not IsEnabled() then return end
+local function SortWatchList(force)
+    if not force and not IsEnabled() then return end
     if not (C_QuestLog and C_QuestLog.GetNumQuestWatches and C_QuestLog.AddQuestWatch and C_QuestLog.RemoveQuestWatch) then
         return
     end
@@ -110,7 +110,7 @@ local function SortWatchList()
     end
 
     local signature = GetOrderSignature(quests)
-    if signature == lastAttemptedOrder then return end
+    if not force and signature == lastAttemptedOrder then return end
     lastAttemptedOrder = signature
 
     -- Untracking the super-tracked quest can clear the waypoint; put it back.
@@ -118,11 +118,12 @@ local function SortWatchList()
 
     -- Quests before the first mismatch are already in place. Re-adding the rest
     -- appends them to the watch list in level order.
+    local results = {}
     for i = firstMismatch, #sorted do
-        C_QuestLog.RemoveQuestWatch(sorted[i].questID)
+        results[#results + 1] = { questID = sorted[i].questID, removed = C_QuestLog.RemoveQuestWatch(sorted[i].questID) }
     end
     for i = firstMismatch, #sorted do
-        C_QuestLog.AddQuestWatch(sorted[i].questID)
+        results[i - firstMismatch + 1].added = C_QuestLog.AddQuestWatch(sorted[i].questID)
     end
 
     if IsUsable(superTrackedQuestID) and superTrackedQuestID ~= 0
@@ -131,6 +132,8 @@ local function SortWatchList()
     then
         C_SuperTrack.SetSuperTrackedQuestID(superTrackedQuestID)
     end
+
+    return results
 end
 
 local function ScheduleSort()
@@ -151,6 +154,45 @@ frame:SetScript("OnEvent", function(_, event)
     ScheduleSort()
 end)
 
+-- Blizzard re-sorts the watch list itself on zone and subzone changes.
+local hookedBlizzardSort = false
+local function HookBlizzardSort()
+    if hookedBlizzardSort or not (C_QuestLog and C_QuestLog.SortQuestWatches) then return end
+    hookedBlizzardSort = true
+    hooksecurefunc(C_QuestLog, "SortQuestWatches", function()
+        if not IsEnabled() then return end
+        lastAttemptedOrder = nil
+        ScheduleSort()
+    end)
+end
+
+local function PrintWatchList(label)
+    local parts = {}
+    for _, quest in ipairs(GetWatchedQuests()) do
+        parts[#parts + 1] = tostring(quest.level or "?") .. ":" .. tostring(quest.questID)
+    end
+    print("|cff00ccaaCarpenter|r " .. label .. " (" .. #parts .. "): " .. table.concat(parts, "  "))
+end
+
+-- /cpquestsort shows the watch list, tries one sort, and shows the result.
+SLASH_CARPENTERQUESTSORT1 = "/cpquestsort"
+SlashCmdList["CARPENTERQUESTSORT"] = function()
+    print("|cff00ccaaCarpenter|r Sort Quests by Level enabled: " .. tostring(IsEnabled()))
+    PrintWatchList("before")
+    local results = SortWatchList(true)
+    if not results then
+        print("|cff00ccaaCarpenter|r already in level order (or in combat)")
+        return
+    end
+    local parts = {}
+    for _, result in ipairs(results) do
+        parts[#parts + 1] = tostring(result.questID) .. " removed=" .. tostring(result.removed) .. " added=" .. tostring(result.added)
+    end
+    print("|cff00ccaaCarpenter|r calls: " .. table.concat(parts, ", "))
+    PrintWatchList("right after")
+    C_Timer.After(1, function() PrintWatchList("1s later") end)
+end
+
 local feature = {}
 
 function feature:Enable()
@@ -158,6 +200,8 @@ function feature:Enable()
     frame:RegisterEvent("QUEST_WATCH_LIST_CHANGED")
     frame:RegisterEvent("QUEST_ACCEPTED")
     frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    HookBlizzardSort()
+    lastAttemptedOrder = nil
     ScheduleSort()
 end
 

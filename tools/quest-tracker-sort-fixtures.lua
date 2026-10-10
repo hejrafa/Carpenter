@@ -54,12 +54,25 @@ C_QuestLog = {
         return true
     end,
 }
+-- Stand-in for Blizzard's zone-change sort: any order that is not ours.
+C_QuestLog.SortQuestWatches = function()
+    table.sort(watchList, function(a, b) return a > b end)
+end
+function hooksecurefunc(target, name, hook)
+    local original = target[name]
+    target[name] = function(...)
+        original(...)
+        hook(...)
+    end
+end
+
 C_SuperTrack = {
     GetSuperTrackedQuestID = function() return superTrackedQuestID end,
     SetSuperTrackedQuestID = function(questID) superTrackedQuestID = questID end,
 }
 
 function InCombatLockdown() return inCombat end
+SlashCmdList = {}
 function CreateFrame()
     local frame = { events = {} }
     function frame:RegisterEvent(event) self.events[event] = true end
@@ -122,6 +135,12 @@ watchChanges = 0
 Fire("QUEST_ACCEPTED")
 assert(Order() == "104,102,103,101,105", "expected level order got " .. Order())
 assert(watchChanges == 6, "expected 3 quests re-added got " .. watchChanges .. " changes")
+
+-- Blizzard's own re-sort on zone change gets sorted back.
+C_QuestLog.SortQuestWatches()
+assert(Order() == "105,104,103,102,101", "fixture sort should scramble the list")
+Flush()
+assert(Order() == "104,102,103,101,105", "expected level order after Blizzard sort got " .. Order())
 
 -- Combat waits for PLAYER_REGEN_ENABLED.
 watchList = { 105, 104 }
