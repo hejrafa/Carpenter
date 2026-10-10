@@ -38,8 +38,12 @@ local function ApplyMinimapClutter()
     if faderHelpers.Apply then
         faderHelpers.Apply(enabled)
     end
-    if enabled and IsClassicClient() and frameHelpers.EnableMouseWheelZoom then
-        frameHelpers.EnableMouseWheelZoom()
+    if IsClassicClient() then
+        if enabled and frameHelpers.EnableMouseWheelZoom then
+            frameHelpers.EnableMouseWheelZoom()
+        elseif not enabled and frameHelpers.DisableMouseWheelZoom then
+            frameHelpers.DisableMouseWheelZoom()
+        end
     end
 end
 

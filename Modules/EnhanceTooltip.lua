@@ -92,6 +92,32 @@ local function HideTooltipHealthBar(tooltip)
     end
 end
 
+local function ShowStatusBar(bar)
+    if not bar then return end
+    if bar.SetAlpha then
+        bar:SetAlpha(1)
+    end
+    local texture = bar.GetStatusBarTexture and bar:GetStatusBarTexture()
+    if texture and texture.SetAlpha then
+        texture:SetAlpha(1)
+    end
+end
+
+local function RestoreTooltipHealthBar(tooltip)
+    ShowStatusBar(_G["GameTooltipStatusBar"])
+    ShowStatusBar(tooltip and tooltip.StatusBar)
+    ShowStatusBar(tooltip and tooltip.statusBar)
+
+    if tooltip then
+        local children = { tooltip:GetChildren() }
+        for _, child in ipairs(children) do
+            if child and child.GetObjectType and child:GetObjectType() == "StatusBar" then
+                ShowStatusBar(child)
+            end
+        end
+    end
+end
+
 local function ScheduleHideTooltipHealthBar(tooltip)
     HideTooltipHealthBar(tooltip)
     if C_Timer and C_Timer.After then
@@ -477,7 +503,9 @@ local function InstallHooks()
         WorldFrame:EnableMouseMotion(true)
     end
     if not hooked then
-        HideTooltipHealthBar(GameTooltip)
+        if IsEnabled() then
+            HideTooltipHealthBar(GameTooltip)
+        end
         local hookedOnShow = false
         if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Unit then
             TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip)
@@ -503,6 +531,16 @@ local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+-- Blizzard re-shows the bar on the next unit tooltip; only its alpha needs restoring.
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("enhanceTooltipEnabled", {
+        Enable = function() end,
+        Disable = function()
+            RestoreTooltipHealthBar(GameTooltip)
+        end,
+    })
+end
+
 frame:SetScript("OnEvent", function(_, event, addonName)
     if event == "ADDON_LOADED" then
         if addonName == "Carpenter" then

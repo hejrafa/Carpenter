@@ -135,8 +135,18 @@ function Frames.Create(config)
         ApplyClusterTweaks()
     end
 
+    local mouseWheelZoomEnabled = false
+    local originalMouseWheelEnabled
+    local originalMouseWheelScript
+
     function api.EnableMouseWheelZoom()
         if not Minimap or not Minimap.GetZoom or not Minimap.SetZoom then return end
+
+        if not mouseWheelZoomEnabled then
+            originalMouseWheelEnabled = Minimap.IsMouseWheelEnabled and Minimap:IsMouseWheelEnabled() or false
+            originalMouseWheelScript = Minimap:GetScript("OnMouseWheel")
+            mouseWheelZoomEnabled = true
+        end
 
         Minimap:EnableMouseWheel(true)
         Minimap:SetScript("OnMouseWheel", function(self, delta)
@@ -149,6 +159,14 @@ function Frames.Create(config)
                 self:SetZoom(currentZoom - 1)
             end
         end)
+    end
+
+    function api.DisableMouseWheelZoom()
+        if not mouseWheelZoomEnabled or not Minimap then return end
+
+        Minimap:SetScript("OnMouseWheel", originalMouseWheelScript)
+        Minimap:EnableMouseWheel(originalMouseWheelEnabled)
+        mouseWheelZoomEnabled = false
     end
 
     return api

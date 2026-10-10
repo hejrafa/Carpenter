@@ -119,6 +119,13 @@ end
 
 HookBarUpdates()
 
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("smallerExpBarEnabled", {
+        Enable = Apply,
+        Disable = Apply,
+    })
+end
+
 -- Blizzard UI loves to reset these on zone in/reload, and the status bar
 -- manager may not exist yet at load, so retry the hooks with the passes.
 if Carpenter and Carpenter.RunStartupPasses then

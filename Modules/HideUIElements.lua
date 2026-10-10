@@ -162,3 +162,13 @@ end
 f:SetScript("OnEvent", function()
     UpdateActionBars()
 end)
+
+-- Apply settings changes right away; combat changes wait for PLAYER_REGEN_ENABLED.
+if Carpenter and Carpenter.RegisterFeature then
+    for _, key in ipairs({ "hideStanceBarEnabled", "hideKeybindsEnabled", "hideMacroNamesEnabled" }) do
+        Carpenter:RegisterFeature(key, {
+            Enable = UpdateActionBars,
+            Disable = UpdateActionBars,
+        })
+    end
+end
