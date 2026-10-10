@@ -7,8 +7,12 @@ local addonFrame = CreateFrame("Frame")
 local resourceFrame
 local resourcePoints = {
     base = {},
-    active = {}
+    active = {},
+    animated = {},
 }
+-- Snap to the current count instead of animating, like Blizzard does when the
+-- target changes or the points first appear.
+local suppressNextAnimation = true
 
 -- Using the same sprite sheet for both states
 local COMBO_TEXTURE = "Interface\\ComboFrame\\ComboPoint"
@@ -47,6 +51,28 @@ local function UseForeverArt()
     return Carpenter and Carpenter.Client and Carpenter.Client.isForever
         and GetAtlasSize(FOREVER_SOCKET_ATLAS) ~= nil
         and GetAtlasSize(FOREVER_POINT_ATLAS) ~= nil
+end
+
+-- Builds the points from Blizzard's own combo point template, which brings the
+-- fill and empty animations Forever's Personal Resource Display uses. Each
+-- point is scaled so its socket is FOREVER_SOCKET_SIZE wide.
+local function CreateForeverTemplatePoints()
+    local socketW, socketH = GetAtlasSize(FOREVER_SOCKET_ATLAS)
+    local scale = FOREVER_SOCKET_SIZE / socketW
+    local padding = 1
+    local step = FOREVER_SOCKET_SIZE + padding
+
+    resourceFrame:SetSize((FOREVER_SOCKET_SIZE * 5) + (padding * 4), socketH * scale)
+
+    for i = 1, 5 do
+        local point = CreateFrame("Frame", nil, resourceFrame, "RogueComboPointTemplate")
+        point:Setup()
+        point:SetScale(scale)
+        -- Offsets are in the point's own scaled units.
+        point:SetPoint("CENTER", resourceFrame, "LEFT", ((i - 1) * step + FOREVER_SOCKET_SIZE / 2) / scale, 0)
+        point:SetActiveNoAnimation(false)
+        resourcePoints.animated[i] = point
+    end
 end
 
 -- Builds the sockets and points from Forever's atlases, scaled so a socket is
@@ -93,7 +119,14 @@ local function ensureResourceFrame()
     resourceFrame:SetScale(COMBO_SCALE)
 
     if UseForeverArt() then
-        CreateForeverPoints()
+        local ok = RogueComboPointMixin and pcall(CreateForeverTemplatePoints)
+        if not ok then
+            for _, point in ipairs(resourcePoints.animated) do
+                point:Hide()
+            end
+            resourcePoints.animated = {}
+            CreateForeverPoints()
+        end
         return
     end
 
@@ -137,7 +170,22 @@ end
 
 local function setComboVisual(cp)
     ensureResourceFrame()
+    if not resourceFrame:IsShown() then
+        suppressNextAnimation = true
+    end
     resourceFrame:Show()
+
+    if #resourcePoints.animated > 0 then
+        for i, point in ipairs(resourcePoints.animated) do
+            if suppressNextAnimation then
+                point:SetActiveNoAnimation(i <= cp)
+            else
+                point:SetActive(i <= cp)
+            end
+        end
+        suppressNextAnimation = false
+        return
+    end
 
     for i = 1, 5 do
         -- Base sockets are always shown
@@ -220,6 +268,9 @@ end
 -- Events
 -- =========================================================
 addonFrame:SetScript("OnEvent", function(self, event, ...)
+    if event == "PLAYER_TARGET_CHANGED" or event == "NAME_PLATE_UNIT_ADDED" or event == "PLAYER_ENTERING_WORLD" then
+        suppressNextAnimation = true
+    end
     update()
 end)
 
