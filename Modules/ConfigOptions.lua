@@ -301,6 +301,7 @@ function Options.Create(context)
                     label = L.OPTION_CHAT_CLEANER or "Cleaner",
                     description = Description("DESC_CHAT_CLEANER"),
                     image = GetSettingsImage("chatcleaner.png"),
+                    requiresReload = false,
                 },
                 {
                     key = "hideChatButtonsEnabled",

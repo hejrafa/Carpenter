@@ -873,6 +873,64 @@ do
     end
 end
 
+do
+    -- Turning Chat Cleaner off restores everything it changed.
+    local originalEditBox = _G.ChatFrame1EditBox
+    local region = {
+        texture = "Interface\\ChatFrame\\UI-ChatInputBorder-Left",
+        alpha = 0.8,
+        coords = { 0, 1, 0, 1, 0.25, 1, 0.25, 0 },
+    }
+    function region:IsObjectType(objectType) return objectType == "Texture" end
+    function region:GetTexture() return self.texture end
+    function region:SetTexture(texture) self.texture = texture end
+    function region:GetAlpha() return self.alpha end
+    function region:SetAlpha(alpha) self.alpha = alpha end
+    function region:GetTexCoord() return unpack(self.coords) end
+    function region:SetTexCoord(...) self.coords = { ... } end
+    _G.ChatFrame1EditBox = { GetRegions = function() return region end }
+
+    local blizzardLevelUp = "Congratulations, you have reached level %d!"
+    _G.LEVEL_UP = blizzardLevelUp
+    _G.CHAT_FLAG_AFK = "<Away>"
+    _G.CHAT_FLAG_DND = "<Busy>"
+
+    local system = ns.Private.ChatCleanerSystem.Create({})
+    local lifecycle = ns.Private.ChatCleanerLifecycle.Create({
+        FilterImpl = function() return false, "", "" end,
+        ApplyLevelUpGlobalStringStyling = system.ApplyLevelUpGlobalStringStyling,
+        RestoreLevelUpGlobalStringStyling = system.RestoreLevelUpGlobalStringStyling,
+    })
+
+    additionalChecks = additionalChecks + 1
+    if _G.CHAT_FLAG_AFK ~= "<Away>" then
+        failures[#failures + 1] = "chat cleaner revert: AFK flag changed before the feature was enabled"
+    end
+
+    lifecycle.Enable()
+    additionalChecks = additionalChecks + 1
+    if region.texture ~= nil or region.alpha ~= 0 or _G.LEVEL_UP == blizzardLevelUp or _G.CHAT_FLAG_AFK ~= "AFK " then
+        failures[#failures + 1] = "chat cleaner revert: expected enable to restyle edit box, level up and flags"
+    end
+
+    region.coords = { 0, 0, 0, 0, 0, 0, 0, 0 }
+    lifecycle.Disable()
+    additionalChecks = additionalChecks + 1
+    if region.texture ~= "Interface\\ChatFrame\\UI-ChatInputBorder-Left" or region.alpha ~= 0.8 or region.coords[5] ~= 0.25 then
+        failures[#failures + 1] = "chat cleaner revert: expected edit box texture, alpha and coords restored"
+    end
+    additionalChecks = additionalChecks + 1
+    if _G.LEVEL_UP ~= blizzardLevelUp then
+        failures[#failures + 1] = "chat cleaner revert: expected LEVEL_UP restored got [" .. tostring(_G.LEVEL_UP) .. "]"
+    end
+    additionalChecks = additionalChecks + 1
+    if _G.CHAT_FLAG_AFK ~= "<Away>" or _G.CHAT_FLAG_DND ~= "<Busy>" then
+        failures[#failures + 1] = "chat cleaner revert: expected AFK/DND flags restored"
+    end
+
+    _G.ChatFrame1EditBox = originalEditBox
+end
+
 if #failures > 0 then
     io.stderr:write(table.concat(failures, "\n") .. "\n")
     os.exit(1)

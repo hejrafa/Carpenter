@@ -33,6 +33,7 @@ function System.Create(config)
 
     local api = {}
     local originalLevelUpGlobals = nil
+    local appliedLevelUpGlobals = nil
     local lastLearnedSkillName, lastLearnedSkillTime = nil, 0
     local learnedSkillDedupSeconds = config.LearnedSkillDedupSeconds or 3
 
@@ -400,6 +401,24 @@ function System.Create(config)
         _G.LEVEL_UP_HEALTH_MANA = colorPlus .. "+|r " .. levelColor .. "%d " .. T("CHAT_HIT_POINTS", "Hit Points") .. "|r, " .. colorPlus .. "+|r " .. levelColor .. "%d " .. (MANA or T("MANA", "Mana")) .. "|r"
         _G.LEVEL_UP_CHAR_POINTS = colorPlus .. "+|r " .. levelColor .. "%d " .. T("CHAT_TALENT_POINTS", "Talent Points") .. "|r"
         _G.LEVEL_UP_STAT = "Your %s increases by %d"
+
+        appliedLevelUpGlobals = {}
+        for key in pairs(originalLevelUpGlobals) do
+            appliedLevelUpGlobals[key] = _G[key]
+        end
+    end
+
+    function api.RestoreLevelUpGlobalStringStyling()
+        if not originalLevelUpGlobals then return end
+
+        for key, original in pairs(originalLevelUpGlobals) do
+            -- Leave the string alone if another addon replaced it after us.
+            if _G[key] == appliedLevelUpGlobals[key] then
+                _G[key] = original
+            end
+        end
+        originalLevelUpGlobals = nil
+        appliedLevelUpGlobals = nil
     end
 
     return api

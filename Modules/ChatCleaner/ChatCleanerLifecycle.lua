@@ -39,22 +39,74 @@ local chatEvents = {
     "CHAT_MSG_YELL",
 }
 
-local function CleanEditBox()
+local CHAT_FLAG_KEYS = { "CHAT_FLAG_AFK", "CHAT_FLAG_DND" }
+local CHAT_FLAG_VALUES = { CHAT_FLAG_AFK = "AFK ", CHAT_FLAG_DND = "DND " }
+
+local originalChatFlags
+local originalEditBoxTextures = {}
+
+local function ApplyChatFlags()
+    if originalChatFlags then return end
+    originalChatFlags = {}
+    for _, key in ipairs(CHAT_FLAG_KEYS) do
+        originalChatFlags[key] = _G[key]
+        _G[key] = CHAT_FLAG_VALUES[key]
+    end
+end
+
+local function RestoreChatFlags()
+    if not originalChatFlags then return end
+    for _, key in ipairs(CHAT_FLAG_KEYS) do
+        -- Leave the flag alone if another addon replaced it after us.
+        if _G[key] == CHAT_FLAG_VALUES[key] then
+            _G[key] = originalChatFlags[key]
+        end
+    end
+    originalChatFlags = nil
+end
+
+local function ForEachEditBoxTexture(callback)
     for i = 1, NUM_CHAT_WINDOWS do
         local eb = _G["ChatFrame" .. i .. "EditBox"]
-        if eb then
+        if eb and eb.GetRegions then
             for regionIndex = 1, select("#", eb:GetRegions()) do
                 local region = select(regionIndex, eb:GetRegions())
-                if region:IsObjectType("Texture") then
-                    region:SetTexture(nil)
-                    region:SetAlpha(0)
+                if region and region.IsObjectType and region:IsObjectType("Texture") then
+                    callback(region)
                 end
-            end
-            if eb.cp_bg then
-                eb.cp_bg:Hide()
             end
         end
     end
+end
+
+local function CleanEditBox()
+    ForEachEditBoxTexture(function(region)
+        if not originalEditBoxTextures[region] then
+            originalEditBoxTextures[region] = {
+                atlas = region.GetAtlas and region:GetAtlas() or nil,
+                texture = region.GetTexture and region:GetTexture() or nil,
+                alpha = region.GetAlpha and region:GetAlpha() or 1,
+                texCoord = region.GetTexCoord and { region:GetTexCoord() } or nil,
+            }
+        end
+        region:SetTexture(nil)
+        region:SetAlpha(0)
+    end)
+end
+
+local function RestoreEditBox()
+    for region, original in pairs(originalEditBoxTextures) do
+        if original.atlas and region.SetAtlas then
+            region:SetAtlas(original.atlas)
+        else
+            region:SetTexture(original.texture)
+            if original.texCoord and #original.texCoord > 0 and region.SetTexCoord then
+                region:SetTexCoord(unpack(original.texCoord))
+            end
+        end
+        region:SetAlpha(original.alpha)
+    end
+    originalEditBoxTextures = {}
 end
 
 function Lifecycle.Create(options)
@@ -135,9 +187,6 @@ function Lifecycle.Create(options)
         else
             HookChatFrames()
         end
-
-        _G.CHAT_FLAG_AFK = "AFK "
-        _G.CHAT_FLAG_DND = "DND "
     end
 
     local function Enable()
@@ -147,6 +196,7 @@ function Lifecycle.Create(options)
         if options.ApplyLevelUpGlobalStringStyling then
             options.ApplyLevelUpGlobalStringStyling()
         end
+        ApplyChatFlags()
         RegisterChatFilters()
         CleanEditBox()
         if options.SessionTracker and options.SessionTracker.Enable then
@@ -158,6 +208,11 @@ function Lifecycle.Create(options)
         featureEnabled = false
         UnregisterChatFilters()
         RestoreChatFrames()
+        if options.RestoreLevelUpGlobalStringStyling then
+            options.RestoreLevelUpGlobalStringStyling()
+        end
+        RestoreChatFlags()
+        RestoreEditBox()
         if options.SessionTracker and options.SessionTracker.Disable then
             options.SessionTracker:Disable()
         end
