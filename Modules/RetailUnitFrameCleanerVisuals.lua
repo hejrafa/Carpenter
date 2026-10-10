@@ -68,11 +68,12 @@ function Visuals.HideFrame(frame)
     frame._CarpenterHiding = nil
 end
 
+-- Returns false when combat lockdown blocks the restore, so callers can retry.
 function Visuals.RestoreFrame(frame)
-    if not frame then return end
-    if not frame._CarpenterHiddenByCleaner and not frame._CarpenterOriginalParent then return end
+    if not frame then return true end
+    if not frame._CarpenterHiddenByCleaner and not frame._CarpenterOriginalParent then return true end
     local isProtected = frame.IsProtected and frame:IsProtected()
-    if isProtected and InCombatLockdown and InCombatLockdown() then return end
+    if isProtected and InCombatLockdown and InCombatLockdown() then return false end
 
     if frame._CarpenterOriginalParent then
         frame:SetParent(frame._CarpenterOriginalParent)
@@ -84,6 +85,7 @@ function Visuals.RestoreFrame(frame)
     end
     frame._CarpenterHiddenByCleaner = nil
     frame._CarpenterWasShown = nil
+    return true
 end
 
 function Visuals.HookHide(frame, predicate)
@@ -144,9 +146,13 @@ function Visuals.HideFrameAlpha(frame)
     frame._CarpenterAlphaHiding = nil
 end
 
+-- Returns false when combat lockdown blocks the restore, so callers can retry.
 function Visuals.RestoreFrameAlpha(frame)
-    if not frame then return end
-    if not frame._CarpenterAlphaHiddenByCleaner then return end
+    if not frame then return true end
+    if not frame._CarpenterAlphaHiddenByCleaner then return true end
+    -- Boss frames are secure; EnableMouse on them is blocked in combat.
+    local isProtected = frame.IsProtected and frame:IsProtected()
+    if isProtected and InCombatLockdown and InCombatLockdown() then return false end
 
     if frame.SetAlpha then
         frame:SetAlpha(frame._CarpenterOriginalAlpha or 1)
@@ -159,6 +165,7 @@ function Visuals.RestoreFrameAlpha(frame)
     end
     frame._CarpenterOriginalAlpha = nil
     frame._CarpenterAlphaHiddenByCleaner = nil
+    return true
 end
 
 function Visuals.HookAlphaHide(frame, predicate)

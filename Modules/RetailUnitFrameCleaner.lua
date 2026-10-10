@@ -95,12 +95,19 @@ local function ApplyFrameFeature(featureKey, getFrames, predicate, alphaOnly)
             end
         end
     else
+        local restored = true
         for _, frame in ipairs(getFrames()) do
+            local frameRestored
             if alphaOnly then
-                Visuals.RestoreFrameAlpha(frame)
+                frameRestored = Visuals.RestoreFrameAlpha(frame)
             else
-                Visuals.RestoreFrame(frame)
+                frameRestored = Visuals.RestoreFrame(frame)
             end
+            restored = restored and frameRestored ~= false
+        end
+        if not restored then
+            -- Combat blocked part of the restore; PLAYER_REGEN_ENABLED retries it.
+            return
         end
     end
 

@@ -78,6 +78,11 @@ eventFrame:SetScript("OnEvent", function(_, event)
     pendingCombatApply = false
 
     Carpenter_ApplyExtraAbilityScale()
+    if not IsEnabled() then
+        -- Disabled while in combat: the restore has now run.
+        eventFrame:UnregisterAllEvents()
+        return
+    end
     ScheduleApply(0.2)
     ScheduleApply(1)
 end)
@@ -99,7 +104,12 @@ end
 
 function feature:Disable()
     eventFrame:UnregisterAllEvents()
+    pendingCombatApply = false
     Carpenter_ApplyExtraAbilityScale()
+    if pendingCombatApply then
+        -- Protected frames cannot be rescaled in combat; restore them afterwards.
+        eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    end
 end
 
 if Carpenter and Carpenter.RegisterFeature then
