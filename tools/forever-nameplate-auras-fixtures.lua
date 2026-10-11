@@ -94,17 +94,24 @@ Enum = {
     SecondsFormatterAbbreviation = { OneLetter = 2 },
     SecondsFormatterIntervalWhitespace = { StripIgnoreLocale = 2 },
     SecondsFormatterRounding = { RoundUp = 0 },
+    NumericRuleFormatRounding = { Nearest = 0, Up = 1, Down = 2 },
 }
 local curvePoints = {}
 C_CurveUtil = { CreateCurve = function()
     return { SetType = function() end, AddPoint = function(_, x, y) curvePoints[#curvePoints + 1] = { x, y } end }
 end }
 local formatterSettings = {}
-C_StringUtil = { CreateSecondsFormatter = function()
+local ruleBreakpoints
+C_StringUtil = {
+    CreateNumericRuleFormatter = function()
+        return { SetBreakpoints = function(_, breakpoints) ruleBreakpoints = breakpoints end }
+    end,
+    CreateSecondsFormatter = function()
     return setmetatable({}, { __index = function(_, method)
         return function(_, value) formatterSettings[method] = value end
     end })
-end }
+    end,
+}
 AnchorUtil = { FlowDirection = { Left = -1, Right = 1, Up = 1, Down = -1 } }
 C_NamePlate = {}
 NamePlateConstants = { NAME_ANCHOR_STYLES = { AboveHealthBar = 0, InsideHealthBar = 1 } }
@@ -172,8 +179,12 @@ assert(point == "BOTTOM" and relativeTo == enemy.name and relativePoint == "TOP"
 local button = container.button
 assert(button.icon and button.cooldown and button.count and button.border, "buttons should get icon, cooldown, count, and border")
 assert(button.durationText and button.durationOptions and button.durationOptions.textFormatter, "buttons should get a timer with Carpenter's formatter")
-assert(formatterSettings.SetRounding == Enum.SecondsFormatterRounding.RoundUp, "timer should round up like Classic")
-assert(curvePoints[2][1] == 60 and curvePoints[2][2] == Enum.SecondsFormatterInterval.Minutes, "timer should switch to minutes at 60 seconds")
+assert(ruleBreakpoints, "timer should use the Classic-style rule formatter")
+assert(ruleBreakpoints[1].threshold == 0 and ruleBreakpoints[1].format == "%d" and ruleBreakpoints[1].rounding == Enum.NumericRuleFormatRounding.Up,
+    "timer should show plain whole seconds, rounded up")
+assert(ruleBreakpoints[2].threshold == 60 and ruleBreakpoints[2].format == "%dm" and ruleBreakpoints[2].components[1].div == 60,
+    "timer should switch to minutes at 60 seconds")
+assert(ruleBreakpoints[3].threshold == 3600 and ruleBreakpoints[3].format == "%dh", "timer should switch to hours at an hour")
 assert(button.borderOptions.style == Enum.CustomAuraButtonDispelTypeTextureStyle.PreserveAsset, "border should keep the target-frame art")
 assert(button.borderOptions.showWithoutDispelType == true, "physical debuffs should still get an outline")
 

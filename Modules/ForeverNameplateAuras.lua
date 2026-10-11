@@ -56,27 +56,44 @@ end
 -- Aura buttons
 -- =========================
 
--- Matches the Classic nameplate timer: seconds under a minute, then whole
--- minutes and hours, rounded up and without a space ("12s", "2m", "1h").
+-- Matches the Classic nameplate timer: a plain number of seconds under a
+-- minute, then whole minutes and hours, rounded up ("12", "2m", "1h").
+local function CreateClassicDurationFormatter()
+    local formatter = C_StringUtil.CreateNumericRuleFormatter()
+    local roundUp = Enum.NumericRuleFormatRounding.Up
+    formatter:SetBreakpoints({
+        { threshold = 0, step = 1, rounding = roundUp, format = "%d" },
+        { threshold = 60, format = "%dm", components = { { div = 60, step = 1, rounding = roundUp } } },
+        { threshold = 3600, format = "%dh", components = { { div = 3600, step = 1, rounding = roundUp } } },
+    })
+    return formatter
+end
+
+-- Fallback with a unit suffix on every value ("12s", "2m", "1h").
+local function CreateSecondsDurationFormatter()
+    local intervalCurve = C_CurveUtil.CreateCurve()
+    intervalCurve:SetType(Enum.LuaCurveType.Step)
+    intervalCurve:AddPoint(0, Enum.SecondsFormatterInterval.Seconds)
+    intervalCurve:AddPoint(60, Enum.SecondsFormatterInterval.Minutes)
+    intervalCurve:AddPoint(3600, Enum.SecondsFormatterInterval.Hours)
+
+    local formatter = C_StringUtil.CreateSecondsFormatter()
+    formatter:SetDefaultAbbreviation(Enum.SecondsFormatterAbbreviation.OneLetter)
+    formatter:SetStripIntervalWhitespace(Enum.SecondsFormatterIntervalWhitespace.StripIgnoreLocale)
+    formatter:SetRounding(Enum.SecondsFormatterRounding.RoundUp)
+    formatter:SetMinInterval(Enum.SecondsFormatterInterval.Seconds)
+    formatter:SetMaxIntervalCurve(intervalCurve)
+    formatter:SetDesiredUnitCount(1)
+    return formatter
+end
+
 local durationFormatter
 local function GetDurationFormatter()
     if durationFormatter == nil then
-        local ok, formatter = pcall(function()
-            local intervalCurve = C_CurveUtil.CreateCurve()
-            intervalCurve:SetType(Enum.LuaCurveType.Step)
-            intervalCurve:AddPoint(0, Enum.SecondsFormatterInterval.Seconds)
-            intervalCurve:AddPoint(60, Enum.SecondsFormatterInterval.Minutes)
-            intervalCurve:AddPoint(3600, Enum.SecondsFormatterInterval.Hours)
-
-            local created = C_StringUtil.CreateSecondsFormatter()
-            created:SetDefaultAbbreviation(Enum.SecondsFormatterAbbreviation.OneLetter)
-            created:SetStripIntervalWhitespace(Enum.SecondsFormatterIntervalWhitespace.StripIgnoreLocale)
-            created:SetRounding(Enum.SecondsFormatterRounding.RoundUp)
-            created:SetMinInterval(Enum.SecondsFormatterInterval.Seconds)
-            created:SetMaxIntervalCurve(intervalCurve)
-            created:SetDesiredUnitCount(1)
-            return created
-        end)
+        local ok, formatter = pcall(CreateClassicDurationFormatter)
+        if not ok then
+            ok, formatter = pcall(CreateSecondsDurationFormatter)
+        end
         durationFormatter = ok and formatter or false
     end
     return durationFormatter or nil
