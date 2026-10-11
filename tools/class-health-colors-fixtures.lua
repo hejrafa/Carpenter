@@ -189,4 +189,28 @@ registeredFeature:Disable()
 assert(partyBar.statusBarWrites == 0, "party StatusBar colors must never be written")
 assert(cvarWrites == 0, "party class colors must not change CVars")
 
+-- Forever hides the target of target's GUID and class, so Carpenter can't
+-- tell it's a player its usual way; the hidden class still colors the bar.
+do
+    totIsPlayer = false            -- Carpenter's own player check fails
+    UnitIsPlayer = function(unit) return unit == "targettarget" end
+    UnitClass = function() return "Rogue", "HIDDEN_CLASS" end
+    C_ClassColor = { GetClassColor = function(token)
+        assert(token == "HIDDEN_CLASS", "the class token should be passed through unread")
+        return { GetRGB = function() return 1, 0.96, 0.41 end }
+    end }
+    totBar.color = { 0, 1, 0 }
+    Carpenter.enabled = true
+    secretClass = false
+    registeredFeature:Enable()
+    assert(totBar.color[1] == 1 and totBar.color[2] == 0.96, "a hidden class should still color the target of target")
+    UnitFrameHealthBar_Update(totBar, "targettarget")
+    assert(totBar.color[1] == 1 and totBar.color[2] == 0.96, "the hidden class color should survive Blizzard's repaint")
+
+    UnitIsPlayer = function() return false end
+    UnitFrameHealthBar_Update(totBar, "targettarget")
+    assert(totBar.color[1] == 1 and totBar.color[2] == 1 and totBar.color[3] == 1, "an NPC target of target should drop the hidden class color")
+    registeredFeature:Disable()
+end
+
 print("class-health-colors fixtures: passed")

@@ -168,6 +168,35 @@ local function GetPartyHealthBar(index)
     end
 end
 
+local function IsReadable(value)
+    return not (issecretvalue and issecretvalue(value))
+end
+
+-- Forever hides the target of target's GUID and class from addons, but its
+-- class still feeds C_ClassColor, and the health bar accepts the resulting
+-- hidden color. That marks the bar's color and alpha as hidden values, so it
+-- is only used for this one bar and only when the class can't be read.
+local function ApplyHiddenClassColor(bar, unit)
+    if not (C_ClassColor and C_ClassColor.GetClassColor and UnitIsPlayer and UnitClass) then return false end
+
+    local okPlayer, isPlayer = pcall(UnitIsPlayer, unit)
+    if not okPlayer or not IsReadable(isPlayer) or isPlayer ~= true then return false end
+
+    local ok = pcall(function()
+        local _, classToken = UnitClass(unit)
+        local color = C_ClassColor.GetClassColor(classToken)
+        local r, g, b = color:GetRGB()
+        if bar.SetStatusBarDesaturated then
+            bar:SetStatusBarDesaturated(true)
+        end
+        bar:SetStatusBarColor(r, g, b)
+    end)
+    if ok then
+        bar._Carpenter_IsUnitClassColored = true
+    end
+    return ok
+end
+
 local function UpdateHealthBarColor(bar, unit)
     if not bar then return end
     if not ClassHealth.IsUnitFrameEnabled() then return end
@@ -176,6 +205,9 @@ local function UpdateHealthBarColor(bar, unit)
         return
     end
     if not ClassHealth.IsPlayerUnit(unit) then
+        if IsRetailClient() and unit == "targettarget" and ApplyHiddenClassColor(bar, unit) then
+            return
+        end
         RestoreDefaultUnitColor(bar, unit, true)
         return
     end
