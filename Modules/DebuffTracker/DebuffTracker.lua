@@ -36,51 +36,62 @@ local DEBUFFS_HIDDEN_ON_UNIT_FRAME = {
     [31589] = true,  -- Slow (Mage)
 }
 
--- Configuration for "Important" Debuffs (CC, Stuns, Roots)
-local IMPORTANT_DEBUFFS = {
+-- Important debuffs (CC, stuns, roots), by one spell ID each. Names are looked
+-- up in the client's language at load, so every rank and every locale matches.
+local IMPORTANT_DEBUFF_SPELLS = {
     -- Mage
-    ["Polymorph"] = true,
-    ["Frost Nova"] = true,
-    ["Frostbite"] = true,
-    ["Invisibility"] = true,
+    [118] = true,    -- Polymorph
+    [122] = true,    -- Frost Nova
+    [12494] = true,  -- Frostbite
+    [66] = true,     -- Invisibility (TBC)
     -- Rogue
-    ["Kidney Shot"] = true,
-    ["Cheap Shot"] = true,
-    ["Gouge"] = true,
-    ["Sap"] = true,
-    ["Blind"] = true,
+    [408] = true,    -- Kidney Shot
+    [1833] = true,   -- Cheap Shot
+    [1776] = true,   -- Gouge
+    [6770] = true,   -- Sap
+    [2094] = true,   -- Blind
     -- Warlock
-    ["Fear"] = true,
-    ["Seduction"] = true,
-    ["Death Coil"] = true,
-    ["Banish"] = true,
+    [5782] = true,   -- Fear
+    [6358] = true,   -- Seduction
+    [6789] = true,   -- Death Coil
+    [710] = true,    -- Banish
     -- Warrior
-    ["Intimidating Shout"] = true,
-    ["Mace Stun"] = true,
+    [5246] = true,   -- Intimidating Shout
+    [5530] = true,   -- Mace Stun Effect
     -- Priest
-    ["Psychic Scream"] = true,
-    ["Silence"] = true,
+    [8122] = true,   -- Psychic Scream
+    [15487] = true,  -- Silence
     -- Druid
-    ["Entangling Roots"] = true,
-    ["Hibernating"] = true,
-    ["Bash"] = true,
+    [339] = true,    -- Entangling Roots
+    [2637] = true,   -- Hibernate
+    [5211] = true,   -- Bash
     -- Paladin
-    ["Hammer of Justice"] = true,
+    [853] = true,    -- Hammer of Justice
     -- Hunter
-    ["Freezing Trap"] = true,
-    ["Scatter Shot"] = true,
+    [3355] = true,   -- Freezing Trap Effect
+    [19503] = true,  -- Scatter Shot
 }
 
-local NAMEPLATE_ONLY_DEBUFF_TYPES = {
-    ["Deep Wounds"] = "Bleed",
-    ["Garrote"] = "Bleed",
-    ["Lacerate"] = "Bleed",
-    ["Pounce Bleed"] = "Bleed",
-    ["Rake"] = "Bleed",
-    ["Rend"] = "Bleed",
-    ["Rip"] = "Bleed",
-    ["Rupture"] = "Bleed",
+local NAMEPLATE_ONLY_DEBUFF_SPELLS = {
+    [12721] = "Bleed", -- Deep Wounds
+    [703] = "Bleed",   -- Garrote
+    [33745] = "Bleed", -- Lacerate (TBC)
+    [9007] = "Bleed",  -- Pounce Bleed
+    [1822] = "Bleed",  -- Rake
+    [772] = "Bleed",   -- Rend
+    [1079] = "Bleed",  -- Rip
+    [1943] = "Bleed",  -- Rupture
 }
+
+local function BuildNameMap(valuesBySpellId)
+    if CarpenterSpellData and CarpenterSpellData.BuildLocalizedNameMap then
+        return CarpenterSpellData.BuildLocalizedNameMap(valuesBySpellId)
+    end
+    return {}
+end
+
+local IMPORTANT_DEBUFFS = BuildNameMap(IMPORTANT_DEBUFF_SPELLS)
+local NAMEPLATE_ONLY_DEBUFF_TYPES = BuildNameMap(NAMEPLATE_ONLY_DEBUFF_SPELLS)
 
 -- Check settings for Nameplates
 local function IsNameplateEnabled()

@@ -324,7 +324,7 @@ local function IsFood(item, tooltipData, spellText)
     if not IsFoodDrinkItem(item, tooltipData) then return false end
     if not TooltipRestoresHealth(GetRestoreText(tooltipData)) then return false end
     if item.itemID and KNOWN_FOOD_IDS[item.itemID] then return true end
-    if spellText:find("food", 1, true) then return true end
+    if ContainsAny(spellText, TOOLTIP_KEYWORDS.food) then return true end
     if tooltip:find("must remain seated while eating", 1, true) then return true end
     if tooltip:find("eat", 1, true) then return true end
     if ContainsAny(name, FOOD_NAME_HINTS) and not ContainsAny(name, WATER_NAME_HINTS) then return true end
@@ -343,7 +343,7 @@ IsWater = function(item, tooltipData, spellText)
     if not IsFoodDrinkItem(item, tooltipData) then return false end
     if not TooltipRestoresMana(GetRestoreText(tooltipData)) then return false end
     if item.itemID and KNOWN_WATER_IDS[item.itemID] then return true end
-    if spellText:find("drink", 1, true) then return true end
+    if ContainsAny(spellText, TOOLTIP_KEYWORDS.drink) then return true end
     if tooltip:find("must remain seated while drinking", 1, true) then return true end
     if ContainsAny(name, WATER_NAME_HINTS) then return true end
     if itemSubType:find("drink", 1, true) then return true end
@@ -362,6 +362,11 @@ local function IsHealthConsumable(item, tooltip, spellText)
     if name:find("healing potion", 1, true) or name:find("health potion", 1, true) then return true end
     if spellText:find("healing potion", 1, true) or HasImmediateHealthRestore(spellText) then return true end
     if HasImmediateHealthRestore(tooltip) and not tooltip:find("mana", 1, true) then return true end
+    -- Other languages: a potion that mentions health but not mana.
+    if Data.IsEnglishClient and not Data.IsEnglishClient()
+        and ContainsAny(tooltip, TOOLTIP_KEYWORDS.health) and not ContainsAny(tooltip, TOOLTIP_KEYWORDS.mana) then
+        return true
+    end
 
     return false
 end
@@ -376,7 +381,7 @@ local function IsManaConsumable(item, tooltip, spellText)
     if spellText:find("mana potion", 1, true) or spellText:find("restore mana", 1, true) then return true end
     if tooltip:find("restores %d+ mana") or tooltip:find("restores %d+ to %d+ mana") then return true end
 
-    return tooltip:find("mana", 1, true) ~= nil
+    return tooltip:find("mana", 1, true) ~= nil or ContainsAny(tooltip, TOOLTIP_KEYWORDS.mana)
 end
 
 local function IsBandage(item, tooltip)

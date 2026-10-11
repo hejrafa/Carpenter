@@ -568,6 +568,25 @@ function addon.IsImportantNameplateDebuff(spellId)
     return t == CROWD_CONTROL or t == ROOT or t == BLEED or t == POISON
 end
 
+-- Builds a lookup of spell names in the client's language from spell IDs, so
+-- every rank of a spell matches by name without hardcoding English names.
+-- Map values are kept: { [spellID] = value } -> { [localized name] = value }.
+-- Spells missing from this client (eg. TBC spells on Vanilla) are skipped.
+function addon.BuildLocalizedNameMap(valuesBySpellId)
+    local getSpellName = (C_Spell and C_Spell.GetSpellName) or function(spellId)
+        return GetSpellInfo and (GetSpellInfo(spellId)) or nil
+    end
+
+    local names = {}
+    for spellId, value in pairs(valuesBySpellId) do
+        local ok, name = pcall(getSpellName, spellId)
+        if ok and type(name) == "string" and name ~= "" then
+            names[name] = value
+        end
+    end
+    return names
+end
+
 -- True if this spell ID should be shown as an important player buff
 function addon.IsImportantBuff(spellId)
     local t = addon.GetSpellInfo(spellId)

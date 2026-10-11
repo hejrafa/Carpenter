@@ -61,7 +61,75 @@ Data.TooltipKeywords = {
         "intelligenz", "willenskraft",
         "angriffskraft", "zaubermacht",
     },
+    -- Names of the spells food and drink cast when used.
+    food = { "food" },
+    drink = { "drink" },
 }
+
+-- The lists above cover English and German. Add the client's own strings so
+-- the same checks work in every language.
+do
+    local keywords = Data.TooltipKeywords
+
+    -- Lua's lower() only handles ASCII; Russian tooltips need Cyrillic
+    -- lowercase too (А-Я, Ё).
+    local function LowerCyrillic(text)
+        text = text:gsub("\208([\144-\159])", function(byte) return "\208" .. string.char(byte:byte() + 32) end)
+        text = text:gsub("\208([\160-\175])", function(byte) return "\209" .. string.char(byte:byte() - 32) end)
+        return (text:gsub("\208\129", "\209\145"))
+    end
+
+    local function DropLastCharacter(text)
+        return text:gsub("[\192-\255][\128-\191]*$", ""):gsub("[%z\1-\127]$", "")
+    end
+
+    local function Add(list, value)
+        if type(list) ~= "table" or type(value) ~= "string" or value == "" then return end
+        value = value:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):match("^%s*(.-)%s*$")
+        if value == "" then return end
+
+        local variants = { value:lower(), LowerCyrillic(value:lower()) }
+        -- Inflected languages change word endings ("Здоровье" -> "здоровья").
+        if value:find("[\128-\255]") then
+            local stem = DropLastCharacter(variants[2])
+            if #stem >= 4 then variants[#variants + 1] = stem end
+        end
+
+        for _, variant in ipairs(variants) do
+            local known = false
+            for _, existing in ipairs(list) do
+                if existing == variant then known = true break end
+            end
+            if not known then list[#list + 1] = variant end
+        end
+    end
+
+    local function SpellName(spellId)
+        if C_Spell and C_Spell.GetSpellName then
+            local ok, name = pcall(C_Spell.GetSpellName, spellId)
+            if ok then return name end
+        end
+        return GetSpellInfo and (GetSpellInfo(spellId)) or nil
+    end
+
+    Add(keywords.use, _G.ITEM_SPELL_TRIGGER_ONUSE)
+    Add(keywords.health, _G.HEALTH)
+    Add(keywords.mana, _G.MANA)
+    Add(keywords.conjured, _G.ITEM_CONJURED)
+    for index = 1, 5 do
+        Add(keywords.statBuff, _G["SPELL_STAT" .. index .. "_NAME"])
+    end
+    Add(keywords.wellFed, SpellName(19705))  -- Well Fed
+    Add(keywords.food, SpellName(433))       -- Food
+    Add(keywords.drink, SpellName(430))      -- Drink
+end
+
+-- English tooltips have dedicated phrase checks; other languages rely on the
+-- localized keywords above.
+function Data.IsEnglishClient()
+    local locale = GetLocale and GetLocale() or "enUS"
+    return locale == "enUS" or locale == "enGB"
+end
 
 -- Hard fallback for common Classic/TBC foods in case item info or tooltip text is sparse.
 Data.KnownFoodIDs = {

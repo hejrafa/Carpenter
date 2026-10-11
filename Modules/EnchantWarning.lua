@@ -1,4 +1,7 @@
 --[[ Carpenter - EnchantWarning ]]
+local _, ns = ...
+ns = ns or {}
+ns.Private = ns.Private or {}
 local L = (Carpenter and Carpenter.L) or {}
 -- Warns before weapon enchantments expire.
 
@@ -19,6 +22,45 @@ local function IsSecret(value)
     return issecretvalue and issecretvalue(value)
 end
 
+-- Turns a time-left format such as ITEM_ENCHANT_TIME_LEFT_MIN ("%s (%d min)")
+-- into a pattern that captures the enchant name, in the client's language.
+local function FormatToPattern(format)
+    format = format:gsub("%%%d%$([sd])", "%%%1")      -- positional "%1$s" -> "%s"
+    format = format:gsub("|4[^;]*;", "\001")          -- plural markup "|4hour:hrs;"
+    format = format:gsub("%%s", "\002"):gsub("%%d", "\003")
+    format = format:gsub("([%(%)%.%+%-%*%?%[%]%^%$%%])", "%%%1")
+    format = format:gsub("\001", ".-"):gsub("\002", "(.-)"):gsub("\003", "%%d+")
+    return "^" .. format .. "$"
+end
+
+local timeLeftPatterns
+local function GetTimeLeftPatterns()
+    if not timeLeftPatterns then
+        timeLeftPatterns = {}
+        for _, key in ipairs({ "ITEM_ENCHANT_TIME_LEFT_SEC", "ITEM_ENCHANT_TIME_LEFT_MIN", "ITEM_ENCHANT_TIME_LEFT_HOURS", "ITEM_ENCHANT_TIME_LEFT_DAYS" }) do
+            local format = _G[key]
+            if type(format) == "string" and format:gsub("%%%d%$s", "%%s"):find("%s", 1, true) then
+                timeLeftPatterns[#timeLeftPatterns + 1] = FormatToPattern(format)
+            end
+        end
+        -- English fallback for clients without the strings above.
+        timeLeftPatterns[#timeLeftPatterns + 1] = "^(.-) %(%d+ %a+%)$"
+    end
+    return timeLeftPatterns
+end
+
+local function GetEnchantNameFromLine(text)
+    for _, pattern in ipairs(GetTimeLeftPatterns()) do
+        local name = text:match(pattern)
+        if name and name ~= "" then
+            return name
+        end
+    end
+    return nil
+end
+
+ns.Private.EnchantWarning = { GetEnchantNameFromLine = GetEnchantNameFromLine }
+
 local function ParseEnchantLine(text, r, g, b)
     if type(text) ~= "string" or IsSecret(text) then
         return nil
@@ -29,11 +71,8 @@ local function ParseEnchantLine(text, r, g, b)
     end
     -- Green text indicates enchants
     if g > 0.9 and r < 0.5 and b < 0.5 then
-        -- Check if the line contains a time indicator like "(15 min)" or "(30 sec)"
-        if text:find("%(%d+ min%)") or text:find("%(%d+ sec%)") or text:find("%(%d+ hr%)") then
-            -- Strip the time part for a cleaner message
-            return (text:gsub(" %(%d+ %a+%)", ""))
-        end
+        -- Temporary enchants end in a time left such as "(15 min)"; keep the name.
+        return GetEnchantNameFromLine(text)
     end
     return nil
 end
