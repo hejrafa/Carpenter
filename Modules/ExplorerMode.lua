@@ -824,6 +824,8 @@ end
 local ApplyActionButtonOverlayAlpha
 local RefreshActionButtonCooldownHooks
 local FadeActionButtonVisuals
+-- Defined further down, but the hover driver below needs it.
+local RestoreVisible
 
 local function IsKnownActionButtonName(name)
     if not name then
@@ -1541,7 +1543,7 @@ local function CancelScheduledFadeOut()
     end
 end
 
-local function RestoreVisible(duration, forceApply)
+function RestoreVisible(duration, forceApply)
     CancelScheduledRefresh()
     CancelScheduledActionButtonRefresh()
     CancelScheduledFadeOut()
