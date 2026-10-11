@@ -14,7 +14,10 @@ Carpenter = {
     L = {},
     Client = { isRetail = false },
     IsEnabled = function(_, key) return key == "chatCleanerEnabled" end,
-    RegisterFeature = function() end,
+    RegisterFeature = function(_, key, feature)
+        registeredChatFeatures = registeredChatFeatures or {}
+        table.insert(registeredChatFeatures, { key = key, feature = feature })
+    end,
     Profile = function(_, _, callback, ...)
         return callback(...)
     end,
@@ -929,6 +932,57 @@ do
     end
 
     _G.ChatFrame1EditBox = originalEditBox
+end
+
+-- WoW Forever hides skill-up text during chat messaging lockdown; the line is
+-- rebuilt from skill ranks, once per message across every chat frame.
+do
+    local HIDDEN = {}
+    issecretvalue = function(value) return value == HIDDEN end
+    local skills = {
+        { skillID = 162, name = "Unarmed", rank = 34 },
+        { skillID = 95, name = "Defense", rank = 110 },
+    }
+    C_SkillInfo = {
+        GetNumSkillLines = function() return #skills end,
+        GetSkillLineInfo = function(index) return skills[index] end,
+    }
+
+    -- The second chatCleanerEnabled registration keeps the rank snapshot.
+    local skillFeature = registeredChatFeatures[#registeredChatFeatures].feature
+    skillFeature.Enable()
+
+    local function HiddenSkillUp(lineID)
+        -- Filter args after msg and author: lineID is the 9th.
+        local results = { filter(nil, "CHAT_MSG_SKILL", HIDDEN, "", "", "", "", "", 0, 0, "", 0, lineID) }
+        return results[2]
+    end
+
+    skills[1].rank = 35
+    local first = HiddenSkillUp(1001)
+    additionalChecks = additionalChecks + 1
+    if plain(first) ~= "+ 35 Skill: Unarmed" then
+        failures[#failures + 1] = "hidden skill-up: expected [+ 35 Skill: Unarmed] got [" .. tostring(plain(first)) .. "]"
+    end
+    additionalChecks = additionalChecks + 1
+    if HiddenSkillUp(1001) ~= first then
+        failures[#failures + 1] = "hidden skill-up: other chat frames should get the same line"
+    end
+
+    -- Two skills rising at once: each message gets one of them.
+    skills[1].rank, skills[2].rank = 36, 111
+    local a, b = plain(HiddenSkillUp(1002)), plain(HiddenSkillUp(1003))
+    additionalChecks = additionalChecks + 1
+    if not ((a == "+ 36 Skill: Unarmed" and b == "+ 111 Skill: Defense") or (a == "+ 111 Skill: Defense" and b == "+ 36 Skill: Unarmed")) then
+        failures[#failures + 1] = "hidden skill-up: expected one line per skill, got [" .. tostring(a) .. "] and [" .. tostring(b) .. "]"
+    end
+
+    -- Nothing rose: the hidden message passes through untouched.
+    additionalChecks = additionalChecks + 1
+    if HiddenSkillUp(1004) ~= HIDDEN then
+        failures[#failures + 1] = "hidden skill-up: without a rank change the message should pass through"
+    end
+    issecretvalue = nil
 end
 
 if #failures > 0 then

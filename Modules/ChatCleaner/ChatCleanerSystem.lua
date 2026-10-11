@@ -364,6 +364,68 @@ function System.Create(config)
         return nil
     end
 
+    -- WoW Forever hides skill-up text from addons during chat messaging
+    -- lockdown (combat in instances). Skill ranks stay readable, so remember
+    -- them and rebuild the usual line from whichever rank went up.
+    local skillRanks = {}
+    local pendingSkillUps = {}
+    local hiddenSkillLines = {}
+    local hiddenSkillLineCount = 0
+
+    local function ForEachSkillLine(callback)
+        local skillInfo = C_SkillInfo
+        if skillInfo and skillInfo.GetNumSkillLines and skillInfo.GetSkillLineInfo then
+            for index = 1, skillInfo.GetNumSkillLines() do
+                local info = skillInfo.GetSkillLineInfo(index)
+                if info and not info.isHeader and type(info.name) == "string" and type(info.rank) == "number" then
+                    callback(info.skillID or info.name, info.name, info.rank)
+                end
+            end
+        elseif GetNumSkillLines and GetSkillLineInfo then
+            for index = 1, GetNumSkillLines() do
+                local name, isHeader, _, rank = GetSkillLineInfo(index)
+                if type(name) == "string" and not isHeader and type(rank) == "number" then
+                    callback(name, name, rank)
+                end
+            end
+        end
+    end
+
+    function api.RefreshSkillRanks()
+        pcall(ForEachSkillLine, function(key, _, rank)
+            skillRanks[key] = rank
+        end)
+    end
+
+    -- Every chat frame filters the same message, so results are kept per
+    -- line ID. When two skills rise at once, each message takes one of them.
+    function api.FormatHiddenSkillMessage(lineID, prefixPlus)
+        if lineID ~= nil and hiddenSkillLines[lineID] ~= nil then
+            return hiddenSkillLines[lineID] or nil
+        end
+
+        if #pendingSkillUps == 0 then
+            pcall(ForEachSkillLine, function(key, name, rank)
+                local previous = skillRanks[key]
+                if previous and rank > previous then
+                    pendingSkillUps[#pendingSkillUps + 1] = spaceBeforeX(prefixPlus .. colorWhite .. rank .. " " ..
+                        T("CHAT_SKILL_LABEL", "Skill:") .. " |r" .. colorPurple .. name .. "|r")
+                end
+                skillRanks[key] = rank
+            end)
+        end
+
+        local text = table.remove(pendingSkillUps, 1)
+        if lineID ~= nil then
+            if hiddenSkillLineCount >= 50 then
+                hiddenSkillLines, hiddenSkillLineCount = {}, 0
+            end
+            hiddenSkillLines[lineID] = text or false
+            hiddenSkillLineCount = hiddenSkillLineCount + 1
+        end
+        return text
+    end
+
     function api.FormatAppearanceCollectionMessage(event, message, plainText, prefixPlus)
         if event ~= "CHAT_MSG_SYSTEM" or not isRetailClient() then return nil end
         if not message or type(message) ~= "string" then return nil end

@@ -189,6 +189,7 @@ local FormatLevelUpRewardMessage = systemFormatter.FormatLevelUpRewardMessage
 local FormatReputationMessage = systemFormatter.FormatReputationMessage
 local FormatQueueNotice = systemFormatter.FormatQueueNotice
 local FormatSkillMessage = systemFormatter.FormatSkillMessage
+local FormatHiddenSkillMessage = systemFormatter.FormatHiddenSkillMessage
 local FormatAppearanceCollectionMessage = systemFormatter.FormatAppearanceCollectionMessage
 local ApplyLevelUpGlobalStringStyling = systemFormatter.ApplyLevelUpGlobalStringStyling
 local RestoreLevelUpGlobalStringStyling = systemFormatter.RestoreLevelUpGlobalStringStyling
@@ -282,6 +283,19 @@ end
 
 local function ChatFilterImpl(self, event, msg, author, ...)
     if not (Carpenter and Carpenter:IsEnabled("chatCleanerEnabled")) then
+        return false, msg, author, ...
+    end
+
+    -- WoW Forever hides some chat text in combat inside instances. Skill-ups
+    -- are rebuilt from skill ranks (the line ID stays readable); anything else
+    -- passes through untouched.
+    if issecretvalue and issecretvalue(msg) then
+        if event == "CHAT_MSG_SKILL" and FormatHiddenSkillMessage then
+            local styled = FormatHiddenSkillMessage(select(9, ...), ColorPlus .. "+|r ")
+            if styled then
+                return false, styled, author, ...
+            end
+        end
         return false, msg, author, ...
     end
 
@@ -501,4 +515,29 @@ ns.Private.ChatCleaner.PostProcessor = postProcessor
 
 if Carpenter and Carpenter.RegisterFeature then
     Carpenter:RegisterFeature("chatCleanerEnabled", chatCleanerFeature)
+end
+
+-- Keeps the skill rank snapshot current outside chat messaging lockdown, so
+-- hidden skill-ups inside it can be compared against it.
+local skillRankFrame = CreateFrame("Frame")
+skillRankFrame:SetScript("OnEvent", function()
+    local inLockdown = C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown()
+    if not inLockdown and systemFormatter.RefreshSkillRanks then
+        systemFormatter.RefreshSkillRanks()
+    end
+end)
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("chatCleanerEnabled", {
+        Enable = function()
+            skillRankFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+            skillRankFrame:RegisterEvent("SKILL_LINES_CHANGED")
+            if systemFormatter.RefreshSkillRanks then
+                systemFormatter.RefreshSkillRanks()
+            end
+        end,
+        Disable = function()
+            skillRankFrame:UnregisterAllEvents()
+        end,
+    })
 end
