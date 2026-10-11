@@ -232,7 +232,14 @@ local function loadFeatureManifest()
         GetBuildInfo = function() return "", "", "", 120007 end,
         Carpenter = {},
     }, { __index = _G })
-    local chunk = assert(loadfile(repo .. "/Core/Compatibility.lua", "t", env))
+    -- Lua 5.1 (CI, WoW) sets environments with setfenv; 5.2+ passes one to loadfile.
+    local chunk
+    if setfenv then
+        chunk = assert(loadfile(repo .. "/Core/Compatibility.lua"))
+        setfenv(chunk, env)
+    else
+        chunk = assert(loadfile(repo .. "/Core/Compatibility.lua", "t", env))
+    end
     chunk("Carpenter", {})
     local manifest = env.Carpenter.FeatureManifest
     if type(manifest) ~= "table" then

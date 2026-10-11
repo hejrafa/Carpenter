@@ -9,6 +9,8 @@ if repo:sub(-1) == "/" then
     repo = repo:sub(1, -2)
 end
 
+local unpackValues = table.unpack or unpack
+
 local failures = {}
 local function check(condition, message)
     if not condition then failures[#failures + 1] = message end
@@ -60,8 +62,8 @@ local function NewFrame(name, parent)
     function frameObject:RegisterUnitEvent(event) self.events[event] = true end
     function frameObject:UnregisterEvent(event) self.events[event] = nil end
     function frameObject:UnregisterAllEvents() self.events = {} end
-    function frameObject:GetRegions() return table.unpack(self.regions) end
-    function frameObject:GetChildren() return table.unpack(self.children) end
+    function frameObject:GetRegions() return unpackValues(self.regions) end
+    function frameObject:GetChildren() return unpackValues(self.children) end
     function frameObject:GetNumChildren() return #self.children end
     if parent then parent.children[#parent.children + 1] = frameObject end
     if name then _G[name] = frameObject end

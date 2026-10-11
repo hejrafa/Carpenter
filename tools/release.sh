@@ -98,9 +98,11 @@ check() {
   local checks=("$ROOT/tools/check-localization.lua" "$ROOT/tools/check-assets.lua" "$ROOT/tools/check-addon-shape.lua")
 
   luac -p "${files[@]}" "${fixtures[@]}" "${checks[@]}"
+  # WoW and the release CI run Lua 5.1; on newer Lua, the compat shim makes
+  # 5.2+-only features fail here too.
   local script
   for script in "${fixtures[@]}" "${checks[@]}"; do
-    lua "$script" "$ROOT"
+    lua -e "dofile('$ROOT/tools/lua51-compat.lua')" "$script" "$ROOT"
   done
 
   echo "release: checks passed"
