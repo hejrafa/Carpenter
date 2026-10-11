@@ -96,29 +96,34 @@ local function GetAurasFrame(unitFrame)
     return unitFrame and unitFrame.AurasFrame
 end
 
--- Reuse the vertical anchor Blizzard gives its own debuff row (above the name
--- or the health bar, depending on the nameplate style), but center on it.
-local function AnchorContainer(unitFrame, container)
-    local relativeTo, relativePoint, offsetY
-    local aurasFrame = GetAurasFrame(unitFrame)
-    local debuffList = aurasFrame and aurasFrame.DebuffListFrame
-    if debuffList then
-        for index = 1, debuffList:GetNumPoints() do
-            local point, pointRelativeTo, pointRelativePoint, _, pointOffsetY = debuffList:GetPoint(index)
-            if point == "BOTTOM" then
-                relativeTo, relativePoint, offsetY = pointRelativeTo, pointRelativePoint, pointOffsetY
-                break
-            end
-        end
-    end
+-- Same rule Blizzard uses for its own debuff row (NamePlateUnitFrameMixin:
+-- UpdateAnchors): above the health bar when the name sits inside it, above the
+-- name otherwise, spaced by the nameplateDebuffPadding setting. Forever does
+-- not let addons measure nameplate regions, so this mirrors the rule instead
+-- of reading Blizzard's anchor.
+local function IsNameInsideHealthBar()
+    local setupOptions = NamePlateSetupOptions
+    local styles = NamePlateConstants and NamePlateConstants.NAME_ANCHOR_STYLES
+    return setupOptions and styles and setupOptions.unitNameAnchorStyle == styles.InsideHealthBar
+end
 
-    if not relativeTo then
-        relativeTo = unitFrame.HealthBarsContainer or Nameplates.GetHealthBar(unitFrame) or unitFrame
-        relativePoint, offsetY = "TOP", FALLBACK_GAP
+local function GetDebuffPadding()
+    local value = C_CVar and C_CVar.GetCVar and C_CVar.GetCVar("nameplateDebuffPadding")
+    return tonumber(value) or FALLBACK_GAP
+end
+
+local function AnchorContainer(unitFrame, container)
+    local healthBarsContainer = unitFrame.HealthBarsContainer
+    local relativeTo
+    if IsNameInsideHealthBar() then
+        relativeTo = healthBarsContainer and healthBarsContainer.healthBar
+    else
+        relativeTo = unitFrame.name
     end
+    relativeTo = relativeTo or healthBarsContainer or unitFrame
 
     container:ClearAllPoints()
-    container:SetPoint("BOTTOM", relativeTo, relativePoint or "TOP", 0, offsetY or FALLBACK_GAP)
+    container:SetPoint("BOTTOM", relativeTo, "TOP", 0, GetDebuffPadding())
 end
 
 local function CreateContainer(unitFrame)
@@ -158,6 +163,13 @@ end
 -- =========================
 -- Blizzard's own lists
 -- =========================
+-- Blizzard's lists sit on restricted nameplates; don't let a refused read
+-- break the whole plate setup.
+local function IsListShown(list)
+    local ok, shown = pcall(list.IsShown, list)
+    return ok and shown == true
+end
+
 local function ShouldSuppressList(list)
     return IsEnabled() and managedUnitFrames[hookedLists[list]] == true
 end
@@ -171,7 +183,7 @@ end
 local function HookList(unitFrame, list)
     if not list or hookedLists[list] then return end
     hookedLists[list] = unitFrame
-    blizzardWantsShown[list] = list:IsShown()
+    blizzardWantsShown[list] = IsListShown(list)
 
     hooksecurefunc(list, "SetShown", function(self, shown)
         blizzardWantsShown[self] = shown and true or false
@@ -196,8 +208,8 @@ local function SetBlizzardListsSuppressed(unitFrame, suppressed)
     for _, list in ipairs(GetManagedLists(unitFrame)) do
         HookList(unitFrame, list)
         if suppressed then
-            if list:IsShown() then SuppressList(list) end
-        elseif blizzardWantsShown[list] and not list:IsShown() then
+            if IsListShown(list) then SuppressList(list) end
+        elseif blizzardWantsShown[list] and not IsListShown(list) then
             list:Show()
         end
     end

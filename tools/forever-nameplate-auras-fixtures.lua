@@ -29,7 +29,11 @@ local function NewRegion()
     end
     function region:ClearAllPoints() self.points = {} end
     function region:GetNumPoints() return #self.points end
-    function region:GetPoint(index) return unpack(self.points[index]) end
+    function region:GetPoint(index)
+        if self.restricted then error("Can't measure restricted regions") end
+        return unpack(self.points[index])
+    end
+    function region:GetOwnPoint(index) return unpack(self.points[index]) end
     function region:SetAllPoints() end
     function region:SetTexCoord() end
     function region:SetTexture() end
@@ -81,12 +85,17 @@ end
 Enum = { CustomAuraButtonDispelTypeTextureStyle = { PreserveAsset = 3 } }
 AnchorUtil = { FlowDirection = { Left = -1, Right = 1, Up = 1, Down = -1 } }
 C_NamePlate = {}
+NamePlateConstants = { NAME_ANCHOR_STYLES = { AboveHealthBar = 0, InsideHealthBar = 1 } }
+NamePlateSetupOptions = { unitNameAnchorStyle = 0 }
+local debuffPadding = "5"
+C_CVar = { GetCVar = function(name) if name == "nameplateDebuffPadding" then return debuffPadding end end }
 function UnitCanAttack(_, unit) return hostile[unit] end
 unpack = unpack or table.unpack
 
 local function NewPlate(unit)
     local unitFrame = NewRegion()
     unitFrame.HealthBarsContainer = NewRegion()
+    unitFrame.HealthBarsContainer.healthBar = NewRegion()
     unitFrame.name = NewRegion()
     unitFrame.AurasFrame = {
         DebuffListFrame = NewRegion(),
@@ -94,14 +103,9 @@ local function NewPlate(unit)
         LossOfControlFrame = NewRegion(),
         BuffListFrame = NewRegion(),
     }
-    -- Blizzard's own debuff row: left edge plus above the name.
-    unitFrame.AurasFrame.DebuffListFrame:SetPoint("LEFT", unitFrame.HealthBarsContainer, "LEFT")
-    unitFrame.AurasFrame.DebuffListFrame:SetPoint("BOTTOM", unitFrame.name, "TOP", 0, 5)
-    function unitFrame:UpdateAnchors()
-        self.AurasFrame.DebuffListFrame:ClearAllPoints()
-        self.AurasFrame.DebuffListFrame:SetPoint("LEFT", self.HealthBarsContainer, "LEFT")
-        self.AurasFrame.DebuffListFrame:SetPoint("BOTTOM", self.HealthBarsContainer, "TOP", 0, 7)
-    end
+    -- Forever refuses to measure Blizzard's nameplate regions.
+    unitFrame.AurasFrame.DebuffListFrame.restricted = true
+    function unitFrame:UpdateAnchors() end
     return { UnitFrame = unitFrame, namePlateUnitToken = unit }
 end
 
@@ -139,9 +143,9 @@ assert(container.groups[1].filter == "HARMFUL|CROWD_CONTROL", "crowd control gro
 assert(container.groups[2].filter:find("!CROWD_CONTROL", 1, true), "debuffs should exclude crowd control to avoid duplicates")
 assert(container.anchorPoint == "BOTTOMLEFT", "elements should fill from the container's bottom left")
 
-local point, relativeTo, relativePoint, x, y = container:GetPoint(1)
+local point, relativeTo, relativePoint, x, y = container:GetOwnPoint(1)
 assert(point == "BOTTOM" and relativeTo == enemy.name and relativePoint == "TOP" and x == 0 and y == 5,
-    "container should center on Blizzard's debuff row anchor")
+    "container should center above the name, spaced by the debuff padding")
 
 local button = container.button
 assert(button.icon and button.cooldown and button.count and button.border, "buttons should get icon, cooldown, count, and border")
@@ -155,10 +159,12 @@ assert(enemy.AurasFrame.BuffListFrame:IsShown(), "Blizzard's buff list should st
 enemy.AurasFrame.CrowdControlListFrame:SetShown(true)
 assert(not enemy.AurasFrame.CrowdControlListFrame:IsShown(), "re-shown Blizzard lists should be hidden again")
 
--- Blizzard re-anchoring moves our row with it.
+-- Blizzard re-anchoring after a style or padding change moves our row with it.
+NamePlateSetupOptions.unitNameAnchorStyle = 1
+debuffPadding = "7"
 enemy:UpdateAnchors()
-point, relativeTo, relativePoint, x, y = container:GetPoint(1)
-assert(relativeTo == enemy.HealthBarsContainer and y == 7, "container should follow Blizzard's re-anchored debuff row")
+point, relativeTo, relativePoint, x, y = container:GetOwnPoint(1)
+assert(relativeTo == enemy.HealthBarsContainer.healthBar and y == 7, "names inside the bar should put the row above the health bar")
 
 -- Friendly plates are left to Blizzard.
 eventHandler(nil, "NAME_PLATE_UNIT_ADDED", "nameplate2")
