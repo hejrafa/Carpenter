@@ -20,7 +20,7 @@ local COMBO_TEXTURE = "Interface\\ComboFrame\\ComboPoint"
 -- WoW Forever draws combo points with Retail's rogue atlases; match them there.
 local FOREVER_SOCKET_ATLAS = "uf-roguecp-bg-dis"
 local FOREVER_POINT_ATLAS = "uf-roguecp-icon-red"
-local FOREVER_SOCKET_SIZE = 9
+local FOREVER_SOCKET_SIZE = 8
 
 -- Scales the whole group at once so the socket, dot, and alignment tuning
 -- below keep their proportions.
