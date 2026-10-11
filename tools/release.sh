@@ -88,28 +88,20 @@ check() {
   while IFS= read -r file; do
     files+=("$file")
   done < <(lua_files)
-  luac -p "${files[@]}" "$ROOT/tools/action-cam-fixtures.lua" "$ROOT/tools/addon-compartment-fixtures.lua" "$ROOT/tools/minimap-clutter-fixtures.lua" "$ROOT/tools/world-map-forever-fixtures.lua" "$ROOT/tools/forever-defaults-fixtures.lua" "$ROOT/tools/edit-mode-layout-fixtures.lua" "$ROOT/tools/hide-chat-buttons-fixtures.lua" "$ROOT/tools/hide-ui-elements-fixtures.lua" "$ROOT/tools/hide-quest-tracker-titles-fixtures.lua" "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT/tools/auto-track-quest-fixtures.lua" "$ROOT/tools/auto-sell-greys-fixtures.lua" "$ROOT/tools/class-health-colors-fixtures.lua" "$ROOT/tools/chat-glossary-fixtures.lua" "$ROOT/tools/combat-restore-fixtures.lua" "$ROOT/tools/quest-tracker-sort-fixtures.lua" "$ROOT/tools/forever-nameplate-auras-fixtures.lua" "$ROOT/tools/check-localization.lua" "$ROOT/tools/check-assets.lua" "$ROOT/tools/check-addon-shape.lua"
-  lua "$ROOT/tools/action-cam-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/addon-compartment-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/minimap-clutter-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/world-map-forever-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/forever-defaults-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/edit-mode-layout-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/hide-chat-buttons-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/hide-ui-elements-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/hide-quest-tracker-titles-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/chat-cleaner-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/smart-macro-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/auto-track-quest-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/auto-sell-greys-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/class-health-colors-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/chat-glossary-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/combat-restore-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/quest-tracker-sort-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/forever-nameplate-auras-fixtures.lua" "$ROOT"
-  lua "$ROOT/tools/check-localization.lua" "$ROOT"
-  lua "$ROOT/tools/check-assets.lua" "$ROOT"
-  lua "$ROOT/tools/check-addon-shape.lua" "$ROOT"
+  # Every tools/*-fixtures.lua file runs, so new fixtures can't be forgotten.
+  local fixtures=()
+  while IFS= read -r fixture; do
+    fixtures+=("$fixture")
+  done < <(find "$ROOT/tools" -maxdepth 1 -type f -name '*-fixtures.lua' | sort)
+  [[ ${#fixtures[@]} -gt 0 ]] || fail "no fixtures found in tools/"
+
+  local checks=("$ROOT/tools/check-localization.lua" "$ROOT/tools/check-assets.lua" "$ROOT/tools/check-addon-shape.lua")
+
+  luac -p "${files[@]}" "${fixtures[@]}" "${checks[@]}"
+  local script
+  for script in "${fixtures[@]}" "${checks[@]}"; do
+    lua "$script" "$ROOT"
+  done
 
   echo "release: checks passed"
 }
