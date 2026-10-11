@@ -114,7 +114,7 @@ local featureManifest = {
 
     -- Immersion
     actionCamEnabled = { { clients = ALL, files = { "Modules/ActionCam.lua" } } },
-    explorerModeEnabled = { { clients = ALL, files = { "Modules/ExplorerMode.lua" } } },
+    explorerModeEnabled = { { clients = ALL, files = { "Modules/ExplorerMode/ExplorerMode.lua" } } },
 }
 
 Carpenter.FeatureManifest = featureManifest
