@@ -15,12 +15,14 @@ local LFG_MINIMAP_BUTTONS = {
     "QueueStatusMinimapButton",
 }
 
--- The strip above Forever and Retail minimaps. Mail and crafting-order
--- indicators stay visible so their alerts are never missed.
+-- The strip above Forever and Retail minimaps, including the dungeon
+-- difficulty flag. Mail and crafting-order indicators stay visible so their
+-- alerts are never missed.
 local CLUSTER_HEADER_KEYS = {
     "BorderTop",
     "ZoneTextButton",
     "Tracking",
+    "InstanceDifficulty",
 }
 
 local GLOBAL_HEADER_FRAMES = {
@@ -240,7 +242,7 @@ function Fader.Create(config)
         end
     end
 
-    -- Fades the zone name, tracking, calendar, and addon compartment with the
+    -- Fades the zone name, tracking, difficulty flag, calendar, and addon compartment with the
     -- rest of the minimap extras; hovering anywhere on the minimap brings them back.
     local function ApplyHeaderClutter(enabled)
         if not isRetailClient() then return end

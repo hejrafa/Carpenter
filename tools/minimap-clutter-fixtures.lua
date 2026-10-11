@@ -155,6 +155,7 @@ MinimapCluster.Tracking = newWidget("ClusterTracking")
 MinimapCluster.Tracking.Button = newWidget("ClusterTrackingButton")
 function MinimapCluster.Tracking.Button:IsMenuOpen() return menuOpen end
 MinimapCluster.IndicatorFrame = newWidget("ClusterIndicatorFrame")
+MinimapCluster.InstanceDifficulty = newWidget("ClusterInstanceDifficulty")
 function MinimapCluster:IsMouseOver() return mouseOverCluster end
 function MinimapCluster:HookScript(event, callback) self[event] = callback end
 AddonCompartmentFrame = newWidget("AddonCompartmentFrame")
@@ -182,6 +183,7 @@ local headerFrames = {
     MinimapCluster.BorderTop,
     MinimapCluster.ZoneTextButton,
     MinimapCluster.Tracking,
+    MinimapCluster.InstanceDifficulty,
     GameTimeFrame,
     TimeManagerClockButton,
     AddonCompartmentFrame,
@@ -207,6 +209,7 @@ MinimapCluster.OnEnter(MinimapCluster)
 RunFader()
 assertEqual(GameTimeFrame.alpha, 1, "hovering the minimap reveals the calendar")
 assertEqual(MinimapCluster.ZoneTextButton.alpha, 1, "hovering the minimap reveals the zone name")
+assertEqual(MinimapCluster.InstanceDifficulty.alpha, 1, "hovering the minimap reveals the dungeon difficulty flag")
 
 -- Leaving through a frame the fader never hooked (mail icon, another addon)
 -- fires no leave event, so the fader has to notice on its own.
