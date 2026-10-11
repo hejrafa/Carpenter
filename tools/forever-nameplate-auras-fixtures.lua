@@ -49,6 +49,10 @@ local function NewRegion()
     function region:SetDrawEdge() end
     function region:SetSwipeColor() end
     function region:SetHideCountdownNumbers() end
+    function region:SetFont() end
+    function region:SetTextColor() end
+    function region:SetShadowColor() end
+    function region:SetShadowOffset() end
     function region:RegisterEvent() end
     function region:UnregisterAllEvents() end
     function region:SetScript(_, handler) eventHandler = handler end
@@ -71,6 +75,7 @@ function CreateFrame(frameType, _, parent, template)
             function button:SetIcon(texture) self.icon = texture end
             function button:SetDurationCooldown(cooldown) self.cooldown = cooldown end
             function button:SetApplicationCount(text) self.count = text end
+            function button:SetDurationText(text, textOptions) self.durationText, self.durationOptions = text, textOptions end
             function button:AddDispelTypeTexture(texture, dispelOptions) self.border, self.borderOptions = texture, dispelOptions end
             options.initializeFrame(button)
             self.button = button
@@ -82,7 +87,24 @@ function CreateFrame(frameType, _, parent, template)
     return frame
 end
 
-Enum = { CustomAuraButtonDispelTypeTextureStyle = { PreserveAsset = 3 } }
+Enum = {
+    CustomAuraButtonDispelTypeTextureStyle = { PreserveAsset = 3 },
+    LuaCurveType = { Step = 1 },
+    SecondsFormatterInterval = { Seconds = 0, Minutes = 1, Hours = 2 },
+    SecondsFormatterAbbreviation = { OneLetter = 2 },
+    SecondsFormatterIntervalWhitespace = { StripIgnoreLocale = 2 },
+    SecondsFormatterRounding = { RoundUp = 0 },
+}
+local curvePoints = {}
+C_CurveUtil = { CreateCurve = function()
+    return { SetType = function() end, AddPoint = function(_, x, y) curvePoints[#curvePoints + 1] = { x, y } end }
+end }
+local formatterSettings = {}
+C_StringUtil = { CreateSecondsFormatter = function()
+    return setmetatable({}, { __index = function(_, method)
+        return function(_, value) formatterSettings[method] = value end
+    end })
+end }
 AnchorUtil = { FlowDirection = { Left = -1, Right = 1, Up = 1, Down = -1 } }
 C_NamePlate = {}
 NamePlateConstants = { NAME_ANCHOR_STYLES = { AboveHealthBar = 0, InsideHealthBar = 1 } }
@@ -149,6 +171,9 @@ assert(point == "BOTTOM" and relativeTo == enemy.name and relativePoint == "TOP"
 
 local button = container.button
 assert(button.icon and button.cooldown and button.count and button.border, "buttons should get icon, cooldown, count, and border")
+assert(button.durationText and button.durationOptions and button.durationOptions.textFormatter, "buttons should get a timer with Carpenter's formatter")
+assert(formatterSettings.SetRounding == Enum.SecondsFormatterRounding.RoundUp, "timer should round up like Classic")
+assert(curvePoints[2][1] == 60 and curvePoints[2][2] == Enum.SecondsFormatterInterval.Minutes, "timer should switch to minutes at 60 seconds")
 assert(button.borderOptions.style == Enum.CustomAuraButtonDispelTypeTextureStyle.PreserveAsset, "border should keep the target-frame art")
 assert(button.borderOptions.showWithoutDispelType == true, "physical debuffs should still get an outline")
 

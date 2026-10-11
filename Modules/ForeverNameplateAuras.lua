@@ -26,6 +26,8 @@ local FALLBACK_GAP = 4
 local BORDER_TEXTURE = "Interface\\Buttons\\UI-Debuff-Overlays"
 local BORDER_TEX_COORDS = { 0.296875, 0.5703125, 0, 0.515625 }
 
+local DURATION_TEXT_SIZE = 12
+
 local CROWD_CONTROL_FILTER = "HARMFUL|CROWD_CONTROL"
 local DEBUFF_FILTER = "HARMFUL|PLAYER|INCLUDE_NAME_PLATE_ONLY|!CROWD_CONTROL"
 
@@ -53,6 +55,39 @@ end
 -- =========================
 -- Aura buttons
 -- =========================
+
+-- Matches the Classic nameplate timer: seconds under a minute, then whole
+-- minutes and hours, rounded up and without a space ("12s", "2m", "1h").
+local durationFormatter
+local function GetDurationFormatter()
+    if durationFormatter == nil then
+        local ok, formatter = pcall(function()
+            local intervalCurve = C_CurveUtil.CreateCurve()
+            intervalCurve:SetType(Enum.LuaCurveType.Step)
+            intervalCurve:AddPoint(0, Enum.SecondsFormatterInterval.Seconds)
+            intervalCurve:AddPoint(60, Enum.SecondsFormatterInterval.Minutes)
+            intervalCurve:AddPoint(3600, Enum.SecondsFormatterInterval.Hours)
+
+            local created = C_StringUtil.CreateSecondsFormatter()
+            created:SetDefaultAbbreviation(Enum.SecondsFormatterAbbreviation.OneLetter)
+            created:SetStripIntervalWhitespace(Enum.SecondsFormatterIntervalWhitespace.StripIgnoreLocale)
+            created:SetRounding(Enum.SecondsFormatterRounding.RoundUp)
+            created:SetMinInterval(Enum.SecondsFormatterInterval.Seconds)
+            created:SetMaxIntervalCurve(intervalCurve)
+            created:SetDesiredUnitCount(1)
+            return created
+        end)
+        durationFormatter = ok and formatter or false
+    end
+    return durationFormatter or nil
+end
+
+local function StyleOverlayText(text, size)
+    text:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", size, "OUTLINE")
+    text:SetTextColor(1, 1, 1)
+    text:SetShadowColor(0, 0, 0, 0.9)
+    text:SetShadowOffset(1, -1)
+end
 local function InitializeAuraButton(button)
     button:SetSize(ICON_SIZE, ICON_SIZE)
 
@@ -74,6 +109,12 @@ local function InitializeAuraButton(button)
     local overlay = CreateFrame("Frame", nil, button)
     overlay:SetAllPoints(button)
     overlay:SetFrameLevel(cooldown:GetFrameLevel() + 1)
+
+    local durationText = overlay:CreateFontString(nil, "OVERLAY")
+    durationText:SetPoint("CENTER", button, "CENTER", 0, 0)
+    StyleOverlayText(durationText, DURATION_TEXT_SIZE)
+    local formatter = GetDurationFormatter()
+    button:SetDurationText(durationText, formatter and { textFormatter = formatter } or nil)
 
     local count = overlay:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
     count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 2, -2)
