@@ -49,7 +49,7 @@ local function NewRegion()
     function region:SetDrawEdge() end
     function region:SetSwipeColor() end
     function region:SetHideCountdownNumbers() end
-    function region:SetFont() end
+    function region:SetFont(_, size, flags) self.fontSize, self.fontFlags = size, flags end
     function region:SetTextColor() end
     function region:SetShadowColor() end
     function region:SetShadowOffset() end
@@ -147,15 +147,13 @@ Carpenter = {
     RegisterFeature = function(self, key, feature) self.Features[key] = feature end,
 }
 
-local ns = {
-    Private = {
-        Nameplates = {
-            GetForUnit = function(unit) return plates[unit] end,
-            GetAll = function() return {} end,
-            GetHealthBar = function() return nil end,
-        },
-    },
-}
+local ns = { Private = {} }
+-- The real nameplate helper provides the shared aura styling; only the plate
+-- lookups are faked.
+assert(loadfile(repo .. "/Core/Nameplates.lua"))("Carpenter", ns)
+ns.Private.Nameplates.GetForUnit = function(unit) return plates[unit] end
+ns.Private.Nameplates.GetAll = function() return {} end
+ns.Private.Nameplates.GetHealthBar = function() return nil end
 assert(loadfile(repo .. "/Modules/ForeverNameplateAuras.lua"))("Carpenter", ns)
 
 local feature = Carpenter.Features.debuffTrackerEnabled
@@ -179,6 +177,8 @@ assert(point == "BOTTOM" and relativeTo == enemy.name and relativePoint == "TOP"
 local button = container.button
 assert(button.icon and button.cooldown and button.count and button.border, "buttons should get icon, cooldown, count, and border")
 assert(button.durationText and button.durationOptions and button.durationOptions.textFormatter, "buttons should get a timer with Carpenter's formatter")
+assert(button.durationText.fontSize == 12 and button.count.fontSize == 11 and button.count.fontFlags == "OUTLINE",
+    "timer and stack text should use the shared aura text style")
 assert(ruleBreakpoints, "timer should use the Classic-style rule formatter")
 assert(ruleBreakpoints[1].threshold == 0 and ruleBreakpoints[1].format == "%d" and ruleBreakpoints[1].rounding == Enum.NumericRuleFormatRounding.Up,
     "timer should show plain whole seconds, rounded up")

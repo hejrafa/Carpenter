@@ -21,12 +21,7 @@ local CROWD_CONTROL_MAX = 2
 local DEBUFF_MAX = 8
 local FALLBACK_GAP = 4
 
--- Same outline the target frame uses for its debuffs; the game tints it by
--- debuff type.
-local BORDER_TEXTURE = "Interface\\Buttons\\UI-Debuff-Overlays"
-local BORDER_TEX_COORDS = { 0.296875, 0.5703125, 0, 0.515625 }
 
-local DURATION_TEXT_SIZE = 12
 
 local CROWD_CONTROL_FILTER = "HARMFUL|CROWD_CONTROL"
 local DEBUFF_FILTER = "HARMFUL|PLAYER|INCLUDE_NAME_PLATE_ONLY|!CROWD_CONTROL"
@@ -99,12 +94,6 @@ local function GetDurationFormatter()
     return durationFormatter or nil
 end
 
-local function StyleOverlayText(text, size)
-    text:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", size, "OUTLINE")
-    text:SetTextColor(1, 1, 1)
-    text:SetShadowColor(0, 0, 0, 0.9)
-    text:SetShadowOffset(1, -1)
-end
 local function InitializeAuraButton(button)
     button:SetSize(ICON_SIZE, ICON_SIZE)
 
@@ -129,17 +118,18 @@ local function InitializeAuraButton(button)
 
     local durationText = overlay:CreateFontString(nil, "OVERLAY")
     durationText:SetPoint("CENTER", button, "CENTER", 0, 0)
-    StyleOverlayText(durationText, DURATION_TEXT_SIZE)
+    Nameplates.StyleAuraText(durationText, Nameplates.AURA_TIMER_TEXT_SIZE)
     local formatter = GetDurationFormatter()
     button:SetDurationText(durationText, formatter and { textFormatter = formatter } or nil)
 
-    local count = overlay:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
+    local count = overlay:CreateFontString(nil, "OVERLAY")
     count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 2, -2)
+    Nameplates.StyleAuraText(count, Nameplates.AURA_STACK_TEXT_SIZE)
     button:SetApplicationCount(count)
 
+    -- The game tints the target frame's outline by debuff type.
     local border = overlay:CreateTexture(nil, "OVERLAY")
-    border:SetTexture(BORDER_TEXTURE)
-    border:SetTexCoord(unpack(BORDER_TEX_COORDS))
+    Nameplates.StyleAuraBorder(border)
     border:SetAllPoints(button)
     button:AddDispelTypeTexture(border, {
         style = Enum.CustomAuraButtonDispelTypeTextureStyle.PreserveAsset,

@@ -4,6 +4,7 @@ ns.Private = ns.Private or {}
 
 local Icons = ns.Private.DebuffTrackerIcons or {}
 ns.Private.DebuffTrackerIcons = Icons
+local Nameplates = ns.Private.Nameplates or {}
 
 -- Blizzard Debuff Type Colors
 local DEBUFF_COLORS = {
@@ -19,7 +20,7 @@ local DEBUFF_COLORS = {
 local NAMEPLATE_ICON_SIZE = 30
 Icons.NAMEPLATE_ICON_SIZE = NAMEPLATE_ICON_SIZE
 
-local NAMEPLATE_COOLDOWN_TEXT_SIZE = 12
+local NAMEPLATE_COOLDOWN_TEXT_SIZE = Nameplates.AURA_TIMER_TEXT_SIZE or 12
 local UNIT_FRAME_COOLDOWN_TEXT_SIZE = 24
 local EXTERNAL_COOLDOWN_COUNT_ADDONS = {
     "OmniCC",
@@ -33,20 +34,15 @@ function Icons.GetDebuffColor(debuffType)
     return color.r, color.g, color.b
 end
 
+-- Text and border styling is shared with the WoW Forever nameplate auras.
 local function StyleCooldownText(text, size)
     if not text then return end
-    text:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", size, "OUTLINE")
-    text:SetTextColor(1, 1, 1)
-    text:SetShadowColor(0, 0, 0, 0.9)
-    text:SetShadowOffset(1, -1)
+    Nameplates.StyleAuraText(text, size)
 end
 
 local function StyleStackText(text)
     if not text then return end
-    text:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", 11, "OUTLINE")
-    text:SetTextColor(1, 1, 1)
-    text:SetShadowColor(0, 0, 0, 0.9)
-    text:SetShadowOffset(1, -1)
+    Nameplates.StyleAuraText(text, Nameplates.AURA_STACK_TEXT_SIZE)
 end
 
 function Icons.SetStackText(frame, count)
@@ -182,9 +178,8 @@ function Icons.CreateBaseIcon(parent, isNameplate)
 
         -- Border always on top
         f.border = f.overlay:CreateTexture(nil, "OVERLAY", nil, 7)
-        f.border:SetTexture("Interface\\Buttons\\UI-Debuff-Overlays")
+        Nameplates.StyleAuraBorder(f.border)
         f.border:SetAllPoints(f)
-        f.border:SetTexCoord(0.296875, 0.5703125, 0, 0.515625)
         Icons.SyncNameplateIconLayers(f)
     else
         f:SetSize(64, 64)

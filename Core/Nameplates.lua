@@ -6,6 +6,25 @@ ns.Private = ns.Private or {}
 local Nameplates = ns.Private.Nameplates or {}
 ns.Private.Nameplates = Nameplates
 
+-- Shared look for Carpenter's aura icons on every client: the target frame's
+-- debuff outline, and outlined white timer and stack numbers.
+local AURA_BORDER_TEXTURE = "Interface\\Buttons\\UI-Debuff-Overlays"
+local AURA_BORDER_TEX_COORDS = { 0.296875, 0.5703125, 0, 0.515625 }
+Nameplates.AURA_TIMER_TEXT_SIZE = 12
+Nameplates.AURA_STACK_TEXT_SIZE = 11
+
+function Nameplates.StyleAuraBorder(texture)
+    texture:SetTexture(AURA_BORDER_TEXTURE)
+    texture:SetTexCoord(AURA_BORDER_TEX_COORDS[1], AURA_BORDER_TEX_COORDS[2], AURA_BORDER_TEX_COORDS[3], AURA_BORDER_TEX_COORDS[4])
+end
+
+function Nameplates.StyleAuraText(text, size)
+    text:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", size, "OUTLINE")
+    text:SetTextColor(1, 1, 1)
+    text:SetShadowColor(0, 0, 0, 0.9)
+    text:SetShadowOffset(1, -1)
+end
+
 function Nameplates.CanQueryUnit(unit)
     if type(unit) ~= "string" or unit == "" then return false end
     return unit == "target"
