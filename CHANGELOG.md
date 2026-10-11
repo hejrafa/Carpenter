@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.8.4
+
+- Debuffs on WoW Forever now shows crowd control and your debuffs in one centered row above enemy nameplates, outlined by debuff type like on your target frame, with a countdown on each icon.
+- Nameplate and portrait debuffs on Classic, Poison Warning, and Consumable Macros now work in every client language instead of relying on English (and German) text.
+- Classic debuffs now recognize Freezing Trap, Mace Stun, and Hibernate, which were never picked up before.
+- Consumable Macros on non-English clients keep regeneration potions out of the health macro and keep skipping stat food in the plain Food macro.
+- Fixed Explorer Mode erroring when Edit Mode was opened while the HUD was faded.
+- Nameplate Combo Points now react to target changes instead of updating 20 times a second.
+- Poison Warning and Mount Speed Trinket no longer do any work while turned off, and turning Poison Warning back on no longer announces a poison that already wore off.
+- Mount Speed Trinket now checks your trinket right away when turned on.
+- Carpenter's red "Player is in a group" message now only replaces Blizzard's while Hide Error Messages or Action Cam is on.
+
 ## 1.8.3
 
 - Added Glossary for WoW Forever chat: hover over abbreviations like LFM, HR, or PST to see what they mean, with the whole message spelled out in plain words.
