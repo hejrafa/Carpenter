@@ -22,6 +22,15 @@ end
 
 function playerBar:SetStatusBarDesaturated() end
 
+-- Target of target, which Blizzard repaints green every frame on Retail-style clients.
+local totBar = { color = { 0, 1, 0 } }
+local totIsPlayer = true
+function totBar:SetStatusBarColor(r, g, b) self.color = { r, g, b } end
+function totBar:SetStatusBarDesaturated() end
+function UnitFrameHealthBar_Update(bar)
+    bar:SetStatusBarColor(0, 1, 0)
+end
+
 local partyTexture = { atlas = PARTY_ATLAS, color = { 1, 1, 1 } }
 
 function partyTexture:SetAtlas(atlas) self.atlas = atlas end
@@ -64,6 +73,7 @@ local ns = {
         Unit = {
             FrameHealthBar = function(unit)
                 if unit == "player" then return playerBar end
+                if unit == "targettarget" then return totBar end
                 return nil
             end,
             ClassColor = function(unit)
@@ -71,10 +81,14 @@ local ns = {
                     return { r = 0.2, g = 0.4, b = 0.8 }
                 elseif unit == "party1" and not secretClass then
                     return { r = 0.9, g = 0.1, b = 0.3 }
+                elseif unit == "targettarget" and totIsPlayer then
+                    return { r = 0.5, g = 0.8, b = 0.1 }
                 end
             end,
-            Exists = function(unit) return unit == "player" or unit == "party1" end,
-            IsPlayer = function(unit) return unit == "player" or unit == "party1" end,
+            Exists = function(unit) return unit == "player" or unit == "party1" or unit == "targettarget" end,
+            IsPlayer = function(unit)
+                return unit == "player" or unit == "party1" or (unit == "targettarget" and totIsPlayer)
+            end,
         },
     },
 }
@@ -94,6 +108,10 @@ C_CVar = {
 }
 
 function hooksecurefunc(target, method, hook)
+    -- hooksecurefunc("GlobalName", hook) hooks a global function.
+    if type(target) == "string" then
+        target, method, hook = _G, target, method
+    end
     local original = target[method]
     target[method] = function(...)
         original(...)
@@ -129,6 +147,18 @@ registeredFeature:Enable()
 assert(playerBar.applications == 1, "player health bar should still be class colored")
 assert(partyTexture.atlas == PARTY_STATUS_ATLAS, "party fill should switch to the grayscale status atlas")
 AssertColor({ 0.9, 0.1, 0.3 }, "party fill should be tinted with the class color")
+
+-- Target of target: Blizzard's per-frame repaint is followed by the class color.
+UnitFrameHealthBar_Update(totBar, "targettarget")
+assert(totBar.color[1] == 0.5 and totBar.color[2] == 0.8, "target of target should keep its class color after Blizzard repaints it")
+
+-- An NPC target of target is restored once, then left to Blizzard.
+totIsPlayer = false
+UnitFrameHealthBar_Update(totBar, "targettarget")
+assert(totBar.color[1] == 1 and totBar.color[2] == 1, "an NPC target of target should drop the class color")
+UnitFrameHealthBar_Update(totBar, "targettarget")
+assert(totBar.color[1] == 0 and totBar.color[2] == 1, "NPC target of target bars should stay Blizzard's")
+totIsPlayer = true
 
 member:ToPlayerArt()
 assert(partyTexture.atlas == PARTY_STATUS_ATLAS, "Blizzard art refresh should be followed by a recolor")

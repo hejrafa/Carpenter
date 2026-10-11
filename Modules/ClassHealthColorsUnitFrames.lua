@@ -224,6 +224,31 @@ local function RefreshUnitFrameColors()
     RefreshPartyFrameColors()
 end
 
+-- Retail-style clients repaint these bars green in UnitFrameHealthBar_Update.
+-- Target of target runs that every frame from OnUpdate, so recolor right
+-- after Blizzard instead of waiting for the next event. Party bars are tinted
+-- through their texture and never pass through here.
+local UNIT_FRAME_UNITS = { "player", "target", "targettarget", "focus" }
+local healthBarUpdateHooked = false
+
+local function HookBlizzardHealthBarUpdates()
+    if healthBarUpdateHooked or not IsRetailClient() or type(UnitFrameHealthBar_Update) ~= "function" then return end
+    healthBarUpdateHooked = true
+
+    hooksecurefunc("UnitFrameHealthBar_Update", function(bar)
+        if not bar or not ClassHealth.IsUnitFrameEnabled() then return end
+        for _, unit in ipairs(UNIT_FRAME_UNITS) do
+            if bar == GetUnitFrameHealthBar(unit) then
+                -- NPC bars stay Blizzard's unless Carpenter colored them before.
+                if bar._Carpenter_IsUnitClassColored or ClassHealth.IsPlayerUnit(unit) then
+                    UpdateHealthBarColor(bar, unit)
+                end
+                return
+            end
+        end
+    end)
+end
+
 local unitFrameDriver = CreateFrame("Frame")
 unitFrameDriver:Hide()
 
@@ -281,6 +306,7 @@ function unitFrameFeature:Enable()
     unitFrameDriver:RegisterEvent("GROUP_ROSTER_UPDATE")
     unitFrameDriver:RegisterEvent("PLAYER_ENTERING_WORLD")
     unitFrameDriver:Show()
+    HookBlizzardHealthBarUpdates()
     RefreshUnitFrameColors()
 end
 
