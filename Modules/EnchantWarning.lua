@@ -115,6 +115,33 @@ local function GetEnchantName(slot)
     return nil
 end
 
+-- WoW Forever reads weapon enchants per slot through C_Item, like its own buff
+-- frame; Classic clients still have the old global. Returns the same values as
+-- the global: has main hand, ms left, -, -, has off hand, ms left.
+local function GetWeaponEnchants()
+    if C_Item and C_Item.GetWeaponEnchantInfo and Enum and Enum.WeaponSlot then
+        local function ReadSlot(slot)
+            local ok, enchants = pcall(C_Item.GetWeaponEnchantInfo, slot)
+            if ok and type(enchants) == "table" then
+                for _, enchant in pairs(enchants) do
+                    if enchant.hasEnchant then
+                        return true, enchant.timeLeft
+                    end
+                end
+            end
+            return false, nil
+        end
+
+        local hasMainEnchant, mainTimeLeft = ReadSlot(Enum.WeaponSlot.MainHand)
+        local hasOffEnchant, offTimeLeft = ReadSlot(Enum.WeaponSlot.OffHand)
+        return hasMainEnchant, mainTimeLeft, nil, nil, hasOffEnchant, offTimeLeft
+    end
+
+    if GetWeaponEnchantInfo then
+        return GetWeaponEnchantInfo()
+    end
+end
+
 local function CheckEnchantments()
     -- Don't check if disabled
     if not (Carpenter and Carpenter:IsEnabled("enchantWarningEnabled")) then
@@ -146,7 +173,7 @@ local function CheckEnchantments()
     end
 
     -- Check hand enchants
-    local hasMainEnchant, mainTimeLeft, _, _, hasOffEnchant, offTimeLeft = GetWeaponEnchantInfo()
+    local hasMainEnchant, mainTimeLeft, _, _, hasOffEnchant, offTimeLeft = GetWeaponEnchants()
     if IsSecret(hasMainEnchant) or IsSecret(mainTimeLeft) or IsSecret(hasOffEnchant) or IsSecret(offTimeLeft) then
         return
     end
