@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.8.5
+
+- Removed the Glossary chat feature from WoW Forever.
+- Fixed Poison Warning never warning on WoW Forever.
+- Fixed the target of target health bar losing its class color on WoW Forever and Retail. On WoW Forever it is now class colored even though the game hides that unit's class from addons.
+- Chat Cleaner now styles skill increases during dungeon fights on WoW Forever, where the game hides that chat text from addons.
+- Remove Minimap Clutter now also fades the dungeon difficulty flag on WoW Forever and Retail.
+- Nameplate combo points on WoW Forever are a little smaller.
+- Stack counts on WoW Forever nameplate debuffs now use the same style as Classic.
+
 ## 1.8.4
 
 - Debuffs on WoW Forever now shows crowd control and your debuffs in one centered row above enemy nameplates, outlined by debuff type like on your target frame, with a countdown on each icon.
