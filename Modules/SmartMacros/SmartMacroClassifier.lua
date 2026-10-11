@@ -203,12 +203,20 @@ local function IsWellFedFood(tooltipData, spellText)
     return ContainsAny(text, TOOLTIP_KEYWORDS.wellFed)
 end
 
+local function IsEnglishClient()
+    return not Data.IsEnglishClient or Data.IsEnglishClient()
+end
+
 local function HasBuffDuration(text)
     if not text or text == "" then return false end
-    return text:find("for %d[%d%.,]* min") ~= nil
+    if text:find("for %d[%d%.,]* min") ~= nil
         or text:find("for %d[%d%.,]* hour") ~= nil
         or text:find("für %d[%d%.,]* min") ~= nil
-        or text:find("für %d[%d%.,]* stund") ~= nil
+        or text:find("für %d[%d%.,]* stund") ~= nil then
+        return true
+    end
+    -- Other languages: a duration in minutes or hours, written the client's way.
+    return not IsEnglishClient() and Data.HasDuration and Data.HasDuration(text, Data.LongDurationPatterns) or false
 end
 
 local function HasStatBuffText(tooltipData, spellText)
@@ -351,11 +359,19 @@ IsWater = function(item, tooltipData, spellText)
     return false
 end
 
-local function IsHealthConsumable(item, tooltip, spellText)
+-- Other languages: an effect that lasts seconds heals over time. Only the use
+-- line counts, since a tooltip on cooldown also shows the seconds remaining.
+local function HasLocalizedRegeneration(useText)
+    if IsEnglishClient() or not Data.HasDuration then return false end
+    return Data.HasDuration(useText, Data.SecondsDurationPatterns)
+end
+
+local function IsHealthConsumable(item, tooltip, spellText, useText)
     local name = item.name and item.name:lower() or ""
 
     if IsHealthstoneItem(item, tooltip) then return false end
     if HasRegeneratingHealthEffect(name) or HasRegeneratingHealthEffect(tooltip) or HasRegeneratingHealthEffect(spellText) then return false end
+    if HasLocalizedRegeneration(useText) then return false end
     if item.itemID and KNOWN_HEALTH_IDS[item.itemID] then return true end
     if not IsConsumableItem(item) then return false end
     if not IsPotionItem(item) then return false end
@@ -363,7 +379,7 @@ local function IsHealthConsumable(item, tooltip, spellText)
     if spellText:find("healing potion", 1, true) or HasImmediateHealthRestore(spellText) then return true end
     if HasImmediateHealthRestore(tooltip) and not tooltip:find("mana", 1, true) then return true end
     -- Other languages: a potion that mentions health but not mana.
-    if Data.IsEnglishClient and not Data.IsEnglishClient()
+    if not IsEnglishClient()
         and ContainsAny(tooltip, TOOLTIP_KEYWORDS.health) and not ContainsAny(tooltip, TOOLTIP_KEYWORDS.mana) then
         return true
     end
@@ -477,7 +493,7 @@ local function MatchesCategory(item, tooltipData, spellText, category)
     elseif category == "Water" then
         return IsWater(item, tooltipData, spellText)
     elseif category == "Pot" then
-        return IsHealthConsumable(item, tooltip, spellText)
+        return IsHealthConsumable(item, tooltip, spellText, tooltipData.useText)
     elseif category == "Healthstone" then
         return IsHealthstoneItem(item, tooltip)
     elseif category == "Mana" then

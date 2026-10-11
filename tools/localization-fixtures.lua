@@ -109,6 +109,50 @@ do
     end
 end
 
+-- 4. Duration-based checks for regeneration potions and buff food.
+do
+    local french = {
+        HEALTH = "Points de vie", MANA = "Mana", ITEM_SPELL_TRIGGER_ONUSE = "Utiliser :",
+        SPELL_STAT3_NAME = "Endurance",
+        INT_SPELL_DURATION_SEC = "%d s", INT_SPELL_DURATION_MIN = "%d min",
+        INT_SPELL_DURATION_HOURS = "%d |4heure:heures;",
+    }
+    for key, value in pairs(french) do _G[key] = value end
+    GetSpellInfo = function() return nil end
+    GetLocale = function() return "frFR" end
+    UnitHealthMax = function() return 1000 end
+    UnitPowerMax = function() return 1000 end
+
+    local ns = { Private = {} }
+    load("Modules/SmartMacros/SmartMacroData.lua", ns)
+    load("Modules/SmartMacros/SmartMacroClassifier.lua", ns)
+    local classifier = ns.Private.SmartMacroClassifier
+
+    local potion = { itemID = 900001, name = "Potion de soins", itemType = "Consommable", itemSubType = "Potion",
+        classID = 0, subClassID = 1, itemLevel = 20, reqLevel = 10 }
+
+    local function Tooltip(useLine, extra)
+        local useText = useLine:lower()
+        return { text = useText .. (extra and (" " .. extra:lower()) or ""), useText = useText }
+    end
+
+    local regeneration = Tooltip("Utiliser : Rend 600 points de vie en 21 s.")
+    check(not classifier.MatchesCategory(potion, regeneration, "", "Pot"),
+        "frFR: a potion that heals over seconds should stay out of the health macro")
+
+    local instant = Tooltip("Utiliser : Rend 455 à 585 points de vie.", "Temps de recharge restant : 45 s")
+    check(classifier.MatchesCategory(potion, instant, "", "Pot"),
+        "frFR: an instant healing potion on cooldown should still count")
+
+    local food = { itemID = 900002, name = "Ragoût", itemType = "Consommable", itemSubType = "Nourriture et boissons",
+        classID = 0, subClassID = 5, itemLevel = 25, reqLevel = 15 }
+    local plainFood = Tooltip("Utiliser : Rend 552 points de vie en 21 s. Vous devez rester assis pendant que vous mangez.")
+    local statFood = Tooltip("Utiliser : Rend 552 points de vie en 21 s. Vous gagnez 6 en Endurance pendant 15 min.")
+    local plainScore = classifier.ScoreItem(food, plainFood, "", "Food")
+    local statScore = classifier.ScoreItem(food, statFood, "", "Food")
+    check(plainScore > statScore, "frFR: the plain Food macro should prefer food without a stat buff")
+end
+
 if #failures > 0 then
     io.stderr:write(table.concat(failures, "\n") .. "\n")
     os.exit(1)

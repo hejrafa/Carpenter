@@ -124,6 +124,40 @@ do
     Add(keywords.drink, SpellName(430))      -- Drink
 end
 
+-- Duration patterns written the client's way ("15 Sek.", "30 min", "1 Std."),
+-- built from Blizzard's own duration strings and lowercased like tooltips.
+do
+    local function DurationPattern(format)
+        if type(format) ~= "string" then return nil end
+        format = format:gsub("%%%d%$d", "%%d"):gsub("|4[^;]*;", "\001")
+        if not format:find("%d", 1, true) then return nil end
+        format = format:gsub("%%d", "\002")
+        format = format:gsub("([%(%)%.%+%-%*%?%[%]%^%$%%])", "%%%1")
+        format = format:gsub("\001", ".-"):gsub("\002", "%%d[%%d%%.,]*")
+        return format:lower()
+    end
+
+    local function Collect(...)
+        local patterns = {}
+        for index = 1, select("#", ...) do
+            local pattern = DurationPattern(_G[select(index, ...)])
+            if pattern then patterns[#patterns + 1] = pattern end
+        end
+        return patterns
+    end
+
+    Data.SecondsDurationPatterns = Collect("INT_SPELL_DURATION_SEC", "SECONDS_ABBR")
+    Data.LongDurationPatterns = Collect("INT_SPELL_DURATION_MIN", "INT_SPELL_DURATION_HOURS", "MINUTES_ABBR", "HOURS_ABBR")
+end
+
+function Data.HasDuration(text, patterns)
+    if not text or text == "" or not patterns then return false end
+    for _, pattern in ipairs(patterns) do
+        if text:find(pattern) then return true end
+    end
+    return false
+end
+
 -- English tooltips have dedicated phrase checks; other languages rely on the
 -- localized keywords above.
 function Data.IsEnglishClient()
