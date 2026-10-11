@@ -203,32 +203,29 @@ end
 -- =========================================================
 -- Core Logic
 -- =========================================================
-local StartFollowTicker
-local StopFollowTicker
-local followTickerActive = false
+local function hide()
+    if resourceFrame then resourceFrame:Hide() end
+end
 
+-- The points are parented to the target's nameplate and anchored to its
+-- health bar, so they follow it on their own; events cover everything that
+-- changes which plate they belong on or whether they show at all.
 local function update()
     if not isEnabled() then
-        if resourceFrame then resourceFrame:Hide() end
-        if StopFollowTicker then StopFollowTicker() end
-        addonFrame:Hide()
+        hide()
         return
     end
 
     -- 1. Check Target validity
     if not UnitExists("target") or UnitIsDead("target") or not UnitCanAttack("player", "target") then
-        if resourceFrame then resourceFrame:Hide() end
-        if StopFollowTicker then StopFollowTicker() end
-        addonFrame:Hide()
+        hide()
         return
     end
 
     -- 2. Find Nameplate
     local plate = Nameplates.GetForUnit and Nameplates.GetForUnit("target")
     if not plate then
-        if resourceFrame then resourceFrame:Hide() end
-        if StopFollowTicker then StopFollowTicker() end
-        addonFrame:Hide()
+        hide()
         return
     end
 
@@ -260,8 +257,6 @@ local function update()
     resourceFrame:SetPoint("TOP", anchor, "BOTTOM", OFFSET_X / COMBO_SCALE, OFFSET_Y / COMBO_SCALE)
 
     setComboVisual(cp)
-    if StartFollowTicker then StartFollowTicker() end
-    addonFrame:Show()
 end
 
 -- =========================================================
@@ -271,26 +266,17 @@ addonFrame:SetScript("OnEvent", function(self, event, ...)
     if event == "PLAYER_TARGET_CHANGED" or event == "NAME_PLATE_UNIT_ADDED" or event == "PLAYER_ENTERING_WORLD" then
         suppressNextAnimation = true
     end
+    if event == "NAME_PLATE_UNIT_REMOVED" then
+        -- The plate is still assigned while this fires; check again once it
+        -- has been released so the points don't stay on a recycled plate.
+        hide()
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0, update)
+        end
+        return
+    end
     update()
 end)
-
-addonFrame:Hide()
-
-StartFollowTicker = function()
-    if followTickerActive then return end
-    followTickerActive = true
-    if Carpenter and Carpenter.StartTicker then
-        Carpenter:StartTicker("NameplateComboPoints:follow", 0.05, update)
-    end
-end
-
-StopFollowTicker = function()
-    if not followTickerActive then return end
-    followTickerActive = false
-    if Carpenter and Carpenter.StopTicker then
-        Carpenter:StopTicker("NameplateComboPoints:follow")
-    end
-end
 
 local feature = {}
 
@@ -299,6 +285,10 @@ function feature:Enable()
     addonFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
     addonFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
     addonFrame:RegisterUnitEvent("UNIT_POWER_UPDATE", "player")
+    -- The target dying or turning friendly hides the points.
+    addonFrame:RegisterUnitEvent("UNIT_HEALTH", "target")
+    addonFrame:RegisterUnitEvent("UNIT_FLAGS", "target")
+    addonFrame:RegisterUnitEvent("UNIT_FACTION", "target")
     addonFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     -- WoW Forever moves points to a new target without a power event.
     if Carpenter.SafeRegisterEvent then
@@ -309,11 +299,7 @@ end
 
 function feature:Disable()
     addonFrame:UnregisterAllEvents()
-    StopFollowTicker()
-    addonFrame:Hide()
-    if resourceFrame then
-        resourceFrame:Hide()
-    end
+    hide()
 end
 
 if Carpenter and Carpenter.RegisterFeature then
