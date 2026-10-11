@@ -35,6 +35,7 @@ local dormantOptionKeys = {}
 -- them from saved variables. They intentionally have no defaults entry.
 local removedOptionKeys = {
     backSheathOneHandWeaponsEnabled = true,
+    chatGlossaryEnabled = true,
     classicSettingsPresetEnabled = true,
     hideGroupIndicatorEnabled = true,
     hideShouldersEnabled = true,

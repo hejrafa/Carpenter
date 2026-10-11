@@ -54,7 +54,6 @@ local defaults = {
     filterDuplicatesEnabled = false,
     chatCleanerEnabled = false,
     hideChatButtonsEnabled = false,
-    chatGlossaryEnabled = false,
     -- Automations
     autoCarrotEnabled = false,
     autoCarrotSlot = 14,
@@ -349,6 +348,7 @@ function Carpenter_InitializeSettings()
         CarpenterDB.nameplateCastNamesEnabled = nil
     end
     CarpenterDB.raidTargetIconAlignedEnabled = nil
+    CarpenterDB.chatGlossaryEnabled = nil
     CarpenterDB.targetHealthPercentEnabled = nil
     CarpenterDB.classicSettingsPresetEnabled = nil
     CarpenterDB.hideGroupIndicatorEnabled = nil

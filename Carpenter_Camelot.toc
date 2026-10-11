@@ -73,9 +73,6 @@ Modules\ChatCleaner\ChatCleanerPostProcess.lua
 Modules\ChatCleaner\ChatCleanerLifecycle.lua
 Modules\ChatCleaner\ChatCleaner.lua
 Modules\HideChatButtons.lua
-Modules\ChatGlossary\ChatGlossaryTerms.lua
-Modules\ChatGlossary\ChatGlossaryEngine.lua
-Modules\ChatGlossary\ChatGlossary.lua
 
 # Automations
 Modules\SmartMacros\SmartMacroData.lua

@@ -18,7 +18,7 @@ Every tool in the box is optional and switched off until you pick it up. Type `/
 
 ### Chat Gets Readable Again
 
-Loot, experience, reputation, money, rolls, repairs, auctions, new abilities, and level-ups arrive as short, color-coded lines instead of paragraphs. Bot ads, gambling spam, and duplicate lines quietly disappear, and on WoW Forever you can hover over slang like LFM or PST to see what it means.
+Loot, experience, reputation, money, rolls, repairs, auctions, new abilities, and level-ups arrive as short, color-coded lines instead of paragraphs. Bot ads, gambling spam, and duplicate lines quietly disappear.
 
 ### Combat Information Is Easier To Scan
 
@@ -77,7 +77,6 @@ Junk gets sold, gear gets repaired, new quests land in your tracker, mount-speed
 - **Filter** - Block bot ads, gambling spam, and duplicate lines.
 - **Cleaner** - Restyle system and loot messages into short, color-coded lines.
 - **Hide Chat Buttons** - Fade the chat buttons until you hover over the chat.
-- **Glossary** - Hover over abbreviations like LFM, HR, or PST to see what they mean, with the whole message spelled out in plain words. WoW Forever only.
 
 ### Automations
 

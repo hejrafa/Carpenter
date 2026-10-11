@@ -246,11 +246,6 @@ function Options.Create(context)
                     description = Description("DESC_HIDE_CHAT_BUTTONS"),
                     image = GetSettingsImage("chatbuttons.png"),
                 },
-                {
-                    key = "chatGlossaryEnabled",
-                    label = L.OPTION_CHAT_GLOSSARY or "Glossary",
-                    description = Description("DESC_CHAT_GLOSSARY"),
-                },
             },
         },
         {
