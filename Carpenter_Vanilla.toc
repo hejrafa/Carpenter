@@ -33,7 +33,6 @@ SpellData.lua
 
 # Action Bars
 Modules\HideUIElements.lua
-Modules\ActionBarFader.lua
 Modules\ActionBarRange.lua
 
 # Interface

@@ -8,6 +8,14 @@ end
 
 local tocs = { "Carpenter.toc", "Carpenter_Camelot.toc", "Carpenter_TBC.toc", "Carpenter_Vanilla.toc" }
 
+-- Feature manifest client keys, by the TOC each client loads.
+local tocByClient = {
+    retail = "Carpenter.toc",
+    forever = "Carpenter_Camelot.toc",
+    tbc = "Carpenter_TBC.toc",
+    vanilla = "Carpenter_Vanilla.toc",
+}
+
 -- Saved state tables that intentionally live inside CarpenterDB but are not
 -- settings toggles.
 local stateKeys = {
@@ -124,6 +132,7 @@ end
 local function collectTocReferences()
     local expectedVersion
     local references = {}
+    local referencesByToc = {}
 
     for _, toc in ipairs(tocs) do
         local path = repo .. "/" .. toc
@@ -131,6 +140,7 @@ local function collectTocReferences()
         local versions = {}
         local interfaces = {}
         local seenInToc = {}
+        referencesByToc[toc] = seenInToc
 
         for rawLine in (text .. "\n"):gmatch("([^\n]*)\n") do
             local line = rawLine:gsub("\r", ""):match("^%s*(.-)%s*$")
@@ -174,7 +184,7 @@ local function collectTocReferences()
         end
     end
 
-    return references
+    return references, referencesByToc
 end
 
 local function collectDefaults()
@@ -215,18 +225,73 @@ local function collectConfigOptionKeys()
     return keys
 end
 
-local function collectFeatureSupportKeys()
-    local text = readFile(repo .. "/Core/Compatibility.lua")
-    local keys = {}
-
-    for key in text:gmatch("([%a_][%w_]*)%s*=%s*true") do
-        keys[key] = true
+-- Runs Core/Compatibility.lua with just enough of the game API to build
+-- Carpenter.FeatureManifest.
+local function loadFeatureManifest()
+    local env = setmetatable({
+        GetBuildInfo = function() return "", "", "", 120007 end,
+        Carpenter = {},
+    }, { __index = _G })
+    local chunk = assert(loadfile(repo .. "/Core/Compatibility.lua", "t", env))
+    chunk("Carpenter", {})
+    local manifest = env.Carpenter.FeatureManifest
+    if type(manifest) ~= "table" then
+        fail("Core/Compatibility.lua does not expose Carpenter.FeatureManifest")
+        return {}
     end
-    for key in text:gmatch("([%a_][%w_]*)%s*=%s*false") do
-        keys[key] = true
-    end
+    return manifest
+end
 
-    return keys
+-- Every client a feature is offered on must load its implementation files,
+-- and a client that loads a feature's files must either offer it or say why
+-- not in notOn. This catches options that do nothing on a client and
+-- features that silently vanish from one.
+local function checkFeatureManifest(manifest, referencesByToc)
+    for configKey, implementations in pairs(manifest) do
+        local offeredOn = {}
+
+        for index, implementation in ipairs(implementations) do
+            local label = configKey .. " implementation " .. index
+            if type(implementation.clients) ~= "string" or type(implementation.files) ~= "table" or #implementation.files == 0 then
+                fail(label .. " needs a clients string and at least one file")
+            else
+                for client in implementation.clients:gmatch("%S+") do
+                    local toc = tocByClient[client]
+                    if not toc then
+                        fail(label .. " names unknown client: " .. client)
+                    else
+                        offeredOn[client] = true
+                        for _, file in ipairs(implementation.files) do
+                            if not referencesByToc[toc][file] then
+                                fail(configKey .. " is offered on " .. client .. " but " .. toc .. " does not load " .. file)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        local notOn = implementations.notOn or {}
+        for client, toc in pairs(tocByClient) do
+            if offeredOn[client] then
+                if notOn[client] then
+                    fail(configKey .. " is offered on " .. client .. " but also lists it in notOn")
+                end
+            elseif not notOn[client] then
+                for _, implementation in ipairs(implementations) do
+                    local loadsAll = type(implementation.files) == "table" and #implementation.files > 0
+                    for _, file in ipairs(implementation.files or {}) do
+                        if not referencesByToc[toc][file] then loadsAll = false end
+                    end
+                    if loadsAll then
+                        fail(toc .. " loads " .. table.concat(implementation.files, ", ") .. " but " .. configKey
+                            .. " is not offered on " .. client .. "; add the client or a notOn reason")
+                        break
+                    end
+                end
+            end
+        end
+    end
 end
 
 local function collectLuaRuntimeText()
@@ -286,11 +351,15 @@ local function requireKnownKeys(label, keys, known, allowlist)
     end
 end
 
-local tocReferences = collectTocReferences()
+local tocReferences, tocReferencesByToc = collectTocReferences()
 local runtimeFiles = collectRuntimeFiles()
 local defaults = collectDefaults()
 local optionKeys = collectConfigOptionKeys()
-local featureSupportKeys = collectFeatureSupportKeys()
+local featureManifest = loadFeatureManifest()
+local featureSupportKeys = {}
+for configKey in pairs(featureManifest) do
+    featureSupportKeys[configKey] = true
+end
 local runtimeText = collectLuaRuntimeText()
 
 local registeredFeatureKeys = collectPatternKeys(runtimeText, "Carpenter:RegisterFeature%s*%(%s*[\"']([%a_][%w_]*)[\"']")
@@ -322,6 +391,8 @@ table.sort(unreadOptions)
 if #unreadOptions > 0 then
     fail("config options are never read by a module: " .. table.concat(unreadOptions, ", "))
 end
+
+checkFeatureManifest(featureManifest, tocReferencesByToc)
 
 requireKnownKeys("config options", optionKeys, defaults)
 requireKnownKeys("feature support", featureSupportKeys, defaults)
