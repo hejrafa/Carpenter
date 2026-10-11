@@ -124,6 +124,7 @@ local foreverExtraFeatures = {
     worldMapCleanupEnabled = true,
     enchantWarningEnabled = true,
     nameplateComboEnabled = true,
+    debuffTrackerEnabled = true,
 }
 
 function Carpenter:IsFeatureAvailable(configKey)

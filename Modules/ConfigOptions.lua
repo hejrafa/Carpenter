@@ -35,6 +35,11 @@ function Options.Create(context)
         return Description(client and client.isRetail and "DESC_MINIMAP_CLUTTER_RETAIL" or "DESC_MINIMAP_CLUTTER")
     end
 
+    local function NameplateDebuffsDescription()
+        local client = Carpenter and Carpenter.Client
+        return Description(client and client.isForever and "DESC_NAMEPLATE_DEBUFFS_FOREVER" or "DESC_NAMEPLATE_DEBUFFS")
+    end
+
     local function WorldMapCleanupDescription()
         local client = Carpenter and Carpenter.Client
         return Description(client and client.isForever and "DESC_WORLD_MAP_CLEANUP_FOREVER" or "DESC_WORLD_MAP_CLEANUP")
@@ -279,7 +284,7 @@ function Options.Create(context)
                 {
                     key = "debuffTrackerEnabled",
                     label = L.OPTION_DEBUFFS or "Debuffs",
-                    description = Description("DESC_NAMEPLATE_DEBUFFS"),
+                    description = NameplateDebuffsDescription(),
                     image = GetSettingsImage("nameplatedebuff.png"),
                     requiresReload = false,
                 },
