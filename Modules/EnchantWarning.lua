@@ -210,11 +210,32 @@ transitionFrame:SetScript("OnEvent", function()
     delayTimer = INITIAL_DELAY
 end)
 
--- Check every 1 second; enchant warnings do not need per-frame updates.
-C_Timer.NewTicker(1, function()
-    if delayTimer > 0 then
-        delayTimer = delayTimer - 1
-    end
+-- Check every second while enabled; enchant warnings do not need per-frame updates.
+local ticker
 
-    CheckEnchantments()
-end)
+local feature = {}
+
+function feature:Enable()
+    if ticker then return end
+    ticker = C_Timer.NewTicker(1, function()
+        if delayTimer > 0 then
+            delayTimer = delayTimer - 1
+        end
+
+        CheckEnchantments()
+    end)
+end
+
+function feature:Disable()
+    if ticker then
+        ticker:Cancel()
+        ticker = nil
+    end
+    -- Forget the last enchant so turning it back on doesn't announce a stale one.
+    hasWarnedMH, hasWarnedOH = false, false
+    lastEnchantNameMH, lastEnchantNameOH = nil, nil
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("enchantWarningEnabled", feature)
+end

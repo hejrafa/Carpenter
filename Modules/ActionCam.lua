@@ -434,6 +434,9 @@ frame:SetScript("OnEvent", function(...)
     return HandleActionCamEvent(...)
 end)
 
-function Carpenter_ApplyActionCam()
-    UpdateCameraSettings()
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("actionCamEnabled", {
+        Enable = UpdateCameraSettings,
+        Disable = UpdateCameraSettings,
+    })
 end

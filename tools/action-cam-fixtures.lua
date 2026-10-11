@@ -26,7 +26,21 @@ Carpenter = {
     Profile = function(_, _, callback, ...)
         return callback(...)
     end,
+    Features = {},
+    RegisterFeature = function(self, key, feature)
+        self.Features[key] = self.Features[key] or {}
+        table.insert(self.Features[key], feature)
+    end,
 }
+
+-- Toggling the option in settings calls every feature registered for it
+-- (Action Cam itself and the error filter that hides its camera warnings).
+local function ToggleActionCam()
+    for _, feature in ipairs(Carpenter.Features.actionCamEnabled or {}) do
+        local callback = CarpenterDB.actionCamEnabled and feature.Enable or feature.Disable
+        if callback then callback(feature) end
+    end
+end
 
 UIParent = {
     scripts = {},
@@ -124,7 +138,7 @@ assertEqual(internalWarningUnregisters, 0, "disabled startup unregistered the 12
 -- Enabling Action Cam is the first point at which Carpenter may write camera
 -- CVars and suppress the corresponding warning.
 CarpenterDB.actionCamEnabled = true
-Carpenter_ApplyActionCam()
+ToggleActionCam()
 assertEqual(currentCVars.CameraKeepCharacterCentered, "0", "Forever kept the character centered")
 assertEqual(currentCVars.CameraReduceUnexpectedMovement, "0", "Forever kept unexpected-movement reduction enabled")
 assertEqual(currentCVars.test_cameraHeadMovementStrength, "0", "Forever enabled camera head movement")
@@ -140,14 +154,14 @@ assertEqual(internalWarningUnregisters, 1, "enabling Action Cam did not suppress
 
 -- Turning it off restores Carpenter's six experimental CVars exactly once.
 CarpenterDB.actionCamEnabled = false
-Carpenter_ApplyActionCam()
+ToggleActionCam()
 assertEqual(currentCVars.CameraKeepCharacterCentered, "1", "disabling Action Cam did not restore character centering")
 assertEqual(currentCVars.CameraReduceUnexpectedMovement, "1", "disabling Action Cam did not restore unexpected-movement reduction")
 assertEqual(currentCVars.cameraSmoothStyle, "2", "disabling Action Cam did not restore camera smoothing")
 assertEqual(currentCVars.test_cameraHeadMovementStrength, "0", "disabling Action Cam did not stop head movement")
 assertEqual(currentCVars.test_cameraTargetFocusEnemyEnable, "0", "disabling Action Cam did not stop enemy focus")
 local disabledWriteCount = #cvarWrites
-Carpenter_ApplyActionCam()
+ToggleActionCam()
 assertEqual(#cvarWrites, disabledWriteCount, "disabled refresh rewrote camera CVars")
 
 -- The text-error fallback follows the same ownership rule: with Action Cam off,
@@ -173,6 +187,7 @@ UIErrorsFrame:onEvent("UI_ERROR_MESSAGE", 1, warning)
 assertEqual(passedErrorMessages, 1, "disabled Action Cam hid Blizzard's warning text")
 
 CarpenterDB.actionCamEnabled = true
+ToggleActionCam()
 UIErrorsFrame:onEvent("UI_ERROR_MESSAGE", 1, warning)
 assertEqual(passedErrorMessages, 1, "enabled Action Cam did not hide its warning text")
 
@@ -180,7 +195,7 @@ assertEqual(passedErrorMessages, 1, "enabled Action Cam did not hide its warning
 -- being applied on clients whose camera CVar sets differ from Retail.
 cvarWrites = {}
 failingCVar = "cameraSmoothStyle"
-Carpenter_ApplyActionCam()
+ToggleActionCam()
 local _, failedIndex = findLastWrite("cameraSmoothStyle")
 local _, dynamicPitchIndex = findLastWrite("test_cameraDynamicPitch")
 if not failedIndex or not dynamicPitchIndex or dynamicPitchIndex <= failedIndex then

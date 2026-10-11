@@ -147,23 +147,34 @@ Carpenter.Features = Carpenter.Features or {}
 Carpenter.Deferred = Carpenter.Deferred or {}
 Carpenter.Tickers = Carpenter.Tickers or {}
 
+-- Every settings option registers at least one module here; toggling the
+-- option in the settings panel calls each module's Enable or Disable. Several
+-- modules may share a key when one option drives more than one module.
 function Carpenter:RegisterFeature(key, module)
     if not key or type(module) ~= "table" then return end
     module.key = key
     module.enabled = false
-    self.Features[key] = module
+    local modules = self.Features[key]
+    if not modules then
+        modules = {}
+        self.Features[key] = modules
+    end
+    modules[#modules + 1] = module
 end
 
 function Carpenter:SetFeatureEnabled(key, enabled)
-    local module = self.Features and self.Features[key]
-    if not module then return end
+    local modules = self.Features and self.Features[key]
+    if not modules then return end
     enabled = enabled == true
-    if module.enabled == enabled then return end
 
-    module.enabled = enabled
-    local callback = enabled and module.Enable or module.Disable
-    if type(callback) == "function" then
-        callback(module)
+    for _, module in ipairs(modules) do
+        if module.enabled ~= enabled then
+            module.enabled = enabled
+            local callback = enabled and module.Enable or module.Disable
+            if type(callback) == "function" then
+                callback(module)
+            end
+        end
     end
 end
 
@@ -401,7 +412,8 @@ SlashCmdList["CARPENTERSTATE"] = function()
 
     for _, key in ipairs({ "hideStanceBarEnabled", "classHealthColorsEnabled" }) do
         local checkbox = _G["CP_Check_" .. key]
-        local module = Carpenter.Features and Carpenter.Features[key]
+        local modules = Carpenter.Features and Carpenter.Features[key]
+        local module = modules and modules[1]
         print(string.format(
             "%s: db=%s available=%s enabled=%s module=%s checkbox=%s",
             key,

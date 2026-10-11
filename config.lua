@@ -225,8 +225,10 @@ local function CreateHeader(text)
     return label
 end
 
-local function CreateCheckbox(key, label, description, sideLogic, imagePath, requiresReload, onToggle, unavailableMessage, badge)
-    if requiresReload == nil then requiresReload = true end
+-- Options apply live through Carpenter:RefreshFeature; requiresReload marks
+-- the few that still need a /reload to fully take effect.
+local function CreateCheckbox(key, label, description, sideLogic, imagePath, requiresReload, unavailableMessage, badge)
+    requiresReload = requiresReload == true
     local isUnavailable = unavailableMessage ~= nil
     local row = CreateFrame("Button", nil, content)
     row:SetHeight(32)
@@ -415,7 +417,6 @@ local function CreateCheckbox(key, label, description, sideLogic, imagePath, req
             if Carpenter and Carpenter.RefreshFeature then
                 Carpenter:RefreshFeature(key)
             end
-            if onToggle then onToggle() end
         end
     end)
 
@@ -557,7 +558,6 @@ local function RenderSections(sections)
                         option.sideLogic,
                         option.image,
                         option.requiresReload,
-                        option.onToggle,
                         option.unavailableMessage,
                         option.badge
                     )

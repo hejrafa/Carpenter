@@ -363,6 +363,16 @@ end
 local runtimeText = collectLuaRuntimeText()
 
 local registeredFeatureKeys = collectPatternKeys(runtimeText, "Carpenter:RegisterFeature%s*%(%s*[\"']([%a_][%w_]*)[\"']")
+-- Modules that keep their key in `local FEATURE_KEY = "..."` and register it.
+for runtimePath in pairs(collectRuntimeFiles()) do
+    if runtimePath:match("%.lua$") then
+        local text = readFile(repo .. "/" .. runtimePath)
+        local featureKey = text:match("local%s+FEATURE_KEY%s*=%s*[\"']([%a_][%w_]*)[\"']")
+        if featureKey and text:find("RegisterFeature%s*%(%s*FEATURE_KEY") then
+            registeredFeatureKeys[featureKey] = true
+        end
+    end
+end
 local isEnabledKeys = collectPatternKeys(runtimeText, ":IsEnabled%s*%(%s*[\"']([%a_][%w_]*)[\"']")
 local savedVariableKeys = collectPatternKeys(runtimeText, "CarpenterDB%.([%a_][%w_]*)")
 mergeKeys(savedVariableKeys, collectPatternKeys(runtimeText, "CarpenterDB%[%s*[\"']([%a_][%w_]*)[\"']%s*%]"))
@@ -412,6 +422,23 @@ end
 table.sort(unsupportedOptions)
 if #unsupportedOptions > 0 then
     fail("config options have no feature-support entry: " .. table.concat(unsupportedOptions, ", "))
+end
+
+-- Every settings option turns on and off through a registered feature, so
+-- toggling it in the settings panel takes effect without hidden side paths.
+local unregisteredOptions = {}
+for key in pairs(optionKeys) do
+    if not registeredFeatureKeys[key] then
+        unregisteredOptions[#unregisteredOptions + 1] = key
+    end
+end
+table.sort(unregisteredOptions)
+if #unregisteredOptions > 0 then
+    fail("config options have no Carpenter:RegisterFeature module: " .. table.concat(unregisteredOptions, ", "))
+end
+
+if readFile(repo .. "/Modules/ConfigOptions.lua"):find("onToggle", 1, true) then
+    fail("Modules/ConfigOptions.lua uses onToggle; register a feature in the module instead")
 end
 
 local unsupportedRegistrations = {}

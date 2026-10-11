@@ -164,6 +164,17 @@ f:SetScript("OnEvent", function(_, event, addonName)
     end
 end)
 
--- Expose for config live toggle (no reload)
-Carpenter_ApplyUnitFrameCombatText = Apply
-Carpenter_RestoreUnitFrameCombatText = Restore
+local function Sync()
+    if shouldHide() then
+        Apply()
+    else
+        Restore()
+    end
+end
+
+-- Classic has its own option; Retail and Forever fold this into Unit Frame
+-- Cleanup, which RetailUnitFrameCleaner also registers for.
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("hideUnitFrameCombatTextEnabled", { Enable = Sync, Disable = Sync })
+    Carpenter:RegisterFeature("cleanUpUnitFramesEnabled", { Enable = Sync, Disable = Sync })
+end

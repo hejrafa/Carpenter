@@ -293,6 +293,28 @@ end
 
 HookQuestWatchUpdates()
 
+local function RefreshQuestWatchDisplay()
+    -- At startup the quest log isn't ready yet; PLAYER_LOGIN redraws it.
+    if not (IsLoggedIn and IsLoggedIn()) then return end
+    if QuestWatch_Update then
+        QuestWatch_Update()
+    elseif Layout.UpdateQuestWatchLayout then
+        Layout.UpdateQuestWatchLayout()
+    end
+    if Layout.UpdateQuestLogWatchIndicators then
+        Layout.UpdateQuestLogWatchIndicators()
+    end
+end
+
+-- The native watch restore below keeps running while the option is off, so
+-- watches survive reloads either way; the layout it applied stays until reload.
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("autoTrackQuestsEnabled", {
+        Enable = RefreshQuestWatchDisplay,
+        Disable = RefreshQuestWatchDisplay,
+    })
+end
+
 SafeRegisterEvent("QUEST_ACCEPTED")
 SafeRegisterEvent("QUEST_LOG_UPDATE")
 SafeRegisterEvent("QUEST_WATCH_UPDATE")

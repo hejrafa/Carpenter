@@ -233,12 +233,29 @@ local function ScheduleSwap(delay)
 end
 
 local frame = CreateFrame("Frame")
-frame:RegisterEvent("PLAYER_REGEN_ENABLED")
-frame:RegisterEvent("UPDATE_BONUS_ACTIONBAR")
-frame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
-frame:RegisterUnitEvent("UNIT_MODEL_CHANGED", "player")
 
 frame:SetScript("OnEvent", function(self, event, unit)
     if event == "UNIT_MODEL_CHANGED" and unit ~= "player" then return end
     ScheduleSwap(0.1)
 end)
+
+local feature = {}
+
+function feature:Enable()
+    frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    frame:RegisterEvent("UPDATE_BONUS_ACTIONBAR")
+    frame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+    frame:RegisterUnitEvent("UNIT_MODEL_CHANGED", "player")
+    -- Turned on while playing: check right away. At startup the events cover it.
+    if IsLoggedIn and IsLoggedIn() then
+        ScheduleSwap(0.1)
+    end
+end
+
+function feature:Disable()
+    frame:UnregisterAllEvents()
+end
+
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("autoCarrotEnabled", feature)
+end

@@ -523,6 +523,8 @@ local function RefreshEventSubscriptions()
     RefreshBlizzardAuraFrameLayers()
 
     if not IsNameplateEnabled() and not IsUnitFrameEnabled() and not IsUnitFrameBuffsEnabled() then
+        -- Put the portraits back before going quiet.
+        Carpenter_UpdateUnitFrameAuras()
         return
     end
 

@@ -121,16 +121,11 @@ local function HookErrors()
     hooked = true
 end
 
-local hookFrame = CreateFrame("Frame")
-hookFrame:RegisterEvent("ADDON_LOADED")
-hookFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-hookFrame:SetScript("OnEvent", function(_, event)
-    if event == "ADDON_LOADED" or event == "PLAYER_ENTERING_WORLD" then
-        HookErrors()
-        if event == "PLAYER_ENTERING_WORLD" then
-            hookFrame:UnregisterEvent("PLAYER_ENTERING_WORLD")
-        end
-    end
-end)
-
-HookErrors()
+-- The hook is installed the first time an option needs it (this one, or
+-- Action Cam hiding its camera warnings). It can't be removed again, but it
+-- checks both options on every message, so turning them off takes effect
+-- right away.
+if Carpenter and Carpenter.RegisterFeature then
+    Carpenter:RegisterFeature("hideErrorMessagesEnabled", { Enable = HookErrors })
+    Carpenter:RegisterFeature("actionCamEnabled", { Enable = HookErrors })
+end
