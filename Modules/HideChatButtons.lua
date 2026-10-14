@@ -16,8 +16,16 @@ local function IsEnabled()
 end
 
 local function ShouldManageSocialButtons()
-    return Carpenter and Carpenter.Client and Carpenter.Client.isClassic
+    local client = Carpenter and Carpenter.Client
+    return client and (client.isClassic or client.isForever)
 end
+
+-- Frames whose regions and children run their own alpha animations (Forever's
+-- QuickJoinToastButton keeps its queue icon, flash and toasts at 0 until a
+-- toast plays), so only the frame itself is faded.
+local frameAlphaOnly = {
+    QuickJoinToastButton = true,
+}
 
 local function IsMouseOverFrame(frame)
     if not frame then return false end
@@ -49,6 +57,8 @@ local function SetFrameAlpha(frame, alpha, depth)
         frame:SetAlpha(alpha)
         frame._CarpenterChatButtonsSettingAlpha = nil
     end
+
+    if depth == 0 and frame.GetName and frameAlphaOnly[frame:GetName() or ""] then return end
 
     if frame.GetRegions then
         for i = 1, select("#", frame:GetRegions()) do
