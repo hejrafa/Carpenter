@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.6
+
+- Added support for Retail 12.1.5.
+- Hide Chat Buttons now also fades the social button on WoW Forever.
+
 ## 1.8.5
 
 - Removed the Glossary chat feature from WoW Forever.
