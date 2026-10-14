@@ -1,4 +1,4 @@
-## Interface: 120007, 120100
+## Interface: 120007, 120100, 120105
 ## Title: Carpenter
 ## Notes: Measure twice, cut the clutter. Carpenter tidies up your interface and brings a toolbox full of handy quality-of-life features.|n|nOpen the workshop with|n/carpenter or /cp
 ## Notes-deDE: Zweimal messen, einmal entrümpeln. Carpenter räumt deine Benutzeroberfläche auf und bringt einen Werkzeugkasten voller praktischer Komfortfunktionen mit.|n|nÖffne die Werkstatt mit|n/carpenter oder /cp
