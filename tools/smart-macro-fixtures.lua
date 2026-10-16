@@ -346,6 +346,57 @@ else
 end
 fixtureCount = fixtureCount + 1
 
+-- Empty macros point at an item grayed out with a 0 count, not a question mark.
+do
+    local builder = ns.Private.SmartMacroBuilder
+    local macros = {}
+    builder.BuildMacroBody = function(item) return item and item.name or "none" end
+    builder.BuildHealthMacroBody = function(potion, healthstone)
+        return (healthstone and healthstone.name or "-") .. "|" .. (potion and potion.name or "-")
+    end
+    builder.UpdateMacro = function(name, body, createIfMissing)
+        if createIfMissing then macros[name] = body end
+    end
+
+    local deferred
+    Carpenter.Defer = function(_, _, _, callback) deferred = callback end
+    -- Forever uses the Classic macro set, bandages included.
+    Carpenter.Client = { isRetail = true, isForever = true }
+    -- Enabling above scheduled through the no-op Defer; start clean.
+    registeredFeatures.smartMacrosEnabled:Disable()
+    registeredFeatures.smartMacrosEnabled:Enable()
+    local now = 1000
+    GetTime = function() return now end
+    local function RunUpdate()
+        now = now + 10
+        if not deferred then ns.UpdateSmartMacros() end
+        assert(deferred, "smart macro update was not scheduled")
+        local callback = deferred
+        deferred = nil
+        callback()
+    end
+
+    RunUpdate()
+    if macros.CarpenterFood ~= "Roasted Quail" or macros.CarpenterHP ~= "Major Healthstone|Super Healing Potion" then
+        failures[#failures + 1] = "fallback: macros should use the items in the bags"
+    end
+
+    local savedBag = bagSlots[0]
+    bagSlots[0] = {}
+    RunUpdate()
+    if macros.CarpenterFood ~= "item:8952" then
+        failures[#failures + 1] = "fallback: an emptied macro should keep its last item, got " .. tostring(macros.CarpenterFood)
+    end
+    if macros.CarpenterHP ~= "-|item:19013" then
+        failures[#failures + 1] = "fallback: the health macro should keep the healthstone it showed, got " .. tostring(macros.CarpenterHP)
+    end
+    if macros.CarpenterMana ~= "item:2455" or macros.CarpenterBand ~= "item:1251" then
+        failures[#failures + 1] = "fallback: macros that never had an item should use the slot's default item, got " .. tostring(macros.CarpenterMana) .. " / " .. tostring(macros.CarpenterBand)
+    end
+    bagSlots[0] = savedBag
+    fixtureCount = fixtureCount + 4
+end
+
 if #failures > 0 then
     io.stderr:write(table.concat(failures, "\n") .. "\n")
     os.exit(1)

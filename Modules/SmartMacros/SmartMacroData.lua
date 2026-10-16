@@ -22,6 +22,18 @@ Data.RetailItems = {
     Mana = Data.Items.Mana,
 }
 
+-- When the bags have nothing for a macro, it points at one of these instead,
+-- so the button shows that item grayed out with a 0 count rather than a
+-- question mark. These old items exist on every client.
+Data.FallbackItemIDs = {
+    Food = 117,     -- Tough Jerky
+    WellFed = 2680, -- Spiced Wolf Meat
+    Water = 159,    -- Refreshing Spring Water
+    Pot = 118,      -- Minor Healing Potion
+    Mana = 2455,    -- Minor Mana Potion
+    Band = 1251,    -- Linen Bandage
+}
+
 Data.InternalCategories = {
     Healthstone = true,
 }

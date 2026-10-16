@@ -22,6 +22,23 @@ end
 
 local lastBagFingerprint
 
+-- The last item each macro used this session. Once it runs out, the macro
+-- keeps that item grayed out instead of switching to the default one.
+local lastItemIDs = {}
+
+local function GetFallbackItem(key)
+    local itemID = lastItemIDs[key] or (Data.FallbackItemIDs and Data.FallbackItemIDs[key])
+    if not itemID then return nil end
+    -- Item IDs work in macros even for items that aren't in the bags or cached.
+    return { itemID = itemID, name = "item:" .. itemID }
+end
+
+local function RememberItem(key, item)
+    if item and item.itemID then
+        lastItemIDs[key] = item.itemID
+    end
+end
+
 local function ProcessUpdate(forceRescan)
     if not IsEnabled() then return end
     if InCombatLockdown() then
@@ -42,9 +59,19 @@ local function ProcessUpdate(forceRescan)
 
     for key, config in pairs(GetActiveItems()) do
         local best = bestItems[key]
-        local body = (key == "Pot" and Builder.BuildHealthMacroBody)
-            and Builder.BuildHealthMacroBody(best, bestItems.Healthstone)
-            or (Builder.BuildMacroBody and Builder.BuildMacroBody(best) or "#showtooltip\n")
+        local body
+        if key == "Pot" and Builder.BuildHealthMacroBody then
+            -- The health macro shows the healthstone first, then the potion.
+            local healthstone = bestItems.Healthstone
+            RememberItem(key, healthstone or best)
+            if not healthstone and not best then
+                best = GetFallbackItem(key)
+            end
+            body = Builder.BuildHealthMacroBody(best, healthstone)
+        else
+            RememberItem(key, best)
+            body = Builder.BuildMacroBody and Builder.BuildMacroBody(best or GetFallbackItem(key)) or "#showtooltip\n"
+        end
 
         if Builder.UpdateMacro then
             Builder.UpdateMacro(config.name, body, true)
