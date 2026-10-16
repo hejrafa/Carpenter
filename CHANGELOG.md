@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.7
+
+- Debuffs under Unit Frames now works on WoW Forever. Crowd control shows as a big icon over the player, target, focus, and party portraits.
+- Fixed Class Colored Health looking darker than Blizzard's own class colors on the player, target, target of target, and focus frames on WoW Forever and Retail.
+- The version in the settings now shows a build number.
+
 ## 1.8.6
 
 - Added support for Retail 12.1.5.
