@@ -72,10 +72,11 @@ local function collectSettingsImageCalls()
     return used
 end
 
-local function collectRetailImageTargets()
+-- Files a per-client override table in config.lua points at.
+local function collectOverrideTargets(tableName)
     local targets = {}
     local text = readFile(repo .. "/config.lua")
-    local block = text:match("local RETAIL_SETTINGS_IMAGES = %b{}") or ""
+    local block = text:match("local " .. tableName .. " = %b{}") or ""
     for _, target in block:gmatch("%[\"([^\"]+)\"%]%s*=%s*\"([^\"]+)\"") do
         targets[target] = true
     end
@@ -97,6 +98,7 @@ end
 local imageFiles = collectFiles(repo .. "/Art", [[-type f \( -iname '*.png' -o -iname '*.tga' -o -iname '*.blp' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \)]])
 local classicFiles = {}
 local retailFiles = {}
+local foreverFiles = {}
 local directFiles = {}
 
 for _, path in ipairs(imageFiles) do
@@ -105,13 +107,16 @@ for _, path in ipairs(imageFiles) do
         classicFiles[basename(path)] = rel
     elseif rel:match("^Art/Settings/Retail/") then
         retailFiles[basename(path)] = rel
+    elseif rel:match("^Art/Settings/Forever/") then
+        foreverFiles[basename(path)] = rel
     else
         directFiles[#directFiles + 1] = rel
     end
 end
 
 local usedClassic = collectSettingsImageCalls()
-local usedRetail = collectRetailImageTargets()
+local usedRetail = collectOverrideTargets("RETAIL_SETTINGS_IMAGES")
+local usedForever = collectOverrideTargets("FOREVER_SETTINGS_IMAGES")
 local runtimeText = collectRuntimeText()
 local failures = {}
 
@@ -139,6 +144,22 @@ for filename, path in pairs(retailFiles) do
     end
 end
 
+-- Forever previews keep the option's own filename, so each must replace one.
+for filename in pairs(usedForever) do
+    if not foreverFiles[filename] then
+        failures[#failures + 1] = "missing Forever settings image: Art/Settings/Forever/" .. filename
+    end
+    if not usedClassic[filename] then
+        failures[#failures + 1] = "Forever settings image replaces no option: " .. filename
+    end
+end
+
+for filename, path in pairs(foreverFiles) do
+    if not usedForever[filename] then
+        failures[#failures + 1] = "unused Forever settings image: " .. path
+    end
+end
+
 for _, path in ipairs(directFiles) do
     local filename = basename(path)
     local stem = stripExtension(path)
@@ -157,5 +178,6 @@ print(
     "asset references: " ..
     tostring(#sortedKeys(usedClassic)) .. " Classic previews, " ..
     tostring(#sortedKeys(usedRetail)) .. " Retail overrides, " ..
+    tostring(#sortedKeys(usedForever)) .. " Forever overrides, " ..
     tostring(#directFiles) .. " direct artwork files"
 )

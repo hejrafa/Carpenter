@@ -17,8 +17,18 @@ local RETAIL_SETTINGS_IMAGES = {
     ["unitnumbers.png"] = "cleanunit.png",
 }
 
+-- WoW Forever's own previews, named like the option's Classic image. Forever
+-- falls back to the Retail preview, then the Classic one, for anything not
+-- listed here. Make these with tools/settings-image.swift.
+local FOREVER_SETTINGS_IMAGES = {
+}
+
 local function GetSettingsImage(filename)
-    if Carpenter and Carpenter.Client and Carpenter.Client.isRetail then
+    local client = Carpenter and Carpenter.Client
+    if client and client.isForever and FOREVER_SETTINGS_IMAGES[filename] then
+        return SETTINGS_IMAGE_PATH .. "Forever\\" .. filename
+    end
+    if client and client.isRetail then
         local retailImage = RETAIL_SETTINGS_IMAGES[filename]
         if retailImage then
             return SETTINGS_IMAGE_PATH .. "Retail\\" .. (type(retailImage) == "string" and retailImage or filename)
