@@ -25,6 +25,50 @@ function Nameplates.StyleAuraText(text, size)
     text:SetShadowOffset(1, -1)
 end
 
+-- Matches the Classic nameplate timer: a plain number of seconds under a
+-- minute, then whole minutes and hours, rounded up ("12", "2m", "1h").
+local function CreateClassicDurationFormatter()
+    local formatter = C_StringUtil.CreateNumericRuleFormatter()
+    local roundUp = Enum.NumericRuleFormatRounding.Up
+    formatter:SetBreakpoints({
+        { threshold = 0, step = 1, rounding = roundUp, format = "%d" },
+        { threshold = 60, format = "%dm", components = { { div = 60, step = 1, rounding = roundUp } } },
+        { threshold = 3600, format = "%dh", components = { { div = 3600, step = 1, rounding = roundUp } } },
+    })
+    return formatter
+end
+
+-- Fallback with a unit suffix on every value ("12s", "2m", "1h").
+local function CreateSecondsDurationFormatter()
+    local intervalCurve = C_CurveUtil.CreateCurve()
+    intervalCurve:SetType(Enum.LuaCurveType.Step)
+    intervalCurve:AddPoint(0, Enum.SecondsFormatterInterval.Seconds)
+    intervalCurve:AddPoint(60, Enum.SecondsFormatterInterval.Minutes)
+    intervalCurve:AddPoint(3600, Enum.SecondsFormatterInterval.Hours)
+
+    local formatter = C_StringUtil.CreateSecondsFormatter()
+    formatter:SetDefaultAbbreviation(Enum.SecondsFormatterAbbreviation.OneLetter)
+    formatter:SetStripIntervalWhitespace(Enum.SecondsFormatterIntervalWhitespace.StripIgnoreLocale)
+    formatter:SetRounding(Enum.SecondsFormatterRounding.RoundUp)
+    formatter:SetMinInterval(Enum.SecondsFormatterInterval.Seconds)
+    formatter:SetMaxIntervalCurve(intervalCurve)
+    formatter:SetDesiredUnitCount(1)
+    return formatter
+end
+
+local durationFormatter
+-- Built on first use: the formatter APIs only exist on Retail-style clients.
+function Nameplates.GetAuraDurationFormatter()
+    if durationFormatter == nil then
+        local ok, formatter = pcall(CreateClassicDurationFormatter)
+        if not ok then
+            ok, formatter = pcall(CreateSecondsDurationFormatter)
+        end
+        durationFormatter = ok and formatter or false
+    end
+    return durationFormatter or nil
+end
+
 function Nameplates.CanQueryUnit(unit)
     if type(unit) ~= "string" or unit == "" then return false end
     return unit == "target"

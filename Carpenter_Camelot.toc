@@ -52,6 +52,7 @@ Modules\WorldMapCleanup\WorldMapCleanupForever.lua
 # Unit Frames
 Modules\ClassHealthColorsShared.lua
 Modules\ClassHealthColorsUnitFrames.lua
+Modules\ForeverUnitFrameAuras.lua
 Modules\HideUnitFrameCombatText.lua
 Modules\RetailUnitFrameCleanerVisuals.lua
 Modules\RetailUnitFrameCleanerTargets.lua

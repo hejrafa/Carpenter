@@ -73,7 +73,10 @@ local featureManifest = {
     -- Unit frames
     classHealthColorsEnabled = { { clients = ALL, files = { "Modules/ClassHealthColorsUnitFrames.lua" } } },
     threatIndicatorEnabled = { { clients = CLASSIC, files = { "Modules/ThreatIndicator.lua" } } },
-    unitFrameDebuffsEnabled = { { clients = CLASSIC, files = { "Modules/DebuffTracker/DebuffTracker.lua" } } },
+    unitFrameDebuffsEnabled = {
+        { clients = CLASSIC, files = { "Modules/DebuffTracker/DebuffTracker.lua" } },
+        { clients = "forever", files = { "Modules/ForeverUnitFrameAuras.lua" } },
+    },
     unitFrameBuffsEnabled = { { clients = CLASSIC, files = { "Modules/DebuffTracker/DebuffTracker.lua" } } },
     unitFrameClassIconEnabled = { { clients = CLASSIC, files = { "Modules/UnitFrameClassIcon.lua" } } },
     hideUnitFrameCombatTextEnabled = {
