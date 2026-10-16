@@ -21,6 +21,8 @@ validate_tocs() {
   for toc in Carpenter.toc Carpenter_Camelot.toc Carpenter_TBC.toc Carpenter_Vanilla.toc; do
     toc_version="$(awk -F': ' '/^## Version:/{print $2; exit}' "$ROOT/$toc")"
     [[ "$toc_version" == "$expected_version" ]] || fail "$toc version is $toc_version, expected $expected_version"
+    # The packager fills in the build number; it must not be hard-coded.
+    grep -qx '## X-Build: @project-revision@' "$ROOT/$toc" || fail "$toc needs '## X-Build: @project-revision@'"
 
     while IFS= read -r line || [[ -n "$line" ]]; do
       line="${line//$'\r'/}"
@@ -126,6 +128,13 @@ package_zip() {
     --exclude='dev' \
     --exclude='tools' \
     --exclude='*.zip'
+
+  # Same build number the packager uses: the commit count.
+  local build toc
+  build="$(git -C "$ROOT" rev-list --count HEAD)"
+  for toc in "$tmp/$ADDON_NAME"/*.toc; do
+    sed -i.bak "s/@project-revision@/$build/" "$toc" && rm -f "$toc.bak"
+  done
 
   rm -f "$zip_path"
   (cd "$tmp" && zip -qr "$zip_path" "$ADDON_NAME" -x '*/.*' '__MACOSX/*')

@@ -10,6 +10,7 @@
 ## LoadSavedVariablesFirst: 1
 ## SavedVariables: CarpenterDB
 ## Version: 1.8.6
+## X-Build: @project-revision@
 ## Author: Rafael Polutta
 ## IconTexture: Interface\AddOns\Carpenter\Art\Icons\Carpenter_Logo
 

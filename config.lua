@@ -651,13 +651,14 @@ local hasHiddenSettings = #hiddenWidgets > 0
 -- Footer
 -- =========================
 local footerVersionButton = CreateFrame("Button", nil, content)
-footerVersionButton:SetSize(96, 16)
+footerVersionButton:SetSize(120, 16)
 
 local footerVersion = footerVersionButton:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 footerVersion:SetAllPoints(footerVersionButton)
 footerVersion:SetJustifyH("RIGHT")
 
 local versionText = "v" .. ((Carpenter and Carpenter.GetVersion and Carpenter:GetVersion()) or "1.8.1")
+    .. " (" .. ((Carpenter and Carpenter.GetBuild and Carpenter:GetBuild()) or "dev") .. ")"
 local function UpdateFooterVersionText(isHovered)
     footerVersion:SetText((isHovered and hasHiddenSettings and "|cffdddddd" or LightGrey) .. versionText .. "|r")
 end

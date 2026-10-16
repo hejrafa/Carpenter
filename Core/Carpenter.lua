@@ -79,14 +79,25 @@ Carpenter.MerchantState = _G["Carpenter_MerchantState"] or {}
 _G["Carpenter_MerchantState"] = Carpenter.MerchantState
 Carpenter.AddonName = addonName or "Carpenter"
 
-function Carpenter:GetVersion()
+local function GetMetadata(field)
     if C_AddOns and C_AddOns.GetAddOnMetadata then
-        return C_AddOns.GetAddOnMetadata(self.AddonName, "Version")
+        return C_AddOns.GetAddOnMetadata(Carpenter.AddonName, field)
     end
     if GetAddOnMetadata then
-        return GetAddOnMetadata(self.AddonName, "Version")
+        return GetAddOnMetadata(Carpenter.AddonName, field)
     end
     return nil
+end
+
+function Carpenter:GetVersion()
+    return GetMetadata("Version")
+end
+
+-- Release builds carry the git commit count, which the packager fills in for
+-- @project-revision@. A checkout straight from git has no build number.
+function Carpenter:GetBuild()
+    local build = GetMetadata("X-Build")
+    return type(build) == "string" and build:match("^%d+$") or nil
 end
 
 ns.Private.Colors = ns.Private.Colors or {
