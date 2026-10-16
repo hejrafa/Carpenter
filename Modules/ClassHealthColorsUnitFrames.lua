@@ -10,12 +10,55 @@ local function IsRetailClient()
     return ClassHealth.IsRetail and ClassHealth.IsRetail()
 end
 
+local USE_ATLAS_SIZE = TextureKitConstants and TextureKitConstants.UseAtlasSize
+local STATUS_SUFFIX = "-Status"
+
+-- Retail-style health fills are a shaded green atlas, and desaturating it
+-- leaves it gray, so a class tint on top comes out darker than Blizzard's own
+-- class colors. Each fill has a white "-Status" twin (the heal prediction
+-- fill), so class colors are painted on that one instead.
+local function AtlasExists(atlas)
+    if not (C_Texture and C_Texture.GetAtlasInfo) then return false end
+    local ok, info = pcall(C_Texture.GetAtlasInfo, atlas)
+    return ok and info ~= nil
+end
+
+local function GetFillTexture(bar)
+    local texture = bar.GetStatusBarTexture and bar:GetStatusBarTexture()
+    if texture and texture.GetAtlas and texture.SetAtlas then return texture end
+end
+
+local function UseStatusFill(bar)
+    local texture = GetFillTexture(bar)
+    local atlas = texture and texture:GetAtlas()
+    if issecretvalue and issecretvalue(atlas) then return end
+    if type(atlas) ~= "string" or atlas:sub(-#STATUS_SUFFIX) == STATUS_SUFFIX then return end
+
+    local statusAtlas = atlas .. STATUS_SUFFIX
+    if not AtlasExists(statusAtlas) then return end
+    texture:SetAtlas(statusAtlas, USE_ATLAS_SIZE)
+    bar._Carpenter_DefaultFillAtlas = atlas
+end
+
+local function RestoreDefaultFill(bar)
+    local atlas = bar._Carpenter_DefaultFillAtlas
+    if not atlas then return end
+    bar._Carpenter_DefaultFillAtlas = nil
+
+    -- Blizzard may have set its own art since; only undo the one we swapped in.
+    local texture = GetFillTexture(bar)
+    if texture and texture:GetAtlas() == atlas .. STATUS_SUFFIX then
+        texture:SetAtlas(atlas, USE_ATLAS_SIZE)
+    end
+end
+
 local function RestoreDefaultUnitColor(bar, unit, force)
     if not bar then return end
     if not force and not bar._Carpenter_IsUnitClassColored then return end
 
     local wasClassColored = ClassHealth.ClearBarState(bar)
     if IsRetailClient() then
+        RestoreDefaultFill(bar)
         if wasClassColored or force then
             bar:SetStatusBarColor(1, 1, 1)
         end
@@ -65,7 +108,6 @@ local PARTY_HEALTH_ATLAS = "UI-HUD-UnitFrame-Party-PortraitOn-Bar-Health"
 local PARTY_HEALTH_STATUS_ATLAS = "UI-HUD-UnitFrame-Party-PortraitOn-Bar-Health-Status"
 local CHARACTER_PARTY_HEALTH_ATLAS = "UI-HUD-UnitFrame-CharacterFrameOnParty-PortraitOn-Bar-Health"
 local CHARACTER_PARTY_HEALTH_STATUS_ATLAS = "UI-HUD-UnitFrame-CharacterFrameOnParty-PortraitOn-Bar-Health-Status"
-local USE_ATLAS_SIZE = TextureKitConstants and TextureKitConstants.UseAtlasSize
 
 local function GetPartyMemberFrame(index)
     return PartyFrame and PartyFrame["MemberFrame" .. index]
@@ -193,6 +235,7 @@ local function ApplyHiddenClassColor(bar, unit)
     end)
     if ok then
         bar._Carpenter_IsUnitClassColored = true
+        UseStatusFill(bar)
     end
     return ok
 end
@@ -213,7 +256,9 @@ local function UpdateHealthBarColor(bar, unit)
     end
 
     if IsRetailClient() then
-        if not ClassHealth.ApplyUnitFrameClassColor(bar, unit) then
+        if ClassHealth.ApplyUnitFrameClassColor(bar, unit) then
+            UseStatusFill(bar)
+        else
             RestoreDefaultUnitColor(bar, unit, true)
         end
         return
@@ -266,6 +311,21 @@ local healthBarUpdateHooked = false
 local function HookBlizzardHealthBarUpdates()
     if healthBarUpdateHooked or not IsRetailClient() or type(UnitFrameHealthBar_Update) ~= "function" then return end
     healthBarUpdateHooked = true
+
+    -- Target and focus reset their fill atlas after the health update whenever
+    -- the unit changes, so swap it back afterwards.
+    for _, entry in ipairs({ { TargetFrame, "target" }, { FocusFrame, "focus" } }) do
+        local frame, unit = entry[1], entry[2]
+        if frame and type(frame.UpdateHealthBarVisuals) == "function" then
+            hooksecurefunc(frame, "UpdateHealthBarVisuals", function()
+                local bar = GetUnitFrameHealthBar(unit)
+                if bar and ClassHealth.IsUnitFrameEnabled()
+                    and (bar._Carpenter_IsUnitClassColored or ClassHealth.IsPlayerUnit(unit)) then
+                    UpdateHealthBarColor(bar, unit)
+                end
+            end)
+        end
+    end
 
     hooksecurefunc("UnitFrameHealthBar_Update", function(bar)
         if not bar or not ClassHealth.IsUnitFrameEnabled() then return end

@@ -11,8 +11,15 @@ local PARTY_ATLAS = "UI-HUD-UnitFrame-Party-PortraitOn-Bar-Health"
 local PARTY_STATUS_ATLAS = "UI-HUD-UnitFrame-Party-PortraitOn-Bar-Health-Status"
 local VEHICLE_ATLAS = "UI-HUD-UnitFrame-Party-PortraitOn-Vehicle-Bar-Health"
 
+local PLAYER_ATLAS = "UI-HUD-UnitFrame-Player-PortraitOn-Bar-Health"
+local PLAYER_STATUS_ATLAS = PLAYER_ATLAS .. "-Status"
+
 local registeredFeature
+local playerTexture = { atlas = PLAYER_ATLAS }
+function playerTexture:SetAtlas(atlas) self.atlas = atlas end
+function playerTexture:GetAtlas() return self.atlas end
 local playerBar = { applications = 0 }
+function playerBar:GetStatusBarTexture() return playerTexture end
 local cvarWrites = 0
 local secretClass = false
 
@@ -67,6 +74,9 @@ end
 
 PartyFrame = { MemberFrame1 = member }
 TextureKitConstants = { UseAtlasSize = true }
+C_Texture = { GetAtlasInfo = function(atlas)
+    if atlas == PLAYER_STATUS_ATLAS or atlas == PARTY_STATUS_ATLAS then return {} end
+end }
 
 local ns = {
     Private = {
@@ -145,6 +155,7 @@ unitFramesChunk("Carpenter", ns)
 assert(registeredFeature and registeredFeature.Enable, "Class Health Colors feature was not registered")
 registeredFeature:Enable()
 assert(playerBar.applications == 1, "player health bar should still be class colored")
+assert(playerTexture.atlas == PLAYER_STATUS_ATLAS, "player fill should switch to the white status atlas so class colors aren't darkened")
 assert(partyTexture.atlas == PARTY_STATUS_ATLAS, "party fill should switch to the grayscale status atlas")
 AssertColor({ 0.9, 0.1, 0.3 }, "party fill should be tinted with the class color")
 
@@ -173,6 +184,7 @@ AssertColor({ 0.9, 0.1, 0.3 }, "leaving the vehicle should restore the class tin
 
 registeredFeature:Disable()
 Carpenter.enabled = false
+assert(playerTexture.atlas == PLAYER_ATLAS, "disabling should restore Blizzard's player health atlas")
 assert(partyTexture.atlas == PARTY_ATLAS, "disabling should restore Blizzard's party health atlas")
 AssertColor({ 1, 1, 1 }, "disabling should clear the class tint")
 
