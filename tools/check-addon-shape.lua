@@ -25,6 +25,7 @@ local stateKeys = {
     explorerModeChatWindowRepairVersion = true,
     foreverDefaultsResetVersion = true,
     noObjectiveQuestWatches = true,
+    rollColorProbeLog = true, -- TEMP roll color probe
 }
 
 -- Kept in defaults/settings definitions for history, but currently hidden by
