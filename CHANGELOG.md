@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.8
+
+- Hide Keybind Text now works on WoW Forever.
+- Chat Cleaner now shows players' names in their class color when they roll, including WoW Forever's first and last names.
+- The WoW Forever settings now show previews taken in WoW Forever.
+- Consumable Macros you've run out of now show the item grayed out with a 0 count instead of a question mark.
+- The hidden version-number page now has RP Macros on every client, and its Layout and RP Macros entries are checkboxes that add or remove them.
+
 ## 1.8.7
 
 - Debuffs under Unit Frames now works on WoW Forever. Crowd control shows as a big icon over the player, target, focus, and party portraits.
