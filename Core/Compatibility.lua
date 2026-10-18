@@ -48,8 +48,8 @@ local featureManifest = {
     -- Action bars
     hideMacroNamesEnabled = { { clients = ALL, files = { "Modules/HideUIElements.lua" } } },
     hideKeybindsEnabled = {
-        { clients = CLASSIC, files = { "Modules/HideUIElements.lua" } },
-        notOn = { retail = "keybind text sits on protected action buttons", forever = "keybind text sits on protected action buttons" },
+        { clients = "vanilla tbc forever", files = { "Modules/HideUIElements.lua" } },
+        notOn = { retail = "keybind text sits on protected action buttons" },
     },
     hideStanceBarEnabled = { { clients = ALL, files = { "Modules/HideUIElements.lua" } } },
     actionBarFaderEnabled = { { clients = "tbc", files = { "Modules/ActionBarFader.lua" } } },

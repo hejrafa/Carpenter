@@ -130,8 +130,10 @@ local function UpdateActionBars()
 
         for _, btn in ipairs(buttons) do
             if btn then
-                local hotkey = _G[btn:GetName() .. "HotKey"]
-                local name = _G[btn:GetName() .. "Name"]
+                -- Modern templates keep the hotkey in a TextOverlayContainer
+                -- child and expose it as button.HotKey.
+                local hotkey = btn.HotKey or _G[btn:GetName() .. "HotKey"]
+                local name = btn.Name or _G[btn:GetName() .. "Name"]
 
                 -- Handle Keybinds (HotKey)
                 if hotkey then

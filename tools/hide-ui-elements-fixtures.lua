@@ -103,4 +103,12 @@ assert(macroName.alpha == 0, "Forever should hide macro names through a secure c
 assert(hotkey.alpha == 0, "Forever should hide hotkeys through a secure call")
 assert(secureCallCount > 0, "Forever action-button text writes must use securecallfunction")
 
+-- Forever's template keeps the hotkey in a TextOverlayContainer child, so it
+-- is reached through button.HotKey rather than a global name.
+local overlayHotkey = NewTextRegion()
+ActionButton1HotKey = nil
+button.HotKey = overlayHotkey
+eventFrame.OnEvent(eventFrame, "PLAYER_ENTERING_WORLD")
+assert(overlayHotkey.alpha == 0, "Forever should hide hotkeys held by the text overlay container")
+
 print("hide-ui-elements fixtures: passed")
