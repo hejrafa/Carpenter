@@ -5,31 +5,6 @@ ns.Private = ns.Private or {}
 local Social = ns.Private.ChatCleanerSocial or {}
 ns.Private.ChatCleanerSocial = Social
 
--- TEMP roll color probe: records what a /roll line looks like on this client
--- in CarpenterDB.rollColorProbeLog. Remove once roll colors work on Forever.
-local function Describe(value)
-    if issecretvalue then
-        local ok, secret = pcall(issecretvalue, value)
-        if not ok or secret then return "S" end
-    end
-    if value == nil then return "-" end
-    local ok, text = pcall(tostring, value)
-    if not ok then return "?" end
-    return (text:gsub("|", "||"))
-end
-Social.Describe = Describe
-
-function Social.Probe(line)
-    if type(CarpenterDB) ~= "table" then return end
-    local log = CarpenterDB.rollColorProbeLog
-    if type(log) ~= "table" then
-        log = {}
-        CarpenterDB.rollColorProbeLog = log
-    end
-    log[#log + 1] = (date and date("%H:%M:%S ") or "") .. line
-    while #log > 60 do table.remove(log, 1) end
-end
-
 function Social.Create(config)
     config = config or {}
     local getPartyOrRaidMessageColor = config.GetPartyOrRaidMessageColor or function() return "|cfff0f0f0" end
@@ -154,14 +129,6 @@ function Social.Create(config)
 
     function api.GetPlayerClassColor(name)
         local key = PlayerKey(name)
-        Social.Probe("lookup name=[" .. Describe(name) .. "] key=[" .. Describe(key) .. "] isForever=" .. Describe(Carpenter and Carpenter.Client and Carpenter.Client.isForever))
-        pcall(function()
-            local n, sur = UnitName("player")
-            local _, token = UnitClass("player")
-            Social.Probe("  player UnitName=[" .. Describe(n) .. "][" .. Describe(sur) .. "] keyName=[" .. Describe(PlayerKey(n)) .. "] class=" .. Describe(token)
-                .. " sep=[" .. Describe(Constants and Constants.CharacterNameSeparatorConsts and Constants.CharacterNameSeparatorConsts.CHARACTERNAME_SURNAME_SEPARATOR) .. "]"
-                .. " ambig=[" .. Describe(Ambiguate and Ambiguate(name, "short")) .. "]")
-        end)
         if not key or not UnitName or not UnitClass then return nil end
 
         local units = { "player", "target", "focus", "mouseover" }
@@ -178,7 +145,6 @@ function Social.Create(config)
         classToken = classToken or senderClasses[key]
 
         local color = classToken and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classToken]
-        Social.Probe("  classToken=" .. Describe(classToken) .. " color=" .. Describe(color and color.colorStr))
         if not color then return nil end
         if type(color.colorStr) == "string" then
             return "|c" .. color.colorStr

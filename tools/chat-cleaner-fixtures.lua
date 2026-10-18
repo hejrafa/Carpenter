@@ -988,17 +988,21 @@ end
 -- /roll results: the roller's name takes their class color, found on a
 -- visible unit or remembered from their chat messages.
 do
+    -- The in-game path: the chat filter formats the line, then the chat
+    -- frame's AddMessage hook post-processes it.
     local function Roll(message)
+        local _, filtered = filter(nil, "CHAT_MSG_SYSTEM", message, "")
         local captured
-        postProcessor.ProcessMessage({}, function(_, text) captured = text end, message, {})
+        postProcessor.ProcessMessage({}, function(_, text) captured = text end, filtered, {})
         return captured
     end
     local warriorColor, mageColor = "|cffc79c6e", "|cff40c7eb"
 
+    -- Your own roll reads "You roll", which keeps the plain roll color.
     local out = Roll("Tester rolls 29 (1-100)")
     additionalChecks = additionalChecks + 1
-    if plain(out) ~= "Tester rolls 29 (1-100)" or not out:find(warriorColor .. "Tester|r", 1, true) then
-        failures[#failures + 1] = "roll: your own roll should use your class color, got [" .. tostring(out) .. "]"
+    if plain(out) ~= "You roll 29 (1-100)" or out:find(warriorColor, 1, true) then
+        failures[#failures + 1] = "roll: your own roll should read You without a class color, got [" .. tostring(out) .. "]"
     end
 
     out = Roll("Koji Kurosawa rolls 77 (1-100)")

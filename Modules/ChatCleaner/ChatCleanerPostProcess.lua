@@ -441,20 +441,6 @@ function PostProcess.Create(config)
 
             local originalMessage = message
             local args = { ... }
-            -- TEMP roll color probe
-            local social = ns.Private and ns.Private.ChatCleanerSocial
-            if social and social.Probe then
-                pcall(function()
-                    if issecretvalue and issecretvalue(message) then
-                        if not api._probedSecret then
-                            api._probedSecret = true
-                            social.Probe("secret AddMessage seen")
-                        end
-                    elseif type(message) == "string" and message:find("roll", 1, true) then
-                        social.Probe("raw=[" .. social.Describe(message) .. "]")
-                    end
-                end)
-            end
             local ok = pcall(function()
                 local function RunPostProcess()
                     return api.ProcessMessage(self, originalAddMessage, message, args)
@@ -466,10 +452,6 @@ function PostProcess.Create(config)
                 return RunPostProcess()
             end)
             if not ok then
-                local social = ns.Private and ns.Private.ChatCleanerSocial
-                if social and social.Probe and type(originalMessage) == "string" and not (issecretvalue and issecretvalue(originalMessage)) and originalMessage:find("roll", 1, true) then
-                    social.Probe("post-process failed for roll line")
-                end
                 originalAddMessage(self, originalMessage, unpack(args))
             end
         end

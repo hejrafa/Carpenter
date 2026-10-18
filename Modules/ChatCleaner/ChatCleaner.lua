@@ -131,6 +131,11 @@ end
 local GroupLootPatterns = ChatCleanerLoot.BuildGroupLootPatterns and ChatCleanerLoot.BuildGroupLootPatterns() or {}
 local RollPatterns = ChatCleanerLoot.BuildRollPatterns and ChatCleanerLoot.BuildRollPatterns() or {}
 local RollPatternsFallback = ChatCleanerLoot.RollPatternsFallback or {}
+-- Assigned once the social formatter exists; the loot formatter is built first.
+local GetPlayerClassColor
+local function GetPlayerNameColor(name)
+    return GetPlayerClassColor and GetPlayerClassColor(name)
+end
 local lootFormatter = ChatCleanerLoot.Create and ChatCleanerLoot.Create({
     L = L,
     CleanPunctuation = CleanPunctuation,
@@ -144,6 +149,7 @@ local lootFormatter = ChatCleanerLoot.Create and ChatCleanerLoot.Create({
     GroupLootPatterns = GroupLootPatterns,
     RollPatterns = RollPatterns,
     RollPatternsFallback = RollPatternsFallback,
+    GetPlayerNameColor = GetPlayerNameColor,
     ColorPlus = ColorPlus,
     ColorLootLiteral = ColorLootLiteral,
     ColorGreen = ColorGreen,
@@ -242,6 +248,7 @@ local socialFormatter = ChatCleanerSocial.Create and ChatCleanerSocial.Create({
 local FormatBattlegroundAndGroupNotice = socialFormatter.FormatBattlegroundAndGroupNotice
 local FormatSystemSocialMessage = socialFormatter.FormatSystemSocialMessage
 local RememberSenderClass = socialFormatter.RememberSenderClass
+GetPlayerClassColor = socialFormatter.GetPlayerClassColor
 
 local postProcessor = ChatCleanerPostProcess.Create and ChatCleanerPostProcess.Create({
     L = L,
@@ -254,7 +261,7 @@ local postProcessor = ChatCleanerPostProcess.Create and ChatCleanerPostProcess.C
     ColorLootLiteral = ColorLootLiteral,
     ColorGreen = ColorGreen,
     GetChannelMessageColor = GetChannelMessageColor,
-    GetPlayerNameColor = socialFormatter.GetPlayerClassColor,
+    GetPlayerNameColor = GetPlayerNameColor,
     ColorRed = ColorRed,
     HonorDelay = 3,
     JoinDedupDelay = 8,

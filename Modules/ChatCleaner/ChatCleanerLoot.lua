@@ -224,6 +224,7 @@ function Loot.Create(config)
     local colorLootLiteral = config.ColorLootLiteral or "|cffc8c8c8"
     local colorGreen = config.ColorGreen or "|cff00ff00"
     local getChannelMessageColor = config.GetChannelMessageColor or function() return colorLootLiteral end
+    local getPlayerNameColor = config.GetPlayerNameColor or function() return nil end
     local L = config.L or (Carpenter and Carpenter.L) or {}
 
     local function T(key, fallback, ...)
@@ -419,6 +420,7 @@ function Loot.Create(config)
                 :gsub("%s+$", "")
         end
         local rollPrefixColor = getChannelMessageColor(event) or colorLootLiteral
+        -- Rollers get their class color, like names in say and party chat.
         local function NameOut(name)
             name = CleanRollName(name)
             local isYou = name:lower() == "you"
@@ -426,7 +428,7 @@ function Loot.Create(config)
                 return rollPrefixColor .. You() .. "|r", true
             end
             local short = name:gsub("%-.*$", "")
-            return rollPrefixColor .. short .. "|r", false
+            return (getPlayerNameColor(short) or rollPrefixColor) .. short .. "|r", false
         end
         local function RollLiteral(text)
             text = CleanRollActionText(text)
