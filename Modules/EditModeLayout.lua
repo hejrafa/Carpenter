@@ -71,3 +71,57 @@ function EditModeLayout.Install()
 
     return true, updated and "updated" or "created"
 end
+
+local function FindSavedLayout()
+    local api = C_EditMode
+    if not api or type(api.GetLayouts) ~= "function" then return nil end
+    local ok, layoutInfo = pcall(api.GetLayouts)
+    if not ok or type(layoutInfo) ~= "table" or type(layoutInfo.layouts) ~= "table" then return nil end
+    for index, existingLayout in ipairs(layoutInfo.layouts) do
+        if existingLayout.layoutName == EditModeLayout.LayoutName then
+            return index, layoutInfo
+        end
+    end
+    return nil, layoutInfo
+end
+
+function EditModeLayout.IsInstalled()
+    return FindSavedLayout() ~= nil
+end
+
+-- Mirrors Blizzard's EditModeManagerFrameMixin:DeleteLayout. The layout in
+-- use is left alone so removing it never yanks the UI to another layout.
+function EditModeLayout.Remove()
+    if InCombatLockdown and InCombatLockdown() then
+        return false, "combat"
+    end
+
+    local api = C_EditMode
+    if not api or type(api.SaveLayouts) ~= "function" then
+        return false, "unsupported"
+    end
+
+    local savedIndex, layoutInfo = FindSavedLayout()
+    if not layoutInfo then
+        return false, "unavailable"
+    end
+    if not savedIndex then
+        return true, "removed"
+    end
+
+    local presetCount = Enum and Enum.EditModePresetLayoutsMeta and Enum.EditModePresetLayoutsMeta.NumValues or 2
+    local layoutIndex = presetCount + savedIndex
+    if layoutInfo.activeLayout == layoutIndex then
+        return false, "active"
+    end
+
+    table.remove(layoutInfo.layouts, savedIndex)
+    if not pcall(api.SaveLayouts, layoutInfo) then
+        return false, "save"
+    end
+    if type(api.OnLayoutDeleted) == "function" then
+        pcall(api.OnLayoutDeleted, layoutIndex)
+    end
+
+    return true, "removed"
+end

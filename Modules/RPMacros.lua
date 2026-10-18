@@ -21,6 +21,47 @@ RPMacros.Macros = {
         icon = 132269,
         body = "/whistle\n/s 1v1",
     },
+    -- The leveling ritual: whoever rolls higher gets the next enemy.
+    {
+        name = "Roll",
+        icon = 237284,
+        body = "/crack\n/roll",
+    },
+    {
+        name = "Greet",
+        icon = 236681,
+        body = "/bow\n/s Well met, %t.",
+    },
+    {
+        name = "Duel",
+        icon = 132336,
+        body = "/duel\n/s Draw your blade, %t.",
+    },
+    {
+        name = "Coin",
+        icon = 133784,
+        body = "/e flips a gold coin without looking.\n/roll 2",
+    },
+    {
+        name = "Letter",
+        icon = 133471,
+        body = "/e slips a sealed letter into %t's pocket.",
+    },
+    {
+        name = "Camp",
+        icon = 135805,
+        body = "/sit\n/e unpacks a small fire and warms their hands.",
+    },
+    {
+        name = "Victory",
+        icon = 132333,
+        body = "/flex\n/s Next.",
+    },
+    {
+        name = "Vanish",
+        icon = 132331,
+        body = "#showtooltip\n/cast Vanish\n/e melts into the shadows.",
+    },
 }
 
 function RPMacros.Install(macro)

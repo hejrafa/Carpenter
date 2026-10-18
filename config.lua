@@ -609,80 +609,71 @@ end
 
 local mainWidgets, mainYPos = RenderSections(OPTION_SECTIONS)
 
-local function SetEditModeLayoutStatus(message, success)
-    local status = _G.CP_EditModeLayoutStatus
+-- Hidden page rows are checkboxes that mirror something outside CarpenterDB
+-- (the Edit Mode layout list, the macro list); the sidebar reports how the
+-- last click went.
+local hiddenToggleRows = {}
+local selectedHiddenItem
+
+local function SetHiddenPageStatus(message, success)
+    local status = _G.CP_HiddenPageStatus
     if not status then return end
-    status:SetText((success and "|cff55ff55" or "|cffff6060") .. message .. "|r")
+    status:SetText(message == "" and "" or ((success and "|cff55ff55" or "|cffff6060") .. message .. "|r"))
 end
 
-local function EnsureEditModeLayoutSidebarControls()
-    if _G.CP_EditModeLayoutInstall then return end
-
-    local installButton = CreateFrame("Button", "CP_EditModeLayoutInstall", sideContent, "UIPanelButtonTemplate")
-    installButton:SetSize(190, 24)
-    installButton:SetPoint("TOPLEFT", sideContent, "TOPLEFT", 0, 0)
-    installButton:SetText(L.CREATE_EDIT_MODE_LAYOUT or "Create Carpenter Layout")
-    installButton:SetScript("OnClick", function()
-        local ok, result = EditModeLayout.Install and EditModeLayout.Install()
-        if ok then
-            local message = result == "updated"
-                and (L.EDIT_MODE_LAYOUT_UPDATED or "Carpenter layout updated. Open Edit Mode to select it.")
-                or (L.EDIT_MODE_LAYOUT_CREATED or "Carpenter layout created. Open Edit Mode to select it.")
-            SetEditModeLayoutStatus(message, true)
-        else
-            local message = result == "combat"
-                and (L.EDIT_MODE_LAYOUT_COMBAT or "The layout cannot be changed during combat.")
-                or (L.EDIT_MODE_LAYOUT_FAILED or "Carpenter could not create the layout.")
-            SetEditModeLayoutStatus(message, false)
-        end
-    end)
-
-    local status = sideContent:CreateFontString("CP_EditModeLayoutStatus", "OVERLAY", "GameFontHighlightSmall")
-    status:SetPoint("TOPLEFT", installButton, "BOTTOMLEFT", 5, -12)
-    status:SetPoint("RIGHT", sideContent, "RIGHT", -5, 0)
-    status:SetHeight(50)
-    status:SetJustifyH("LEFT")
-    status:SetJustifyV("TOP")
-    status:SetWordWrap(true)
-    status:SetText("")
-end
-
-local function ShowEditModeLayoutSidebar()
+local function ShowHiddenItemSidebar(item, description)
     ToggleSideImage(nil)
-    local description = L.EDIT_MODE_LAYOUT_DESCRIPTION or "This is the addon author's preferred {hl}Edit Mode{/hl} layout.\n\nCreate or update the account-wide {hl}Carpenter{/hl} layout, then select it in Edit Mode."
     description = description:gsub("{hl}", LighterCream):gsub("{/hl}", LightGrey)
     sideDesc:SetText(LightGrey .. description .. "|r")
     sideReloadHint:Hide()
     ShowSidebarContent()
-    EnsureEditModeLayoutSidebarControls()
-    _G.CP_EditModeLayoutInstall:Show()
-    _G.CP_EditModeLayoutStatus:Show()
+
+    if not _G.CP_HiddenPageStatus then
+        local status = sideContent:CreateFontString("CP_HiddenPageStatus", "OVERLAY", "GameFontHighlightSmall")
+        status:SetPoint("TOPLEFT", sideContent, "TOPLEFT", 5, 0)
+        status:SetPoint("RIGHT", sideContent, "RIGHT", -5, 0)
+        status:SetHeight(50)
+        status:SetJustifyH("LEFT")
+        status:SetJustifyV("TOP")
+        status:SetWordWrap(true)
+    end
+    if selectedHiddenItem ~= item then
+        selectedHiddenItem = item
+        SetHiddenPageStatus("", true)
+    end
+    _G.CP_HiddenPageStatus:Show()
 end
 
-local selectedRPMacro
-local rpMacroRows = {}
-
-local function SetRPMacroStatus(message, success)
-    local status = _G.CP_RPMacroStatus
-    if not status then return end
-    status:SetText((success and "|cff55ff55" or "|cffff6060") .. message .. "|r")
+local function RefreshHiddenToggles()
+    for _, row in ipairs(hiddenToggleRows) do
+        row.Refresh()
+    end
 end
 
-local function EnsureRPMacroSidebarControls()
-    if _G.CP_RPMacroStatus then return end
+local function ShowEditModeLayoutSidebar()
+    ShowHiddenItemSidebar(EditModeLayout, L.EDIT_MODE_LAYOUT_DESCRIPTION or "Every carpenter keeps a favorite workbench. This is the author's own {hl}Edit Mode{/hl} layout.\n\nCheck it to create the account-wide {hl}Carpenter{/hl} layout, then select it in Edit Mode. Uncheck it to remove the layout.")
+end
 
-    local status = sideContent:CreateFontString("CP_RPMacroStatus", "OVERLAY", "GameFontHighlightSmall")
-    status:SetPoint("TOPLEFT", sideContent, "TOPLEFT", 5, 0)
-    status:SetPoint("RIGHT", sideContent, "RIGHT", -5, 0)
-    status:SetHeight(50)
-    status:SetJustifyH("LEFT")
-    status:SetJustifyV("TOP")
-    status:SetWordWrap(true)
-    status:SetText("")
+local EDIT_MODE_LAYOUT_MESSAGES = {
+    created = L.EDIT_MODE_LAYOUT_CREATED or "Carpenter layout built! Open Edit Mode to select it.",
+    updated = L.EDIT_MODE_LAYOUT_UPDATED or "Carpenter layout rebuilt! Open Edit Mode to select it.",
+    removed = L.EDIT_MODE_LAYOUT_REMOVED or "Carpenter layout taken down.",
+    active = L.EDIT_MODE_LAYOUT_ACTIVE or "You're still using the Carpenter layout. Pick another one in Edit Mode first.",
+    combat = L.EDIT_MODE_LAYOUT_COMBAT or "You can't rearrange the furniture while in combat.",
+}
+
+local function SetEditModeLayoutInstalled(installed)
+    local install = EditModeLayout.Remove
+    if installed then install = EditModeLayout.Install end
+    local ok, result = false, "failed"
+    if install then
+        ok, result = install()
+    end
+    ShowEditModeLayoutSidebar()
+    SetHiddenPageStatus(EDIT_MODE_LAYOUT_MESSAGES[result] or L.EDIT_MODE_LAYOUT_FAILED or "Carpenter couldn't build the layout.", ok)
 end
 
 local function ShowRPMacroSidebar(macro)
-    ToggleSideImage(nil)
     local lines = {}
     for line in macro.body:gmatch("[^\n]+") do
         lines[#lines + 1] = LighterCream .. line .. LightGrey
@@ -691,16 +682,7 @@ local function ShowRPMacroSidebar(macro)
     local description = L.RP_MACRO_DESCRIPTION or "One of the author's own {hl}roleplay{/hl} macros, ready to rebuild on any character:\n\n{body}\n\nCheck it to add the account-wide {hl}{name}{/hl} macro to General Macros. Uncheck it to remove the macro."
     description = description:gsub("{body}", function() return table.concat(lines, "\n") end)
     description = description:gsub("{name}", function() return name end)
-    description = description:gsub("{hl}", LighterCream):gsub("{/hl}", LightGrey)
-    sideDesc:SetText(LightGrey .. description .. "|r")
-    sideReloadHint:Hide()
-    ShowSidebarContent()
-    EnsureRPMacroSidebarControls()
-    if selectedRPMacro ~= macro then
-        selectedRPMacro = macro
-        SetRPMacroStatus("", true)
-    end
-    _G.CP_RPMacroStatus:Show()
+    ShowHiddenItemSidebar(macro, description)
 end
 
 local RP_MACRO_MESSAGES = {
@@ -719,23 +701,27 @@ local function SetRPMacroInstalled(macro, installed)
         ok, result = install(macro)
     end
     ShowRPMacroSidebar(macro)
-    SetRPMacroStatus(RP_MACRO_MESSAGES[result] or L.RP_MACRO_FAILED or "Carpenter couldn't build the macro.", ok)
-end
-
-local function RefreshRPMacroRows()
-    for _, row in ipairs(rpMacroRows) do
-        row.Refresh()
-    end
+    SetHiddenPageStatus(RP_MACRO_MESSAGES[result] or L.RP_MACRO_FAILED or "Carpenter couldn't build the macro.", ok)
 end
 
 local function CreateHiddenPage()
     local widgets = {}
     yPos = -SCROLL_CONTENT_TOP_PADDING
 
+    local function AddToggle(label, showDetails, toggle)
+        local row = CreateListItem(label, showDetails, toggle)
+        widgets[#widgets + 1] = row
+        hiddenToggleRows[#hiddenToggleRows + 1] = row
+        ShowHiddenPageSidebar = ShowHiddenPageSidebar or showDetails
+    end
+
     if EditModeLayout.IsAvailable and EditModeLayout.IsAvailable() then
         widgets[#widgets + 1] = CreateHeader(L.SECTION_EDIT_MODE_LAYOUT or "Layout")
-        widgets[#widgets + 1] = CreateListItem(L.EDIT_MODE_LAYOUT_NAME or "Carpenter", ShowEditModeLayoutSidebar)
-        ShowHiddenPageSidebar = ShowHiddenPageSidebar or ShowEditModeLayoutSidebar
+        AddToggle(L.EDIT_MODE_LAYOUT_NAME or "Carpenter", ShowEditModeLayoutSidebar, {
+            name = "CP_EditModeLayoutCheck",
+            isChecked = function() return EditModeLayout.IsInstalled and EditModeLayout.IsInstalled() or false end,
+            onClick = SetEditModeLayoutInstalled,
+        })
     end
 
     local macros = RPMacros.Macros or {}
@@ -745,15 +731,11 @@ local function CreateHiddenPage()
         end
         widgets[#widgets + 1] = CreateHeader(L.SECTION_RP_MACROS or "RP Macros")
         for index, macro in ipairs(macros) do
-            local function ShowDetails() ShowRPMacroSidebar(macro) end
-            local row = CreateListItem(macro.name, ShowDetails, {
+            AddToggle(macro.name, function() ShowRPMacroSidebar(macro) end, {
                 name = "CP_RPMacro_" .. index,
                 isChecked = function() return RPMacros.IsInstalled and RPMacros.IsInstalled(macro) or false end,
                 onClick = function(checked) SetRPMacroInstalled(macro, checked) end,
             })
-            widgets[#widgets + 1] = row
-            rpMacroRows[#rpMacroRows + 1] = row
-            ShowHiddenPageSidebar = ShowHiddenPageSidebar or ShowDetails
         end
     end
 
@@ -793,7 +775,7 @@ local function SetSettingsView(showHidden)
     footerVersionButton:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, footerYPos - 3)
     SetSidebarDefault()
     if hiddenSettingsShown then
-        RefreshRPMacroRows()
+        RefreshHiddenToggles()
         if ShowHiddenPageSidebar then ShowHiddenPageSidebar() end
     end
     scrollFrame:SetVerticalScroll(0)
@@ -819,7 +801,7 @@ UpdateFooterVersionText(false)
 SetSettingsView(false)
 
 SyncCheckboxesFromDatabase = function()
-    RefreshRPMacroRows()
+    RefreshHiddenToggles()
     if not CarpenterDB then return end
 
     for key, value in pairs(CarpenterDB) do
@@ -830,12 +812,15 @@ SyncCheckboxesFromDatabase = function()
     end
 end
 
--- RP macro checkboxes mirror the macro list, which can also change in the
--- Blizzard macro window while the settings are open.
-local macroWatcher = CreateFrame("Frame")
-macroWatcher:RegisterEvent("UPDATE_MACROS")
-macroWatcher:SetScript("OnEvent", function()
-    if frame:IsVisible() then RefreshRPMacroRows() end
+-- Hidden page checkboxes mirror the macro and Edit Mode layout lists, which
+-- can also change in Blizzard's own windows while the settings are open.
+local hiddenToggleWatcher = CreateFrame("Frame")
+hiddenToggleWatcher:RegisterEvent("UPDATE_MACROS")
+if EditModeLayout.IsAvailable and EditModeLayout.IsAvailable() then
+    pcall(hiddenToggleWatcher.RegisterEvent, hiddenToggleWatcher, "EDIT_MODE_LAYOUTS_UPDATED")
+end
+hiddenToggleWatcher:SetScript("OnEvent", function()
+    if frame:IsVisible() then RefreshHiddenToggles() end
 end)
 
 -- Saved variables are guaranteed by ADDON_LOADED. Keep the world event as a

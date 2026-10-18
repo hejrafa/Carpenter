@@ -29,6 +29,8 @@ for _, macro in ipairs(rp.Macros) do
 end
 assert(byName.Bow and byName.Bow.body == "/bow" and byName.Bow.icon == 237573, "Bow macro changed")
 assert(byName["1v1"] and byName["1v1"].body == "/whistle\n/s 1v1" and byName["1v1"].icon == 132269, "1v1 macro changed")
+assert(byName.Roll and byName.Roll.body == "/crack\n/roll" and byName.Roll.icon == 237284, "Roll ritual macro changed")
+assert(#rp.Macros == 10, "expected 10 RP macros")
 
 local inCombat = false
 local macros = {}
@@ -91,7 +93,7 @@ end
 
 local config = read("config.lua")
 assertContains(config, "if installed then install = RPMacros.Install end", "RP macro checkbox install/remove")
-assertContains(config, "CreateListItem(macro.name, ShowDetails, {", "RP macro checkbox rows")
+assertContains(config, "AddToggle(macro.name", "RP macro checkbox rows")
 assert(not config:find("CP_RPMacroInstall", 1, true), "RP macros are installed by checkbox, not a button")
 
 print("rp macro fixtures: passed")

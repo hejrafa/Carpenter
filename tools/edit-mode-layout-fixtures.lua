@@ -41,6 +41,7 @@ assert(layout.IsAvailable() == false, "Classic should not expose the Retail Edit
 local inCombat = false
 local savedLayoutInfo = { activeLayout = 1, layouts = {} }
 local layoutAdded
+local layoutDeleted
 InCombatLockdown = function() return inCombat end
 Enum = {
     EditModeLayoutType = { Account = 1 },
@@ -56,6 +57,7 @@ C_EditMode = {
     OnLayoutAdded = function(index, activate, imported)
         layoutAdded = { index = index, activate = activate, imported = imported }
     end,
+    OnLayoutDeleted = function(index) layoutDeleted = index end,
 }
 
 local installed, result = layout.Install()
@@ -74,7 +76,28 @@ assert(layoutAdded == nil, "updating an existing layout must not emit a layout-a
 inCombat = true
 installed, result = layout.Install()
 assert(installed == false and result == "combat", "installer must refuse combat-time layout changes")
+local removed
+removed, result = layout.Remove()
+assert(removed == false and result == "combat", "remover must refuse combat-time layout changes")
 inCombat = false
+
+assert(layout.IsInstalled(), "the installed Carpenter layout should read as checked")
+savedLayoutInfo.activeLayout = 4
+removed, result = layout.Remove()
+assert(removed == false and result == "active", "remover must leave the layout in use alone")
+assert(#savedLayoutInfo.layouts == 1, "refusing to remove the active layout still removed it")
+
+savedLayoutInfo.activeLayout = 1
+table.insert(savedLayoutInfo.layouts, 1, { layoutName = "Mine", layoutType = 1 })
+removed, result = layout.Remove()
+assert(removed and result == "removed", "remover did not remove the Carpenter layout")
+assert(#savedLayoutInfo.layouts == 1 and savedLayoutInfo.layouts[1].layoutName == "Mine", "remover touched another layout")
+assert(layoutDeleted == 5, "remover sent the wrong layout-deleted index")
+assert(not layout.IsInstalled(), "a removed layout should read as unchecked")
+
+layoutDeleted = nil
+removed, result = layout.Remove()
+assert(removed and result == "removed" and layoutDeleted == nil, "removing a missing layout should be a no-op")
 
 for _, toc in ipairs({ "Carpenter.toc", "Carpenter_Camelot.toc" }) do
     assertContains(read(toc), "Modules\\EditModeLayout.lua", toc .. " Edit Mode layout load entry")
@@ -86,7 +109,8 @@ end
 local config = read("config.lua")
 assertContains(config, "SetSettingsView(not hiddenSettingsShown)", "version-number hidden-page toggle")
 assertContains(config, "EditModeLayout.Install", "one-click Carpenter layout installer")
-assertContains(config, "CreateListItem(L.EDIT_MODE_LAYOUT_NAME", "Carpenter layout list item")
+assertContains(config, "AddToggle(L.EDIT_MODE_LAYOUT_NAME", "Carpenter layout checkbox")
+assert(not config:find("CP_EditModeLayoutInstall", 1, true), "the layout is installed by checkbox, not a button")
 assert(not config:find("CP_EditModeLayoutCopy", 1, true), "copy fallback must stay removed")
 
 print("edit-mode layout fixtures: passed")
