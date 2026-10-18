@@ -106,13 +106,13 @@ function Options.Create(context)
                     key = "hideQuestTrackerTitlesEnabled",
                     label = L.OPTION_HIDE_QUEST_TRACKER_TITLES or "Hide Quest Tracker Titles",
                     description = Description("DESC_HIDE_QUEST_TRACKER_TITLES"),
-                    image = GetSettingsImage("questtrack.png"),
+                    image = GetSettingsImage("questtrack.png", "hidequesttrack.png"),
                 },
                 {
                     key = "sortQuestsByLevelEnabled",
                     label = L.OPTION_SORT_QUESTS_BY_LEVEL or "Sort Quests by Level",
                     description = Description("DESC_SORT_QUESTS_BY_LEVEL"),
-                    image = GetSettingsImage("questtrack.png"),
+                    image = GetSettingsImage("questtrack.png", "sortquesttrack.png"),
                 },
                 {
                     key = "worldMapCleanupEnabled",

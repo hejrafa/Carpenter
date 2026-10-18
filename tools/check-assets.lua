@@ -66,8 +66,20 @@ end
 local function collectSettingsImageCalls()
     local used = {}
     local text = readFile(repo .. "/Modules/ConfigOptions.lua")
-    for filename in text:gmatch("GetSettingsImage%(%s*\"([^\"]+)\"%s*%)") do
+    for filename in text:gmatch("GetSettingsImage%(%s*\"([^\"]+)\"") do
         used[filename] = true
+    end
+    return used
+end
+
+-- Forever-only names passed as GetSettingsImage's second argument.
+local function collectForeverImageNames()
+    local used = {}
+    for _, path in ipairs({ repo .. "/Modules/ConfigOptions.lua", repo .. "/config.lua" }) do
+        local text = readFile(path)
+        for filename in text:gmatch("GetSettingsImage%([^,%)]*,%s*\"([^\"]+)\"%s*%)") do
+            used[filename] = true
+        end
     end
     return used
 end
@@ -117,6 +129,7 @@ end
 local usedClassic = collectSettingsImageCalls()
 local usedRetail = collectOverrideTargets("RETAIL_SETTINGS_IMAGES")
 local usedForever = collectOverrideTargets("FOREVER_SETTINGS_IMAGES")
+local foreverOnlyNames = collectForeverImageNames()
 local runtimeText = collectRuntimeText()
 local failures = {}
 
@@ -144,13 +157,20 @@ for filename, path in pairs(retailFiles) do
     end
 end
 
--- Forever previews keep the option's own filename, so each must replace one.
+-- Forever previews keep the option's own filename, or the Forever-only name
+-- an option asks for, so each must belong to one.
 for filename in pairs(usedForever) do
     if not foreverFiles[filename] then
         failures[#failures + 1] = "missing Forever settings image: Art/Settings/Forever/" .. filename
     end
-    if not usedClassic[filename] then
+    if not usedClassic[filename] and not foreverOnlyNames[filename] then
         failures[#failures + 1] = "Forever settings image replaces no option: " .. filename
+    end
+end
+
+for filename in pairs(foreverOnlyNames) do
+    if not usedForever[filename] then
+        failures[#failures + 1] = "Forever-only settings image is not listed in FOREVER_SETTINGS_IMAGES: " .. filename
     end
 end
 

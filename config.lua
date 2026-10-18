@@ -17,17 +17,48 @@ local RETAIL_SETTINGS_IMAGES = {
     ["unitnumbers.png"] = "cleanunit.png",
 }
 
--- WoW Forever's own previews, named like the option's Classic image. Forever
--- falls back to the Retail preview, then the Classic one, for anything not
--- listed here. Make these with tools/settings-image.swift.
+-- WoW Forever's own previews, named like the option's Classic image, or by
+-- the Forever-only name an option passes to GetSettingsImage. Forever falls
+-- back to the Retail preview, then the Classic one, for anything not listed
+-- here. Make these with tools/settings-image.swift.
 local FOREVER_SETTINGS_IMAGES = {
+    ["actioncam.png"] = true,
+    ["chatbuttons.png"] = true,
+    ["chatcleaner.png"] = true,
+    ["classhealthbar.png"] = true,
+    ["error.png"] = true,
+    ["explorer.png"] = true,
+    ["hidequesttrack.png"] = true,
+    ["keybind.png"] = true,
+    ["layout.png"] = true,
+    ["macro.png"] = true,
+    ["macrotext.png"] = true,
+    ["map.png"] = true,
+    ["micromenu.png"] = true,
+    ["minimapclutter.png"] = true,
+    ["nameplatecombo.png"] = true,
+    ["nameplatedebuff.png"] = true,
+    ["repair.png"] = true,
+    ["selljunk.png"] = true,
+    ["sortquesttrack.png"] = true,
+    ["stance.png"] = true,
+    ["tooltip.png"] = true,
+    ["unitdebuff.png"] = true,
+    ["unitnumbers.png"] = true,
+    ["warning.png"] = true,
 }
 
-local function GetSettingsImage(filename)
+-- foreverFilename gives Forever its own preview where options share a Classic
+-- image, or where only Forever has one (filename nil: no image elsewhere).
+local function GetSettingsImage(filename, foreverFilename)
     local client = Carpenter and Carpenter.Client
-    if client and client.isForever and FOREVER_SETTINGS_IMAGES[filename] then
-        return SETTINGS_IMAGE_PATH .. "Forever\\" .. filename
+    if client and client.isForever then
+        local foreverImage = foreverFilename or filename
+        if foreverImage and FOREVER_SETTINGS_IMAGES[foreverImage] then
+            return SETTINGS_IMAGE_PATH .. "Forever\\" .. foreverImage
+        end
     end
+    if not filename then return nil end
     if client and client.isRetail then
         local retailImage = RETAIL_SETTINGS_IMAGES[filename]
         if retailImage then
@@ -621,8 +652,8 @@ local function SetHiddenPageStatus(message, success)
     status:SetText(message == "" and "" or ((success and "|cff55ff55" or "|cffff6060") .. message .. "|r"))
 end
 
-local function ShowHiddenItemSidebar(item, description)
-    ToggleSideImage(nil)
+local function ShowHiddenItemSidebar(item, description, image)
+    ToggleSideImage(image)
     description = description:gsub("{hl}", LighterCream):gsub("{/hl}", LightGrey)
     sideDesc:SetText(LightGrey .. description .. "|r")
     sideReloadHint:Hide()
@@ -651,7 +682,8 @@ local function RefreshHiddenToggles()
 end
 
 local function ShowEditModeLayoutSidebar()
-    ShowHiddenItemSidebar(EditModeLayout, L.EDIT_MODE_LAYOUT_DESCRIPTION or "Every carpenter keeps a favorite workbench. This is the author's own {hl}Edit Mode{/hl} layout.\n\nCheck it to create the account-wide {hl}Carpenter{/hl} layout, then select it in Edit Mode. Uncheck it to remove the layout.")
+    ShowHiddenItemSidebar(EditModeLayout, L.EDIT_MODE_LAYOUT_DESCRIPTION or "Every carpenter keeps a favorite workbench. This is the author's own {hl}Edit Mode{/hl} layout.\n\nCheck it to create the account-wide {hl}Carpenter{/hl} layout, then select it in Edit Mode. Uncheck it to remove the layout.",
+        GetSettingsImage(nil, "layout.png"))
 end
 
 local EDIT_MODE_LAYOUT_MESSAGES = {
