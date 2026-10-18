@@ -464,23 +464,29 @@ local function ShowWidget(widget, shown)
     end
 end
 
-local function CreateListItem(label, showDetails, icon)
+-- A list row without a saved setting. With a toggle, the row gets a checkbox
+-- whose state comes from toggle.isChecked and whose clicks go to
+-- toggle.onClick instead of CarpenterDB.
+local function CreateListItem(label, showDetails, toggle)
     local row = CreateFrame("Button", nil, content)
     row:SetHeight(32)
     row:SetPoint("TOPLEFT", 0, yPos)
     row:SetPoint("TOPRIGHT", 0, yPos)
     row:EnableMouse(true)
 
-    local text = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    text:SetPoint("LEFT", row, "LEFT", 42, 0)
-    text:SetText(label)
-
-    if icon then
-        local iconTexture = row:CreateTexture(nil, "ARTWORK")
-        iconTexture:SetSize(20, 20)
-        iconTexture:SetPoint("RIGHT", text, "LEFT", -6, 0)
-        iconTexture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-        iconTexture:SetTexture(icon)
+    local check
+    if toggle then
+        check = CreateFrame("CheckButton", toggle.name, row, "InterfaceOptionsCheckButtonTemplate")
+        check:SetPoint("LEFT", 15, 0)
+        check:SetHitRectInsets(0, 0, 0, 0)
+        _G[check:GetName() .. "Text"]:SetText(label)
+        _G[check:GetName() .. "Text"]:SetFontObject("GameFontNormal")
+        row.Refresh = function() check:SetChecked(toggle.isChecked()) end
+        row.Refresh()
+    else
+        local text = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        text:SetPoint("LEFT", row, "LEFT", 42, 0)
+        text:SetText(label)
     end
 
     local textures = {}
@@ -529,18 +535,31 @@ local function CreateListItem(label, showDetails, icon)
     bgRight:SetGradient("HORIZONTAL", CreateColor(1, 1, 1, 0.06), CreateColor(1, 1, 1, 0))
     bgRight:Hide()
 
-    row:SetScript("OnEnter", function()
+    local function OnEnter()
         bgLeft:Show()
         bgRight:Show()
         for _, texture in pairs(textures) do texture:Show() end
         showDetails()
-    end)
-    row:SetScript("OnLeave", function()
+    end
+    local function OnLeave()
         bgLeft:Hide()
         bgRight:Hide()
         for _, texture in pairs(textures) do texture:Hide() end
-    end)
-    row:SetScript("OnClick", showDetails)
+    end
+
+    row:SetScript("OnEnter", OnEnter)
+    row:SetScript("OnLeave", OnLeave)
+    if check then
+        row:SetScript("OnClick", function() check:Click() end)
+        check:SetScript("OnEnter", OnEnter)
+        check:SetScript("OnLeave", OnLeave)
+        check:SetScript("OnClick", function(self)
+            toggle.onClick(self:GetChecked() and true or false)
+            row.Refresh()
+        end)
+    else
+        row:SetScript("OnClick", showDetails)
+    end
 
     yPos = yPos - 32
     return row
@@ -641,6 +660,7 @@ local function ShowEditModeLayoutSidebar()
 end
 
 local selectedRPMacro
+local rpMacroRows = {}
 
 local function SetRPMacroStatus(message, success)
     local status = _G.CP_RPMacroStatus
@@ -648,32 +668,11 @@ local function SetRPMacroStatus(message, success)
     status:SetText((success and "|cff55ff55" or "|cffff6060") .. message .. "|r")
 end
 
-local RP_MACRO_FAILURE_MESSAGES = {
-    combat = L.RP_MACRO_COMBAT or "You can't carve new macros while in combat.",
-    full = L.RP_MACRO_FULL or "Your General Macros are full. Make some room and try again.",
-}
-
 local function EnsureRPMacroSidebarControls()
-    if _G.CP_RPMacroInstall then return end
-
-    local installButton = CreateFrame("Button", "CP_RPMacroInstall", sideContent, "UIPanelButtonTemplate")
-    installButton:SetSize(190, 24)
-    installButton:SetPoint("TOPLEFT", sideContent, "TOPLEFT", 0, 0)
-    installButton:SetText(L.CREATE_RP_MACRO or "Create Macro")
-    installButton:SetScript("OnClick", function()
-        local ok, result = RPMacros.Install and RPMacros.Install(selectedRPMacro)
-        if ok then
-            local message = result == "updated"
-                and (L.RP_MACRO_UPDATED or "Macro rebuilt! Find it under General Macros.")
-                or (L.RP_MACRO_CREATED or "Macro built! Find it under General Macros.")
-            SetRPMacroStatus(message, true)
-        else
-            SetRPMacroStatus(RP_MACRO_FAILURE_MESSAGES[result] or L.RP_MACRO_FAILED or "Carpenter couldn't build the macro.", false)
-        end
-    end)
+    if _G.CP_RPMacroStatus then return end
 
     local status = sideContent:CreateFontString("CP_RPMacroStatus", "OVERLAY", "GameFontHighlightSmall")
-    status:SetPoint("TOPLEFT", installButton, "BOTTOMLEFT", 5, -12)
+    status:SetPoint("TOPLEFT", sideContent, "TOPLEFT", 5, 0)
     status:SetPoint("RIGHT", sideContent, "RIGHT", -5, 0)
     status:SetHeight(50)
     status:SetJustifyH("LEFT")
@@ -688,9 +687,10 @@ local function ShowRPMacroSidebar(macro)
     for line in macro.body:gmatch("[^\n]+") do
         lines[#lines + 1] = LighterCream .. line .. LightGrey
     end
-    local description = L.RP_MACRO_DESCRIPTION or "One of the author's own {hl}roleplay{/hl} macros, ready to rebuild on any character:\n\n{body}\n\nCreates or updates the account-wide {hl}{name}{/hl} macro."
+    local name = "|T" .. macro.icon .. ":0|t " .. macro.name
+    local description = L.RP_MACRO_DESCRIPTION or "One of the author's own {hl}roleplay{/hl} macros, ready to rebuild on any character:\n\n{body}\n\nCheck it to add the account-wide {hl}{name}{/hl} macro to General Macros. Uncheck it to remove the macro."
     description = description:gsub("{body}", function() return table.concat(lines, "\n") end)
-    description = description:gsub("{name}", function() return macro.name end)
+    description = description:gsub("{name}", function() return name end)
     description = description:gsub("{hl}", LighterCream):gsub("{/hl}", LightGrey)
     sideDesc:SetText(LightGrey .. description .. "|r")
     sideReloadHint:Hide()
@@ -700,8 +700,32 @@ local function ShowRPMacroSidebar(macro)
         selectedRPMacro = macro
         SetRPMacroStatus("", true)
     end
-    _G.CP_RPMacroInstall:Show()
     _G.CP_RPMacroStatus:Show()
+end
+
+local RP_MACRO_MESSAGES = {
+    created = L.RP_MACRO_CREATED or "Macro built! Find it under General Macros.",
+    updated = L.RP_MACRO_UPDATED or "Macro rebuilt! Find it under General Macros.",
+    removed = L.RP_MACRO_REMOVED or "Macro taken off the workbench.",
+    combat = L.RP_MACRO_COMBAT or "You can't touch your macros while in combat.",
+    full = L.RP_MACRO_FULL or "Your General Macros are full. Make some room and try again.",
+}
+
+local function SetRPMacroInstalled(macro, installed)
+    local install = RPMacros.Remove
+    if installed then install = RPMacros.Install end
+    local ok, result = false, "failed"
+    if install then
+        ok, result = install(macro)
+    end
+    ShowRPMacroSidebar(macro)
+    SetRPMacroStatus(RP_MACRO_MESSAGES[result] or L.RP_MACRO_FAILED or "Carpenter couldn't build the macro.", ok)
+end
+
+local function RefreshRPMacroRows()
+    for _, row in ipairs(rpMacroRows) do
+        row.Refresh()
+    end
 end
 
 local function CreateHiddenPage()
@@ -720,9 +744,15 @@ local function CreateHiddenPage()
             yPos = yPos - 24
         end
         widgets[#widgets + 1] = CreateHeader(L.SECTION_RP_MACROS or "RP Macros")
-        for _, macro in ipairs(macros) do
+        for index, macro in ipairs(macros) do
             local function ShowDetails() ShowRPMacroSidebar(macro) end
-            widgets[#widgets + 1] = CreateListItem(macro.name, ShowDetails, macro.icon)
+            local row = CreateListItem(macro.name, ShowDetails, {
+                name = "CP_RPMacro_" .. index,
+                isChecked = function() return RPMacros.IsInstalled and RPMacros.IsInstalled(macro) or false end,
+                onClick = function(checked) SetRPMacroInstalled(macro, checked) end,
+            })
+            widgets[#widgets + 1] = row
+            rpMacroRows[#rpMacroRows + 1] = row
             ShowHiddenPageSidebar = ShowHiddenPageSidebar or ShowDetails
         end
     end
@@ -762,8 +792,9 @@ local function SetSettingsView(showHidden)
     footerVersionButton:ClearAllPoints()
     footerVersionButton:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, footerYPos - 3)
     SetSidebarDefault()
-    if hiddenSettingsShown and ShowHiddenPageSidebar then
-        ShowHiddenPageSidebar()
+    if hiddenSettingsShown then
+        RefreshRPMacroRows()
+        if ShowHiddenPageSidebar then ShowHiddenPageSidebar() end
     end
     scrollFrame:SetVerticalScroll(0)
 
@@ -788,6 +819,7 @@ UpdateFooterVersionText(false)
 SetSettingsView(false)
 
 SyncCheckboxesFromDatabase = function()
+    RefreshRPMacroRows()
     if not CarpenterDB then return end
 
     for key, value in pairs(CarpenterDB) do
@@ -797,6 +829,14 @@ SyncCheckboxesFromDatabase = function()
         end
     end
 end
+
+-- RP macro checkboxes mirror the macro list, which can also change in the
+-- Blizzard macro window while the settings are open.
+local macroWatcher = CreateFrame("Frame")
+macroWatcher:RegisterEvent("UPDATE_MACROS")
+macroWatcher:SetScript("OnEvent", function()
+    if frame:IsVisible() then RefreshRPMacroRows() end
+end)
 
 -- Saved variables are guaranteed by ADDON_LOADED. Keep the world event as a
 -- fallback for clients that defer parts of settings initialization.

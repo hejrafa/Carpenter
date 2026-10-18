@@ -52,6 +52,10 @@ EditMacro = function(index, name, icon, body)
     macros[index] = { name = name, icon = icon, body = body }
     return index
 end
+DeleteMacro = function(index)
+    macros[index] = nil
+    accountCount = accountCount - 1
+end
 
 local ok, result = rp.Install(byName.Bow)
 assert(ok and result == "created", "installer did not create the Bow macro")
@@ -70,14 +74,24 @@ accountCount = 1
 inCombat = true
 ok, result = rp.Install(byName["1v1"])
 assert(ok == false and result == "combat", "installer must refuse combat-time macro changes")
+ok, result = rp.Remove(byName.Bow)
+assert(ok == false and result == "combat", "remover must refuse combat-time macro changes")
 inCombat = false
+
+assert(rp.IsInstalled(byName.Bow), "Bow should read as installed")
+assert(not rp.IsInstalled(byName["1v1"]), "1v1 should read as not installed")
+ok, result = rp.Remove(byName.Bow)
+assert(ok and result == "removed" and not rp.IsInstalled(byName.Bow), "unchecking did not remove the Bow macro")
+ok, result = rp.Remove(byName.Bow)
+assert(ok and result == "removed", "removing a missing macro should be a no-op")
 
 for _, toc in ipairs({ "Carpenter.toc", "Carpenter_Camelot.toc", "Carpenter_TBC.toc", "Carpenter_Vanilla.toc" }) do
     assertContains(read(toc), "Modules\\RPMacros.lua", toc .. " RP macros load entry")
 end
 
 local config = read("config.lua")
-assertContains(config, "RPMacros.Install", "one-click RP macro installer")
-assertContains(config, "CreateListItem(macro.name, ShowDetails, macro.icon)", "RP macro list items")
+assertContains(config, "if installed then install = RPMacros.Install end", "RP macro checkbox install/remove")
+assertContains(config, "CreateListItem(macro.name, ShowDetails, {", "RP macro checkbox rows")
+assert(not config:find("CP_RPMacroInstall", 1, true), "RP macros are installed by checkbox, not a button")
 
 print("rp macro fixtures: passed")

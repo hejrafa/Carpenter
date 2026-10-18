@@ -1,7 +1,8 @@
 --[[ Carpenter - Personal RP macros ]]
 -- The author's favorite roleplay macros, kept on the hidden settings page so
 -- they can be rebuilt on any client or account in one click. Each one is an
--- account-wide (General) macro; installing again updates it in place.
+-- account-wide (General) macro: checking it on the page installs (or updates)
+-- it, unchecking removes it.
 local _, ns = ...
 ns.Private = ns.Private or {}
 
@@ -50,4 +51,33 @@ function RPMacros.Install(macro)
         return false, "failed"
     end
     return true, "created"
+end
+
+function RPMacros.IsInstalled(macro)
+    if type(macro) ~= "table" or type(GetMacroIndexByName) ~= "function" then
+        return false
+    end
+    local index = GetMacroIndexByName(macro.name)
+    return index ~= nil and index > 0
+end
+
+function RPMacros.Remove(macro)
+    if type(macro) ~= "table" then
+        return false, "invalid"
+    end
+    if InCombatLockdown and InCombatLockdown() then
+        return false, "combat"
+    end
+    if type(GetMacroIndexByName) ~= "function" or type(DeleteMacro) ~= "function" then
+        return false, "unsupported"
+    end
+
+    local index = GetMacroIndexByName(macro.name)
+    if index and index > 0 then
+        local ok = pcall(DeleteMacro, index)
+        if not ok then
+            return false, "failed"
+        end
+    end
+    return true, "removed"
 end

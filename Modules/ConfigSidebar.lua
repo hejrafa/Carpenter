@@ -142,7 +142,7 @@ function Sidebar.Create(context)
         if _G["CP_WorldMap_POIIcons"] then
             _G["CP_WorldMap_POIIcons"]:Hide()
         end
-        for _, name in ipairs({ "CP_EditModeLayoutInstall", "CP_EditModeLayoutStatus", "CP_RPMacroInstall", "CP_RPMacroStatus" }) do
+        for _, name in ipairs({ "CP_EditModeLayoutInstall", "CP_EditModeLayoutStatus", "CP_RPMacroStatus" }) do
             if _G[name] then _G[name]:Hide() end
         end
     end
