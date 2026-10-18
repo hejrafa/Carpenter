@@ -710,9 +710,8 @@ local function ShowRPMacroSidebar(macro)
     for line in macro.body:gmatch("[^\n]+") do
         lines[#lines + 1] = LighterCream .. line .. LightGrey
     end
-    -- Font-height icon, nudged down onto the text baseline and trimmed of its
-    -- border like the macro previews (64px icon, 5..59 crop).
-    local name = "|T" .. macro.icon .. ":0:0:0:-2:64:64:5:59:5:59|t " .. macro.name
+    -- Font-height icon, nudged down onto the text baseline.
+    local name = "|T" .. macro.icon .. ":0:0:0:-4|t " .. macro.name
     local description = L.RP_MACRO_DESCRIPTION or "One of the author's own {hl}roleplay{/hl} macros, ready to rebuild on any character:\n\n{body}\n\nCheck it to add the account-wide {hl}{name}{/hl} macro to General Macros. Uncheck it to remove the macro."
     description = description:gsub("{body}", function() return table.concat(lines, "\n") end)
     description = description:gsub("{name}", function() return name end)
