@@ -50,7 +50,7 @@ RPMacros.Macros = {
     {
         name = "Camp",
         icon = 135805,
-        body = "/sit\n/e unpacks a small fire and warms their hands.",
+        body = "/sit\n/e settles in by the fire and gives everyone around it a quiet nod.",
     },
     {
         name = "Victory",
