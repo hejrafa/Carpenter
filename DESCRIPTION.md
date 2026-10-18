@@ -66,9 +66,9 @@ Players looking for a full UI replacement, a custom layout framework, or a compl
 
 ### Unit Frames
 
-- **Class Colored Health** - Color player, target, focus, and party health bars by class.
+- **Class Colored Health** - Color player, target, target of target, focus, and party health bars by class.
 - **Threat Percentage** - Show your threat on the target frame.
-- **Debuffs** - Highlight stuns, polymorphs, fears, and other crowd control on the player and target frames.
+- **Debuffs** - Highlight stuns, polymorphs, fears, and other crowd control on the player and target frames. On WoW Forever, crowd control shows as a big icon over the player, target, focus, and party portraits.
 - **Buffs** - Highlight your big cooldowns and immunities on the player frame.
 - **Class Icon Portrait** - Swap unit portraits for class icons.
 - **Hide Unit Frame Combat Text** - Keep damage and healing numbers off your portraits.
@@ -83,7 +83,7 @@ Players looking for a full UI replacement, a custom layout framework, or a compl
 ### Chat
 
 - **Filter** - Block bot ads, gambling spam, and duplicate lines.
-- **Cleaner** - Restyle system and loot messages into short, color-coded lines.
+- **Cleaner** - Restyle system and loot messages into short, color-coded lines, with players' names in their class color when they roll.
 - **Hide Chat Buttons** - Fade the chat buttons until you hover over the chat.
 
 ### Automations
