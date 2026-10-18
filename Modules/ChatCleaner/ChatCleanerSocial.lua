@@ -108,8 +108,17 @@ function Social.Create(config)
     local function GetUnitClassToken(unit, key)
         local ok, classToken = pcall(function()
             if UnitIsPlayer and not UnitIsPlayer(unit) then return nil end
-            local name = UnitName(unit)
-            if not name or PlayerKey(name) ~= key then return nil end
+            local name, surname = UnitName(unit)
+            if not name then return nil end
+            -- WoW Forever returns the surname as UnitName's second value but
+            -- writes system lines with the full "First Surname".
+            local fullName = name
+            local client = Carpenter and Carpenter.Client
+            if client and client.isForever and type(surname) == "string" and surname ~= "" then
+                local consts = Constants and Constants.CharacterNameSeparatorConsts
+                fullName = name .. (consts and consts.CHARACTERNAME_SURNAME_SEPARATOR or " ") .. surname
+            end
+            if PlayerKey(fullName) ~= key and PlayerKey(name) ~= key then return nil end
             local _, token = UnitClass(unit)
             return token
         end)

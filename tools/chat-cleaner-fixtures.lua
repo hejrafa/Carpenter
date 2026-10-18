@@ -1007,6 +1007,34 @@ do
         failures[#failures + 1] = "roll: an unknown roller should keep the plain color, got [" .. tostring(out) .. "]"
     end
 
+    -- WoW Forever: UnitName returns the surname separately, while the roll
+    -- line names the player in full.
+    local realUnitName, realUnitClass = UnitName, UnitClass
+    Carpenter.Client.isForever = true
+    UnitName = function(unit)
+        if unit == "player" then return "Koji", "Kurosawa" end
+        if unit == "party1" then return "Merrek", "Grimaldus" end
+    end
+    UnitClass = function(unit)
+        if unit == "player" then return "Rogue", "ROGUE" end
+        if unit == "party1" then return "Priest", "PRIEST" end
+        return nil, nil
+    end
+    groupMembers = 1
+    out = Roll("Koji Kurosawa rolls 29 (1-100)")
+    additionalChecks = additionalChecks + 1
+    if plain(out) ~= "Koji Kurosawa rolls 29 (1-100)" or not out:find("|cfffff569Koji Kurosawa|r", 1, true) then
+        failures[#failures + 1] = "roll: Forever surnames should still find your class, got [" .. tostring(out) .. "]"
+    end
+    out = Roll("Merrek Grimaldus rolls 12 (1-100)")
+    additionalChecks = additionalChecks + 1
+    if not (out and out:find("|cffffffffMerrek Grimaldus|r", 1, true)) then
+        failures[#failures + 1] = "roll: Forever surnames should find a party member's class, got [" .. tostring(out) .. "]"
+    end
+    groupMembers = 0
+    Carpenter.Client.isForever = nil
+    UnitName, UnitClass = realUnitName, realUnitClass
+
     GetPlayerInfoByGUID = function(guid)
         if guid == "Player-1-0000KOJI" then return "Mage", "MAGE" end
     end
