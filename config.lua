@@ -143,6 +143,7 @@ local LightGrey = "|cffaaaaaa"
 local ConfigSidebar = ns and ns.Private and ns.Private.ConfigSidebar or {}
 local ConfigOptions = ns and ns.Private and ns.Private.ConfigOptions or {}
 local EditModeLayout = ns and ns.Private and ns.Private.EditModeLayout or {}
+local RPMacros = ns and ns.Private and ns.Private.RPMacros or {}
 local sidebarApi = ConfigSidebar.Create and ConfigSidebar.Create({
     Frame = frame,
     L = L,
@@ -160,7 +161,7 @@ local ToggleSideImage = sidebarApi.ToggleImage or function() end
 local ShowSidebarContent = sidebarApi.ShowContent or function() end
 local SIDE_GAP = sidebarApi.SideGap or 16
 local hiddenSettingsShown = false
-local ShowEditModeLayoutSidebar
+local ShowHiddenPageSidebar
 
 -- =========================
 -- Main Scroll Area
@@ -185,8 +186,8 @@ scrollFrame:SetScript("OnMouseWheel", function(self, delta)
 end)
 
 scrollFrame:SetScript("OnLeave", function()
-    if hiddenSettingsShown and ShowEditModeLayoutSidebar then
-        ShowEditModeLayoutSidebar()
+    if hiddenSettingsShown and ShowHiddenPageSidebar then
+        ShowHiddenPageSidebar()
     else
         SetSidebarDefault()
     end
@@ -463,7 +464,7 @@ local function ShowWidget(widget, shown)
     end
 end
 
-local function CreateListItem(label, showDetails)
+local function CreateListItem(label, showDetails, icon)
     local row = CreateFrame("Button", nil, content)
     row:SetHeight(32)
     row:SetPoint("TOPLEFT", 0, yPos)
@@ -473,6 +474,14 @@ local function CreateListItem(label, showDetails)
     local text = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     text:SetPoint("LEFT", row, "LEFT", 42, 0)
     text:SetText(label)
+
+    if icon then
+        local iconTexture = row:CreateTexture(nil, "ARTWORK")
+        iconTexture:SetSize(20, 20)
+        iconTexture:SetPoint("RIGHT", text, "LEFT", -6, 0)
+        iconTexture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        iconTexture:SetTexture(icon)
+    end
 
     local textures = {}
     local function CreateLine(anchor, gStart, gEnd)
@@ -619,7 +628,7 @@ local function EnsureEditModeLayoutSidebarControls()
     status:SetText("")
 end
 
-ShowEditModeLayoutSidebar = function()
+local function ShowEditModeLayoutSidebar()
     ToggleSideImage(nil)
     local description = L.EDIT_MODE_LAYOUT_DESCRIPTION or "This is the addon author's preferred {hl}Edit Mode{/hl} layout.\n\nCreate or update the account-wide {hl}Carpenter{/hl} layout, then select it in Edit Mode."
     description = description:gsub("{hl}", LighterCream):gsub("{/hl}", LightGrey)
@@ -631,20 +640,97 @@ ShowEditModeLayoutSidebar = function()
     _G.CP_EditModeLayoutStatus:Show()
 end
 
-local function CreateHiddenEditModePage()
-    if not (EditModeLayout.IsAvailable and EditModeLayout.IsAvailable()) then
-        return {}, -SCROLL_CONTENT_TOP_PADDING
-    end
+local selectedRPMacro
 
+local function SetRPMacroStatus(message, success)
+    local status = _G.CP_RPMacroStatus
+    if not status then return end
+    status:SetText((success and "|cff55ff55" or "|cffff6060") .. message .. "|r")
+end
+
+local RP_MACRO_FAILURE_MESSAGES = {
+    combat = L.RP_MACRO_COMBAT or "You can't carve new macros while in combat.",
+    full = L.RP_MACRO_FULL or "Your General Macros are full. Make some room and try again.",
+}
+
+local function EnsureRPMacroSidebarControls()
+    if _G.CP_RPMacroInstall then return end
+
+    local installButton = CreateFrame("Button", "CP_RPMacroInstall", sideContent, "UIPanelButtonTemplate")
+    installButton:SetSize(190, 24)
+    installButton:SetPoint("TOPLEFT", sideContent, "TOPLEFT", 0, 0)
+    installButton:SetText(L.CREATE_RP_MACRO or "Create Macro")
+    installButton:SetScript("OnClick", function()
+        local ok, result = RPMacros.Install and RPMacros.Install(selectedRPMacro)
+        if ok then
+            local message = result == "updated"
+                and (L.RP_MACRO_UPDATED or "Macro rebuilt! Find it under General Macros.")
+                or (L.RP_MACRO_CREATED or "Macro built! Find it under General Macros.")
+            SetRPMacroStatus(message, true)
+        else
+            SetRPMacroStatus(RP_MACRO_FAILURE_MESSAGES[result] or L.RP_MACRO_FAILED or "Carpenter couldn't build the macro.", false)
+        end
+    end)
+
+    local status = sideContent:CreateFontString("CP_RPMacroStatus", "OVERLAY", "GameFontHighlightSmall")
+    status:SetPoint("TOPLEFT", installButton, "BOTTOMLEFT", 5, -12)
+    status:SetPoint("RIGHT", sideContent, "RIGHT", -5, 0)
+    status:SetHeight(50)
+    status:SetJustifyH("LEFT")
+    status:SetJustifyV("TOP")
+    status:SetWordWrap(true)
+    status:SetText("")
+end
+
+local function ShowRPMacroSidebar(macro)
+    ToggleSideImage(nil)
+    local lines = {}
+    for line in macro.body:gmatch("[^\n]+") do
+        lines[#lines + 1] = LighterCream .. line .. LightGrey
+    end
+    local description = L.RP_MACRO_DESCRIPTION or "One of the author's own {hl}roleplay{/hl} macros, ready to rebuild on any character:\n\n{body}\n\nCreates or updates the account-wide {hl}{name}{/hl} macro."
+    description = description:gsub("{body}", function() return table.concat(lines, "\n") end)
+    description = description:gsub("{name}", function() return macro.name end)
+    description = description:gsub("{hl}", LighterCream):gsub("{/hl}", LightGrey)
+    sideDesc:SetText(LightGrey .. description .. "|r")
+    sideReloadHint:Hide()
+    ShowSidebarContent()
+    EnsureRPMacroSidebarControls()
+    if selectedRPMacro ~= macro then
+        selectedRPMacro = macro
+        SetRPMacroStatus("", true)
+    end
+    _G.CP_RPMacroInstall:Show()
+    _G.CP_RPMacroStatus:Show()
+end
+
+local function CreateHiddenPage()
     local widgets = {}
     yPos = -SCROLL_CONTENT_TOP_PADDING
-    widgets[#widgets + 1] = CreateHeader(L.SECTION_EDIT_MODE_LAYOUT or "Layout")
-    widgets[#widgets + 1] = CreateListItem(L.EDIT_MODE_LAYOUT_NAME or "Carpenter", ShowEditModeLayoutSidebar)
+
+    if EditModeLayout.IsAvailable and EditModeLayout.IsAvailable() then
+        widgets[#widgets + 1] = CreateHeader(L.SECTION_EDIT_MODE_LAYOUT or "Layout")
+        widgets[#widgets + 1] = CreateListItem(L.EDIT_MODE_LAYOUT_NAME or "Carpenter", ShowEditModeLayoutSidebar)
+        ShowHiddenPageSidebar = ShowHiddenPageSidebar or ShowEditModeLayoutSidebar
+    end
+
+    local macros = RPMacros.Macros or {}
+    if #macros > 0 then
+        if #widgets > 0 then
+            yPos = yPos - 24
+        end
+        widgets[#widgets + 1] = CreateHeader(L.SECTION_RP_MACROS or "RP Macros")
+        for _, macro in ipairs(macros) do
+            local function ShowDetails() ShowRPMacroSidebar(macro) end
+            widgets[#widgets + 1] = CreateListItem(macro.name, ShowDetails, macro.icon)
+            ShowHiddenPageSidebar = ShowHiddenPageSidebar or ShowDetails
+        end
+    end
 
     return widgets, yPos
 end
 
-local hiddenWidgets, hiddenYPos = CreateHiddenEditModePage()
+local hiddenWidgets, hiddenYPos = CreateHiddenPage()
 local hasHiddenSettings = #hiddenWidgets > 0
 
 -- =========================
@@ -676,8 +762,8 @@ local function SetSettingsView(showHidden)
     footerVersionButton:ClearAllPoints()
     footerVersionButton:SetPoint("TOPRIGHT", content, "TOPRIGHT", -20, footerYPos - 3)
     SetSidebarDefault()
-    if hiddenSettingsShown then
-        ShowEditModeLayoutSidebar()
+    if hiddenSettingsShown and ShowHiddenPageSidebar then
+        ShowHiddenPageSidebar()
     end
     scrollFrame:SetVerticalScroll(0)
 
