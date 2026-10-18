@@ -985,6 +985,40 @@ do
     issecretvalue = nil
 end
 
+-- /roll results: the roller's name takes their class color, found on a
+-- visible unit or remembered from their chat messages.
+do
+    local function Roll(message)
+        local captured
+        postProcessor.ProcessMessage({}, function(_, text) captured = text end, message, {})
+        return captured
+    end
+    local warriorColor, mageColor = "|cffc79c6e", "|cff40c7eb"
+
+    local out = Roll("Tester rolls 29 (1-100)")
+    additionalChecks = additionalChecks + 1
+    if plain(out) ~= "Tester rolls 29 (1-100)" or not out:find(warriorColor .. "Tester|r", 1, true) then
+        failures[#failures + 1] = "roll: your own roll should use your class color, got [" .. tostring(out) .. "]"
+    end
+
+    out = Roll("Koji Kurosawa rolls 77 (1-100)")
+    additionalChecks = additionalChecks + 1
+    if plain(out) ~= "Koji Kurosawa rolls 77 (1-100)" or out:find(warriorColor, 1, true) or out:find(mageColor, 1, true) then
+        failures[#failures + 1] = "roll: an unknown roller should keep the plain color, got [" .. tostring(out) .. "]"
+    end
+
+    GetPlayerInfoByGUID = function(guid)
+        if guid == "Player-1-0000KOJI" then return "Mage", "MAGE" end
+    end
+    filter(nil, "CHAT_MSG_SAY", "1v1", "Koji Kurosawa", "Common", "", "", "", 0, 0, "", 7, 1, "Player-1-0000KOJI")
+    out = Roll("Koji Kurosawa rolls 77 (1-100)")
+    additionalChecks = additionalChecks + 1
+    if plain(out) ~= "Koji Kurosawa rolls 77 (1-100)" or not out:find(mageColor .. "Koji Kurosawa|r", 1, true) then
+        failures[#failures + 1] = "roll: a roller seen in chat should use their class color, got [" .. tostring(out) .. "]"
+    end
+    GetPlayerInfoByGUID = nil
+end
+
 if #failures > 0 then
     io.stderr:write(table.concat(failures, "\n") .. "\n")
     os.exit(1)

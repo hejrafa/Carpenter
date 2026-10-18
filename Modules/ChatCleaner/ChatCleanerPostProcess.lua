@@ -64,6 +64,7 @@ function PostProcess.Create(config)
     local colorLootLiteral = config.ColorLootLiteral or "|cffc8c8c8"
     local colorGreen = config.ColorGreen or "|cff00ff00"
     local getChannelMessageColor = config.GetChannelMessageColor or function() return colorLootLiteral end
+    local getPlayerNameColor = config.GetPlayerNameColor or function() return nil end
     local colorRed = config.ColorRed or "|cffff4040"
     local honorDelay = config.HonorDelay or 3
     local joinDedupDelay = config.JoinDedupDelay or 8
@@ -217,6 +218,11 @@ function PostProcess.Create(config)
         return colorRed .. T("CHAT_HARDCORE_DEATH", "%s %s! Level %s", playerName, causeLabel, level) .. "|r"
     end
 
+    -- Rollers get their class color, like names in say and party chat.
+    local function RollNameColor(name)
+        return getPlayerNameColor(name) or colorLootLiteral
+    end
+
     local function StyleLootRollNames(text)
         if not text or type(text) ~= "string" then return text end
 
@@ -307,7 +313,7 @@ function PostProcess.Create(config)
                 if short == "You" then
                     return colorLootLiteral .. (L.CHAT_YOU or "You") .. "|r " .. Literal("roll " .. rollNumber .. ":") .. " " .. item
                 end
-                return colorLootLiteral .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber .. ":") .. " " .. item
+                return RollNameColor(short) .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber .. ":") .. " " .. item
             end
             return name .. " " .. rollWord .. " " .. rollNumber .. ": " .. item
         end)
@@ -317,7 +323,7 @@ function PostProcess.Create(config)
                 if short == "You" then
                     return colorLootLiteral .. (L.CHAT_YOU or "You") .. "|r " .. Literal("roll " .. rollNumber .. " " .. rangeText)
                 end
-                return colorLootLiteral .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber .. " " .. rangeText)
+                return RollNameColor(short) .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber .. " " .. rangeText)
             end
             return name .. " " .. rollWord .. " " .. rollNumber .. " " .. rangeText
         end)
@@ -327,7 +333,7 @@ function PostProcess.Create(config)
                 if short == "You" then
                     return colorLootLiteral .. (L.CHAT_YOU or "You") .. "|r " .. Literal("roll " .. rollNumber)
                 end
-                return colorLootLiteral .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber)
+                return RollNameColor(short) .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber)
             end
             return name .. " " .. rollWord .. " " .. rollNumber
         end)

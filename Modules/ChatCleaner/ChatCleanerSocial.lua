@@ -81,6 +81,69 @@ function Social.Create(config)
         return name:lower()
     end
 
+    -- System lines like /roll results only carry a name, so Blizzard never
+    -- class-colors it the way it does chat senders. Look the class up on the
+    -- units we can see, then on players who spoke in chat this session.
+    local senderClasses = {}
+
+    local function IsReadable(value)
+        if issecretvalue then
+            local ok, secret = pcall(issecretvalue, value)
+            if not ok or secret then return false end
+        end
+        return true
+    end
+
+    function api.RememberSenderClass(name, guid)
+        if not GetPlayerInfoByGUID or not IsReadable(name) or not IsReadable(guid) then return end
+        if type(guid) ~= "string" or guid == "" then return end
+        local key = PlayerKey(name)
+        if not key then return end
+        local ok, _, classToken = pcall(GetPlayerInfoByGUID, guid)
+        if ok and type(classToken) == "string" and IsReadable(classToken) then
+            senderClasses[key] = classToken
+        end
+    end
+
+    local function GetUnitClassToken(unit, key)
+        local ok, classToken = pcall(function()
+            if UnitIsPlayer and not UnitIsPlayer(unit) then return nil end
+            local name = UnitName(unit)
+            if not name or PlayerKey(name) ~= key then return nil end
+            local _, token = UnitClass(unit)
+            return token
+        end)
+        if ok and type(classToken) == "string" and IsReadable(classToken) then
+            return classToken
+        end
+    end
+
+    function api.GetPlayerClassColor(name)
+        local key = PlayerKey(name)
+        if not key or not UnitName or not UnitClass then return nil end
+
+        local units = { "player", "target", "focus", "mouseover" }
+        local groupPrefix = (IsInRaid and IsInRaid()) and "raid" or "party"
+        for i = 1, (GetNumGroupMembers and GetNumGroupMembers() or 0) do
+            units[#units + 1] = groupPrefix .. i
+        end
+
+        local classToken
+        for _, unit in ipairs(units) do
+            classToken = GetUnitClassToken(unit, key)
+            if classToken then break end
+        end
+        classToken = classToken or senderClasses[key]
+
+        local color = classToken and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classToken]
+        if not color then return nil end
+        if type(color.colorStr) == "string" then
+            return "|c" .. color.colorStr
+        end
+        local function Byte(value) return math.floor((value or 1) * 255 + 0.5) end
+        return string.format("|cff%02x%02x%02x", Byte(color.r), Byte(color.g), Byte(color.b))
+    end
+
     local function GetFriendCount()
         if C_FriendList and C_FriendList.GetNumFriends then
             local ok, count = pcall(C_FriendList.GetNumFriends)

@@ -241,6 +241,7 @@ local socialFormatter = ChatCleanerSocial.Create and ChatCleanerSocial.Create({
 }) or {}
 local FormatBattlegroundAndGroupNotice = socialFormatter.FormatBattlegroundAndGroupNotice
 local FormatSystemSocialMessage = socialFormatter.FormatSystemSocialMessage
+local RememberSenderClass = socialFormatter.RememberSenderClass
 
 local postProcessor = ChatCleanerPostProcess.Create and ChatCleanerPostProcess.Create({
     L = L,
@@ -253,6 +254,7 @@ local postProcessor = ChatCleanerPostProcess.Create and ChatCleanerPostProcess.C
     ColorLootLiteral = ColorLootLiteral,
     ColorGreen = ColorGreen,
     GetChannelMessageColor = GetChannelMessageColor,
+    GetPlayerNameColor = socialFormatter.GetPlayerClassColor,
     ColorRed = ColorRed,
     HonorDelay = 3,
     JoinDedupDelay = 8,
@@ -297,6 +299,12 @@ local function ChatFilterImpl(self, event, msg, author, ...)
             end
         end
         return false, msg, author, ...
+    end
+
+    -- Chat events carry the sender's GUID (arg12); remember their class so
+    -- later system lines about them, like /roll results, can be colored too.
+    if RememberSenderClass and author and author ~= "" then
+        RememberSenderClass(author, select(10, ...))
     end
 
     if event == "CHAT_MSG_TEXT_EMOTE" then
