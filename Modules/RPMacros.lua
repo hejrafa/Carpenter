@@ -28,39 +28,14 @@ RPMacros.Macros = {
         body = "/crack\n/roll",
     },
     {
-        name = "Greet",
-        icon = 236681,
-        body = "/bow\n/s Well met, %t.",
-    },
-    {
-        name = "Duel",
-        icon = 132336,
-        body = "/duel\n/s Draw your blade, %t.",
-    },
-    {
         name = "Coin",
         icon = 133784,
         body = "/e flips a gold coin without looking.\n/roll 2",
     },
     {
-        name = "Letter",
-        icon = 133471,
-        body = "/e slips a sealed letter into %t's pocket.",
-    },
-    {
         name = "Camp",
         icon = 135805,
         body = "/sit\n/e settles in by the fire and gives everyone around it a quiet nod.",
-    },
-    {
-        name = "Victory",
-        icon = 132333,
-        body = "/flex\n/s Next.",
-    },
-    {
-        name = "Vanish",
-        icon = 132331,
-        body = "#showtooltip\n/cast Vanish\n/e melts into the shadows.",
     },
 }
 

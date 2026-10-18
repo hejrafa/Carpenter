@@ -30,7 +30,7 @@ end
 assert(byName.Bow and byName.Bow.body == "/bow" and byName.Bow.icon == 237573, "Bow macro changed")
 assert(byName["1v1"] and byName["1v1"].body == "/whistle\n/s 1v1" and byName["1v1"].icon == 132269, "1v1 macro changed")
 assert(byName.Roll and byName.Roll.body == "/crack\n/roll" and byName.Roll.icon == 237284, "Roll ritual macro changed")
-assert(#rp.Macros == 10, "expected 10 RP macros")
+assert(#rp.Macros == 5, "expected 5 RP macros")
 
 local inCombat = false
 local macros = {}
