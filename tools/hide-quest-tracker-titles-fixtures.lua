@@ -26,16 +26,6 @@ local function NewHeader(height)
     }
 end
 
--- The Professions section: its header bar art goes, its headline stays.
-local professionsBackground = {
-    color = { 1, 1, 1, 1 },
-    SetVertexColor = function(self, r, g, b, a) self.color = { r, g, b, a or 1 } end,
-    GetVertexColor = function(self) return unpack(self.color) end,
-}
-local professionsHeader = NewHeader(26)
-professionsHeader.Background = professionsBackground
-ProfessionsRecipeTracker = { Header = professionsHeader }
-
 local allObjectivesHeader = NewHeader(32)
 local questsHeader = NewHeader(26)
 local campaignHeader = NewHeader(26)
@@ -207,8 +197,6 @@ eventFrame.OnEvent(eventFrame, "PLAYER_REGEN_ENABLED")
 assert(allObjectivesHeader.alpha == 0, "All Objectives header should hide after combat")
 assert(questsHeader.alpha == 0, "Quests header should hide after combat")
 assert(campaignHeader.alpha == 0, "Campaign header should hide after combat")
-assert(professionsBackground.color[4] == 0, "the Professions header art should be hidden")
-assert(professionsHeader.alpha == 1 and professionsHeader.height == 26, "the Professions headline should stay")
 
 featureEnabled = false
 registeredFeature:Disable()
@@ -221,7 +209,6 @@ assert(campaignHeader.height == 26, "Campaign header height should be restored")
 assert(questModule.offsetY == -38, "first tracker module position should be restored")
 assert(questModule.height == 200, "quest module height should be restored")
 assert(campaignModule.height == 160, "campaign module height should be restored")
-assert(professionsBackground.color[4] == 1, "the Professions header art should be restored")
 
 Carpenter.Client.isForever = true
 featureEnabled = true
@@ -231,7 +218,6 @@ assert(questsHeader.alpha == 0, "Forever should still hide the Quests header")
 assert(campaignHeader.alpha == 1, "Forever must not hide the Retail Campaign header")
 assert(campaignHeader.height == 26, "Forever must not collapse the Retail Campaign header")
 assert(campaignModule.height == 160, "Forever must not compact the Retail Campaign module")
-assert(professionsBackground.color[4] == 0, "Forever should hide the Professions header art")
 
 featureEnabled = false
 registeredFeature:Disable()

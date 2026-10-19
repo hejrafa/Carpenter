@@ -25,7 +25,6 @@ local stateKeys = {
     explorerModeChatWindowRepairVersion = true,
     foreverDefaultsResetVersion = true,
     noObjectiveQuestWatches = true,
-    trackerProbeLog = true, -- TEMP professions header probe
 }
 
 -- Kept in defaults/settings definitions for history, but currently hidden by
