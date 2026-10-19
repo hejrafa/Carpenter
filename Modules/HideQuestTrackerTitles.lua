@@ -8,6 +8,7 @@ local MODULE_HEIGHT_MODIFIER = "CarpenterHiddenHeader"
 local secureCallFunction = securecallfunction
 local originalAlphas = setmetatable({}, { __mode = "k" })
 local originalHeights = setmetatable({}, { __mode = "k" })
+local originalVertexColors = setmetatable({}, { __mode = "k" })
 local managedModuleHeights = setmetatable({}, { __mode = "k" })
 local managedModuleAnchors = setmetatable({}, { __mode = "k" })
 local hookedTrackers = setmetatable({}, { __mode = "k" })
@@ -212,7 +213,33 @@ local function CollapseQuestModuleHeight(module, removedHeight)
     CallWidgetMethodSecurely(module, "SetHeight", collapsedHeight)
 end
 
+-- The Professions section keeps its "Professions" headline but loses the
+-- header bar art behind it. Blizzard's add animation fades that texture's
+-- alpha in whenever a recipe is first tracked, so it's hidden through its
+-- vertex color, which nothing else touches.
+local function GetHeaderBackgrounds()
+    local tracker = _G.ProfessionsRecipeTracker
+    local background = tracker and tracker.Header and tracker.Header.Background
+    return background and { background } or {}
+end
+
+local function HideHeaderBackgrounds()
+    for _, background in ipairs(GetHeaderBackgrounds()) do
+        if originalVertexColors[background] == nil and type(background.GetVertexColor) == "function" then
+            local ok, r, g, b, a = pcall(background.GetVertexColor, background)
+            if ok then originalVertexColors[background] = { r or 1, g or 1, b or 1, a or 1 } end
+        end
+        local color = originalVertexColors[background] or { 1, 1, 1, 1 }
+        CallWidgetMethodSecurely(background, "SetVertexColor", color[1], color[2], color[3], 0)
+    end
+end
+
 local function RestoreHeaders()
+    for background, color in pairs(originalVertexColors) do
+        CallWidgetMethodSecurely(background, "SetVertexColor", color[1], color[2], color[3], color[4])
+        originalVertexColors[background] = nil
+    end
+
     for frame, alpha in pairs(originalAlphas) do
         SetAlphaSecurely(frame, alpha)
         originalAlphas[frame] = nil
@@ -276,6 +303,7 @@ local function ApplyQuestTrackerTitleVisibility()
     for _, module in ipairs(GetQuestTrackerModules()) do
         CollapseQuestModuleHeight(module, module.Header and originalHeights[module.Header])
     end
+    HideHeaderBackgrounds()
 end
 
 local function EnsureTrackerUpdateHook()
