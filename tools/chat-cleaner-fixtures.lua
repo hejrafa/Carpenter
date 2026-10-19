@@ -1024,17 +1024,34 @@ do
         if unit == "party1" then return "Priest", "PRIEST" end
         return nil, nil
     end
-    groupMembers = 1
     out = Roll("Koji Kurosawa rolls 29 (1-100)")
     additionalChecks = additionalChecks + 1
     if plain(out) ~= "Koji Kurosawa rolls 29 (1-100)" or not out:find("|cfffff569Koji Kurosawa|r", 1, true) then
         failures[#failures + 1] = "roll: Forever surnames should still find your class, got [" .. tostring(out) .. "]"
     end
-    out = Roll("Merrek Grimaldus rolls 12 (1-100)")
+    -- The class lookup itself also finds party members by their full name.
+    groupMembers = 1
+    local social = ns.Private.ChatCleanerSocial.Create({})
     additionalChecks = additionalChecks + 1
-    if not (out and out:find("|cffffffffMerrek Grimaldus|r", 1, true)) then
-        failures[#failures + 1] = "roll: Forever surnames should find a party member's class, got [" .. tostring(out) .. "]"
+    if social.GetPlayerClassColor("Merrek Grimaldus") ~= "|cffffffff" then
+        failures[#failures + 1] = "roll: Forever surnames should find a party member's class, got " .. tostring(social.GetPlayerClassColor("Merrek Grimaldus"))
     end
+    groupMembers = 0
+
+    -- In a party or raid the roll keeps that chat's color, not the class color.
+    groupMembers = 2
+    out = Roll("Koji Kurosawa rolls 29 (1-100)")
+    additionalChecks = additionalChecks + 1
+    if not out or out:find("|cfffff569", 1, true) or not out:find("|cffaaaaffKoji Kurosawa|r", 1, true) then
+        failures[#failures + 1] = "roll: in a party the roller should use the party color, got [" .. tostring(out) .. "]"
+    end
+    inRaid = true
+    out = Roll("Koji Kurosawa rolls 29 (1-100)")
+    additionalChecks = additionalChecks + 1
+    if not out or out:find("|cfffff569", 1, true) or not out:find("|cffff7f00Koji Kurosawa|r", 1, true) then
+        failures[#failures + 1] = "roll: in a raid the roller should use the raid color, got [" .. tostring(out) .. "]"
+    end
+    inRaid = false
     groupMembers = 0
     Carpenter.Client.isForever = nil
     UnitName, UnitClass = realUnitName, realUnitClass

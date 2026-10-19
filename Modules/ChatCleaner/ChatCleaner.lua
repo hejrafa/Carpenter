@@ -133,7 +133,10 @@ local RollPatterns = ChatCleanerLoot.BuildRollPatterns and ChatCleanerLoot.Build
 local RollPatternsFallback = ChatCleanerLoot.RollPatternsFallback or {}
 -- Assigned once the social formatter exists; the loot formatter is built first.
 local GetPlayerClassColor
+-- Roll names take their class color only outside a group; in a party or raid
+-- they keep that chat's color, like the rest of the roll line.
 local function GetPlayerNameColor(name)
+    if GetNumGroupMembers and GetNumGroupMembers() > 0 then return nil end
     return GetPlayerClassColor and GetPlayerClassColor(name)
 end
 local lootFormatter = ChatCleanerLoot.Create and ChatCleanerLoot.Create({
