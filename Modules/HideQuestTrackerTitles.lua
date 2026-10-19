@@ -223,7 +223,53 @@ local function GetHeaderBackgrounds()
     return background and { background } or {}
 end
 
+-- TEMP professions header probe: logs the header's state to
+-- CarpenterDB.trackerProbeLog. Remove once the header art hides on Forever.
+local function ProbeTrackerText(value)
+    if issecretvalue then
+        local ok, secret = pcall(issecretvalue, value)
+        if not ok or secret then return "S" end
+    end
+    if value == nil then return "-" end
+    local ok, text = pcall(tostring, value)
+    return ok and text or "?"
+end
+
+local function ProbeProfessionsHeader(stage)
+    if type(CarpenterDB) ~= "table" then return end
+    local log = CarpenterDB.trackerProbeLog
+    if type(log) ~= "table" then
+        log = {}
+        CarpenterDB.trackerProbeLog = log
+    end
+    if #log >= 60 then return end
+    pcall(function()
+        local tracker = _G.ProfessionsRecipeTracker
+        local header = tracker and tracker.Header
+        local background = header and header.Background
+        local line = stage .. " tracker=" .. ProbeTrackerText(tracker ~= nil) .. " header=" .. ProbeTrackerText(header ~= nil)
+            .. " bg=" .. ProbeTrackerText(background ~= nil)
+        if background then
+            local r, g, b, a = background:GetVertexColor()
+            line = line .. " atlas=" .. ProbeTrackerText(background.GetAtlas and background:GetAtlas())
+                .. " vc=" .. ProbeTrackerText(r) .. "," .. ProbeTrackerText(g) .. "," .. ProbeTrackerText(b) .. "," .. ProbeTrackerText(a)
+                .. " alpha=" .. ProbeTrackerText(background:GetAlpha()) .. " shown=" .. ProbeTrackerText(background:IsShown())
+                .. " visible=" .. ProbeTrackerText(background:IsVisible())
+        end
+        if header then
+            line = line .. " headerShown=" .. ProbeTrackerText(header:IsShown()) .. " text=" .. ProbeTrackerText(header.Text and header.Text:GetText())
+            local regions = {}
+            for _, region in ipairs({ header:GetRegions() }) do
+                regions[#regions + 1] = ProbeTrackerText(region.GetAtlas and region:GetAtlas() or region:GetObjectType())
+            end
+            line = line .. " regions=" .. table.concat(regions, ";")
+        end
+        log[#log + 1] = (date and date("%H:%M:%S ") or "") .. line
+    end)
+end
+
 local function HideHeaderBackgrounds()
+    ProbeProfessionsHeader("before")
     for _, background in ipairs(GetHeaderBackgrounds()) do
         if originalVertexColors[background] == nil and type(background.GetVertexColor) == "function" then
             local ok, r, g, b, a = pcall(background.GetVertexColor, background)
@@ -232,6 +278,7 @@ local function HideHeaderBackgrounds()
         local color = originalVertexColors[background] or { 1, 1, 1, 1 }
         CallWidgetMethodSecurely(background, "SetVertexColor", color[1], color[2], color[3], 0)
     end
+    ProbeProfessionsHeader("after")
 end
 
 local function RestoreHeaders()
