@@ -25,6 +25,7 @@ local stateKeys = {
     explorerModeChatWindowRepairVersion = true,
     foreverDefaultsResetVersion = true,
     noObjectiveQuestWatches = true,
+    mapPinProbeLog = true, -- TEMP map pin probe
 }
 
 -- Kept in defaults/settings definitions for history, but currently hidden by
