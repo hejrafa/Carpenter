@@ -17,14 +17,14 @@ RPMacros.Macros = {
         icon = 237573,
         body = "/bow",
     },
-    -- /wait goes to everyone around with the target dropped for a moment, so
-    -- the other faction reads it too (chat text doesn't cross factions,
+    -- Whistle at your opponent and say "1v1", then /wait to everyone around
+    -- so the other faction reads it too (chat text doesn't cross factions,
     -- built-in emotes do). The server drops a second emote sent right after
-    -- another, so /cpemote whistles at your opponent a moment later.
+    -- another, so /cpemote sends the untargeted /wait a moment later.
     {
         name = "1v1",
         icon = 132269,
-        body = "/cleartarget\n/wait\n/targetlasttarget\n/s 1v1\n/cpemote whistle",
+        body = "/whistle\n/s 1v1\n/cpemote wait none",
     },
     -- The leveling ritual: whoever rolls higher gets the next enemy.
     {
@@ -239,23 +239,40 @@ if refreshFrame then
     end)
 end
 
--- /cpemote <emote> [seconds]: performs a built-in emote a moment later, for
--- macros that need two emotes in one press (the server drops the second one
--- if it comes right after the first). Macros can't wait between lines, and
--- WoW Forever blocks /run.
+-- /cpemote <emote> [seconds] [none]: performs a built-in emote a moment
+-- later, for macros that need two emotes in one press (the server drops the
+-- second one if it comes right after the first). Macros can't wait between
+-- lines, and WoW Forever blocks /run. "none" aims it at nobody instead of your
+-- current target.
 local EMOTE_DELAY = 1.5
 
 function RPMacros.PerformDelayedEmote(input)
-    local emote, delay = tostring(input or ""):match("^%s*(%a+)%s*([%d%.]*)%s*$")
-    if not emote then return false end
-    delay = tonumber(delay) or EMOTE_DELAY
+    local words = {}
+    for word in tostring(input or ""):gmatch("%S+") do
+        words[#words + 1] = word
+    end
+    local emote = words[1]
+    if not emote or not emote:match("^%a+$") or #words > 3 then return false end
+
+    local delay, untargeted = EMOTE_DELAY, false
+    for i = 2, #words do
+        local word = words[i]:lower()
+        if word == "none" then
+            untargeted = true
+        elseif tonumber(word) then
+            delay = tonumber(word)
+        else
+            return false
+        end
+    end
     emote = emote:upper()
+    local target = untargeted and "none" or nil
 
     local function Perform()
         if C_ChatInfo and C_ChatInfo.PerformEmote then
-            C_ChatInfo.PerformEmote(emote)
+            C_ChatInfo.PerformEmote(emote, target)
         elseif DoEmote then
-            DoEmote(emote)
+            DoEmote(emote, target)
         end
     end
     if C_Timer and C_Timer.After then

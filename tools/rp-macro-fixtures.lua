@@ -60,9 +60,9 @@ for _, macro in ipairs(rp.Macros) do
     byName[macro.name] = macro
 end
 assert(byName.Bow and byName.Bow.body == "/bow" and byName.Bow.icon == 237573, "Bow macro changed")
-assert(byName["1v1"] and byName["1v1"].body == "/cleartarget\n/wait\n/targetlasttarget\n/s 1v1\n/cpemote whistle" and byName["1v1"].icon == 132269, "1v1 macro changed")
+assert(byName["1v1"] and byName["1v1"].body == "/whistle\n/s 1v1\n/cpemote wait none" and byName["1v1"].icon == 132269, "1v1 macro changed")
 
--- The whistle waits out the server's emote cooldown after /wait.
+-- A second emote waits out the server's emote cooldown.
 local slash = assert(SlashCmdList.CARPENTEREMOTE, "/cpemote should be registered")
 assert(SLASH_CARPENTEREMOTE1 == "/cpemote", "/cpemote should be the command")
 slash("whistle")
@@ -72,8 +72,12 @@ timers[1].callback()
 assert(performed[1].emote == "WHISTLE" and performed[1].target == nil, "/cpemote should whistle at the current target")
 slash(" wave 3 ")
 assert(timers[2].delay == 3, "/cpemote should take a custom delay")
-assert(rp.PerformDelayedEmote("") == false and rp.PerformDelayedEmote("/run x") == false, "/cpemote should ignore anything but an emote name")
-assert(#timers == 2, "bad input must not schedule an emote")
+slash("wait none")
+timers[3].callback()
+assert(performed[2].emote == "WAIT" and performed[2].target == "none", "/cpemote none should aim at nobody")
+assert(rp.PerformDelayedEmote("") == false and rp.PerformDelayedEmote("/run x") == false
+    and rp.PerformDelayedEmote("wait Bob") == false, "/cpemote should ignore anything but an emote, a delay, and none")
+assert(#timers == 3, "bad input must not schedule an emote")
 assert(byName.Roll and byName.Roll.body == "/crack\n/roll" and byName.Roll.icon == 237284, "Roll ritual macro changed")
 assert(#rp.Macros == 5, "expected 5 RP macros")
 
