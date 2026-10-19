@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.8.9
+
+- World Map Cleanup now hides the town and city icons on WoW Forever's world and continent maps.
+- Clean Unit Frame now softens the red threat glow around the player, target, focus, and party portraits, and hides the PvP timer next to the player portrait while keeping the PvP icon.
+- Clean Unit Frame on WoW Forever no longer hides the player corner icon, party frame title, or realm indicators.
+- Chat Cleaner now colors roll names with the party or raid color while you're in a group, and with class colors only outside a group.
+- Consumable Macros remember the last item each one used for every character, even after a reload, and keep showing it grayed out once you run out.
+- Fixed Fade Micro Menu & Bags revealing the bars when hovering the bottom-right corner after moving them in Edit Mode, and bars resized in Edit Mode now react at their real size.
+- Fixed the crowd control icon on WoW Forever portraits covering the target's level.
+- Updated the WoW Forever settings previews.
+- Updated the Carpenter Edit Mode layout to the author's latest layout preferences.
+- The hidden version-number page gains Profession Macros with a Fish macro that always equips your best fishing pole, and the 1v1 macro now also asks everyone nearby to wait, in a way the other faction can read. The new /cpemote command performs a built-in emote a moment later.
+
 ## 1.8.8
 
 - Hide Keybind Text now works on WoW Forever.
