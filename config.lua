@@ -705,14 +705,30 @@ local function SetEditModeLayoutInstalled(installed)
     SetHiddenPageStatus(EDIT_MODE_LAYOUT_MESSAGES[result] or L.EDIT_MODE_LAYOUT_FAILED or "Carpenter couldn't build the layout.", ok)
 end
 
-local function ShowRPMacroSidebar(macro)
+-- Macro sections on the hidden page, top to bottom. {body} and {name} in the
+-- description are filled in per macro.
+local MACRO_SECTIONS = {
+    {
+        title = L.SECTION_PROFESSION_MACROS or "Profession Macros",
+        macros = RPMacros.ProfessionMacros or {},
+        checkPrefix = "CP_ProfessionMacro_",
+        description = L.PROFESSION_MACRO_DESCRIPTION or "One of the author's own {hl}profession{/hl} macros. It keeps up with your bags, so it always reaches for the best fishing pole you're carrying:\n\n{body}\n\nCheck it to add the account-wide {hl}{name}{/hl} macro to General Macros. Uncheck it to remove the macro.",
+    },
+    {
+        title = L.SECTION_RP_MACROS or "RP Macros",
+        macros = RPMacros.Macros or {},
+        checkPrefix = "CP_RPMacro_",
+        description = L.RP_MACRO_DESCRIPTION or "One of the author's own {hl}roleplay{/hl} macros, ready to rebuild on any character:\n\n{body}\n\nCheck it to add the account-wide {hl}{name}{/hl} macro to General Macros. Uncheck it to remove the macro.",
+    },
+}
+
+local function ShowRPMacroSidebar(macro, description)
     local lines = {}
-    for line in macro.body:gmatch("[^\n]+") do
+    for line in RPMacros.GetBody(macro):gmatch("[^\n]+") do
         lines[#lines + 1] = LighterCream .. line .. LightGrey
     end
     -- Font-height icon, nudged down onto the text baseline.
     local name = "|T" .. macro.icon .. ":0:0:0:-8|t " .. macro.name
-    local description = L.RP_MACRO_DESCRIPTION or "One of the author's own {hl}roleplay{/hl} macros, ready to rebuild on any character:\n\n{body}\n\nCheck it to add the account-wide {hl}{name}{/hl} macro to General Macros. Uncheck it to remove the macro."
     description = description:gsub("{body}", function() return table.concat(lines, "\n") end)
     description = description:gsub("{name}", function() return name end)
     ShowHiddenItemSidebar(macro, description)
@@ -726,14 +742,14 @@ local RP_MACRO_MESSAGES = {
     full = L.RP_MACRO_FULL or "Your General Macros are full. Make some room and try again.",
 }
 
-local function SetRPMacroInstalled(macro, installed)
+local function SetRPMacroInstalled(macro, installed, description)
     local install = RPMacros.Remove
     if installed then install = RPMacros.Install end
     local ok, result = false, "failed"
     if install then
         ok, result = install(macro)
     end
-    ShowRPMacroSidebar(macro)
+    ShowRPMacroSidebar(macro, description)
     SetHiddenPageStatus(RP_MACRO_MESSAGES[result] or L.RP_MACRO_FAILED or "Carpenter couldn't build the macro.", ok)
 end
 
@@ -757,18 +773,19 @@ local function CreateHiddenPage()
         })
     end
 
-    local macros = RPMacros.Macros or {}
-    if #macros > 0 then
-        if #widgets > 0 then
-            yPos = yPos - 24
-        end
-        widgets[#widgets + 1] = CreateHeader(L.SECTION_RP_MACROS or "RP Macros")
-        for index, macro in ipairs(macros) do
-            AddToggle(macro.name, function() ShowRPMacroSidebar(macro) end, {
-                name = "CP_RPMacro_" .. index,
-                isChecked = function() return RPMacros.IsInstalled and RPMacros.IsInstalled(macro) or false end,
-                onClick = function(checked) SetRPMacroInstalled(macro, checked) end,
-            })
+    for _, section in ipairs(MACRO_SECTIONS) do
+        if #section.macros > 0 then
+            if #widgets > 0 then
+                yPos = yPos - 24
+            end
+            widgets[#widgets + 1] = CreateHeader(section.title)
+            for index, macro in ipairs(section.macros) do
+                AddToggle(macro.name, function() ShowRPMacroSidebar(macro, section.description) end, {
+                    name = section.checkPrefix .. index,
+                    isChecked = function() return RPMacros.IsInstalled and RPMacros.IsInstalled(macro) or false end,
+                    onClick = function(checked) SetRPMacroInstalled(macro, checked, section.description) end,
+                })
+            end
         end
     end
 

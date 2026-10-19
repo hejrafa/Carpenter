@@ -15,6 +15,32 @@ local function assertContains(text, needle, label)
     assert(text:find(needle, 1, true), label .. " is missing")
 end
 
+-- Bags and gear for the fishing macro. The module looks these APIs up when it
+-- loads, so they exist first.
+local POLES = {
+    [6256] = "Fishing Pole",
+    [6365] = "Strong Fishing Pole",
+    [19022] = "Nat Pagle's Extreme Angler FC-5000",
+    [99001] = "Shiny New Pole",
+    [99002] = "Shinier New Pole",
+}
+local SWORD = 2132
+local bags, mainHand = {}, SWORD
+NUM_BAG_SLOTS = 4
+GetContainerNumSlots = function(bag) return bags[bag] and #bags[bag] or 0 end
+GetContainerItemID = function(bag, slot) return bags[bag] and bags[bag][slot] end
+GetContainerItemLink = function() return nil end
+GetInventoryItemID = function(_, slot) return slot == 16 and mainHand or nil end
+GetItemInfoInstant = function(itemID)
+    if POLES[itemID] then return itemID, "Weapon", "Fishing Poles", "INVTYPE_2HWEAPON", 0, 2, 20 end
+    if itemID == SWORD then return itemID, "Weapon", "One-Handed Swords", "INVTYPE_WEAPON", 0, 2, 7 end
+end
+GetItemInfo = function(itemID)
+    local levels = { [99001] = 40, [99002] = 50 }
+    return POLES[itemID], nil, 1, levels[itemID] or 10
+end
+GetSpellInfo = function(spellID) return spellID == 7620 and "Fishing" or nil end
+
 local ns = { Private = {} }
 local chunk = assert(loadfile(repo .. "/Modules/RPMacros.lua"))
 chunk("Carpenter", ns)
@@ -31,6 +57,21 @@ assert(byName.Bow and byName.Bow.body == "/bow" and byName.Bow.icon == 237573, "
 assert(byName["1v1"] and byName["1v1"].body == "/whistle\n/s 1v1" and byName["1v1"].icon == 132269, "1v1 macro changed")
 assert(byName.Roll and byName.Roll.body == "/crack\n/roll" and byName.Roll.icon == 237284, "Roll ritual macro changed")
 assert(#rp.Macros == 5, "expected 5 RP macros")
+
+-- The fishing macro reaches for the best pole by fishing bonus, then item level.
+local fish = assert(rp.ProfessionMacros and rp.ProfessionMacros[1], "fishing macro is missing")
+assert(fish.name == "Fish" and fish.icon == 136245, "fishing macro changed")
+assert(rp.GetBody(fish) == "#showtooltip Fishing\n/cast Fishing", "no pole should just cast Fishing")
+bags[0] = { 6256, 6365 }
+assert(rp.GetBody(fish) == "#showtooltip Fishing\n/equipslot 16 Strong Fishing Pole\n/cast Fishing", "should pick the Strong Fishing Pole over the plain one")
+mainHand = 19022
+assert(rp.FindBestFishingPole() == "Nat Pagle's Extreme Angler FC-5000", "should keep a better pole already in hand")
+mainHand = SWORD
+bags[1] = { 99001, 99002 }
+assert(rp.FindBestFishingPole() == "Strong Fishing Pole", "a known +5 pole beats unknown poles")
+bags[0] = {}
+assert(rp.FindBestFishingPole() == "Shinier New Pole", "unknown poles compare by item level")
+bags[1] = {}
 
 local inCombat = false
 local macros = {}
@@ -87,6 +128,28 @@ assert(ok and result == "removed" and not rp.IsInstalled(byName.Bow), "uncheckin
 ok, result = rp.Remove(byName.Bow)
 assert(ok and result == "removed", "removing a missing macro should be a no-op")
 
+-- Installed built macros follow the bags; uninstalled ones are left alone.
+GetMacroInfo = function(index)
+    local macro = macros[index]
+    if macro then return macro.name, macro.icon, macro.body end
+end
+bags[0] = { 6365 }
+ok, result = rp.Install(fish)
+assert(ok and result == "created", "installer did not create the fishing macro")
+local fishIndex = GetMacroIndexByName("Fish")
+assert(macros[fishIndex].body:find("Strong Fishing Pole", 1, true), "fishing macro should use the pole in the bags")
+bags[0] = { 6365, 19022 }
+inCombat = true
+rp.RefreshBuiltMacros()
+assert(macros[fishIndex].body:find("Strong Fishing Pole", 1, true), "built macros must not be rewritten in combat")
+inCombat = false
+rp.RefreshBuiltMacros()
+assert(macros[fishIndex].body:find("Nat Pagle", 1, true), "fishing macro should switch to a better pole")
+rp.Remove(fish)
+bags[0] = {}
+rp.RefreshBuiltMacros()
+assert(not rp.IsInstalled(fish), "refreshing must not recreate a removed macro")
+
 for _, toc in ipairs({ "Carpenter.toc", "Carpenter_Camelot.toc", "Carpenter_TBC.toc", "Carpenter_Vanilla.toc" }) do
     assertContains(read(toc), "Modules\\RPMacros.lua", toc .. " RP macros load entry")
 end
@@ -94,6 +157,7 @@ end
 local config = read("config.lua")
 assertContains(config, "if installed then install = RPMacros.Install end", "RP macro checkbox install/remove")
 assertContains(config, "AddToggle(macro.name", "RP macro checkbox rows")
+assert(config:find("SECTION_PROFESSION_MACROS", 1, true) < config:find("SECTION_RP_MACROS", 1, true), "Profession Macros should come before RP Macros")
 assert(not config:find("CP_RPMacroInstall", 1, true), "RP macros are installed by checkbox, not a button")
 
 print("rp macro fixtures: passed")
