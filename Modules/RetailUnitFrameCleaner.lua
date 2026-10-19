@@ -9,6 +9,10 @@ local Realm = ns.Private.RetailUnitFrameCleanerRealm or {}
 
 local lastFeatureState = {}
 local partyTitleOriginalAlpha = setmetatable({}, { __mode = "k" })
+local threatGlowOriginalAlpha = setmetatable({}, { __mode = "k" })
+
+-- How strongly the red threat glow still shows with Clean Unit Frame on.
+local THREAT_GLOW_ALPHA = 0.5
 
 local function IsRetail()
     return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
@@ -54,6 +58,10 @@ local function ShouldHideTargetReputationColor()
     return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
+local function ShouldDimThreatGlow()
+    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
+end
+
 local function HasActiveCleanerOption()
     if not IsRetail() then return false end
     return ShouldHidePvPIcon()
@@ -66,6 +74,7 @@ local function HasActiveCleanerOption()
         or ShouldHidePlayerCornerIcon()
         or ShouldHidePartyFrameTitle()
         or ShouldHideTargetReputationColor()
+        or ShouldDimThreatGlow()
 end
 
 local function ShouldRunCleaner()
@@ -146,6 +155,28 @@ local function ApplyPartyFrameTitleFeature()
     lastFeatureState.partyFrameTitle = enabled
 end
 
+-- Dims rather than hides, so you still see when something is on you. The glow
+-- textures belong to secure unit frames, so they're only touched out of combat.
+local function ApplyThreatGlowFeature()
+    local enabled = ShouldDimThreatGlow()
+    if not enabled and not lastFeatureState.threatGlow then return end
+    if InCombatLockdown and InCombatLockdown() then return end
+
+    for _, texture in ipairs(Targets.GetThreatGlowTextures()) do
+        if enabled then
+            if threatGlowOriginalAlpha[texture] == nil and texture.GetAlpha then
+                threatGlowOriginalAlpha[texture] = texture:GetAlpha()
+            end
+            if texture.SetAlpha then texture:SetAlpha(THREAT_GLOW_ALPHA) end
+        elseif threatGlowOriginalAlpha[texture] ~= nil then
+            if texture.SetAlpha then texture:SetAlpha(threatGlowOriginalAlpha[texture]) end
+            threatGlowOriginalAlpha[texture] = nil
+        end
+    end
+
+    lastFeatureState.threatGlow = enabled
+end
+
 local function Apply()
     if not IsRetail() then return end
     if not ShouldRunCleaner() then return end
@@ -164,6 +195,7 @@ local function Apply()
     -- refresh. Limit this feature to alpha only: no hooks, parenting, visibility,
     -- scripts, events, or custom fields on that frame.
     ApplyPartyFrameTitleFeature()
+    ApplyThreatGlowFeature()
     -- Match BetterBlizzFrames' narrow Retail approach: only hide the actual reputation
     -- color texture, not the surrounding name/background pieces that affect layout.
     ApplyFrameFeature("targetReputationColor", Targets.GetTargetReputationColorFrames, ShouldHideTargetReputationColor, false)

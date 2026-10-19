@@ -146,6 +146,23 @@ function Targets.GetPlayerCornerIconFrames()
     return frames
 end
 
+-- The red threat glow around the player, target, focus, and party portraits.
+-- Blizzard only shows, hides, and recolors these, so a lowered alpha sticks.
+function Targets.GetThreatGlowTextures()
+    local textures = {}
+    local playerContainer = PlayerFrame and PlayerFrame.PlayerFrameContainer
+    AddFrame(textures, playerContainer and playerContainer.FrameFlash)
+    for _, unitFrame in ipairs({ TargetFrame, FocusFrame }) do
+        local container = unitFrame and unitFrame.TargetFrameContainer
+        AddFrame(textures, container and container.Flash)
+    end
+    for i = 1, 4 do
+        local member = PartyFrame and PartyFrame["MemberFrame" .. i]
+        AddFrame(textures, member and member.Flash)
+    end
+    return textures
+end
+
 function Targets.GetPartyFrameTitleFrames()
     local frames = {}
     AddFrame(frames, CompactPartyFrameTitle)
