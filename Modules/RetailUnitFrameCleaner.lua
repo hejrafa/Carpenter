@@ -12,7 +12,7 @@ local partyTitleOriginalAlpha = setmetatable({}, { __mode = "k" })
 local threatGlowOriginalAlpha = setmetatable({}, { __mode = "k" })
 
 -- How strongly the red threat glow still shows with Clean Unit Frame on.
-local THREAT_GLOW_ALPHA = 0.2
+local THREAT_GLOW_ALPHA = 0.3
 
 local function IsRetail()
     return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
