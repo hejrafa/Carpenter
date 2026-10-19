@@ -1,7 +1,7 @@
 --[[ Carpenter - focused World Map Cleanup for WoW Forever ]]
 -- Forever intentionally receives only the maximized-map layout, blackout
--- removal, Silithus hover repair, and hidden continent town and city icons
--- from the full Classic implementation.
+-- removal, Silithus hover repair, and hidden world and continent town and
+-- city icons from the full Classic implementation.
 if not (Carpenter and Carpenter.Client and Carpenter.Client.isForever) then return end
 
 local _, ns = ...
@@ -171,25 +171,20 @@ end
 -- =========================
 -- Town and city icons
 -- =========================
--- As on Classic, continent maps drop their town and city markers. They are
--- Area POI pins whose icon comes from the Classic POI icon sheet
--- (textureIndex) or from an atlas, so both are recognized.
+-- As on Classic, the world and continent maps drop their town and city
+-- markers. On Forever these are Area POI pins using the Classic POI icons:
+-- textureIndex 4 is a town and 5 a city (Forever's icon sheet has another
+-- layout than Classic's, so the index is matched, not texture coordinates).
 local AREA_POI_PIN_TEMPLATE = "AreaPOIPinTemplate"
-local TOWN_CITY_TEXCOORDS = {
-    { 0.5, 0.625, 0, 0.125 },   -- town
-    { 0.625, 0.75, 0, 0.125 },  -- city
-}
+local TOWN_CITY_TEXTURE_INDEX = { [4] = true, [5] = true }
 local hiddenTownCityPins = setmetatable({}, { __mode = "k" })
 
-local function IsContinentMap(mapID)
+local function IsWorldOrContinentMap(mapID)
     if not mapID or not (C_Map and C_Map.GetMapInfo) then return false end
     local info = C_Map.GetMapInfo(mapID)
-    local continentType = Enum and Enum.UIMapType and Enum.UIMapType.Continent
-    return info ~= nil and continentType ~= nil and info.mapType == continentType
-end
-
-local function IsNear(a, b)
-    return type(a) == "number" and math.abs(a - b) < 0.0001
+    local mapTypes = Enum and Enum.UIMapType
+    return info ~= nil and mapTypes ~= nil
+        and (info.mapType == mapTypes.World or info.mapType == mapTypes.Continent)
 end
 
 local function IsTownOrCityPoi(poiInfo)
@@ -200,15 +195,7 @@ local function IsTownOrCityPoi(poiInfo)
         return atlas:find("town", 1, true) ~= nil or atlas:find("city", 1, true) ~= nil
             or atlas:find("capital", 1, true) ~= nil
     end
-    if poiInfo.textureIndex and C_Minimap and C_Minimap.GetPOITextureCoords then
-        local x1, x2, y1, y2 = C_Minimap.GetPOITextureCoords(poiInfo.textureIndex)
-        for _, coords in ipairs(TOWN_CITY_TEXCOORDS) do
-            if IsNear(x1, coords[1]) and IsNear(x2, coords[2]) and IsNear(y1, coords[3]) and IsNear(y2, coords[4]) then
-                return true
-            end
-        end
-    end
-    return false
+    return TOWN_CITY_TEXTURE_INDEX[poiInfo.textureIndex] == true
 end
 
 -- Pins are pooled, so a pin hidden as a town can come back as something else;
@@ -230,71 +217,11 @@ end
 local function ApplyTownCityIcons()
     local mapFrame = _G.WorldMapFrame
     if not mapFrame or not mapFrame.EnumeratePinsByTemplate then return end
-    local hideOnThisMap = IsEnabled() and IsContinentMap(GetWorldMapID())
+    local hideOnThisMap = IsEnabled() and IsWorldOrContinentMap(GetWorldMapID())
     for pin in mapFrame:EnumeratePinsByTemplate(AREA_POI_PIN_TEMPLATE) do
         local poiInfo = pin.GetPoiInfo and pin:GetPoiInfo() or pin.poiInfo
         UpdateTownCityPin(pin, hideOnThisMap and IsTownOrCityPoi(poiInfo))
     end
-end
-
--- TEMP map pin probe: records each map's pins in CarpenterDB.mapPinProbeLog,
--- once per map, so the town and city icons can be identified on Forever.
--- Remove once they hide.
-local probedMaps = {}
-
-local function ProbeText(value)
-    if issecretvalue then
-        local ok, secret = pcall(issecretvalue, value)
-        if not ok or secret then return "S" end
-    end
-    if value == nil then return "-" end
-    local ok, text = pcall(tostring, value)
-    return ok and (text:gsub("|", "||")) or "?"
-end
-
-local function ProbeMapPins()
-    local mapFrame = _G.WorldMapFrame
-    if type(CarpenterDB) ~= "table" or not mapFrame or type(mapFrame.pinPools) ~= "table" then return end
-    local mapID = GetWorldMapID()
-    if not mapID or probedMaps[mapID] then return end
-    probedMaps[mapID] = true
-
-    local log = CarpenterDB.mapPinProbeLog
-    if type(log) ~= "table" then
-        log = {}
-        CarpenterDB.mapPinProbeLog = log
-    end
-    local function Add(line)
-        if #log < 400 then log[#log + 1] = line end
-    end
-
-    local info = C_Map and C_Map.GetMapInfo and C_Map.GetMapInfo(mapID)
-    Add("map " .. ProbeText(mapID) .. " " .. ProbeText(info and info.name) .. " type=" .. ProbeText(info and info.mapType)
-        .. " continentEnum=" .. ProbeText(Enum and Enum.UIMapType and Enum.UIMapType.Continent))
-    for template, pool in pairs(mapFrame.pinPools) do
-        Add(" pool " .. ProbeText(template) .. " active=" .. ProbeText(pool.GetNumActive and pool:GetNumActive()))
-    end
-    pcall(function()
-        for _, pool in pairs(mapFrame.pinPools) do
-        for pin in pool:EnumerateActive() do
-            local poi = (pin.GetPoiInfo and pin:GetPoiInfo()) or pin.poiInfo
-            local texture = pin.Texture or pin.Icon
-            local atlas = texture and texture.GetAtlas and texture:GetAtlas()
-            local file = texture and texture.GetTexture and texture:GetTexture()
-            local coords = ""
-            if texture and texture.GetTexCoord then
-                local a, b, c, d, e, f, g, h = texture:GetTexCoord()
-                coords = string.format("%.3f,%.3f,%.3f,%.3f", a or 0, c or 0, e or 0, h or 0)
-            end
-            Add("  " .. ProbeText(pin.pinTemplate)
-                .. " name=" .. ProbeText(poi and poi.name or pin.name)
-                .. " poiAtlas=" .. ProbeText(poi and poi.atlasName)
-                .. " texIdx=" .. ProbeText(poi and poi.textureIndex)
-                .. " atlas=" .. ProbeText(atlas) .. " file=" .. ProbeText(file) .. " tc=" .. coords
-                .. " alpha=" .. ProbeText(pin.GetAlpha and pin:GetAlpha()) .. " shown=" .. ProbeText(pin.IsShown and pin:IsShown()))
-        end
-        end
-    end)
 end
 
 local function RestoreTownCityIcons()
@@ -307,7 +234,6 @@ local function ApplyWorldMapCleanup()
     if not IsEnabled() then return end
     ApplyMaximizedMapLayout()
     ApplyTownCityIcons()
-    pcall(ProbeMapPins) -- TEMP map pin probe
     if Cleanup.ApplySilithusHighlightFix then
         Cleanup.ApplySilithusHighlightFix()
     end
@@ -359,7 +285,6 @@ local function HookWorldMap()
         end)
         Carpenter:SafeHook(mapFrame, "OnMapChanged", function()
             if Cleanup.ApplySilithusHighlightFix then Cleanup.ApplySilithusHighlightFix() end
-            ScheduleApply(0.3) -- TEMP map pin probe: log the new map once its pins exist
         end)
         Carpenter:SafeHook(mapFrame, "AcquirePin", function(_, pinTemplate)
             if pinTemplate == AREA_POI_PIN_TEMPLATE then

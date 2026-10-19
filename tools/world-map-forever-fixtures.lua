@@ -118,8 +118,8 @@ end
 MapHighlightPinMixin = { Refresh = function() end }
 function highlightPin:Refresh() MapHighlightPinMixin.Refresh(self) end
 
--- Area POI pins: a town and a city (Classic icon sheet and atlas) and a
--- dungeon entrance that must stay.
+-- Area POI pins as Forever reports them: a town and a city by POI icon
+-- index, a city by atlas, and a dungeon entrance that must stay.
 local function newPoiPin(poiInfo)
     local pin = newRegion()
     pin.poiInfo = poiInfo
@@ -129,9 +129,10 @@ local function newPoiPin(poiInfo)
     return pin
 end
 local townPin = newPoiPin({ textureIndex = 4 })
-local cityPin = newPoiPin({ atlasName = "poi-city" })
+local cityPin = newPoiPin({ name = "Stormwind", textureIndex = 5 })
+local atlasCityPin = newPoiPin({ atlasName = "poi-city" })
 local dungeonPin = newPoiPin({ textureIndex = 9 })
-local areaPoiPins = { townPin, cityPin, dungeonPin }
+local areaPoiPins = { townPin, cityPin, atlasCityPin, dungeonPin }
 
 function mapFrame:EnumeratePinsByTemplate(template)
     local pins
@@ -152,18 +153,15 @@ function mapFrame:AcquirePin() end
 
 local currentMapID = 1414
 function mapFrame:GetMapID() return currentMapID end
-Enum = { UIMapType = { Continent = 2, Zone = 3 } }
-C_Minimap = {
-    GetPOITextureCoords = function(index)
-        if index == 4 then return 0.5, 0.625, 0, 0.125 end
-        return 0.125, 0.25, 0.125, 0.25
-    end,
-}
+Enum = { UIMapType = { World = 1, Continent = 2, Zone = 3 } }
 
 WorldMapFrame = mapFrame
 C_Map = {
     GetMapInfo = function(mapID)
-        return { mapID = mapID, mapType = mapID == 1414 and Enum.UIMapType.Continent or Enum.UIMapType.Zone }
+        local mapType = Enum.UIMapType.Zone
+        if mapID == 947 then mapType = Enum.UIMapType.World end
+        if mapID == 1414 then mapType = Enum.UIMapType.Continent end
+        return { mapID = mapID, mapType = mapType }
     end,
     GetMapInfoAtPosition = function() return { mapID = 1451 } end,
     GetMapRectOnMap = function() return 0.39, 0.47, 0.74, 0.895 end,
@@ -188,6 +186,7 @@ assertEqual(nativeHighlight.shown, false, "broken native Silithus highlight")
 assertEqual(townPin.alpha, 0, "continent town icon hidden")
 assertEqual(townPin.mouseEnabled, false, "hidden town icon ignores the mouse")
 assertEqual(cityPin.alpha, 0, "continent city icon hidden")
+assertEqual(atlasCityPin.alpha, 0, "continent city icon drawn from an atlas hidden")
 assertEqual(dungeonPin.alpha, 1, "other continent icons stay")
 
 -- A pooled pin reused for something else shows again.
@@ -201,6 +200,9 @@ townPin.poiInfo = { textureIndex = 4 }
 currentMapID = 1426
 mapFrame:AcquirePin("AreaPOIPinTemplate")
 assertEqual(cityPin.alpha, 1, "zone map icons stay")
+currentMapID = 947
+mapFrame:AcquirePin("AreaPOIPinTemplate")
+assertEqual(cityPin.alpha, 0, "Azeroth world map city icon hidden")
 currentMapID = 1414
 mapFrame:AcquirePin("AreaPOIPinTemplate")
 assertEqual(cityPin.alpha, 0, "continent city icon hidden again")
