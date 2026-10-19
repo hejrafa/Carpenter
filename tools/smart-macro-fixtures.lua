@@ -348,6 +348,9 @@ fixtureCount = fixtureCount + 1
 
 -- Empty macros point at an item grayed out with a 0 count, not a question mark.
 do
+    CarpenterDB = {}
+    local playerGUID = "Player-1-00000001"
+    UnitGUID = function(unit) return unit == "player" and playerGUID or nil end
     local builder = ns.Private.SmartMacroBuilder
     local macros = {}
     builder.BuildMacroBody = function(item) return item and item.name or "none" end
@@ -393,8 +396,26 @@ do
     if macros.CarpenterMana ~= "item:2455" or macros.CarpenterBand ~= "item:1251" then
         failures[#failures + 1] = "fallback: macros that never had an item should use the slot's default item, got " .. tostring(macros.CarpenterMana) .. " / " .. tostring(macros.CarpenterBand)
     end
+
+    -- After a reload, the last items come back from saved variables.
+    loadAddonFile("Modules/SmartMacros/SmartMacros.lua")
+    registeredFeatures.smartMacrosEnabled:Enable()
+    macros = {}
+    RunUpdate()
+    if macros.CarpenterFood ~= "item:8952" or macros.CarpenterHP ~= "-|item:19013" then
+        failures[#failures + 1] = "fallback: the last items should survive a reload, got " .. tostring(macros.CarpenterFood) .. " / " .. tostring(macros.CarpenterHP)
+    end
+
+    -- Another character keeps its own last items.
+    playerGUID = "Player-1-00000002"
+    macros = {}
+    RunUpdate()
+    if macros.CarpenterFood == "item:8952" then
+        failures[#failures + 1] = "fallback: another character must not reuse this character's last food"
+    end
+    playerGUID = "Player-1-00000001"
     bagSlots[0] = savedBag
-    fixtureCount = fixtureCount + 4
+    fixtureCount = fixtureCount + 6
 end
 
 if #failures > 0 then

@@ -22,12 +22,29 @@ end
 
 local lastBagFingerprint
 
--- The last item each macro used this session. Once it runs out, the macro
+-- The last item each macro used, per character and kept across sessions in
+-- CarpenterDB.smartMacroLastItems[character GUID]. Once it runs out, the macro
 -- keeps that item grayed out instead of switching to the default one.
-local lastItemIDs = {}
+local sessionLastItemIDs = {}
+
+local function GetLastItemIDs()
+    local guid = UnitGUID and UnitGUID("player")
+    if type(CarpenterDB) ~= "table" or type(guid) ~= "string" then
+        return sessionLastItemIDs
+    end
+    if type(CarpenterDB.smartMacroLastItems) ~= "table" then
+        CarpenterDB.smartMacroLastItems = {}
+    end
+    local lastItemIDs = CarpenterDB.smartMacroLastItems[guid]
+    if type(lastItemIDs) ~= "table" then
+        lastItemIDs = {}
+        CarpenterDB.smartMacroLastItems[guid] = lastItemIDs
+    end
+    return lastItemIDs
+end
 
 local function GetFallbackItem(key)
-    local itemID = lastItemIDs[key] or (Data.FallbackItemIDs and Data.FallbackItemIDs[key])
+    local itemID = GetLastItemIDs()[key] or (Data.FallbackItemIDs and Data.FallbackItemIDs[key])
     if not itemID then return nil end
     -- Item IDs work in macros even for items that aren't in the bags or cached.
     return { itemID = itemID, name = "item:" .. itemID }
@@ -35,7 +52,7 @@ end
 
 local function RememberItem(key, item)
     if item and item.itemID then
-        lastItemIDs[key] = item.itemID
+        GetLastItemIDs()[key] = item.itemID
     end
 end
 

@@ -25,6 +25,7 @@ local stateKeys = {
     explorerModeChatWindowRepairVersion = true,
     foreverDefaultsResetVersion = true,
     noObjectiveQuestWatches = true,
+    smartMacroLastItems = true,
 }
 
 -- Kept in defaults/settings definitions for history, but currently hidden by
