@@ -41,6 +41,12 @@ GetItemInfo = function(itemID)
 end
 GetSpellInfo = function(spellID) return spellID == 7620 and "Fishing" or nil end
 
+-- /cpemote: emotes performed later through the timer.
+SlashCmdList = {}
+local timers, performed = {}, {}
+C_Timer = { After = function(delay, callback) timers[#timers + 1] = { delay = delay, callback = callback } end }
+C_ChatInfo = { PerformEmote = function(emote, target) performed[#performed + 1] = { emote = emote, target = target } end }
+
 local ns = { Private = {} }
 local chunk = assert(loadfile(repo .. "/Modules/RPMacros.lua"))
 chunk("Carpenter", ns)
@@ -54,7 +60,20 @@ for _, macro in ipairs(rp.Macros) do
     byName[macro.name] = macro
 end
 assert(byName.Bow and byName.Bow.body == "/bow" and byName.Bow.icon == 237573, "Bow macro changed")
-assert(byName["1v1"] and byName["1v1"].body == "/whistle\n/s 1v1\n/cleartarget\n/wait\n/targetlasttarget" and byName["1v1"].icon == 132269, "1v1 macro changed")
+assert(byName["1v1"] and byName["1v1"].body == "/cleartarget\n/wait\n/targetlasttarget\n/s 1v1\n/cpemote whistle" and byName["1v1"].icon == 132269, "1v1 macro changed")
+
+-- The whistle waits out the server's emote cooldown after /wait.
+local slash = assert(SlashCmdList.CARPENTEREMOTE, "/cpemote should be registered")
+assert(SLASH_CARPENTEREMOTE1 == "/cpemote", "/cpemote should be the command")
+slash("whistle")
+assert(#timers == 1 and timers[1].delay == 1.5, "/cpemote should wait 1.5 seconds by default")
+assert(#performed == 0, "/cpemote must not emote right away")
+timers[1].callback()
+assert(performed[1].emote == "WHISTLE" and performed[1].target == nil, "/cpemote should whistle at the current target")
+slash(" wave 3 ")
+assert(timers[2].delay == 3, "/cpemote should take a custom delay")
+assert(rp.PerformDelayedEmote("") == false and rp.PerformDelayedEmote("/run x") == false, "/cpemote should ignore anything but an emote name")
+assert(#timers == 2, "bad input must not schedule an emote")
 assert(byName.Roll and byName.Roll.body == "/crack\n/roll" and byName.Roll.icon == 237284, "Roll ritual macro changed")
 assert(#rp.Macros == 5, "expected 5 RP macros")
 

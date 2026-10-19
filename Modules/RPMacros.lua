@@ -17,13 +17,14 @@ RPMacros.Macros = {
         icon = 237573,
         body = "/bow",
     },
-    -- Whistle at your opponent, tell your faction "1v1", then drop the target
-    -- for a moment so /wait reaches everyone around, the other faction too
-    -- (chat text doesn't cross factions, built-in emotes do).
+    -- /wait goes to everyone around with the target dropped for a moment, so
+    -- the other faction reads it too (chat text doesn't cross factions,
+    -- built-in emotes do). The server drops a second emote sent right after
+    -- another, so /cpemote whistles at your opponent a moment later.
     {
         name = "1v1",
         icon = 132269,
-        body = "/whistle\n/s 1v1\n/cleartarget\n/wait\n/targetlasttarget",
+        body = "/cleartarget\n/wait\n/targetlasttarget\n/s 1v1\n/cpemote whistle",
     },
     -- The leveling ritual: whoever rolls higher gets the next enemy.
     {
@@ -236,4 +237,36 @@ if refreshFrame then
         end
         RPMacros.RefreshBuiltMacros()
     end)
+end
+
+-- /cpemote <emote> [seconds]: performs a built-in emote a moment later, for
+-- macros that need two emotes in one press (the server drops the second one
+-- if it comes right after the first). Macros can't wait between lines, and
+-- WoW Forever blocks /run.
+local EMOTE_DELAY = 1.5
+
+function RPMacros.PerformDelayedEmote(input)
+    local emote, delay = tostring(input or ""):match("^%s*(%a+)%s*([%d%.]*)%s*$")
+    if not emote then return false end
+    delay = tonumber(delay) or EMOTE_DELAY
+    emote = emote:upper()
+
+    local function Perform()
+        if C_ChatInfo and C_ChatInfo.PerformEmote then
+            C_ChatInfo.PerformEmote(emote)
+        elseif DoEmote then
+            DoEmote(emote)
+        end
+    end
+    if C_Timer and C_Timer.After then
+        C_Timer.After(delay, Perform)
+    else
+        Perform()
+    end
+    return true
+end
+
+if SlashCmdList then
+    SLASH_CARPENTEREMOTE1 = "/cpemote"
+    SlashCmdList["CARPENTEREMOTE"] = RPMacros.PerformDelayedEmote
 end
