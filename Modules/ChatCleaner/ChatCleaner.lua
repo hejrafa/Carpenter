@@ -290,35 +290,6 @@ local function SafeTextEmoteSender(msg, author)
     return ok and safeAuthor or author
 end
 
--- TEMP emote probe: logs every text emote and "1v1" say line the client
--- receives, and what the chat filter returns for emotes, to
--- CarpenterDB.emoteProbeLog. Remove once the 1v1 macro's /wait always shows.
-local function ProbeEmote(line)
-    if type(CarpenterDB) ~= "table" then return end
-    local log = CarpenterDB.emoteProbeLog
-    if type(log) ~= "table" then
-        log = {}
-        CarpenterDB.emoteProbeLog = log
-    end
-    if #log < 120 then
-        log[#log + 1] = string.format("%.2f %s", GetTime and GetTime() or 0, line)
-    end
-end
-
-local emoteProbeFrame = CreateFrame("Frame")
-emoteProbeFrame:RegisterEvent("CHAT_MSG_TEXT_EMOTE")
-emoteProbeFrame:RegisterEvent("CHAT_MSG_SAY")
-emoteProbeFrame:SetScript("OnEvent", function(_, event, msg, author)
-    pcall(function()
-        if issecretvalue and (issecretvalue(msg) or issecretvalue(author)) then
-            ProbeEmote(event .. " secret")
-            return
-        end
-        if event == "CHAT_MSG_SAY" and not tostring(msg):find("1v1", 1, true) then return end
-        ProbeEmote(event .. " author=[" .. tostring(author) .. "] msg=[" .. tostring(msg) .. "]")
-    end)
-end)
-
 local function ChatFilterImpl(self, event, msg, author, ...)
     if not (Carpenter and Carpenter:IsEnabled("chatCleanerEnabled")) then
         return false, msg, author, ...
@@ -344,9 +315,7 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     end
 
     if event == "CHAT_MSG_TEXT_EMOTE" then
-        local safeAuthor = SafeTextEmoteSender(msg, author)
-        pcall(ProbeEmote, "filter frame=" .. tostring(self and self.GetName and self:GetName()) .. " author=[" .. tostring(safeAuthor) .. "]") -- TEMP emote probe
-        return false, msg, safeAuthor, ...
+        return false, msg, SafeTextEmoteSender(msg, author), ...
     end
 
     -- Monster emotes: some locales/strings use format placeholders like "%s" or "%o"

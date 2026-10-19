@@ -25,7 +25,6 @@ local stateKeys = {
     explorerModeChatWindowRepairVersion = true,
     foreverDefaultsResetVersion = true,
     noObjectiveQuestWatches = true,
-    emoteProbeLog = true, -- TEMP emote probe
 }
 
 -- Kept in defaults/settings definitions for history, but currently hidden by
