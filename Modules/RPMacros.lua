@@ -17,10 +17,13 @@ RPMacros.Macros = {
         icon = 237573,
         body = "/bow",
     },
+    -- Whistle at your opponent, tell your faction "1v1", then drop the target
+    -- for a moment so /wait reaches everyone around, the other faction too
+    -- (chat text doesn't cross factions, built-in emotes do).
     {
         name = "1v1",
         icon = 132269,
-        body = "/whistle\n/s 1v1",
+        body = "/whistle\n/s 1v1\n/cleartarget\n/wait\n/targetlasttarget",
     },
     -- The leveling ritual: whoever rolls higher gets the next enemy.
     {
