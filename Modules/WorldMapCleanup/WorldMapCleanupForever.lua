@@ -254,7 +254,7 @@ end
 
 local function ProbeMapPins()
     local mapFrame = _G.WorldMapFrame
-    if type(CarpenterDB) ~= "table" or not mapFrame or not mapFrame.EnumerateAllPins then return end
+    if type(CarpenterDB) ~= "table" or not mapFrame or type(mapFrame.pinPools) ~= "table" then return end
     local mapID = GetWorldMapID()
     if not mapID or probedMaps[mapID] then return end
     probedMaps[mapID] = true
@@ -271,8 +271,12 @@ local function ProbeMapPins()
     local info = C_Map and C_Map.GetMapInfo and C_Map.GetMapInfo(mapID)
     Add("map " .. ProbeText(mapID) .. " " .. ProbeText(info and info.name) .. " type=" .. ProbeText(info and info.mapType)
         .. " continentEnum=" .. ProbeText(Enum and Enum.UIMapType and Enum.UIMapType.Continent))
+    for template, pool in pairs(mapFrame.pinPools) do
+        Add(" pool " .. ProbeText(template) .. " active=" .. ProbeText(pool.GetNumActive and pool:GetNumActive()))
+    end
     pcall(function()
-        for pin in mapFrame:EnumerateAllPins() do
+        for _, pool in pairs(mapFrame.pinPools) do
+        for pin in pool:EnumerateActive() do
             local poi = (pin.GetPoiInfo and pin:GetPoiInfo()) or pin.poiInfo
             local texture = pin.Texture or pin.Icon
             local atlas = texture and texture.GetAtlas and texture:GetAtlas()
@@ -288,6 +292,7 @@ local function ProbeMapPins()
                 .. " texIdx=" .. ProbeText(poi and poi.textureIndex)
                 .. " atlas=" .. ProbeText(atlas) .. " file=" .. ProbeText(file) .. " tc=" .. coords
                 .. " alpha=" .. ProbeText(pin.GetAlpha and pin:GetAlpha()) .. " shown=" .. ProbeText(pin.IsShown and pin:IsShown()))
+        end
         end
     end)
 end
