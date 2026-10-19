@@ -92,7 +92,6 @@ function mapFrame:Maximize() self.isMaximized = true end
 function mapFrame:Minimize() self.isMaximized = false end
 function mapFrame:SynchronizeDisplayState() end
 function mapFrame:OnMapChanged() end
-function mapFrame:GetMapID() return 1414 end
 function mapFrame:IsCanvasMouseFocus() return true end
 function mapFrame:GetNormalizedCursorPosition() return 0.43, 0.80 end
 
@@ -119,18 +118,53 @@ end
 MapHighlightPinMixin = { Refresh = function() end }
 function highlightPin:Refresh() MapHighlightPinMixin.Refresh(self) end
 
+-- Area POI pins: a town and a city (Classic icon sheet and atlas) and a
+-- dungeon entrance that must stay.
+local function newPoiPin(poiInfo)
+    local pin = newRegion()
+    pin.poiInfo = poiInfo
+    pin.mouseEnabled = true
+    function pin:GetPoiInfo() return self.poiInfo end
+    function pin:EnableMouse(enabled) self.mouseEnabled = enabled end
+    return pin
+end
+local townPin = newPoiPin({ textureIndex = 4 })
+local cityPin = newPoiPin({ atlasName = "poi-city" })
+local dungeonPin = newPoiPin({ textureIndex = 9 })
+local areaPoiPins = { townPin, cityPin, dungeonPin }
+
 function mapFrame:EnumeratePinsByTemplate(template)
-    assertEqual(template, "MapHighlightPinTemplate", "Silithus pin template")
-    local yielded = false
+    local pins
+    if template == "MapHighlightPinTemplate" then
+        pins = { highlightPin }
+    elseif template == "AreaPOIPinTemplate" then
+        pins = areaPoiPins
+    else
+        error("unexpected pin template " .. tostring(template))
+    end
+    local index = 0
     return function()
-        if yielded then return nil end
-        yielded = true
-        return highlightPin
+        index = index + 1
+        return pins[index]
     end
 end
+function mapFrame:AcquirePin() end
+
+local currentMapID = 1414
+function mapFrame:GetMapID() return currentMapID end
+Enum = { UIMapType = { Continent = 2, Zone = 3 } }
+C_Minimap = {
+    GetPOITextureCoords = function(index)
+        if index == 4 then return 0.5, 0.625, 0, 0.125 end
+        return 0.125, 0.25, 0.125, 0.25
+    end,
+}
 
 WorldMapFrame = mapFrame
 C_Map = {
+    GetMapInfo = function(mapID)
+        return { mapID = mapID, mapType = mapID == 1414 and Enum.UIMapType.Continent or Enum.UIMapType.Zone }
+    end,
     GetMapInfoAtPosition = function() return { mapID = 1451 } end,
     GetMapRectOnMap = function() return 0.39, 0.47, 0.74, 0.895 end,
 }
@@ -151,6 +185,25 @@ assertEqual(blackout.alpha, 0, "fullscreen blackout alpha")
 assertEqual(GameTimeFrame, nil, "fixture sanity")
 assertEqual(highlightPin.CP_SilithusHighlightTexture.shown, true, "Silithus replacement highlight")
 assertEqual(nativeHighlight.shown, false, "broken native Silithus highlight")
+assertEqual(townPin.alpha, 0, "continent town icon hidden")
+assertEqual(townPin.mouseEnabled, false, "hidden town icon ignores the mouse")
+assertEqual(cityPin.alpha, 0, "continent city icon hidden")
+assertEqual(dungeonPin.alpha, 1, "other continent icons stay")
+
+-- A pooled pin reused for something else shows again.
+townPin.poiInfo = { textureIndex = 9 }
+mapFrame:AcquirePin("AreaPOIPinTemplate")
+assertEqual(townPin.alpha, 1, "a reused town pin shows again")
+assertEqual(townPin.mouseEnabled, true, "a reused town pin takes the mouse again")
+townPin.poiInfo = { textureIndex = 4 }
+
+-- Zone maps keep their icons.
+currentMapID = 1426
+mapFrame:AcquirePin("AreaPOIPinTemplate")
+assertEqual(cityPin.alpha, 1, "zone map icons stay")
+currentMapID = 1414
+mapFrame:AcquirePin("AreaPOIPinTemplate")
+assertEqual(cityPin.alpha, 0, "continent city icon hidden again")
 
 CarpenterDB.worldMapCleanupEnabled = false
 feature:Disable()
@@ -159,6 +212,8 @@ assertEqual(mapFrame.points[1][1], "TOPLEFT", "disabled map anchor restoration")
 assertEqual(blackout.shown, true, "disabled blackout restoration")
 assertEqual(blackout.alpha, 1, "disabled blackout alpha restoration")
 assertEqual(highlightPin.CP_SilithusHighlightTexture.shown, false, "disabled Silithus highlight restoration")
+assertEqual(townPin.alpha, 1, "disabled town icon restoration")
+assertEqual(cityPin.alpha, 1, "disabled city icon restoration")
 
 mapFrame.isMaximized = false
 CarpenterDB.worldMapCleanupEnabled = true

@@ -1,6 +1,7 @@
 --[[ Carpenter - focused World Map Cleanup for WoW Forever ]]
 -- Forever intentionally receives only the maximized-map layout, blackout
--- removal, and Silithus hover repair from the full Classic implementation.
+-- removal, Silithus hover repair, and hidden continent town and city icons
+-- from the full Classic implementation.
 if not (Carpenter and Carpenter.Client and Carpenter.Client.isForever) then return end
 
 local _, ns = ...
@@ -167,9 +168,85 @@ local function RestoreMapLayout()
     RestoreMapBlackout()
 end
 
+-- =========================
+-- Town and city icons
+-- =========================
+-- As on Classic, continent maps drop their town and city markers. They are
+-- Area POI pins whose icon comes from the Classic POI icon sheet
+-- (textureIndex) or from an atlas, so both are recognized.
+local AREA_POI_PIN_TEMPLATE = "AreaPOIPinTemplate"
+local TOWN_CITY_TEXCOORDS = {
+    { 0.5, 0.625, 0, 0.125 },   -- town
+    { 0.625, 0.75, 0, 0.125 },  -- city
+}
+local hiddenTownCityPins = setmetatable({}, { __mode = "k" })
+
+local function IsContinentMap(mapID)
+    if not mapID or not (C_Map and C_Map.GetMapInfo) then return false end
+    local info = C_Map.GetMapInfo(mapID)
+    local continentType = Enum and Enum.UIMapType and Enum.UIMapType.Continent
+    return info ~= nil and continentType ~= nil and info.mapType == continentType
+end
+
+local function IsNear(a, b)
+    return type(a) == "number" and math.abs(a - b) < 0.0001
+end
+
+local function IsTownOrCityPoi(poiInfo)
+    if type(poiInfo) ~= "table" then return false end
+    local atlas = poiInfo.atlasName
+    if type(atlas) == "string" then
+        atlas = atlas:lower()
+        return atlas:find("town", 1, true) ~= nil or atlas:find("city", 1, true) ~= nil
+            or atlas:find("capital", 1, true) ~= nil
+    end
+    if poiInfo.textureIndex and C_Minimap and C_Minimap.GetPOITextureCoords then
+        local x1, x2, y1, y2 = C_Minimap.GetPOITextureCoords(poiInfo.textureIndex)
+        for _, coords in ipairs(TOWN_CITY_TEXCOORDS) do
+            if IsNear(x1, coords[1]) and IsNear(x2, coords[2]) and IsNear(y1, coords[3]) and IsNear(y2, coords[4]) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Pins are pooled, so a pin hidden as a town can come back as something else;
+-- every pin is checked again and shown when it isn't a town or city anymore.
+local function UpdateTownCityPin(pin, hide)
+    if hide then
+        if not hiddenTownCityPins[pin] then
+            hiddenTownCityPins[pin] = true
+            pin:SetAlpha(0)
+            if pin.EnableMouse then pin:EnableMouse(false) end
+        end
+    elseif hiddenTownCityPins[pin] then
+        hiddenTownCityPins[pin] = nil
+        pin:SetAlpha(1)
+        if pin.EnableMouse then pin:EnableMouse(true) end
+    end
+end
+
+local function ApplyTownCityIcons()
+    local mapFrame = _G.WorldMapFrame
+    if not mapFrame or not mapFrame.EnumeratePinsByTemplate then return end
+    local hideOnThisMap = IsEnabled() and IsContinentMap(GetWorldMapID())
+    for pin in mapFrame:EnumeratePinsByTemplate(AREA_POI_PIN_TEMPLATE) do
+        local poiInfo = pin.GetPoiInfo and pin:GetPoiInfo() or pin.poiInfo
+        UpdateTownCityPin(pin, hideOnThisMap and IsTownOrCityPoi(poiInfo))
+    end
+end
+
+local function RestoreTownCityIcons()
+    for pin in pairs(hiddenTownCityPins) do
+        UpdateTownCityPin(pin, false)
+    end
+end
+
 local function ApplyWorldMapCleanup()
     if not IsEnabled() then return end
     ApplyMaximizedMapLayout()
+    ApplyTownCityIcons()
     if Cleanup.ApplySilithusHighlightFix then
         Cleanup.ApplySilithusHighlightFix()
     end
@@ -222,6 +299,11 @@ local function HookWorldMap()
         Carpenter:SafeHook(mapFrame, "OnMapChanged", function()
             if Cleanup.ApplySilithusHighlightFix then Cleanup.ApplySilithusHighlightFix() end
         end)
+        Carpenter:SafeHook(mapFrame, "AcquirePin", function(_, pinTemplate)
+            if pinTemplate == AREA_POI_PIN_TEMPLATE then
+                ApplyTownCityIcons()
+            end
+        end)
     end
 
     hookedWorldMap = true
@@ -258,6 +340,7 @@ function feature:Disable()
     frame:UnregisterAllEvents()
     if Cleanup.RefreshMapHighlightPins then Cleanup.RefreshMapHighlightPins() end
     RestoreMapLayout()
+    RestoreTownCityIcons()
 end
 
 function Carpenter_ApplyWorldMapCleanup()
@@ -267,6 +350,7 @@ function Carpenter_ApplyWorldMapCleanup()
     else
         if Cleanup.RefreshMapHighlightPins then Cleanup.RefreshMapHighlightPins() end
         RestoreMapLayout()
+        RestoreTownCityIcons()
     end
 end
 
