@@ -9,7 +9,7 @@ local Realm = ns.Private.RetailUnitFrameCleanerRealm or {}
 
 local lastFeatureState = {}
 local partyTitleOriginalAlpha = setmetatable({}, { __mode = "k" })
-local threatGlowOriginalAlpha = setmetatable({}, { __mode = "k" })
+local regionOriginalAlpha = setmetatable({}, { __mode = "k" })
 
 -- How strongly the red threat glow still shows with Clean Unit Frame on.
 local THREAT_GLOW_ALPHA = 0.3
@@ -68,6 +68,10 @@ local function ShouldDimThreatGlow()
     return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
+local function ShouldHidePvPTimer()
+    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
+end
+
 local function HasActiveCleanerOption()
     if not IsRetail() then return false end
     return ShouldHidePvPIcon()
@@ -81,6 +85,7 @@ local function HasActiveCleanerOption()
         or ShouldHidePartyFrameTitle()
         or ShouldHideTargetReputationColor()
         or ShouldDimThreatGlow()
+        or ShouldHidePvPTimer()
 end
 
 local function ShouldRunCleaner()
@@ -161,26 +166,27 @@ local function ApplyPartyFrameTitleFeature()
     lastFeatureState.partyFrameTitle = enabled
 end
 
--- Dims rather than hides, so you still see when something is on you. The glow
--- textures belong to secure unit frames, so they're only touched out of combat.
-local function ApplyThreatGlowFeature()
-    local enabled = ShouldDimThreatGlow()
-    if not enabled and not lastFeatureState.threatGlow then return end
+-- Sets the alpha of regions Blizzard never changes the alpha of, so it sticks,
+-- and restores it when the feature turns off. These regions belong to secure
+-- unit frames, so they're only touched out of combat.
+local function ApplyRegionAlphaFeature(featureKey, getRegions, predicate, alpha)
+    local enabled = predicate()
+    if not enabled and not lastFeatureState[featureKey] then return end
     if InCombatLockdown and InCombatLockdown() then return end
 
-    for _, texture in ipairs(Targets.GetThreatGlowTextures()) do
+    for _, region in ipairs(getRegions()) do
         if enabled then
-            if threatGlowOriginalAlpha[texture] == nil and texture.GetAlpha then
-                threatGlowOriginalAlpha[texture] = texture:GetAlpha()
+            if regionOriginalAlpha[region] == nil and region.GetAlpha then
+                regionOriginalAlpha[region] = region:GetAlpha()
             end
-            if texture.SetAlpha then texture:SetAlpha(THREAT_GLOW_ALPHA) end
-        elseif threatGlowOriginalAlpha[texture] ~= nil then
-            if texture.SetAlpha then texture:SetAlpha(threatGlowOriginalAlpha[texture]) end
-            threatGlowOriginalAlpha[texture] = nil
+            if region.SetAlpha then region:SetAlpha(alpha) end
+        elseif regionOriginalAlpha[region] ~= nil then
+            if region.SetAlpha then region:SetAlpha(regionOriginalAlpha[region]) end
+            regionOriginalAlpha[region] = nil
         end
     end
 
-    lastFeatureState.threatGlow = enabled
+    lastFeatureState[featureKey] = enabled
 end
 
 local function Apply()
@@ -201,7 +207,10 @@ local function Apply()
     -- refresh. Limit this feature to alpha only: no hooks, parenting, visibility,
     -- scripts, events, or custom fields on that frame.
     ApplyPartyFrameTitleFeature()
-    ApplyThreatGlowFeature()
+    -- Dimmed rather than hidden, so you still see when something is on you.
+    ApplyRegionAlphaFeature("threatGlow", Targets.GetThreatGlowTextures, ShouldDimThreatGlow, THREAT_GLOW_ALPHA)
+    -- Only the countdown; the PvP icon itself stays.
+    ApplyRegionAlphaFeature("pvpTimer", Targets.GetPvPTimerTexts, ShouldHidePvPTimer, 0)
     -- Match BetterBlizzFrames' narrow Retail approach: only hide the actual reputation
     -- color texture, not the surrounding name/background pieces that affect layout.
     ApplyFrameFeature("targetReputationColor", Targets.GetTargetReputationColorFrames, ShouldHideTargetReputationColor, false)

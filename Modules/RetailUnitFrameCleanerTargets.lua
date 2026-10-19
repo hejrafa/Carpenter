@@ -163,6 +163,14 @@ function Targets.GetThreatGlowTextures()
     return textures
 end
 
+-- The countdown next to the player portrait while you're still PvP flagged.
+-- Blizzard only shows, hides, and sets its text, so a zero alpha sticks.
+function Targets.GetPvPTimerTexts()
+    local texts = {}
+    AddFrame(texts, PlayerPVPTimerText)
+    return texts
+end
+
 function Targets.GetPartyFrameTitleFrames()
     local frames = {}
     AddFrame(frames, CompactPartyFrameTitle)
