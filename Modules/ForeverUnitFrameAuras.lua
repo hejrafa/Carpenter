@@ -113,9 +113,12 @@ local function CreateContainer(unit)
     local parent, portrait = GetPortrait(unit)
     if not parent or not portrait then return nil end
 
-    -- Above the portrait ring; the inset keeps the ring itself visible.
+    -- Same level as the portrait's frame, so the icon draws over the portrait
+    -- like the frame's own children do, while the level badge one level up
+    -- (TargetFrameContentMain on the target and focus frames) stays on top.
+    -- The inset keeps the portrait ring visible.
     local container = CreateFrame("AuraContainer", nil, parent, "CustomAuraContainerTemplate")
-    container:SetFrameLevel(parent:GetFrameLevel() + 1)
+    container:SetFrameLevel(parent:GetFrameLevel())
     container:SetPoint("CENTER", portrait, "CENTER")
 
     local size = GetPortraitSize(portrait) - PORTRAIT_INSET * 2

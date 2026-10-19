@@ -124,7 +124,7 @@ assert(#containers == 7, "each unit frame should get exactly one container")
 local player = byUnit.player
 local portrait = PlayerFrame.PlayerFrameContainer.PlayerPortrait
 assert(player.parent == PlayerFrame.PlayerFrameContainer, "the player container should sit with the portrait")
-assert(player.level == 5, "the icon should draw above the portrait ring")
+assert(player.level == 4, "the icon should share the portrait frame's level so the level badge above it stays visible")
 assert(player.points[1][1] == "CENTER" and player.points[1][2] == portrait, "the container should be centered on the portrait")
 assert(#player.slots == 1, "the player frame should have one slot")
 local slot = player.slots[1]
