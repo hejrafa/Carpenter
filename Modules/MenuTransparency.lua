@@ -94,13 +94,23 @@ local microButtons = {
     "WorldMapMicroButton",
 }
 
+-- On Retail and WoW Forever, MicroButtonAndBagsBar is an empty anchor fixed in
+-- the bottom-right corner. Edit Mode moves the real micro menu and bag bar
+-- away from it, so hovering that corner must not count as hovering them.
+local function IsHoverArea(name)
+    local client = Carpenter and Carpenter.Client
+    return not (name == "MicroButtonAndBagsBar" and client and client.isRetail)
+end
+
 local function IsMouseOverPaddedFrame(frame, padding)
     if not frame or not frame.GetLeft or not frame:IsShown() then return false end
 
     local left, right, top, bottom = frame:GetLeft(), frame:GetRight(), frame:GetTop(), frame:GetBottom()
     if not left or not right or not top or not bottom then return false end
 
-    local scale = UIParent and UIParent:GetEffectiveScale() or 1
+    -- A frame's edges are in its own scale, which Edit Mode can change.
+    local scale = (frame.GetEffectiveScale and frame:GetEffectiveScale())
+        or (UIParent and UIParent:GetEffectiveScale()) or 1
     local x, y = GetCursorPosition()
     x, y = x / scale, y / scale
     padding = padding or 0
@@ -110,7 +120,7 @@ end
 
 local function IsMouseOverGroup(group, padding)
     for _, name in ipairs(group) do
-        if IsMouseOverPaddedFrame(_G[name], padding) then
+        if IsHoverArea(name) and IsMouseOverPaddedFrame(_G[name], padding) then
             return true
         end
     end
@@ -138,7 +148,9 @@ end
 -- Function to setup hover scripts on all buttons
 local function SetupButtonHoverScripts()
     for _, name in ipairs(containerFrames) do
-        SetupButtonHover(_G[name], "micro")
+        if IsHoverArea(name) then
+            SetupButtonHover(_G[name], "micro")
+        end
     end
 
     for _, name in ipairs(bagButtons) do
