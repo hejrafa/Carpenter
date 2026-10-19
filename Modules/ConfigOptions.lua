@@ -30,6 +30,11 @@ function Options.Create(context)
         return Description(client and client.isVanilla and "DESC_MOUNT_SPEED_TRINKET_CLASSIC" or "DESC_MOUNT_SPEED_TRINKET")
     end
 
+    local function CleanUnitFramesDescription()
+        local client = Carpenter and Carpenter.Client
+        return Description(client and client.isForever and "DESC_CLEAN_UP_UNIT_FRAMES_FOREVER" or "DESC_CLEAN_UP_UNIT_FRAMES")
+    end
+
     local function MinimapClutterDescription()
         local client = Carpenter and Carpenter.Client
         return Description(client and client.isRetail and "DESC_MINIMAP_CLUTTER_RETAIL" or "DESC_MINIMAP_CLUTTER")
@@ -196,7 +201,7 @@ function Options.Create(context)
                 {
                     key = "cleanUpUnitFramesEnabled",
                     label = L.OPTION_CLEAN_UP_UNIT_FRAMES or "Clean Unit Frame",
-                    description = Description("DESC_CLEAN_UP_UNIT_FRAMES"),
+                    description = CleanUnitFramesDescription(),
                     image = GetSettingsImage("unitnumbers.png"),
                 },
                 {

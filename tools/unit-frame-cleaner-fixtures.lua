@@ -39,6 +39,7 @@ PlayerFrame = { PlayerFrameContainer = { FrameFlash = playerGlow } }
 TargetFrame = { TargetFrameContainer = { Flash = targetGlow } }
 FocusFrame = { TargetFrameContainer = { Flash = focusGlow } }
 PartyFrame = { MemberFrame1 = { Flash = partyGlow } }
+CompactPartyFrameTitle = NewTexture()
 
 local ns = { Private = {} }
 for _, path in ipairs({
@@ -63,8 +64,17 @@ for name, glow in pairs({ player = playerGlow, target = targetGlow, focus = focu
     assert(glow.alpha > 0 and glow.alpha < 1, name .. " threat glow should be dimmed, not hidden")
 end
 
+-- Forever keeps its party frame title (and corner icon, reputation color, and
+-- realm indicators); Retail still cleans them.
+assert(CompactPartyFrameTitle.alpha == 1, "Forever should leave the party frame title alone")
+
 cleanEnabled = false
 feature:Disable()
 assert(playerGlow.alpha == 1 and targetGlow.alpha == 1, "turning the option off should restore the threat glow")
+
+Carpenter.Client.isForever = false
+cleanEnabled = true
+feature:Enable()
+assert(CompactPartyFrameTitle.alpha == 0, "Retail should still hide the party frame title")
 
 print("unit frame cleaner fixtures: passed")

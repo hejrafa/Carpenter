@@ -18,6 +18,12 @@ local function IsRetail()
     return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
 end
 
+-- Retail-only cleanups: WoW Forever leaves the player corner icon, target
+-- reputation color, party frame title, and realm indicators alone.
+local function IsRetailOnly()
+    return IsRetail() and not Carpenter.Client.isForever
+end
+
 local function ShouldHidePvPIcon()
     return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
@@ -43,19 +49,19 @@ local function ShouldHideHealthLossFx()
 end
 
 local function ShouldHideRealmIndicator()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
+    return IsRetailOnly() and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHidePlayerCornerIcon()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
+    return IsRetailOnly() and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHidePartyFrameTitle()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
+    return IsRetailOnly() and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHideTargetReputationColor()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
+    return IsRetailOnly() and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldDimThreatGlow()
