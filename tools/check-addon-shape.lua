@@ -25,6 +25,7 @@ local stateKeys = {
     explorerModeChatWindowRepairVersion = true,
     foreverDefaultsResetVersion = true,
     noObjectiveQuestWatches = true,
+    settingsPresetBackup = true,
     smartMacroLastItems = true,
 }
 
