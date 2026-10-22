@@ -12,8 +12,11 @@ local layoutString = [=[
 EditModeLayout.LayoutString = layoutString:gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
 EditModeLayout.LayoutName = "Carpenter"
 
+-- The author runs this same layout on Retail and WoW Forever, which share
+-- Blizzard's Edit Mode.
 function EditModeLayout.IsAvailable()
-    return Carpenter and Carpenter.Client and Carpenter.Client.isRetail == true
+    local client = Carpenter and Carpenter.Client
+    return client ~= nil and (client.isRetail == true or client.isForever == true)
 end
 
 function EditModeLayout.Install()

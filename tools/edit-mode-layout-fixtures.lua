@@ -37,7 +37,10 @@ assertContains(value, "26 0 0 1 1 UIParent -729.6 -559.0", "encounter-bar placem
 
 assert(layout.IsAvailable() == true, "Retail should expose the hidden layout page")
 Carpenter.Client.isRetail = false
-assert(layout.IsAvailable() == false, "Classic should not expose the Retail Edit Mode layout page")
+Carpenter.Client.isForever = true
+assert(layout.IsAvailable() == true, "Forever should expose the hidden layout page")
+Carpenter.Client.isForever = false
+assert(layout.IsAvailable() == false, "Classic should not expose the Edit Mode layout page")
 
 local inCombat = false
 local savedLayoutInfo = { activeLayout = 1, layouts = {} }
