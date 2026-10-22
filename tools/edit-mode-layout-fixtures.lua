@@ -29,6 +29,8 @@ assert(value:match("29 2 1 7 7 UIParent 0%.0 400%.0 %-1 #&%$U%%#&D&%%'2%(%$%)%$$
 assert(not value:find("\n", 1, true), "Edit Mode layout string must be a single line")
 assert(not value:find("\\", 1, true), "Edit Mode layout string contains an escaped Markdown asterisk")
 assertContains(value, "CompactRaidFrameManager", "raid-frame placement")
+-- Raid frames: border on (setting 12), separate groups laid out horizontally (13).
+assertContains(value, "3 4 1 0 2 CompactRaidFrameManager 0.0 -5.0 -1 ,#-=.+/$0$1#", "raid-frame border and group layout")
 assertContains(value, "14 -1 0 0 0 UIParent 1582.7 -942.5", "micro-menu placement")
 assertContains(value, "13 -1 0 0 0 UIParent 1544.6 -983.0", "bag-bar placement")
 assertContains(value, "Minimap -68.0 -68.0", "minimap placement")
