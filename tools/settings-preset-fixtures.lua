@@ -161,7 +161,15 @@ end
 local config = read("config.lua")
 assertContains(config, "AddToggle(L.SETTINGS_PRESET_NAME", "game settings checkbox")
 assertContains(config, "SettingsPreset.IsAvailable()", "Forever-only game settings section")
-assert(config:find("SECTION_SETTINGS_PRESET", 1, true) < config:find("SECTION_EDIT_MODE_LAYOUT or", 1, true),
-    "the settings section should sit at the top of the hidden page")
+-- The game settings and the Edit Mode layout share one Settings section at
+-- the top of the hidden page.
+local settingsHeader = config:find("CreateHeader(L.SECTION_SETTINGS_PRESET", 1, true)
+local settingsRow = config:find("AddToggle(L.SETTINGS_PRESET_NAME", 1, true)
+local layoutRow = config:find("AddToggle(L.EDIT_MODE_LAYOUT_NAME", 1, true)
+local macroHeader = config:find("for _, section in ipairs(MACRO_SECTIONS)", 1, true)
+assert(settingsHeader and settingsRow and layoutRow and macroHeader, "hidden page sections are missing")
+assert(settingsHeader < settingsRow and settingsRow < layoutRow and layoutRow < macroHeader,
+    "the layout should sit under Settings, after the game settings, at the top of the hidden page")
+assert(not config:find("SECTION_EDIT_MODE_LAYOUT", 1, true), "the layout should not get a section of its own")
 
 print("settings preset fixtures: passed")

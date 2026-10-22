@@ -791,8 +791,15 @@ local function CreateHiddenPage()
         ShowHiddenPageSidebar = ShowHiddenPageSidebar or showDetails
     end
 
-    if SettingsPreset.IsAvailable and SettingsPreset.IsAvailable() then
+    -- One Settings section: the game settings on Forever, the Edit Mode
+    -- layout wherever Edit Mode exists.
+    local hasSettingsPreset = SettingsPreset.IsAvailable and SettingsPreset.IsAvailable()
+    local hasEditModeLayout = EditModeLayout.IsAvailable and EditModeLayout.IsAvailable()
+    if hasSettingsPreset or hasEditModeLayout then
         widgets[#widgets + 1] = CreateHeader(L.SECTION_SETTINGS_PRESET or "Settings")
+    end
+
+    if hasSettingsPreset then
         AddToggle(L.SETTINGS_PRESET_NAME or "Game Settings & Keybinds", ShowSettingsPresetSidebar, {
             name = "CP_SettingsPresetCheck",
             isChecked = function() return SettingsPreset.IsApplied and SettingsPreset.IsApplied() or false end,
@@ -800,12 +807,8 @@ local function CreateHiddenPage()
         })
     end
 
-    if EditModeLayout.IsAvailable and EditModeLayout.IsAvailable() then
-        if #widgets > 0 then
-            yPos = yPos - 24
-        end
-        widgets[#widgets + 1] = CreateHeader(L.SECTION_EDIT_MODE_LAYOUT or "Layout")
-        AddToggle(L.EDIT_MODE_LAYOUT_NAME or "Carpenter", ShowEditModeLayoutSidebar, {
+    if hasEditModeLayout then
+        AddToggle(L.EDIT_MODE_LAYOUT_NAME or "Edit Mode Layout", ShowEditModeLayoutSidebar, {
             name = "CP_EditModeLayoutCheck",
             isChecked = function() return EditModeLayout.IsInstalled and EditModeLayout.IsInstalled() or false end,
             onClick = SetEditModeLayoutInstalled,
