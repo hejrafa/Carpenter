@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.10
+
+- The hidden version-number page now opens with a Settings section. On WoW Forever, its Game Settings & Keybinds checkbox switches the game over to the author's own graphics, sound, interface, nameplate, action bar, and keybind settings, and unchecking it puts yours back.
+- The Edit Mode Layout checkbox moves into that Settings section and now also works on WoW Forever.
+- Updated the Carpenter Edit Mode layout's raid frames to show their border and lay out groups horizontally.
+
 ## 1.8.9
 
 - World Map Cleanup now hides the town and city icons on WoW Forever's world and continent maps.
