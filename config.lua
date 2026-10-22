@@ -641,9 +641,9 @@ end
 
 local mainWidgets, mainYPos = RenderSections(OPTION_SECTIONS)
 
--- Hidden page rows are checkboxes that mirror something outside the main
--- options (the author's settings, the Edit Mode layout list, the macro list);
--- the sidebar reports how the last click went.
+-- Hidden page rows are checkboxes that mirror something outside CarpenterDB
+-- (the game settings and keybinds, the Edit Mode layout list, the macro
+-- list); the sidebar reports how the last click went.
 local hiddenToggleRows = {}
 local selectedHiddenItem
 
@@ -683,12 +683,13 @@ local function RefreshHiddenToggles()
 end
 
 local function ShowSettingsPresetSidebar()
-    ShowHiddenItemSidebar(SettingsPreset, L.SETTINGS_PRESET_DESCRIPTION or "Every carpenter sets up the workshop their own way. These are the author's own {hl}WoW Forever{/hl} settings.\n\nCheck it to switch every Carpenter option over to them. Uncheck it to go back to the settings you had before.")
+    ShowHiddenItemSidebar(SettingsPreset, L.SETTINGS_PRESET_DESCRIPTION or "Every carpenter sets up the workshop their own way. These are the author's own {hl}WoW Forever{/hl} game settings: graphics, sound, interface, nameplates, action bars, and keybinds.\n\nCheck it to switch over to them. Uncheck it to go back to the settings you had before.")
 end
 
 local SETTINGS_PRESET_MESSAGES = {
-    applied = L.SETTINGS_PRESET_APPLIED or "Workshop rearranged! Reload the UI if anything looks out of place.",
-    restored = L.SETTINGS_PRESET_RESTORED or "Your own settings are back on the workbench.",
+    applied = L.SETTINGS_PRESET_APPLIED or "Workshop rearranged! Reload the UI so everything settles in.",
+    partial = L.SETTINGS_PRESET_PARTIAL or "The game turned down a few settings, but the rest are in place.",
+    restored = L.SETTINGS_PRESET_RESTORED or "Your own settings and keybinds are back on the workbench.",
     unchanged = L.SETTINGS_PRESET_UNCHANGED or "These already are your own settings, so there's nothing to put back.",
     combat = L.SETTINGS_PRESET_COMBAT or "You can't rearrange the workshop while in combat.",
 }
@@ -700,11 +701,11 @@ local function SetSettingsPresetApplied(applied)
     if apply then
         ok, result = apply()
     end
-    -- The main page's checkboxes follow along.
-    SyncCheckboxesFromDatabase()
     UpdateReloadButton()
     ShowSettingsPresetSidebar()
-    SetHiddenPageStatus(SETTINGS_PRESET_MESSAGES[result] or L.SETTINGS_PRESET_FAILED or "Carpenter couldn't change the settings.", ok)
+    SetHiddenPageStatus(SETTINGS_PRESET_MESSAGES[result] or L.SETTINGS_PRESET_FAILED or "Carpenter couldn't change the game settings.", ok)
+    -- The server echoes the action bar toggles back a moment later.
+    Carpenter:After(1, RefreshHiddenToggles)
 end
 
 local function ShowEditModeLayoutSidebar()
@@ -790,9 +791,9 @@ local function CreateHiddenPage()
         ShowHiddenPageSidebar = ShowHiddenPageSidebar or showDetails
     end
 
-    if SettingsPreset.Apply then
+    if SettingsPreset.IsAvailable and SettingsPreset.IsAvailable() then
         widgets[#widgets + 1] = CreateHeader(L.SECTION_SETTINGS_PRESET or "Settings")
-        AddToggle(L.SETTINGS_PRESET_NAME or "WoW Forever", ShowSettingsPresetSidebar, {
+        AddToggle(L.SETTINGS_PRESET_NAME or "Game Settings & Keybinds", ShowSettingsPresetSidebar, {
             name = "CP_SettingsPresetCheck",
             isChecked = function() return SettingsPreset.IsApplied and SettingsPreset.IsApplied() or false end,
             onClick = SetSettingsPresetApplied,
