@@ -109,6 +109,15 @@ local function RestoreEditBox()
     originalEditBoxTextures = {}
 end
 
+-- The input box texture is hidden unless the player chose to keep it.
+local function ApplyEditBox()
+    if CarpenterDB and CarpenterDB.chatEditBoxTextureEnabled == true then
+        RestoreEditBox()
+    else
+        CleanEditBox()
+    end
+end
+
 function Lifecycle.Create(options)
     options = options or {}
     local filtersRegistered = false
@@ -198,7 +207,7 @@ function Lifecycle.Create(options)
         end
         ApplyChatFlags()
         RegisterChatFilters()
-        CleanEditBox()
+        ApplyEditBox()
         if options.SessionTracker and options.SessionTracker.Enable then
             options.SessionTracker:Enable()
         end
@@ -232,5 +241,8 @@ function Lifecycle.Create(options)
     return {
         Enable = Enable,
         Disable = Disable,
+        ApplyEditBox = function()
+            if featureEnabled then ApplyEditBox() end
+        end,
     }
 end

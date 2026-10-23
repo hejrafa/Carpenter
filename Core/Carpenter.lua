@@ -52,6 +52,7 @@ local defaults = {
     filterGamblingEnabled = false,
     filterDuplicatesEnabled = false,
     chatCleanerEnabled = false,
+    chatEditBoxTextureEnabled = false,
     hideChatButtonsEnabled = false,
     -- Automations
     autoCarrotEnabled = false,
@@ -69,6 +70,7 @@ local defaults = {
     explorerModeEnabled = false,
     menuTransparencyEnabled = false,
     minimapFadeEnabled = false,
+    chatFadeEnabled = false,
     -- Settings
     blankLuaErrorTraceEnabled = false,
 }

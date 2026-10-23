@@ -934,6 +934,57 @@ do
     _G.ChatFrame1EditBox = originalEditBox
 end
 
+do
+    -- Show Input Box Texture keeps the edit box as Blizzard drew it, and
+    -- switching it while Chat Cleaner is on applies right away.
+    local originalEditBox = _G.ChatFrame1EditBox
+    local blizzardTexture = "Interface\\ChatFrame\\UI-ChatInputBorder-Left"
+    local region = { texture = blizzardTexture, alpha = 1, coords = { 0, 1, 0, 1, 0, 1, 0, 1 } }
+    function region:IsObjectType(objectType) return objectType == "Texture" end
+    function region:GetTexture() return self.texture end
+    function region:SetTexture(texture) self.texture = texture end
+    function region:GetAlpha() return self.alpha end
+    function region:SetAlpha(alpha) self.alpha = alpha end
+    function region:GetTexCoord() return unpack(self.coords) end
+    function region:SetTexCoord(...) self.coords = { ... } end
+    _G.ChatFrame1EditBox = { GetRegions = function() return region end }
+
+    CarpenterDB = { chatEditBoxTextureEnabled = true }
+    local lifecycle = ns.Private.ChatCleanerLifecycle.Create({
+        FilterImpl = function() return false, "", "" end,
+    })
+
+    lifecycle.ApplyEditBox()
+    additionalChecks = additionalChecks + 1
+    if region.texture ~= blizzardTexture or region.alpha ~= 1 then
+        failures[#failures + 1] = "edit box texture: switching the option before Chat Cleaner is on should change nothing"
+    end
+
+    lifecycle.Enable()
+    additionalChecks = additionalChecks + 1
+    if region.texture ~= blizzardTexture or region.alpha ~= 1 then
+        failures[#failures + 1] = "edit box texture: expected the texture kept when the option is on"
+    end
+
+    CarpenterDB.chatEditBoxTextureEnabled = false
+    lifecycle.ApplyEditBox()
+    additionalChecks = additionalChecks + 1
+    if region.texture ~= nil or region.alpha ~= 0 then
+        failures[#failures + 1] = "edit box texture: expected the texture hidden once the option is off"
+    end
+
+    CarpenterDB.chatEditBoxTextureEnabled = true
+    lifecycle.ApplyEditBox()
+    additionalChecks = additionalChecks + 1
+    if region.texture ~= blizzardTexture or region.alpha ~= 1 then
+        failures[#failures + 1] = "edit box texture: expected the texture back once the option is on again"
+    end
+
+    lifecycle.Disable()
+    CarpenterDB = nil
+    _G.ChatFrame1EditBox = originalEditBox
+end
+
 -- WoW Forever hides skill-up text during chat messaging lockdown; the line is
 -- rebuilt from skill ranks, once per message across every chat frame.
 do

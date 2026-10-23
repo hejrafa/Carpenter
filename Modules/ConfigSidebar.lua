@@ -142,6 +142,9 @@ function Sidebar.Create(context)
         if _G["CP_WorldMap_POIIcons"] then
             _G["CP_WorldMap_POIIcons"]:Hide()
         end
+        if _G["CP_ChatCleaner_EditBoxTexture"] then
+            _G["CP_ChatCleaner_EditBoxTexture"]:Hide()
+        end
         if _G["CP_HiddenPageStatus"] then
             _G["CP_HiddenPageStatus"]:Hide()
         end
@@ -314,6 +317,31 @@ function Sidebar.Create(context)
         end
     end
 
+    local function ShowChatCleanerOptions()
+        ShowSideContent()
+
+        if not _G["CP_ChatCleaner_EditBoxTexture"] then
+            local cb = CreateFrame("CheckButton", "CP_ChatCleaner_EditBoxTexture", sideContent, "InterfaceOptionsCheckButtonTemplate")
+            cb:SetPoint("TOPLEFT", 0, 0)
+            SetCheckboxLabel(cb, L.OPTION_CHAT_EDIT_BOX_TEXTURE or "Show Input Box Texture")
+            cb:SetScript("OnClick", function(self)
+                if CarpenterDB then
+                    CarpenterDB.chatEditBoxTextureEnabled = self:GetChecked()
+                    UpdateReloadButton()
+                    if Carpenter_ApplyChatEditBoxTexture then
+                        Carpenter_ApplyChatEditBoxTexture()
+                    end
+                end
+            end)
+        end
+
+        local checkbox = _G["CP_ChatCleaner_EditBoxTexture"]
+        if checkbox then
+            checkbox:Show()
+            checkbox:SetChecked(CarpenterDB and CarpenterDB.chatEditBoxTextureEnabled)
+        end
+    end
+
     local function ShowFilterOptions()
         ShowSideContent()
         if not _G["CP_Filter_TradeBots"] then
@@ -356,6 +384,7 @@ function Sidebar.Create(context)
         HideAllContent = HideAllSideContent,
         SideLogic = {
             FilterOptions = ShowFilterOptions,
+            ChatCleanerOptions = ShowChatCleanerOptions,
             CarrotSlots = ShowCarrotSlots,
             MacroPreviews = ShowMacroPreviews,
             PoisonMacroPreviews = ShowPoisonMacroPreviews,
@@ -368,6 +397,7 @@ function Sidebar.Create(context)
         ShowSellJunkOptions = ShowSellJunkOptions,
         ShowWorldMapOptions = ShowWorldMapOptions,
         ShowFilterOptions = ShowFilterOptions,
+        ShowChatCleanerOptions = ShowChatCleanerOptions,
         SideGap = SIDE_GAP,
     }
 end

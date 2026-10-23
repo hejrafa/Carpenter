@@ -13,6 +13,7 @@ function Options.Create(context)
     local GetSettingsImage = context.GetSettingsImage or function() return nil end
     local SideLogic = context.SideLogic or {}
     local ShowFilterOptions = SideLogic.FilterOptions or context.ShowFilterOptions
+    local ShowChatCleanerOptions = SideLogic.ChatCleanerOptions or context.ShowChatCleanerOptions
     local ShowCarrotSlots = SideLogic.CarrotSlots or context.ShowCarrotSlots
     local ShowMacroPreviews = SideLogic.MacroPreviews or context.ShowMacroPreviews
     local ShowPoisonMacroPreviews = SideLogic.PoisonMacroPreviews or context.ShowPoisonMacroPreviews
@@ -237,6 +238,7 @@ function Options.Create(context)
                     key = "chatCleanerEnabled",
                     label = L.OPTION_CHAT_CLEANER or "Cleaner",
                     description = Description("DESC_CHAT_CLEANER"),
+                    sideLogic = ShowChatCleanerOptions,
                     image = GetSettingsImage("chatcleaner.png"),
                 },
                 {
@@ -342,6 +344,12 @@ function Options.Create(context)
                     label = L.OPTION_MINIMAP_FADE or "Fade Minimap",
                     description = Description("DESC_MINIMAP_FADE"),
                     image = GetSettingsImage("minimapclutter.png"),
+                },
+                {
+                    key = "chatFadeEnabled",
+                    label = L.OPTION_CHAT_FADE or "Fade Chat",
+                    description = Description("DESC_CHAT_FADE"),
+                    image = GetSettingsImage("chatbuttons.png"),
                 },
             },
         },

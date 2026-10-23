@@ -101,3 +101,4 @@ Modules\ExplorerMode\ExplorerModeFader.lua
 Modules\ExplorerMode\ExplorerMode.lua
 Modules\MenuTransparency.lua
 Modules\MinimapFade.lua
+Modules\ChatFade.lua

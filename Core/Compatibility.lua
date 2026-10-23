@@ -118,6 +118,7 @@ local featureManifest = {
     explorerModeEnabled = { { clients = ALL, files = { "Modules/ExplorerMode/ExplorerMode.lua" } } },
     menuTransparencyEnabled = { { clients = ALL, files = { "Modules/MenuTransparency.lua" } } },
     minimapFadeEnabled = { { clients = ALL, files = { "Modules/MinimapFade.lua" } } },
+    chatFadeEnabled = { { clients = ALL, files = { "Modules/ChatFade.lua" } } },
 }
 
 Carpenter.FeatureManifest = featureManifest

@@ -535,6 +535,13 @@ if Carpenter and Carpenter.RegisterFeature then
     Carpenter:RegisterFeature("chatCleanerEnabled", chatCleanerFeature)
 end
 
+-- The settings sidebar calls this when the input box texture option changes.
+function Carpenter_ApplyChatEditBoxTexture()
+    if chatCleanerFeature.ApplyEditBox then
+        chatCleanerFeature.ApplyEditBox()
+    end
+end
+
 -- Keeps the skill rank snapshot current outside chat messaging lockdown, so
 -- hidden skill-ups inside it can be compared against it.
 local skillRankFrame = CreateFrame("Frame")
