@@ -90,12 +90,6 @@ function Options.Create(context)
             title = L.SECTION_INTERFACE or "Interface",
             options = {
                 {
-                    key = "menuTransparencyEnabled",
-                    label = L.OPTION_MENU_TRANSPARENCY or "Fade Micro Menu & Bags",
-                    description = Description("DESC_MENU_TRANSPARENCY"),
-                    image = GetSettingsImage("micromenu.png"),
-                },
-                {
                     key = "smallerExpBarEnabled",
                     label = L.OPTION_SMALLER_EXP_BAR or "Fade Exp & Rep Bars",
                     description = Description("DESC_SMALLER_EXP_BAR"),
@@ -336,6 +330,18 @@ function Options.Create(context)
                         tooltipText = L.BADGE_BETA_EXPLORER_MODE or "Fresh off the workbench. It's safe to try, but what fades and when may still change as it gets more testing.",
                     },
                     image = GetSettingsImage("explorer.png"),
+                },
+                {
+                    key = "menuTransparencyEnabled",
+                    label = L.OPTION_MENU_TRANSPARENCY or "Fade Micro Menu & Bags",
+                    description = Description("DESC_MENU_TRANSPARENCY"),
+                    image = GetSettingsImage("micromenu.png"),
+                },
+                {
+                    key = "minimapFadeEnabled",
+                    label = L.OPTION_MINIMAP_FADE or "Fade Minimap",
+                    description = Description("DESC_MINIMAP_FADE"),
+                    image = GetSettingsImage("minimapclutter.png"),
                 },
             },
         },

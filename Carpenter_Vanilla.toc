@@ -40,7 +40,6 @@ Modules\ActionBarRange.lua
 # Interface
 Modules\StatusTrackingBars.lua
 Modules\SmallerExpBar.lua
-Modules\MenuTransparency.lua
 Modules\MinimapClutter\MinimapClutterFrames.lua
 Modules\MinimapClutter\MinimapClutterFader.lua
 Modules\MinimapClutter\MinimapClutter.lua
@@ -112,3 +111,5 @@ Modules\ExplorerMode\ExplorerModeChatRepair.lua
 Modules\ExplorerMode\ExplorerModeActionButtons.lua
 Modules\ExplorerMode\ExplorerModeFader.lua
 Modules\ExplorerMode\ExplorerMode.lua
+Modules\MenuTransparency.lua
+Modules\MinimapFade.lua

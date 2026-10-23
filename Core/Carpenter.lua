@@ -16,7 +16,6 @@ local defaults = {
     actionBarRangeEnabled = false,
     hideStanceBarEnabled = false,
     -- Interface
-    menuTransparencyEnabled = false,
     smallerExpBarEnabled = false,
     minimapClutterEnabled = false,
     worldMapCleanupEnabled = false,
@@ -68,6 +67,8 @@ local defaults = {
     -- Immersion
     actionCamEnabled = false,
     explorerModeEnabled = false,
+    menuTransparencyEnabled = false,
+    minimapFadeEnabled = false,
     -- Settings
     blankLuaErrorTraceEnabled = false,
 }

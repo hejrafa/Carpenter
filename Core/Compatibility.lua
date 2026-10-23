@@ -56,7 +56,6 @@ local featureManifest = {
     actionBarRangeEnabled = { { clients = CLASSIC, files = { "Modules/ActionBarRange.lua" } } },
 
     -- Interface
-    menuTransparencyEnabled = { { clients = ALL, files = { "Modules/MenuTransparency.lua" } } },
     smallerExpBarEnabled = { { clients = CLASSIC, files = { "Modules/SmallerExpBar.lua" } } },
     minimapClutterEnabled = { { clients = ALL, files = { "Modules/MinimapClutter/MinimapClutter.lua" } } },
     hideQuestTrackerTitlesEnabled = { { clients = MODERN, files = { "Modules/HideQuestTrackerTitles.lua" } } },
@@ -117,6 +116,8 @@ local featureManifest = {
     -- Immersion
     actionCamEnabled = { { clients = ALL, files = { "Modules/ActionCam.lua" } } },
     explorerModeEnabled = { { clients = ALL, files = { "Modules/ExplorerMode/ExplorerMode.lua" } } },
+    menuTransparencyEnabled = { { clients = ALL, files = { "Modules/MenuTransparency.lua" } } },
+    minimapFadeEnabled = { { clients = ALL, files = { "Modules/MinimapFade.lua" } } },
 }
 
 Carpenter.FeatureManifest = featureManifest
