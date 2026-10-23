@@ -120,7 +120,6 @@ L.OPTION_MINIMAP_FADE = "Estomper la minicarte"
 L.OPTION_CHAT_FADE = "Estomper la discussion"
 L.BADGE_BETA = "BÊTA"
 L.BADGE_BETA_TITLE = "Bêta"
-L.BADGE_BETA_EXPLORER_MODE = "Tout juste sorti de l'établi. Vous pouvez l'essayer sans crainte, mais ce qui s'estompe, et à quel moment, pourra encore évoluer au fil des tests."
 
 L.DESC_HIDE_MACRO_NAMES = "Les noms de macros peuvent transformer une barre d'action bien rangée en bol de soupe alphabet.\n\nMasque les {hl}noms de macros{/hl} sur les boutons d'action pour des barres nettes et faciles à parcourir."
 L.DESC_HIDE_KEYBINDS = "Vos doigts connaissent déjà le chemin. Vos yeux peuvent prendre leur journée.\n\nMasque les {hl}raccourcis clavier{/hl} affichés sur les boutons d'action, pour des barres plus sobres et plus nettes."

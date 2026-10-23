@@ -120,7 +120,6 @@ L.OPTION_MINIMAP_FADE = "Esmaecer minimapa"
 L.OPTION_CHAT_FADE = "Esmaecer bate-papo"
 L.BADGE_BETA = "BETA"
 L.BADGE_BETA_TITLE = "Beta"
-L.BADGE_BETA_EXPLORER_MODE = "Acabou de sair da bancada. Pode testar sem medo, mas o que esmaece, e quando, ainda pode mudar com mais testes."
 
 L.DESC_HIDE_MACRO_NAMES = "Nomes de macro podem transformar uma barra de ação arrumadinha numa sopa de letrinhas.\n\nOculta os {hl}nomes de macro{/hl} nos botões de ação para que suas barras fiquem limpas e fáceis de ler."
 L.DESC_HIDE_KEYBINDS = "Seus dedos já sabem o caminho. Seus olhos podem tirar o dia de folga.\n\nOculta os {hl}rótulos de atalhos{/hl} nos botões de ação, deixando as barras mais limpas e discretas."

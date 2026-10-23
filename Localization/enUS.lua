@@ -128,7 +128,6 @@ L.OPTION_MINIMAP_FADE = "Fade Minimap"
 L.OPTION_CHAT_FADE = "Fade Chat"
 L.BADGE_BETA = "BETA"
 L.BADGE_BETA_TITLE = "Beta"
-L.BADGE_BETA_EXPLORER_MODE = "Fresh off the workbench. It's safe to try, but what fades and when may still change as it gets more testing."
 
 L.DESC_HIDE_MACRO_NAMES = "Macro names can turn a tidy action bar into a bowl of alphabet soup.\n\nHides {hl}macro names{/hl} on action buttons so your bars stay clean and easy to scan."
 L.DESC_HIDE_KEYBINDS = "Your fingers already know the way. Your eyes can take the day off.\n\nHides {hl}keybind labels{/hl} on action buttons for quieter, cleaner bars."

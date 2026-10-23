@@ -120,7 +120,6 @@ L.OPTION_MINIMAP_FADE = "Atenuar minimapa"
 L.OPTION_CHAT_FADE = "Atenuar chat"
 L.BADGE_BETA = "BETA"
 L.BADGE_BETA_TITLE = "Beta"
-L.BADGE_BETA_EXPLORER_MODE = "Recién salida del banco de trabajo. Puedes probarla sin miedo, pero qué se atenúa y cuándo aún puede cambiar a medida que se pruebe más."
 
 L.DESC_HIDE_MACRO_NAMES = "Los nombres de las macros pueden convertir una barra de acción ordenada en una sopa de letras.\n\nOculta los {hl}nombres de macros{/hl} en los botones de acción para que tus barras se vean limpias y se lean de un vistazo."
 L.DESC_HIDE_KEYBINDS = "Tus dedos ya se saben el camino. Tus ojos pueden tomarse el día libre.\n\nOculta las {hl}etiquetas de atajos{/hl} en los botones de acción para tener unas barras más tranquilas y limpias."

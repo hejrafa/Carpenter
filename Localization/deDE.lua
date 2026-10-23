@@ -120,7 +120,6 @@ L.OPTION_MINIMAP_FADE = "Minikarte ausblenden"
 L.OPTION_CHAT_FADE = "Chat ausblenden"
 L.BADGE_BETA = "BETA"
 L.BADGE_BETA_TITLE = "Beta"
-L.BADGE_BETA_EXPLORER_MODE = "Frisch von der Werkbank. Du kannst es gefahrlos ausprobieren, aber was wann ausgeblendet wird, kann sich nach weiteren Tests noch ändern."
 
 L.DESC_HIDE_MACRO_NAMES = "Makronamen können eine aufgeräumte Aktionsleiste in eine Schüssel Buchstabensuppe verwandeln.\n\nBlendet {hl}Makronamen{/hl} auf Aktionsschaltflächen aus, damit deine Leisten sauber und übersichtlich bleiben."
 L.DESC_HIDE_KEYBINDS = "Deine Finger kennen den Weg längst. Deine Augen dürfen sich freinehmen.\n\nBlendet die {hl}Tastenbelegung{/hl} auf Aktionsschaltflächen aus und sorgt so für ruhigere, aufgeräumte Leisten."
