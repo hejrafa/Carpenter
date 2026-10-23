@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.11
+
+- New Fade Minimap option in Immersion: fades the minimap and everything around it, including the zone name, clock, and addon buttons, until you hover over where it sits.
+- New Fade Chat option in Immersion: fades the chat windows and all of their tabs until you hover over the chat, and keeps them up while you type.
+- Fade Micro Menu & Bags moves to the Immersion section.
+- Chat Cleaner gains a Show Input Box Texture option for keeping the chat input box's texture. It's off by default, so the texture stays hidden as before.
+- Explorer Mode is no longer marked as beta.
+
 ## 1.8.10
 
 - The hidden version-number page now opens with a Settings section. On WoW Forever, its Game Settings & Keybinds checkbox switches the game over to the author's own graphics, sound, interface, nameplate, action bar, and keybind settings, and unchecking it puts yours back.
