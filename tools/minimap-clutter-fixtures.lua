@@ -259,9 +259,14 @@ local localizationFiles = {
     "deDE.lua",
     "enUS.lua",
     "esES.lua",
+    "esMX.lua",
     "frFR.lua",
+    "itIT.lua",
+    "koKR.lua",
     "ptBR.lua",
     "ruRU.lua",
+    "zhCN.lua",
+    "zhTW.lua",
 }
 
 for _, fileName in ipairs(localizationFiles) do

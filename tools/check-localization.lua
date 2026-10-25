@@ -1,13 +1,14 @@
 #!/usr/bin/env lua
--- Checks that every locale defines the same L.* keys as enUS and that
--- statically referenced localization keys exist in enUS.
+-- Checks that every locale defines the same L.* keys as enUS, keeps each
+-- string's format specifiers, {tags}, and line breaks, and that statically
+-- referenced localization keys exist in enUS.
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then
     repo = repo:sub(1, -2)
 end
 
-local locales = { "deDE", "esES", "frFR", "ptBR", "ruRU" }
+local locales = { "deDE", "esES", "esMX", "frFR", "itIT", "koKR", "ptBR", "ruRU", "zhCN", "zhTW" }
 
 local function shellQuote(value)
     return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
@@ -28,6 +29,36 @@ local function collectKeys(path)
         keys[key] = true
     end
     return keys
+end
+
+local function collectValues(path)
+    local values = {}
+    for line in readFile(path):gmatch("[^\n]+") do
+        local key, value = line:match('^L%.([A-Z0-9_]+)%s*=%s*"(.*)"%s*$')
+        if key then
+            values[key] = value
+        end
+    end
+    return values
+end
+
+-- What a translation must carry over unchanged: format specifiers in order,
+-- plus the count of each {tag} and line break.
+local function placeholderSignature(value)
+    local parts = {}
+    for spec in value:gmatch("%%[%d%.%-]*[sdfi]") do
+        parts[#parts + 1] = spec
+    end
+    for _, token in ipairs({ "{hl}", "{/hl}", "{body}", "{name}", "\\n", "|n" }) do
+        local count, start = 0, 1
+        while true do
+            local first, last = value:find(token, start, true)
+            if not first then break end
+            count, start = count + 1, last + 1
+        end
+        parts[#parts + 1] = token .. "x" .. count
+    end
+    return table.concat(parts, " ")
 end
 
 local function collectLuaFiles()
@@ -94,6 +125,7 @@ local function sortedKeys(map)
 end
 
 local base = collectKeys(repo .. "/Localization/enUS.lua")
+local baseValues = collectValues(repo .. "/Localization/enUS.lua")
 local failures = {}
 
 for _, locale in ipairs(locales) do
@@ -121,6 +153,24 @@ for _, locale in ipairs(locales) do
     end
     if #extra > 0 then
         failures[#failures + 1] = locale .. " extra: " .. table.concat(extra, ", ")
+    end
+
+    local values = collectValues(path)
+    for _, key in ipairs(sortedKeys(baseValues)) do
+        local value = values[key]
+        if value and placeholderSignature(value) ~= placeholderSignature(baseValues[key]) then
+            failures[#failures + 1] = locale .. " " .. key .. " placeholders differ from enUS: ["
+                .. placeholderSignature(value) .. "] vs [" .. placeholderSignature(baseValues[key]) .. "]"
+        end
+    end
+
+    -- Chat Cleaner swaps the leading name in these for a colored one.
+    local you, youRoll, playerRoll = values.CHAT_YOU, values.CHAT_YOU_ROLL, values.CHAT_PLAYER_ROLLS_RANGE
+    if you and youRoll and youRoll:sub(1, #you) ~= you then
+        failures[#failures + 1] = locale .. " CHAT_YOU_ROLL must start with CHAT_YOU (\"" .. you .. "\")"
+    end
+    if playerRoll and playerRoll:sub(1, 2) ~= "%s" then
+        failures[#failures + 1] = locale .. " CHAT_PLAYER_ROLLS_RANGE must start with the player name (%s)"
     end
 end
 

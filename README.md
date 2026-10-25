@@ -24,7 +24,7 @@ Get it from CurseForge, Wago, or GitHub Releases, or drop the `Carpenter` folder
 
 - `Core/` - bootstrap, client detection, and the feature manifest
 - `Modules/` - features, loaded per client by the TOCs
-- `Localization/` - English, plus German, Spanish, French, Portuguese, and Russian
+- `Localization/` - English, plus German, Spanish (Spain and Latin America), French, Italian, Korean, Brazilian Portuguese, Russian, and Simplified and Traditional Chinese
 - `Art/` - icons and settings previews for Classic, Retail, and Forever
 - `tools/` - checks, fixtures, and the release script
 

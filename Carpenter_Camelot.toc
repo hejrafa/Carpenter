@@ -2,11 +2,15 @@
 ## Title: Carpenter
 ## Notes: Measure twice, cut the clutter. Carpenter tidies up your interface and brings a toolbox full of handy quality-of-life features.|n|nOpen the workshop with|n/carpenter or /cp
 ## Notes-deDE: Zweimal messen, einmal entrümpeln. Carpenter räumt deine Benutzeroberfläche auf und bringt einen Werkzeugkasten voller praktischer Komfortfunktionen mit.|n|nÖffne die Werkstatt mit|n/carpenter oder /cp
-## Notes-esES: Mide dos veces y corta el desorden. Carpenter pone orden en tu interfaz y trae una caja de herramientas llena de mejoras prácticas.|n|nAbre el taller con|n/carpenter o /cp
-## Notes-esMX: Mide dos veces y corta el desorden. Carpenter pone orden en tu interfaz y trae una caja de herramientas llena de mejoras prácticas.|n|nAbre el taller con|n/carpenter o /cp
-## Notes-frFR: Mesurer deux fois, désencombrer une fois. Carpenter range votre interface et apporte une boîte à outils pleine de petites améliorations pratiques.|n|nOuvrez l'atelier avec|n/carpenter ou /cp
-## Notes-ptBR: Meça duas vezes e corte a bagunça. O Carpenter arruma sua interface e traz uma caixa de ferramentas cheia de recursos práticos.|n|nAbra a oficina com|n/carpenter ou /cp
-## Notes-ruRU: Семь раз отмерь — один раз убери лишнее. Carpenter наводит порядок в интерфейсе и приносит целый ящик полезных инструментов.|n|nОткрыть мастерскую:|n/carpenter или /cp
+## Notes-esES: Mide dos veces y corta lo que sobra. Carpenter pone orden en tu interfaz y trae una caja de herramientas llena de mejoras prácticas.|n|nAbre el taller con|n/carpenter o /cp
+## Notes-esMX: Mide dos veces y recorta el desorden. Carpenter acomoda tu interfaz y trae una caja de herramientas llena de prácticas mejoras de calidad de vida.|n|nAbre el taller con|n/carpenter o /cp
+## Notes-frFR: Mesurer deux fois, couper le superflu. Carpenter range votre interface et apporte une boîte à outils pleine de petites améliorations pratiques.|n|nOuvrez l'atelier avec|n/carpenter ou /cp
+## Notes-itIT: Misura due volte, taglia il superfluo. Carpenter mette in ordine la tua interfaccia e porta una cassetta degli attrezzi piena di comode funzioni per semplificarti la vita.|n|nApri la bottega con|n/carpenter o /cp
+## Notes-koKR: 두 번 재고, 군더더기는 싹둑. Carpenter는 인터페이스를 말끔히 다듬고, 편리한 기능이 가득 든 공구함을 챙겨 드립니다.|n|n공방 열기:|n/carpenter 또는 /cp
+## Notes-ptBR: Meça duas vezes, corte a bagunça. O Carpenter arruma sua interface e traz uma caixa de ferramentas cheia de recursos práticos.|n|nAbra a oficina com|n/carpenter ou /cp
+## Notes-ruRU: Семь раз отмерь — один раз отрежь лишнее. Carpenter наводит порядок в интерфейсе и приносит целый ящик полезных инструментов.|n|nОткрыть мастерскую:|n/carpenter или /cp
+## Notes-zhCN: 三思而后锯，删繁就简。Carpenter帮你收拾整理界面，还带来满满一工具箱的实用便捷功能。|n|n打开工坊请输入|n/carpenter 或 /cp
+## Notes-zhTW: 量好尺寸，鋸掉雜亂。Carpenter 替你整理介面，還附上一整箱實用的便利功能。|n|n開啟工坊：|n/carpenter 或 /cp
 ## LoadSavedVariablesFirst: 1
 ## SavedVariables: CarpenterDB
 ## Version: 1.8.11
@@ -19,9 +23,14 @@ Core\Compatibility.lua
 Localization\enUS.lua
 Localization\deDE.lua
 Localization\esES.lua
+Localization\esMX.lua
 Localization\frFR.lua
+Localization\itIT.lua
+Localization\koKR.lua
 Localization\ptBR.lua
 Localization\ruRU.lua
+Localization\zhCN.lua
+Localization\zhTW.lua
 Core\Carpenter.lua
 Modules\AddonCompartment.lua
 Core\Unit.lua

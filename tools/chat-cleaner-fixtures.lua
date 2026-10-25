@@ -718,6 +718,47 @@ do
     end
 end
 
+-- Roll results on other clients take their type from Blizzard's global, not
+-- from English words in the message.
+do
+    local keys = { "LOOT_ROLL_NEED", "LOOT_ROLL_GREED", "LOOT_ROLL_DISENCHANT", "LOOT_ROLL_WON" }
+    local saved = {}
+    for _, key in ipairs(keys) do saved[key] = _G[key] end
+
+    LOOT_ROLL_NEED = "%s hat 'Bedarf' für: %s ausgewählt"
+    LOOT_ROLL_GREED = "%s hat 'Gier' für: %s ausgewählt"
+    LOOT_ROLL_DISENCHANT = "%s hat 'Entzauberung' für: %s ausgewählt"
+    LOOT_ROLL_WON = "%s gewinnt: %s"
+
+    local utils = ns.Private.ChatCleanerUtils
+    local loot = ns.Private.ChatCleanerLoot
+    local localizedFormatter = loot.Create({
+        CleanPunctuation = utils.CleanPunctuation,
+        StripBrackets = utils.StripBrackets,
+        SpaceBeforeX = utils.SpaceBeforeX,
+        GetItemLinkFromMessage = utils.GetItemLinkFromMessage,
+        GetItemLinkWithQualityColor = utils.GetItemLinkWithQualityColor,
+        RollPatterns = loot.BuildRollPatterns(),
+        RollPatternsFallback = {},
+        ColorLootLiteral = "|cffffffff",
+    })
+
+    local cases = {
+        { "Malagas hat 'Bedarf' für: [Seidenstoff] ausgewählt", "Malagas Need Seidenstoff" },
+        { "Malagas hat 'Entzauberung' für: [Seidenstoff] ausgewählt", "Malagas Disenchant Seidenstoff" },
+        { "Malagas gewinnt: [Seidenstoff]", "Malagas won Seidenstoff" },
+    }
+    for _, case in ipairs(cases) do
+        local out = localizedFormatter.FormatLootRollMessage("CHAT_MSG_LOOT", case[1])
+        additionalChecks = additionalChecks + 1
+        if plain(out) ~= case[2] then
+            failures[#failures + 1] = "localized roll: expected [" .. case[2] .. "] got [" .. tostring(plain(out)) .. "]"
+        end
+    end
+
+    for _, key in ipairs(keys) do _G[key] = saved[key] end
+end
+
 do
     local hookCalls = 0
     local restoreCalls = 0

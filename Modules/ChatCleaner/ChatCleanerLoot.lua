@@ -149,6 +149,14 @@ function Loot.BuildRollPatterns()
         "LOOT_ROLL_DISENCHANT",
         "LOOT_ROLL_WON",
     }
+    -- The roll type comes from the global itself; other clients' wording
+    -- has no English "need" or "won" to read it from.
+    local rollTypes = {
+        LOOT_ROLL_NEED = "Need",
+        LOOT_ROLL_GREED = "Greed",
+        LOOT_ROLL_DISENCHANT = "Disenchant",
+        LOOT_ROLL_WON = "Won",
+    }
 
     for _, globalName in ipairs(globals) do
         local fmt = _G[globalName]
@@ -157,7 +165,7 @@ function Loot.BuildRollPatterns()
             if pattern then
                 local literal = (fmt:gsub("%%[%d%$]*s", ""):gsub("%%[%d%$]*d", ""):gsub("^%s+", " "):gsub("%s+$", " "))
                 local relaxed = pattern:gsub(" need ", " .- "):gsub(" greed ", " .- "):gsub(" passed on ", " .- on "):gsub(" disenchant ", " .- "):gsub(" won ", " .- ")
-                patterns[#patterns + 1] = { pattern = relaxed, literal = literal }
+                patterns[#patterns + 1] = { pattern = relaxed, literal = literal, rollType = rollTypes[globalName] }
             end
         end
     end
@@ -259,7 +267,7 @@ function Loot.Create(config)
 
     local function CleanRollActionText(text)
         if not text or text == "" then return "" end
-        return (text:gsub("^%s+", ""):gsub("%s+$", ""):gsub(":%s*$", ""))
+        return (text:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%s*:%s*$", ""))
     end
 
     local function StripTrailingLoot(display)
@@ -554,7 +562,7 @@ function Loot.Create(config)
             local isYou = name == "You" or name == playerName
             local displayName = isYou and "You" or name
             local shortName = CleanRollName(name)
-            local typeWord = RollTypeWord(entry.literal)
+            local typeWord = entry.rollType or RollTypeWord(entry.literal)
             local itemKey = Loot.GetRollItemKey(itemPart, message)
 
             if typeWord == "Pass" then

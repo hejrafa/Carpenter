@@ -103,7 +103,7 @@ function PostProcess.Create(config)
 
     local function Literal(text)
         if text and type(text) == "string" then
-            text = text:gsub("^%s+", ""):gsub("%s+$", ""):gsub(":%s*$", "")
+            text = text:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%s*:%s*$", "")
         end
         if not text or text == "" then return "" end
         return colorLootLiteral .. text .. "|r"
