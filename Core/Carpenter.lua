@@ -37,6 +37,7 @@ local defaults = {
     hideUnitFramePvPIconEnabled = false,
     hideUnitFramePowerBarEnabled = false,
     hideBossFramesEnabled = false,
+    hideSurnamesEnabled = false,
     hideRestAnimationEnabled = false,
     hideHealthLossFxEnabled = false,
     hideRealmIndicatorEnabled = false,

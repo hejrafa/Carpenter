@@ -88,6 +88,8 @@ local featureManifest = {
         notOn = { forever = "Forever's class power bars can't be hidden safely" },
     },
     hideBossFramesEnabled = { { clients = MODERN, files = { "Modules/RetailUnitFrameCleaner.lua" } } },
+    -- Only Forever characters have surnames.
+    hideSurnamesEnabled = { { clients = "forever", files = { "Modules/HideSurnames.lua" } } },
 
     -- Nameplates
     debuffTrackerEnabled = {

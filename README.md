@@ -8,7 +8,7 @@ Carpenter keeps Blizzard's UI and sands it down: quieter bars, readable chat, co
 
 - **Action bars** - Hide macro names, keybinds, and the stance bar. Fade extra bars and tint abilities that are out of range.
 - **Interface** - Fade the XP bar and minimap clutter. Tidy the quest tracker, world map, and tooltips, and silence error spam.
-- **Unit frames** - Class-colored health, threat, crowd control and cooldown highlights, class-icon portraits, and fewer decorations.
+- **Unit frames** - Class-colored health, threat, crowd control and cooldown highlights, class-icon portraits, fewer decorations, and first names without surnames on WoW Forever.
 - **Nameplates** - Crowd control, bleeds, and combo points above your enemies.
 - **Chat** - Loot, XP, money, and rolls as short color-coded lines, with bot and gambling spam filtered out.
 - **Chores** - Sell junk, repair, track new quests, swap mount-speed trinkets, warn about missing poisons, and keep food, potion, and poison macros pointed at your best stuff.

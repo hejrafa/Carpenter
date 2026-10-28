@@ -200,6 +200,12 @@ function Options.Create(context)
                     image = GetSettingsImage("unitnumbers.png"),
                 },
                 {
+                    key = "hideSurnamesEnabled",
+                    label = L.OPTION_HIDE_SURNAMES or "Hide Surnames",
+                    description = Description("DESC_HIDE_SURNAMES"),
+                    image = GetSettingsImage(nil, "unitnumbers.png"),
+                },
+                {
                     key = "hideUnitFramePowerBarEnabled",
                     label = L.OPTION_HIDE_POWER_BAR or "Hide Combo/Power Bar",
                     description = Description("DESC_HIDE_POWER_BAR"),
