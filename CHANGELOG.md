@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.12
+
+- Enhance Tooltip no longer repeats the class on the level line when the game already shows a spec line, so a player reads as "Level 60 Orc" over "Shadow Priest", matching the default UI.
+- New Hide Surnames option for WoW Forever: the unit, party, raid, and nameplate frames show first names only. Tooltips keep the full name, and turning it off puts Blizzard's names back.
+- Added Latin American Spanish, Italian, Korean, Simplified Chinese, and Traditional Chinese translations, and polished the German, Spanish, French, Brazilian Portuguese, and Russian ones. Spanish now serves Spain only, with Latin America on its own translation.
+- Chat Cleaner now reads roll types from the game's own strings, so Need, Disenchant, and wins no longer show as Greed on non-English clients, and French labels no longer leave a double space.
+- Macro captions use the client's standard font so Korean, Chinese, and Cyrillic text renders.
+- The hidden version-number page's Game Settings & Keybinds checkbox is now just Keybinds: it switches only the keybinds and no longer touches graphics, sound, interface, nameplate, or action bar settings. Unchecking still restores your previous keybinds, including ones backed up by 1.8.10 and 1.8.11.
+
 ## 1.8.11
 
 - New Fade Minimap option in Immersion: fades the minimap and everything around it, including the zone name, clock, and addon buttons, until you hover over where it sits.
