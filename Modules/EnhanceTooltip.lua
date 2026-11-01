@@ -267,29 +267,47 @@ local function ApplyPlayerInfoLine(tooltip, unit)
         levelPart = "|cff" .. levelHex .. LEVEL_STR .. " " .. unitLevel .. "|r"
     end
 
+    -- Locate the level line and check whether the game already shows the class on its
+    -- own line (e.g. "Shadow Priest" under "Level 60 Orc"), so we don't repeat it.
+    local levelLine, classOnlyLine
+    local numLines = tooltip and tooltip.NumLines and tooltip:NumLines() or 4
+    for i = 2, numLines do
+        local line = _G["GameTooltipTextLeft" .. i]
+        local text = line and line:GetText() or ""
+        if text ~= "" then
+            local hasLevel = text:lower():find(LEVEL_STR:lower(), 1, true) ~= nil
+            local hasClass = className and className ~= "" and text:find(className, 1, true) ~= nil
+            if hasLevel then
+                levelLine = levelLine or line
+            elseif hasClass and text:sub(-#className) == className then
+                -- A line ending in the class name is the game's own class/spec line.
+                classOnlyLine = classOnlyLine or line
+            end
+        end
+    end
+    local classShownElsewhere = levelLine ~= nil and classOnlyLine ~= nil
+    levelLine = levelLine or classOnlyLine
+    if not levelLine then return end
+
+    local classPart = ""
+    if not classShownElsewhere then
+        classPart = classColor .. (className or "") .. "|r"
+    end
+
     local infoText
     if isRuRU then
         infoText = ""
-        if race then infoText = infoText .. race .. ", " end
-        infoText = infoText .. classColor .. (className or "") .. "|r "
+        if race then infoText = infoText .. race end
+        if classPart ~= "" then infoText = infoText .. (race and ", " or "") .. classPart end
+        if infoText ~= "" then infoText = infoText .. " " end
         infoText = infoText .. levelPart
     else
         infoText = levelPart
         if race then infoText = infoText .. " " .. race end
-        infoText = infoText .. " " .. classColor .. (className or "") .. "|r"
+        if classPart ~= "" then infoText = infoText .. " " .. classPart end
     end
 
-    -- Find which line has the level/class info (usually line 2)
-    for i = 2, 4 do
-        local line = _G["GameTooltipTextLeft" .. i]
-        if line then
-            local text = line:GetText() or ""
-            if text ~= "" and (text:lower():find(LEVEL_STR:lower()) or text:find(className or "")) then
-                line:SetText(infoText)
-                return
-            end
-        end
-    end
+    levelLine:SetText(infoText)
 end
 
 -- Mob level line (level + creature type + classification)
