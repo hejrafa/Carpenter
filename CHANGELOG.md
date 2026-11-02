@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.14
+
+- Remove Minimap Clutter on Classic Era and TBC now also hides the zone name with its border, and the sun-and-moon day/night button, as its description already promised.
+
 ## 1.8.13
 
 - Fade Minimap on Retail now fades the map itself along with its header. Before, the map and the buttons on it stayed at full strength until the map cut out at the end of the fade.
