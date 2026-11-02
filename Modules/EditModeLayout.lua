@@ -12,11 +12,92 @@ local layoutString = [=[
 EditModeLayout.LayoutString = layoutString:gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
 EditModeLayout.LayoutName = "Carpenter"
 
+-- The string above is the author's WoW Forever export. Forever and Retail
+-- share Blizzard's Edit Mode, but their layout strings differ: Forever writes
+-- format 5 with an interface-style header and inserts its own systems (main
+-- action bar end caps 26, Group Finder 27, swing timers 29, gamepad bar 30)
+-- ahead of Loss of Control, which Retail 12.1.5 still keeps at 26 and whose
+-- strings are format 2 with the system count repeated. Retail also has no
+-- totem bar (25) in its Modern layout. C_EditMode.ConvertStringToLayoutInfo
+-- rejects a Forever string on Retail, so the Retail string is built from the
+-- Forever one here.
+local FOREVER_LOSS_OF_CONTROL = 28
+local RETAIL_LOSS_OF_CONTROL = 26
+local FOREVER_ONLY_SYSTEMS = {
+    [25] = true, -- TotemActionBar: absent from Retail's Modern layout
+    [26] = true, -- MainActionBarEndCap
+    [27] = true, -- GroupFinder
+    [29] = true, -- SwingTimer
+    [30] = true, -- GamepadMainActionBar
+}
+
+local function ConvertForeverLayoutToRetail(text)
+    local tokens = {}
+    for token in text:gmatch("%S+") do
+        tokens[#tokens + 1] = token
+    end
+
+    local version = tonumber(tokens[1])
+    if not version or version < 3 then return nil end
+    -- Format 4+ headers carry the interface style between version and count.
+    local headerLength = version >= 4 and 3 or 2
+    local count = tonumber(tokens[headerLength])
+    if not count then return nil end
+
+    local records = {}
+    local index = headerLength + 1
+    for _ = 1, count do
+        local record = {}
+        -- system, systemIndex, isInDefaultPosition, point, relativePoint, relativeTo, offsetX, offsetY
+        for _ = 1, 8 do
+            record[#record + 1] = tokens[index]
+            index = index + 1
+        end
+        -- Secondary anchor: "-1" when absent, otherwise five more tokens.
+        local secondaryCount = tokens[index] == "-1" and 1 or 5
+        for _ = 1, secondaryCount do
+            record[#record + 1] = tokens[index]
+            index = index + 1
+        end
+        record[#record + 1] = tokens[index] -- settings blob
+        index = index + 1
+        if record[#record] == nil then return nil end
+        records[#records + 1] = record
+    end
+    if index ~= #tokens + 1 then return nil end
+
+    local kept = {}
+    for _, record in ipairs(records) do
+        local system = tonumber(record[1])
+        if system == FOREVER_LOSS_OF_CONTROL then
+            record[1] = tostring(RETAIL_LOSS_OF_CONTROL)
+            kept[#kept + 1] = table.concat(record, " ")
+        elseif not FOREVER_ONLY_SYSTEMS[system] then
+            kept[#kept + 1] = table.concat(record, " ")
+        end
+    end
+
+    return "2 " .. #kept .. " " .. #kept .. " " .. table.concat(kept, " ")
+end
+
+EditModeLayout.ForeverLayoutString = layoutString:gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+EditModeLayout.RetailLayoutString = ConvertForeverLayoutToRetail(EditModeLayout.ForeverLayoutString)
+EditModeLayout.LayoutName = "Carpenter"
+
 -- The author runs this same layout on Retail and WoW Forever, which share
 -- Blizzard's Edit Mode.
 function EditModeLayout.IsAvailable()
     local client = Carpenter and Carpenter.Client
     return client ~= nil and (client.isRetail == true or client.isForever == true)
+end
+
+-- The layout string in the running client's own format.
+function EditModeLayout.GetLayoutString()
+    local client = Carpenter and Carpenter.Client
+    if client and client.isForever then
+        return EditModeLayout.ForeverLayoutString
+    end
+    return EditModeLayout.RetailLayoutString
 end
 
 function EditModeLayout.Install()
@@ -31,7 +112,12 @@ function EditModeLayout.Install()
         return false, "unsupported"
     end
 
-    local ok, importedLayout = pcall(api.ConvertStringToLayoutInfo, EditModeLayout.LayoutString)
+    local text = EditModeLayout.GetLayoutString()
+    if type(text) ~= "string" then
+        return false, "unsupported"
+    end
+
+    local ok, importedLayout = pcall(api.ConvertStringToLayoutInfo, text)
     if not ok or type(importedLayout) ~= "table" or type(importedLayout.systems) ~= "table" then
         return false, "invalid"
     end
