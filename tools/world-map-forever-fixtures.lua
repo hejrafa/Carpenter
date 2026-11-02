@@ -1,11 +1,8 @@
 local root = assert(arg[1], "usage: lua tools/world-map-forever-fixtures.lua <addon-root>")
+local H = dofile(root .. "/tools/fixture-harness.lua")(root, "world-map-forever")
+local assertEqual = H.assertEqual
 local unpackValues = table.unpack or unpack
 
-local function assertEqual(actual, expected, message)
-    if actual ~= expected then
-        error(string.format("%s: expected %s, got %s", message, tostring(expected), tostring(actual)), 2)
-    end
-end
 
 local function newRegion()
     local region = { alpha = 1, shown = true }

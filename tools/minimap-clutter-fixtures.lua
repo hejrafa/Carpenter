@@ -1,10 +1,7 @@
 local root = assert(arg[1], "usage: lua tools/minimap-clutter-fixtures.lua <addon-root>")
+local H = dofile(root .. "/tools/fixture-harness.lua")(root, "minimap-clutter")
+local assertEqual = H.assertEqual
 
-local function assertEqual(actual, expected, message)
-    if actual ~= expected then
-        error(string.format("%s: expected %s, got %s", message, tostring(expected), tostring(actual)), 2)
-    end
-end
 
 local function newWidget(name)
     local widget = {

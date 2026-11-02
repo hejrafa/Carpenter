@@ -5,43 +5,27 @@
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then repo = repo:sub(1, -2) end
+local H = dofile(repo .. "/tools/fixture-harness.lua")(repo, "hover-fade")
 
-local scripts = {}
-local cursorX, cursorY = 0, 0
+H.installCreateFrame()
+H.installCursor()
+H.installUIParent()
+H.carpenter({})
 
-function CreateFrame()
-    local frame = { shown = true }
-    function frame:SetScript(script, handler) scripts[script] = { frame = self, handler = handler } end
-    function frame:Show() self.shown = true end
-    function frame:Hide() self.shown = false end
-    function frame:IsShown() return self.shown end
-    return frame
-end
-function GetCursorPosition() return cursorX, cursorY end
-UIParent = { GetEffectiveScale = function() return 1 end }
-Carpenter = {}
-
-assert(loadfile(repo .. "/Core/HoverFade.lua"))("Carpenter", {})
+H.load("Core/HoverFade.lua")
 local HoverFade = assert(Carpenter.HoverFade, "the hover fader did not register on Carpenter")
 
 -- A 100x100 frame at 200,200, drawn at half scale so it covers 100..150.
-local frame = { shown = true, visible = true }
-function frame:GetLeft() return 200 end
-function frame:GetRight() return 300 end
-function frame:GetBottom() return 200 end
-function frame:GetTop() return 300 end
-function frame:GetEffectiveScale() return 0.5 end
-function frame:IsShown() return self.shown end
-function frame:IsVisible() return self.visible end
+local frame = H.Frame({ left = 200, bottom = 200, width = 100, height = 100, scale = 0.5, visible = true })
 
-cursorX, cursorY = 125, 125
+H.setCursor(125, 125)
 assert(HoverFade.IsMouseOverPaddedFrame(frame, 0), "the cursor inside the scaled frame should count")
-cursorX, cursorY = 155, 125
+H.setCursor(155, 125)
 assert(not HoverFade.IsMouseOverPaddedFrame(frame, 0), "the cursor past the scaled edge should not count")
 assert(HoverFade.IsMouseOverPaddedFrame(frame, 14), "padding should widen the frame in its own scale")
 assert(not HoverFade.IsMouseOverPaddedFrame(nil, 14), "a missing frame is never hovered")
 
-cursorX, cursorY = 125, 125
+H.setCursor(125, 125)
 frame.shown = false
 assert(HoverFade.IsMouseOverPaddedFrame(frame, 0), "without a visibility check a hidden frame keeps its edges")
 assert(not HoverFade.IsMouseOverPaddedFrame(frame, 0, "shown"), "a hidden frame should fail the shown check")
@@ -70,7 +54,7 @@ local fader = HoverFade.Create({
     fadeOut = 0.4,
     interval = 0.05,
 })
-local update = assert(scripts.OnUpdate, "the fader should drive an OnUpdate")
+local update = assert(H.scripts.OnUpdate, "the fader should drive an OnUpdate")
 local function Tick(elapsed) update.handler(update.frame, elapsed or 0.1) end
 
 assert(not fader:IsRunning() and fader.alpha == 1, "a new fader should be idle at full alpha")
@@ -99,10 +83,10 @@ assert(fader.alpha == 0, "the fade out should stop at 0")
 local force = false
 local forced = HoverFade.Create({
     shouldShow = function() return false end,
-    apply = function(alpha) applied[#applied + 1] = "forced" end,
+    apply = function() applied[#applied + 1] = "forced" end,
     onTick = function() return force end,
 })
-local forcedUpdate = scripts.OnUpdate
+local forcedUpdate = H.scripts.OnUpdate
 forced:Start(0)
 local before = #applied
 forcedUpdate.handler(forcedUpdate.frame, 0.1)

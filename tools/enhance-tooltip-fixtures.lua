@@ -7,19 +7,11 @@ local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then
     repo = repo:sub(1, -2)
 end
+local H = dofile(repo .. "/tools/fixture-harness.lua")(repo, "enhance-tooltip")
+local fail, assertEqual = H.fail, H.assertEqual
 
 unpack = unpack or table.unpack
 
-local function fail(message)
-    io.stderr:write("enhance-tooltip fixture failed: " .. message .. "\n")
-    os.exit(1)
-end
-
-local function assertEqual(actual, expected, message)
-    if actual ~= expected then
-        fail(message .. " (expected " .. tostring(expected) .. ", got " .. tostring(actual) .. ")")
-    end
-end
 
 local function stripColors(text)
     return (text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))

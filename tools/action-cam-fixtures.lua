@@ -5,6 +5,8 @@ local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then
     repo = repo:sub(1, -2)
 end
+local H = dofile(repo .. "/tools/fixture-harness.lua")(repo, "action-cam")
+local fail, assertEqual = H.fail, H.assertEqual
 
 local createdFrames = {}
 local cvarWrites = {}
@@ -96,16 +98,6 @@ local function loadAddonFile(path)
     return chunk("Carpenter", {})
 end
 
-local function fail(message)
-    io.stderr:write("action-cam fixture failed: " .. message .. "\n")
-    os.exit(1)
-end
-
-local function assertEqual(actual, expected, message)
-    if actual ~= expected then
-        fail(message .. " (expected " .. tostring(expected) .. ", got " .. tostring(actual) .. ")")
-    end
-end
 
 local function findLastWrite(name)
     for index = #cvarWrites, 1, -1 do

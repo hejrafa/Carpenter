@@ -2,114 +2,47 @@
 -- Offline fixture checks for Hide Chat Buttons hover API compatibility.
 
 local repo = arg and arg[1] or "."
-if repo:sub(-1) == "/" then
-    repo = repo:sub(1, -2)
-end
+if repo:sub(-1) == "/" then repo = repo:sub(1, -2) end
+local H = dofile(repo .. "/tools/fixture-harness.lua")(repo, "hide-chat-buttons")
+local fail, assertEqual = H.fail, H.assertEqual
 
-unpack = unpack or table.unpack
-
-local registeredFeature
-local createdFrames = {}
-
-CarpenterDB = { hideChatButtonsEnabled = true }
-Carpenter = {
-    Client = { isClassic = false },
-    IsEnabled = function(_, key)
-        return CarpenterDB[key] == true
-    end,
-    RegisterFeature = function(_, key, feature)
-        if key == "hideChatButtonsEnabled" then
-            registeredFeature = feature
-        end
-    end,
-    DeferMany = function() end,
-}
-
-local function NewFrame(name)
-    local frame = {
-        name = name,
-        alpha = 1,
-        mouseOver = false,
-        scripts = {},
-        shown = true,
-    }
-
-    function frame:SetPoint() end
-    function frame:SetFrameStrata() end
-    function frame:SetScript(script, handler) self.scripts[script] = handler end
-    function frame:RegisterEvent() end
-    function frame:UnregisterAllEvents() end
-    function frame:SetAlpha(alpha) self.alpha = alpha end
-    function frame:Show() self.shown = true end
-    function frame:Hide() self.shown = false end
-    function frame:IsMouseOver() return self.mouseOver end
-
-    return frame
-end
-
-UIParent = NewFrame("UIParent")
-ChatFrame1 = NewFrame("ChatFrame1")
-ChatFrame1Tab = NewFrame("ChatFrame1Tab")
-ChatFrameMenuButton = NewFrame("ChatFrameMenuButton")
--- Retail's social button beside the chat fades with the rest.
-QuickJoinToastButton = NewFrame("QuickJoinToastButton")
-NUM_CHAT_WINDOWS = 1
-
-function CreateFrame(_, name)
-    local frame = NewFrame(name)
-    createdFrames[#createdFrames + 1] = frame
-    if name then _G[name] = frame end
-    return frame
-end
-
-function hooksecurefunc(target, method, handler)
-    local original = target and target[method]
-    if type(original) ~= "function" then return end
-
-    target[method] = function(...)
-        local results = { original(...) }
-        handler(...)
-        return unpack(results)
-    end
-end
-
-C_Timer = { After = function() end }
+H.installCreateFrame()
+H.installHooks()
+H.installTimers("ignore")
 MouseIsOver = nil
 
-local function fail(message)
-    io.stderr:write("hide-chat-buttons fixture failed: " .. message .. "\n")
-    os.exit(1)
-end
+CarpenterDB = { hideChatButtonsEnabled = true }
+H.carpenter({
+    Client = { isClassic = false },
+    IsEnabled = function(_, key) return CarpenterDB[key] == true end,
+    RegisterFeature = H.captureFeature("hideChatButtonsEnabled"),
+    DeferMany = function() end,
+})
 
-local function assertEqual(actual, expected, message)
-    if actual ~= expected then
-        fail(message .. " (expected " .. tostring(expected) .. ", got " .. tostring(actual) .. ")")
-    end
-end
+H.NamedFrame("UIParent")
+H.NamedFrame("ChatFrame1")
+H.NamedFrame("ChatFrame1Tab")
+H.NamedFrame("ChatFrameMenuButton")
+-- Retail's social button beside the chat fades with the rest.
+H.NamedFrame("QuickJoinToastButton")
+NUM_CHAT_WINDOWS = 1
 
-local function runUpdate(hoverFrame)
-    local handler = hoverFrame.scripts.OnUpdate
-    if not handler then fail("hover frame has no OnUpdate handler") end
-    local ok, err = pcall(handler, hoverFrame, 0.05)
+local function runUpdate()
+    local update = H.scripts.OnUpdate
+    if not update then fail("Hide Chat Buttons did not start a hover fader") end
+    local ok, err = pcall(update.handler, update.frame, 0.05)
     if not ok then fail("hover update errored: " .. tostring(err)) end
 end
 
-assert(loadfile(repo .. "/Core/HoverFade.lua"))("Carpenter", {})
-Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
-local chunk, err = loadfile(repo .. "/Modules/HideChatButtons.lua")
-if not chunk then error(err) end
-chunk("Carpenter", {})
+H.load("Core/HoverFade.lua")
+H.load("Modules/HideChatButtons.lua")
 
+local registeredFeature = H.features.hideChatButtonsEnabled
 if not registeredFeature then fail("Hide Chat Buttons did not register its feature") end
--- The hitbox above the chat is created first; the shared fader's frame
--- carries the OnUpdate.
-local hoverFrame = createdFrames[1]
+-- The hitbox above the chat is the module's first frame; the shared fader's
+-- frame carries the OnUpdate.
+local hoverFrame = H.createdFrames[1]
 if not hoverFrame then fail("Hide Chat Buttons did not create its hover frame") end
-local updateFrame
-for _, created in ipairs(createdFrames) do
-    if created.scripts.OnUpdate then updateFrame = created end
-end
-if not updateFrame then fail("Hide Chat Buttons did not start a hover fader") end
 
 registeredFeature:Enable()
 assertEqual(QuickJoinToastButton.alpha, 0, "the social button should start hidden with the chat buttons")
@@ -117,7 +50,7 @@ assertEqual(QuickJoinToastButton.alpha, 0, "the social button should start hidde
 -- Retail no longer guarantees the legacy MouseIsOver global. The frame method
 -- must drive hover fading without it.
 hoverFrame.mouseOver = true
-runUpdate(updateFrame)
+runUpdate()
 assertEqual(ChatFrame1Tab.alpha, 0.25, "frame-method hover did not start the fade")
 assertEqual(QuickJoinToastButton.alpha, 0.25, "the social button should fade in with the chat buttons")
 
@@ -126,7 +59,7 @@ assertEqual(QuickJoinToastButton.alpha, 0.25, "the social button should fade in 
 hoverFrame.IsMouseOver = nil
 hoverFrame.legacyMouseOver = true
 MouseIsOver = function(frame) return frame.legacyMouseOver == true end
-runUpdate(updateFrame)
+runUpdate()
 assertEqual(ChatFrame1Tab.alpha, 0.5, "legacy hover fallback did not continue the fade")
 
 print("hide-chat-buttons fixtures: passed")

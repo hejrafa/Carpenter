@@ -3,6 +3,8 @@
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then repo = repo:sub(1, -2) end
+local H = dofile(repo .. "/tools/fixture-harness.lua")(repo, "rp-macro")
+local assertContains = H.assertContains
 
 local function read(path)
     local file = assert(io.open(repo .. "/" .. path, "rb"))
@@ -11,9 +13,6 @@ local function read(path)
     return source
 end
 
-local function assertContains(text, needle, label)
-    assert(text:find(needle, 1, true), label .. " is missing")
-end
 
 -- Bags and gear for the fishing macro. The module looks these APIs up when it
 -- loads, so they exist first.

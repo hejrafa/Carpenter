@@ -6,19 +6,11 @@ local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then
     repo = repo:sub(1, -2)
 end
+local H = dofile(repo .. "/tools/fixture-harness.lua")(repo, "hide-surnames")
+local fail, assertEqual = H.fail, H.assertEqual
 
 unpack = unpack or table.unpack
 
-local function fail(message)
-    io.stderr:write("hide-surnames fixture failed: " .. message .. "\n")
-    os.exit(1)
-end
-
-local function assertEqual(actual, expected, message)
-    if actual ~= expected then
-        fail(message .. " (expected " .. tostring(expected) .. ", got " .. tostring(actual) .. ")")
-    end
-end
 
 function wipe(t)
     for key in pairs(t) do t[key] = nil end
