@@ -135,7 +135,7 @@ local locale = GetLocale()
 local isRuRU = (locale == "ruRU")
 
 local function UsesProtectedTooltipStrings()
-    return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+    return Carpenter and Carpenter.Client and Carpenter.Client.isMainline
 end
 
 local function CanAccessValue(value)

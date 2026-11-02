@@ -7,7 +7,7 @@ local originalScales = setmetatable({}, { __mode = "k" })
 local pendingCombatApply = false
 
 local function IsRetail()
-    return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+    return Carpenter and Carpenter.Client and Carpenter.Client.isMainline
 end
 
 local function IsEnabled()

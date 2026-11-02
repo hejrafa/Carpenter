@@ -36,7 +36,7 @@ StanceBar = stanceBar
 
 CarpenterDB = {}
 Carpenter = {
-    Client = { isRetail = false },
+    Client = { isMainline = false },
     IsEnabled = function(_, key)
         return key == "hideMacroNamesEnabled"
             or key == "hideKeybindsEnabled"
@@ -86,7 +86,7 @@ eventFrame.OnEvent(eventFrame, "PLAYER_REGEN_ENABLED")
 assert(macroName.alpha == 0, "macro names should be reapplied after combat")
 assert(hotkey.alpha == 0, "hotkeys should be reapplied after combat")
 
-Carpenter.Client.isRetail = true
+Carpenter.Client.isMainline = true
 macroName.alpha = 1
 hotkey.alpha = 1
 local secureCallsBeforeRetail = secureCallCount

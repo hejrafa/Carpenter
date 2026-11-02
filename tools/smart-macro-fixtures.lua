@@ -14,7 +14,7 @@ local tooltipByItemID = {}
 SlashCmdList = {}
 
 Carpenter = {
-    Client = { isRetail = false },
+    Client = { isMainline = false },
     IsEnabled = function(_, key) return key == "smartMacrosEnabled" end,
     RegisterFeature = function(_, key, feature) registeredFeatures[key] = feature end,
     Defer = function() end,
@@ -135,7 +135,7 @@ local classifier = ns.Private.SmartMacroClassifier
 local macroData = ns.Private.SmartMacroData
 local configSidebar = ns.Private.ConfigSidebar
 
-Carpenter.Client = { isRetail = true, isForever = true }
+Carpenter.Client = { isMainline = true, isForever = true }
 if not macroData.IsRetail() then
     failures[#failures + 1] = "Forever API flavor: expected Retail tooltip behavior"
 end
@@ -149,12 +149,12 @@ local foreverPreviewOrder = configSidebar.GetSmartMacroPreviewOrder()
 if foreverPreviewOrder[6] ~= "Band" then
     failures[#failures + 1] = "Forever settings pane: expected the Bandage macro preview"
 end
-Carpenter.Client = { isRetail = true, isForever = false, isClassic = false }
+Carpenter.Client = { isMainline = true, isForever = false, isClassic = false }
 local retailPreviewOrder = configSidebar.GetSmartMacroPreviewOrder()
 if #retailPreviewOrder ~= 5 then
     failures[#failures + 1] = "Retail settings pane: did not expect the Classic bandage macro preview"
 end
-Carpenter.Client = { isRetail = false, isForever = false }
+Carpenter.Client = { isMainline = false, isForever = false }
 fixtureCount = fixtureCount + 5
 
 local firstFingerprint = scanner.GetBagFingerprint()
@@ -364,7 +364,7 @@ do
     local deferred
     Carpenter.Defer = function(_, _, _, callback) deferred = callback end
     -- Forever uses the Classic macro set, bandages included.
-    Carpenter.Client = { isRetail = true, isForever = true }
+    Carpenter.Client = { isMainline = true, isForever = true }
     -- Enabling above scheduled through the no-op Defer; start clean.
     registeredFeatures.smartMacrosEnabled:Disable()
     registeredFeatures.smartMacrosEnabled:Enable()

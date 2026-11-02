@@ -19,7 +19,7 @@ local internalWarningUnregisters = 0
 
 CarpenterDB = { actionCamEnabled = false }
 Carpenter = {
-    Client = { isRetail = true, isForever = true },
+    Client = { isMainline = true, isForever = true },
     IsEnabled = function(_, key)
         return CarpenterDB[key] == true
     end,

@@ -6,7 +6,7 @@ ns.Private = ns.Private or {}
 
 local ClassHealth = ns.Private.ClassHealthColors or {}
 
-local function IsRetailClient()
+local function IsMainlineClient()
     return ClassHealth.IsRetail and ClassHealth.IsRetail()
 end
 
@@ -57,7 +57,7 @@ local function RestoreDefaultUnitColor(bar, unit, force)
     if not force and not bar._Carpenter_IsUnitClassColored then return end
 
     local wasClassColored = ClassHealth.ClearBarState(bar)
-    if IsRetailClient() then
+    if IsMainlineClient() then
         RestoreDefaultFill(bar)
         if wasClassColored or force then
             bar:SetStatusBarColor(1, 1, 1)
@@ -248,14 +248,14 @@ local function UpdateHealthBarColor(bar, unit)
         return
     end
     if not ClassHealth.IsPlayerUnit(unit) then
-        if IsRetailClient() and unit == "targettarget" and ApplyHiddenClassColor(bar, unit) then
+        if IsMainlineClient() and unit == "targettarget" and ApplyHiddenClassColor(bar, unit) then
             return
         end
         RestoreDefaultUnitColor(bar, unit, true)
         return
     end
 
-    if IsRetailClient() then
+    if IsMainlineClient() then
         if ClassHealth.ApplyUnitFrameClassColor(bar, unit) then
             UseStatusFill(bar)
         else
@@ -271,13 +271,13 @@ local function UpdateHealthBarColor(bar, unit)
 end
 
 local function UpdatePartyHealthBarColor(bar, unit)
-    if IsRetailClient() then return end
+    if IsMainlineClient() then return end
     UpdateHealthBarColor(bar, unit)
 end
 
 local function RefreshPartyFrameColors(onlyUnit)
     for i = 1, PARTY_MEMBER_FRAME_COUNT do
-        if IsRetailClient() then
+        if IsMainlineClient() then
             local member = GetPartyMemberFrame(i)
             if member and GetPartyHealthTexture(member) and (not onlyUnit or member.unit == onlyUnit) then
                 HookPartyMemberArt(member)
@@ -309,7 +309,7 @@ local UNIT_FRAME_UNITS = { "player", "target", "targettarget", "focus" }
 local healthBarUpdateHooked = false
 
 local function HookBlizzardHealthBarUpdates()
-    if healthBarUpdateHooked or not IsRetailClient() or type(UnitFrameHealthBar_Update) ~= "function" then return end
+    if healthBarUpdateHooked or not IsMainlineClient() or type(UnitFrameHealthBar_Update) ~= "function" then return end
     healthBarUpdateHooked = true
 
     -- Target and focus reset their fill atlas after the health update whenever
@@ -409,7 +409,7 @@ function unitFrameFeature:Disable()
     RestoreDefaultUnitColor(GetUnitFrameHealthBar("focus"), "focus", true)
 
     for i = 1, PARTY_MEMBER_FRAME_COUNT do
-        if IsRetailClient() then
+        if IsMainlineClient() then
             RestorePartyMemberColor(GetPartyMemberFrame(i))
         else
             local partyBar, partyUnit = GetPartyHealthBar(i)

@@ -27,7 +27,7 @@ end
 
 local function CanSecurelyStyleActionButtonText()
     local client = Carpenter and Carpenter.Client
-    return client and client.isRetail and type(secureCallFunction) == "function"
+    return client and client.isMainline and type(secureCallFunction) == "function"
 end
 
 local function SetActionButtonTextAlpha(region, alpha)
@@ -109,7 +109,7 @@ local function UpdateActionBars()
     -- the protected button's execution context. Use securecallfunction as a secure
     -- barrier for the visual write; never fall back to a normal SetAlpha call on
     -- those clients because it can taint secret cooldown updates.
-    if Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+    if Carpenter and Carpenter.Client and Carpenter.Client.isMainline
         and not CanSecurelyStyleActionButtonText()
     then
         return

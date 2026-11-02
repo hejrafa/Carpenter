@@ -330,7 +330,7 @@ function Carpenter_InitializeSettings()
     CarpenterDB.hideShouldersEnabled = nil
     CarpenterDB.backSheathOneHandWeaponsEnabled = nil
 
-    if CarpenterDB and Carpenter.Client and Carpenter.Client.isRetail and
+    if CarpenterDB and Carpenter.Client and Carpenter.Client.isMainline and
         CarpenterDB.hideUnitFrameCombatTextEnabled == true and
         CarpenterDB.cleanUpUnitFramesEnabled ~= true then
         CarpenterDB.cleanUpUnitFramesEnabled = true
@@ -414,12 +414,13 @@ SlashCmdList["CARPENTERSTATE"] = function()
     end
 
     print(string.format(
-        "|cff00aaffCarpenter state|r build=%s toc=%s flavor=%s forever=%s retail=%s classic=%s db=%s variablesLoaded=%s",
+        "|cff00aaffCarpenter state|r build=%s toc=%s flavor=%s mainline=%s retail=%s forever=%s classic=%s db=%s variablesLoaded=%s",
         tostring(client.interfaceVersion),
         tostring(tocInterface),
         tostring(client.flavor),
-        tostring(client.isForever == true),
+        tostring(client.isMainline == true),
         tostring(client.isRetail == true),
+        tostring(client.isForever == true),
         tostring(client.isClassic == true),
         tostring(type(CarpenterDB)),
         tostring(Carpenter.VariablesLoaded == true)

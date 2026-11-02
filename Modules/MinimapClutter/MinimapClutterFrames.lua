@@ -16,7 +16,7 @@ local MINIMAP_FRAMES = {
 function Frames.Create(config)
     config = config or {}
     local isEnabled = config.IsEnabled or function() return false end
-    local isRetailClient = config.IsRetailClient or function() return false end
+    local isMainlineClient = config.IsMainlineClient or function() return false end
     local hiddenFrames = {}
     local mutedButtons = {}
 
@@ -117,7 +117,7 @@ function Frames.Create(config)
         -- hide the calendar here; the fader fades it with the minimap header.
         HideDayNightArtwork()
 
-        if isRetailClient() then
+        if isMainlineClient() then
             if Minimap then
                 MuteZoomButton(Minimap.ZoomIn)
                 MuteZoomButton(Minimap.ZoomOut)

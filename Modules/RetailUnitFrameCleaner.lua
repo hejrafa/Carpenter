@@ -15,7 +15,7 @@ local regionOriginalAlpha = setmetatable({}, { __mode = "k" })
 local THREAT_GLOW_ALPHA = 0.3
 
 local function IsRetail()
-    return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+    return Carpenter and Carpenter.Client and Carpenter.Client.isMainline
 end
 
 -- Retail-only cleanups: WoW Forever leaves the player corner icon, party frame

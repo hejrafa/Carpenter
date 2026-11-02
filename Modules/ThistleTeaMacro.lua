@@ -28,7 +28,7 @@ local function IsEnabled()
 end
 
 local function IsSupportedClient()
-    return Carpenter and Carpenter.Client and Carpenter.Client.isClassic and not Carpenter.Client.isRetail
+    return Carpenter and Carpenter.Client and Carpenter.Client.isClassic and not Carpenter.Client.isMainline
 end
 
 local function IsRogue()

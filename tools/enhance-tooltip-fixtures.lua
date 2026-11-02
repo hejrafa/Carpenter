@@ -101,7 +101,7 @@ CarpenterDB = { enhanceTooltipEnabled = true }
 Carpenter = {
     IsEnabled = function(_, key) return CarpenterDB[key] == true end,
     RegisterFeature = function() end,
-    Client = { isRetail = false },
+    Client = { isMainline = false },
 }
 
 local ns = { Private = {} }

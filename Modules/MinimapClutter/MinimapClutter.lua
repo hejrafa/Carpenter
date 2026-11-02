@@ -15,18 +15,18 @@ local function IsClassicClient()
     return Carpenter and Carpenter.Client and Carpenter.Client.isClassic
 end
 
-local function IsRetailClient()
-    return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+local function IsMainlineClient()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isMainline
 end
 
 local frameHelpers = FrameHelpers.Create and FrameHelpers.Create({
     IsEnabled = IsEnabled,
-    IsRetailClient = IsRetailClient,
+    IsMainlineClient = IsMainlineClient,
 }) or {}
 
 local faderHelpers = FaderHelpers.Create and FaderHelpers.Create({
     IsEnabled = IsEnabled,
-    IsRetailClient = IsRetailClient,
+    IsMainlineClient = IsMainlineClient,
 }) or {}
 
 local function ApplyMinimapClutter()

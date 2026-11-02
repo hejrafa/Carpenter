@@ -12,7 +12,7 @@ floor = math.floor
 local ns = { Private = {} }
 Carpenter = {
     L = {},
-    Client = { isRetail = false },
+    Client = { isMainline = false },
     IsEnabled = function(_, key) return key == "chatCleanerEnabled" end,
     RegisterFeature = function(_, key, feature)
         registeredChatFeatures = registeredChatFeatures or {}
@@ -411,7 +411,7 @@ local fixtures = {
     {
         name = "retail plain appearance collection",
         event = "CHAT_MSG_SYSTEM",
-        isRetail = true,
+        isMainline = true,
         message = "Ragged Leather Bracers has been added to your appearance collection.",
         expectPlain = "+ Appearance: Ragged Leather Bracers",
         requireColors = { "|cffc8c8c8+|r", "|cffffffffAppearance: |r", "|cffff80ffRagged Leather Bracers|r" },
@@ -420,7 +420,7 @@ local fixtures = {
         name = "forever linked appearance collection",
         path = "post",
         event = "CHAT_MSG_SYSTEM",
-        isRetail = true,
+        isMainline = true,
         message = "|cff1eff00|Hitem:1418::::::::|h[Ragged Leather Bracers]|h|r has been added to your appearance collection.",
         expectPlain = "+ Appearance: Ragged Leather Bracers",
         requireColors = { "|cffc8c8c8+|r", "|cffffffffAppearance: |r", "|cffff80ff|Hitem:1418::::::::|hRagged Leather Bracers|h|r" },
@@ -547,7 +547,7 @@ local fixtures = {
     {
         name = "retail completed transmog set drops the set",
         event = "CHAT_MSG_SYSTEM",
-        isRetail = true,
+        isMainline = true,
         message = "You've completed the set |cffff80ff|Htransmogset:4321|h[Head Chef's Uniform (Black)]|h|r.",
         expectPlain = "+ Completed: Head Chef's Uniform (Black)",
         rejectPlain = "the set",
@@ -602,7 +602,7 @@ for _, fixture in ipairs(fixtures) do
     groupMembers = fixture.groupMembers or 0
     inRaid = fixture.inRaid or false
     inCombatLockdown = fixture.inCombatLockdown == true
-    Carpenter.Client.isRetail = fixture.isRetail == true
+    Carpenter.Client.isMainline = fixture.isMainline == true
     if fixture.path == "post" then
         local frame = {}
         local captured = nil
@@ -641,7 +641,7 @@ for _, fixture in ipairs(fixtures) do
     end
 end
 inCombatLockdown = false
-Carpenter.Client.isRetail = false
+Carpenter.Client.isMainline = false
 
 do
     local emoteSenders = {

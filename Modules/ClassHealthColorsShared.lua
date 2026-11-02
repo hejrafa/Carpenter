@@ -8,7 +8,7 @@ local Shared = ns.Private.ClassHealthColors or {}
 ns.Private.ClassHealthColors = Shared
 
 function Shared.IsRetail()
-    return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+    return Carpenter and Carpenter.Client and Carpenter.Client.isMainline
 end
 
 function Shared.IsUnitFrameEnabled()

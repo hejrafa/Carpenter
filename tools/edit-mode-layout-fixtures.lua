@@ -16,7 +16,7 @@ local function assertContains(text, needle, label)
 end
 
 local ns = { Private = {} }
-Carpenter = { Client = { isRetail = true } }
+Carpenter = { Client = { isMainline = true } }
 
 local chunk = assert(loadfile(repo .. "/Modules/EditModeLayout.lua"))
 chunk("Carpenter", ns)
@@ -39,7 +39,7 @@ assertContains(value, "26 0 0 1 1 UIParent -729.6 -559.0", "encounter-bar placem
 
 -- The string is a Forever export; Retail's Edit Mode rejects it.
 assert(layout.IsAvailable() == false, "Retail must not expose the hidden layout page")
-Carpenter.Client.isRetail = false
+Carpenter.Client.isMainline = false
 Carpenter.Client.isForever = true
 assert(layout.IsAvailable() == true, "Forever should expose the hidden layout page")
 Carpenter.Client.isForever = false

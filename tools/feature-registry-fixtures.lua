@@ -8,7 +8,7 @@ SlashCmdList = {}
 floor = math.floor
 CarpenterDB = {}
 Carpenter = {
-    Client = { isRetail = true },
+    Client = { isMainline = true },
 }
 
 function CreateFrame()

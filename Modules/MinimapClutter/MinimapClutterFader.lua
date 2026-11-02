@@ -43,7 +43,7 @@ local FADE_SPEED = 6 -- higher = snappier fade
 function Fader.Create(config)
     config = config or {}
     local isEnabled = config.IsEnabled or function() return false end
-    local isRetailClient = config.IsRetailClient or function() return false end
+    local isMainlineClient = config.IsMainlineClient or function() return false end
 
     local fadeTargets = {}
     local hoverTargets = {}
@@ -124,7 +124,7 @@ function Fader.Create(config)
 
     -- Keep the strip up while its tracking or compartment menu is open.
     local function IsHeaderMenuOpen()
-        if not isRetailClient() then return false end
+        if not isMainlineClient() then return false end
         local cluster = _G.MinimapCluster
         return IsMenuOpen(cluster and cluster.Tracking and cluster.Tracking.Button) or
             IsMenuOpen(_G.AddonCompartmentFrame)
@@ -134,7 +134,7 @@ function Fader.Create(config)
         if not isEnabled() then return false end
         return IsMouseOverFrame(Minimap) or
             IsHeaderMenuOpen() or
-            (isRetailClient() and IsMouseOverFrame(_G.MinimapCluster)) or
+            (isMainlineClient() and IsMouseOverFrame(_G.MinimapCluster)) or
             IsMouseOverManagedMinimapButton()
     end
 
@@ -245,7 +245,7 @@ function Fader.Create(config)
     -- Fades the zone name, tracking, difficulty flag, calendar, and addon compartment with the
     -- rest of the minimap extras; hovering anywhere on the minimap brings them back.
     local function ApplyHeaderClutter(enabled)
-        if not isRetailClient() then return end
+        if not isMainlineClient() then return end
 
         local cluster = _G.MinimapCluster
         if enabled then

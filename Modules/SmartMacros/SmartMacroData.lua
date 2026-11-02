@@ -246,7 +246,7 @@ Data.MiscellaneousClassID = 15
 Data.ReagentSubclassID = 1
 
 function Data.IsRetail()
-    return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+    return Carpenter and Carpenter.Client and Carpenter.Client.isMainline
 end
 
 function Data.UsesClassicMacros()

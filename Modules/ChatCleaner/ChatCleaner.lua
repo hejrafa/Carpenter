@@ -186,8 +186,8 @@ local systemFormatter = ChatCleanerSystem.Create and ChatCleanerSystem.Create({
     ColorTeal = ColorTeal,
     ColorYellow = ColorYellow,
     GetItemLinkFromMessage = GetItemLinkFromMessage,
-    IsRetailClient = function()
-        return Carpenter.Client and Carpenter.Client.isRetail == true
+    IsMainlineClient = function()
+        return Carpenter.Client and Carpenter.Client.isMainline == true
     end,
     LearnedSkillDedupSeconds = 3,
 }) or {}

@@ -77,7 +77,7 @@ end
 
 CarpenterDB = {}
 Carpenter = {
-    Client = { isRetail = true },
+    Client = { isMainline = true },
     Features = {},
     IsEnabled = function(_, key) return CarpenterDB[key] == true end,
     RegisterFeature = function(self, key, feature) self.Features[key] = feature end,

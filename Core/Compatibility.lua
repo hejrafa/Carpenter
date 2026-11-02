@@ -7,13 +7,17 @@ local _, _, _, interfaceVersion = GetBuildInfo()
 local projectID = WOW_PROJECT_ID
 
 -- WoW Forever/Camelot uses the retail-style API with its own interface range.
+-- isMainline covers both Retail and Forever, which share that API and most
+-- modules; isRetail is Retail alone, for the few things Forever does
+-- differently.
 local isForever = interfaceVersion >= 16000 and interfaceVersion < 17000
-local isRetail = (WOW_PROJECT_MAINLINE and projectID == WOW_PROJECT_MAINLINE) or interfaceVersion >= 100000 or isForever
+local isMainline = (WOW_PROJECT_MAINLINE and projectID == WOW_PROJECT_MAINLINE) or interfaceVersion >= 100000 or isForever
+local isRetail = isMainline and not isForever
 local isTBC = not isForever and ((WOW_PROJECT_BURNING_CRUSADE_CLASSIC and projectID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC) or (interfaceVersion >= 20000 and interfaceVersion < 30000))
 local isVanilla = not isForever and ((WOW_PROJECT_CLASSIC and projectID == WOW_PROJECT_CLASSIC) or (interfaceVersion >= 10000 and interfaceVersion < 20000))
 
 local flavor = "unknown"
-if isRetail then
+if isMainline then
     flavor = "retail"
 elseif isTBC then
     flavor = "tbc"
@@ -26,6 +30,7 @@ Carpenter.Client = {
     flavor = flavor,
     interfaceVersion = interfaceVersion,
     projectID = projectID,
+    isMainline = isMainline,
     isRetail = isRetail,
     isForever = isForever,
     isTBC = isTBC,
@@ -148,7 +153,7 @@ end
 
 function Carpenter:IsFeatureAvailable(configKey)
     -- Retail-style clients can only hide macro names through secure calls.
-    if Carpenter.Client.isRetail and configKey == "hideMacroNamesEnabled" then
+    if Carpenter.Client.isMainline and configKey == "hideMacroNamesEnabled" then
         return availableFeatures[configKey] == true and type(securecallfunction) == "function"
     end
     return availableFeatures[configKey] == true

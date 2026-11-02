@@ -38,7 +38,7 @@ function Options.Create(context)
 
     local function MinimapClutterDescription()
         local client = Carpenter and Carpenter.Client
-        return Description(client and client.isRetail and "DESC_MINIMAP_CLUTTER_RETAIL" or "DESC_MINIMAP_CLUTTER")
+        return Description(client and client.isMainline and "DESC_MINIMAP_CLUTTER_RETAIL" or "DESC_MINIMAP_CLUTTER")
     end
 
     local function NameplateDebuffsDescription()

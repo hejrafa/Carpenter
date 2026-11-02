@@ -99,7 +99,7 @@ local microButtons = {
 -- away from it, so hovering that corner must not count as hovering them.
 local function IsHoverArea(name)
     local client = Carpenter and Carpenter.Client
-    return not (name == "MicroButtonAndBagsBar" and client and client.isRetail)
+    return not (name == "MicroButtonAndBagsBar" and client and client.isMainline)
 end
 
 local function IsMouseOverPaddedFrame(frame, padding)

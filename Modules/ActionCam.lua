@@ -55,7 +55,7 @@ local function IsEnabled()
 end
 
 local function IsRetail()
-    return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
+    return Carpenter and Carpenter.Client and Carpenter.Client.isMainline
 end
 
 local function IsForever()

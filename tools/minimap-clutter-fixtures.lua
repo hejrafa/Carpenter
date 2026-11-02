@@ -97,7 +97,7 @@ local frameNamespace = { Private = {} }
 assert(loadfile(root .. "/Modules/MinimapClutter/MinimapClutterFrames.lua"))("Carpenter", frameNamespace)
 local frames = assert(frameNamespace.Private.MinimapClutterFrames.Create)({
     IsEnabled = function() return true end,
-    IsRetailClient = function() return false end,
+    IsMainlineClient = function() return false end,
 })
 
 frames.Apply(true)
@@ -128,7 +128,7 @@ Minimap.ZoomOut = newZoomButton("ZoomOut")
 
 local foreverFrames = assert(frameNamespace.Private.MinimapClutterFrames.Create)({
     IsEnabled = function() return true end,
-    IsRetailClient = function() return true end,
+    IsMainlineClient = function() return true end,
 })
 foreverFrames.Apply(true)
 assertEqual(MinimapCluster.DielFrame.shown, false, "Forever day/night artwork is hidden")
@@ -176,7 +176,7 @@ end
 
 local retailFader = assert(faderNamespace.Private.MinimapClutterFader.Create)({
     IsEnabled = function() return true end,
-    IsRetailClient = function() return true end,
+    IsMainlineClient = function() return true end,
 })
 retailFader.Apply(true)
 local headerFrames = {

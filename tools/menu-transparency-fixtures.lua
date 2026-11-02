@@ -40,7 +40,7 @@ function IsBagOpen() return false end
 UIParent = { GetEffectiveScale = function() return 1 end }
 C_Timer = { After = function() end }
 Carpenter = {
-    Client = { isRetail = true },
+    Client = { isMainline = true },
     IsEnabled = function(_, key) return key == "menuTransparencyEnabled" end,
     DeferMany = function() end,
     RegisterFeature = function(_, key, registered)
@@ -78,7 +78,7 @@ cursorX, cursorY = 300, 920
 assert(Settle() == 0, "the scaled micro menu should not be hovered past its real right edge")
 
 -- Classic keeps the bar cluster inside MicroButtonAndBagsBar, so it still counts.
-Carpenter.Client.isRetail = false
+Carpenter.Client.isMainline = false
 cursorX, cursorY = 1800, 40
 assert(Settle() == 1, "on Classic, hovering MicroButtonAndBagsBar should still reveal the bars")
 

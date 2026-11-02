@@ -244,7 +244,7 @@ Tick(6)
 check(Faded(playerFrame), "leaving Edit Mode should fade the HUD again")
 
 -- 6. Hidden health (Retail and Forever) waits for health to settle.
-Carpenter.Client = { isRetail = true, isForever = true }
+Carpenter.Client = { isMainline = true, isForever = true }
 healthSecret = true
 inCombat = true
 Fire("PLAYER_REGEN_DISABLED")

@@ -51,7 +51,7 @@ local function Run(clientName, setupClient)
     CarpenterDB = { enchantWarningEnabled = true }
     Carpenter = {
         L = {},
-        Client = clientName == "forever" and { isForever = true, isRetail = true } or { isVanilla = true },
+        Client = clientName == "forever" and { isForever = true, isMainline = true } or { isVanilla = true },
         IsEnabled = function(_, key) return CarpenterDB[key] == true end,
         RegisterFeature = function(_, _, registered) feature = registered end,
     }

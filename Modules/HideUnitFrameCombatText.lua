@@ -4,7 +4,7 @@
 -- Uses the same approach as Leatrix Plus: hook Blizzard's HitIndicator frames.
 
 local function shouldHide()
-    if Carpenter and Carpenter.Client and Carpenter.Client.isRetail then
+    if Carpenter and Carpenter.Client and Carpenter.Client.isMainline then
         return Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
     end
     return Carpenter and Carpenter:IsEnabled("hideUnitFrameCombatTextEnabled")

@@ -29,7 +29,7 @@ function InCombatLockdown() return inCombat end
 function GetNumGroupMembers() return 0 end
 function IsInRaid() return false end
 Carpenter = {
-    Client = { isRetail = true, isForever = true },
+    Client = { isMainline = true, isForever = true },
     IsEnabled = function(_, key) return key == "cleanUpUnitFramesEnabled" and cleanEnabled end,
     RegisterFeature = function(_, key, feature) features[key] = feature end,
 }

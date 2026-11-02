@@ -59,7 +59,7 @@ local function GetSettingsImage(filename, foreverFilename)
         end
     end
     if not filename then return nil end
-    if client and client.isRetail then
+    if client and client.isMainline then
         local retailImage = RETAIL_SETTINGS_IMAGES[filename]
         if retailImage then
             return SETTINGS_IMAGE_PATH .. "Retail\\" .. (type(retailImage) == "string" and retailImage or filename)

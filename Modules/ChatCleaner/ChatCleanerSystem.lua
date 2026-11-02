@@ -20,7 +20,7 @@ function System.Create(config)
     local colorTeal = config.ColorTeal or "|cff00ccaa"
     local colorYellow = config.ColorYellow or "|cffffd200"
     local getItemLinkFromMessage = config.GetItemLinkFromMessage or function() return nil end
-    local isRetailClient = config.IsRetailClient or function() return false end
+    local isMainlineClient = config.IsMainlineClient or function() return false end
     local L = config.L or (Carpenter and Carpenter.L) or {}
 
     local function T(key, fallback, ...)
@@ -464,7 +464,7 @@ function System.Create(config)
     end
 
     function api.FormatAppearanceCollectionMessage(event, message, plainText, prefixPlus)
-        if event ~= "CHAT_MSG_SYSTEM" or not isRetailClient() then return nil end
+        if event ~= "CHAT_MSG_SYSTEM" or not isMainlineClient() then return nil end
         if not message or type(message) ~= "string" then return nil end
         plainText = (type(plainText) == "string" and plainText) or message
 

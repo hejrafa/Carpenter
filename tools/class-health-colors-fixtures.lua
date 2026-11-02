@@ -104,7 +104,7 @@ local ns = {
 }
 
 Carpenter = {
-    Client = { isRetail = true, isForever = true },
+    Client = { isMainline = true, isForever = true },
     IsEnabled = function(_, key) return key == "classHealthColorsEnabled" and Carpenter.enabled end,
     RegisterFeature = function(_, key, feature)
         if key == "classHealthColorsEnabled" then registeredFeature = feature end

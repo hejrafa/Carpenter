@@ -34,7 +34,7 @@ end
 
 local function IsEditModeSupportedClient()
     local client = Carpenter and Carpenter.Client
-    return client and (client.isRetail or client.isTBC)
+    return client and (client.isMainline or client.isTBC)
 end
 
 local function IsForbiddenFrame(frameObject)

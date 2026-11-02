@@ -10,7 +10,7 @@
 local AddOn = select(2, ...);
 AddOn.Options = AddOn.Options or {};
 
-if Carpenter and Carpenter.Client and Carpenter.Client.isRetail then
+if Carpenter and Carpenter.Client and Carpenter.Client.isMainline then
     return;
 end
 
