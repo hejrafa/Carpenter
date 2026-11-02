@@ -286,7 +286,7 @@ local function EnsureTrackerUpdateHook()
         and type(containerMixin) == "table"
         and type(containerMixin.Update) == "function"
     then
-        local ok = pcall(hooksecurefunc, containerMixin, "Update", function(container)
+        local ok = Carpenter:SafeHook(containerMixin, "Update", function(container)
             if container == _G.ObjectiveTrackerFrame and IsEnabled() then
                 ApplyQuestTrackerTitleVisibility()
             end
@@ -308,7 +308,7 @@ local function EnsureTrackerUpdateHook()
         return
     end
 
-    local ok = pcall(hooksecurefunc, tracker, "Update", function()
+    local ok = Carpenter:SafeHook(tracker, "Update", function()
         if IsEnabled() then
             ApplyQuestTrackerTitleVisibility()
         end

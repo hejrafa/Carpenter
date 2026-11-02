@@ -113,11 +113,5 @@ local repairFrame = CreateFrame("Frame")
 repairFrame:RegisterEvent("PLAYER_LOGIN")
 repairFrame:SetScript("OnEvent", function(self)
     self:UnregisterAllEvents()
-    if Carpenter and Carpenter.After then
-        Carpenter:After(2, RepairAccidentalChatWindows)
-    elseif C_Timer and C_Timer.After then
-        C_Timer.After(2, RepairAccidentalChatWindows)
-    else
-        RepairAccidentalChatWindows()
-    end
+    Carpenter:After(2, RepairAccidentalChatWindows)
 end)

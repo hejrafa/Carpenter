@@ -175,8 +175,8 @@ function Fader.Create(config)
     local function HookAlertTexture(alert)
         if alert.CP_MinimapFadeAlertHooked or not hooksecurefunc then return end
         alert.CP_MinimapFadeAlertHooked = true
-        hooksecurefunc(alert, "Show", WakeMinimapButtonFader)
-        hooksecurefunc(alert, "Hide", WakeMinimapButtonFader)
+        Carpenter:SafeHook(alert, "Show", WakeMinimapButtonFader)
+        Carpenter:SafeHook(alert, "Hide", WakeMinimapButtonFader)
     end
 
     local function HookClusterHover()

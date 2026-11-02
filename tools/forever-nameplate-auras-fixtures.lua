@@ -154,6 +154,7 @@ assert(loadfile(repo .. "/Core/Nameplates.lua"))("Carpenter", ns)
 ns.Private.Nameplates.GetForUnit = function(unit) return plates[unit] end
 ns.Private.Nameplates.GetAll = function() return {} end
 ns.Private.Nameplates.GetHealthBar = function() return nil end
+Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 assert(loadfile(repo .. "/Modules/ForeverNameplateAuras.lua"))("Carpenter", ns)
 
 local feature = Carpenter.Features.debuffTrackerEnabled

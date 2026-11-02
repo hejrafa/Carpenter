@@ -301,13 +301,7 @@ local function ScheduleQuestWatchLayoutRefresh()
         LayoutQuestWatchLines()
     end
 
-    if Carpenter and Carpenter.After then
-        Carpenter:After(0, RefreshLayout)
-    elseif C_Timer and C_Timer.After then
-        C_Timer.After(0, RefreshLayout)
-    else
-        questWatchLayoutRefreshScheduled = false
-    end
+    Carpenter:After(0, RefreshLayout)
 end
 
 local function SetQuestWatchLine(lineIndex, text, r, g, b, gapBefore, offsetText)

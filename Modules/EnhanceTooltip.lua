@@ -33,28 +33,28 @@ local function HookStatusBar(bar)
     if not bar or bar._CarpenterTooltipStatusBarHooked then return end
 
     if bar.Show then
-        hooksecurefunc(bar, "Show", function(self)
+        Carpenter:SafeHook(bar, "Show", function(self)
             if IsEnabled() then
                 HideStatusBar(self)
             end
         end)
     end
     if bar.SetShown then
-        hooksecurefunc(bar, "SetShown", function(self)
+        Carpenter:SafeHook(bar, "SetShown", function(self)
             if IsEnabled() then
                 HideStatusBar(self)
             end
         end)
     end
     if bar.SetAlpha then
-        hooksecurefunc(bar, "SetAlpha", function(self)
+        Carpenter:SafeHook(bar, "SetAlpha", function(self)
             if IsEnabled() then
                 HideStatusBar(self)
             end
         end)
     end
     if bar.SetValue then
-        hooksecurefunc(bar, "SetValue", function(self)
+        Carpenter:SafeHook(bar, "SetValue", function(self)
             if IsEnabled() then
                 HideStatusBar(self)
             end

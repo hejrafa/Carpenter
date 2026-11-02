@@ -102,11 +102,7 @@ local function ScheduleRefresh()
         end
     end
 
-    if Carpenter and Carpenter.Defer then
-        Carpenter:Defer("ExplorerMode:refresh", FADE_OUT_SECONDS + 0.2, callback)
-    elseif C_Timer and C_Timer.After then
-        C_Timer.After(FADE_OUT_SECONDS + 0.2, callback)
-    end
+    Carpenter:Defer("ExplorerMode:refresh", FADE_OUT_SECONDS + 0.2, callback)
 end
 
 local function ShouldRefreshActionButtons()
@@ -138,13 +134,7 @@ local function RunActionButtonRefresh()
         end
     end
 
-    if Carpenter and Carpenter.Defer then
-        Carpenter:Defer("ExplorerMode:actionButtonsVerify", 0.05, callback)
-    elseif C_Timer and C_Timer.After then
-        C_Timer.After(0.05, callback)
-    else
-        callback()
-    end
+    Carpenter:Defer("ExplorerMode:actionButtonsVerify", 0.05, callback)
 end
 
 local function ScheduleActionButtonRefresh()
@@ -163,13 +153,7 @@ local function ScheduleActionButtonRefresh()
         return
     end
 
-    if Carpenter and Carpenter.Defer then
-        Carpenter:Defer("ExplorerMode:actionButtons", delay, RunActionButtonRefresh)
-    elseif C_Timer and C_Timer.After then
-        C_Timer.After(delay, RunActionButtonRefresh)
-    else
-        RunActionButtonRefresh()
-    end
+    Carpenter:Defer("ExplorerMode:actionButtons", delay, RunActionButtonRefresh)
 end
 
 local function FadeOutForExploration()
@@ -198,13 +182,7 @@ local function ScheduleFadeOut()
         delay = HIDDEN_HEALTH_SETTLE_SECONDS
     end
 
-    if Carpenter and Carpenter.Defer then
-        Carpenter:Defer("ExplorerMode:fadeOut", delay, FadeOutForExploration)
-    elseif C_Timer and C_Timer.After then
-        C_Timer.After(delay, FadeOutForExploration)
-    else
-        FadeOutForExploration()
-    end
+    Carpenter:Defer("ExplorerMode:fadeOut", delay, FadeOutForExploration)
 end
 
 local function ApplyExplorerMode(forceVisible)
@@ -283,14 +261,10 @@ local function RegisterEditModeCallbacks()
         editModeCallbacksRegistered = true
     end
 
-    if not editModeHooksInstalled and hooksecurefunc and _G.EditModeManagerFrame then
+    if not editModeHooksInstalled and _G.EditModeManagerFrame then
         local editMode = _G.EditModeManagerFrame
-        if type(editMode.EnterEditMode) == "function" then
-            pcall(hooksecurefunc, editMode, "EnterEditMode", OnEditModeEnter)
-        end
-        if type(editMode.ExitEditMode) == "function" then
-            pcall(hooksecurefunc, editMode, "ExitEditMode", OnEditModeExit)
-        end
+        Carpenter:SafeHook(editMode, "EnterEditMode", OnEditModeEnter)
+        Carpenter:SafeHook(editMode, "ExitEditMode", OnEditModeExit)
         editModeHooksInstalled = true
     end
 end
@@ -299,25 +273,13 @@ local feature = {}
 
 function feature:Enable()
     for _, event in ipairs(registeredEvents) do
-        if Carpenter and Carpenter.SafeRegisterEvent then
-            Carpenter:SafeRegisterEvent(frame, event)
-        else
-            pcall(frame.RegisterEvent, frame, event)
-        end
+        Carpenter:SafeRegisterEvent(frame, event)
     end
     for event in pairs(actionBarRefreshEvents) do
-        if Carpenter and Carpenter.SafeRegisterEvent then
-            Carpenter:SafeRegisterEvent(actionBarFrame, event)
-        else
-            pcall(actionBarFrame.RegisterEvent, actionBarFrame, event)
-        end
+        Carpenter:SafeRegisterEvent(actionBarFrame, event)
     end
     for _, event in ipairs(registeredUnitEvents) do
-        if Carpenter and Carpenter.SafeRegisterUnitEvent then
-            Carpenter:SafeRegisterUnitEvent(frame, event, "player")
-        else
-            pcall(frame.RegisterUnitEvent, frame, event, "player")
-        end
+        Carpenter:SafeRegisterUnitEvent(frame, event, "player")
     end
     HookActionButtonOverlayFunctions()
     RegisterEditModeCallbacks()

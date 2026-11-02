@@ -86,7 +86,7 @@ local function HookUnitFrameHealthBar(bar, unit)
     bar._CarpenterUnitFrameClassColorHooked = true
     bar._CarpenterUnitFrameUnit = unit
 
-    hooksecurefunc(bar, "SetStatusBarColor", function(self)
+    Carpenter:SafeHook(bar, "SetStatusBarColor", function(self)
         local function Recolor()
             if self._CarpenterRestoringDefault or self._CarpenterRecoloring or not ClassHealth.IsUnitFrameEnabled() then return end
             self._CarpenterRecoloring = true
@@ -178,7 +178,7 @@ local function HookPartyMemberArt(member)
     end
     for _, method in ipairs({ "ToPlayerArt", "ToCharacterStyleArt", "ToVehicleArt" }) do
         if type(member[method]) == "function" then
-            hooksecurefunc(member, method, OnArtChanged)
+            Carpenter:SafeHook(member, method, OnArtChanged)
         end
     end
 end
@@ -317,7 +317,7 @@ local function HookBlizzardHealthBarUpdates()
     for _, entry in ipairs({ { TargetFrame, "target" }, { FocusFrame, "focus" } }) do
         local frame, unit = entry[1], entry[2]
         if frame and type(frame.UpdateHealthBarVisuals) == "function" then
-            hooksecurefunc(frame, "UpdateHealthBarVisuals", function()
+            Carpenter:SafeHook(frame, "UpdateHealthBarVisuals", function()
                 local bar = GetUnitFrameHealthBar(unit)
                 if bar and ClassHealth.IsUnitFrameEnabled()
                     and (bar._Carpenter_IsUnitClassColored or ClassHealth.IsPlayerUnit(unit)) then
@@ -327,7 +327,7 @@ local function HookBlizzardHealthBarUpdates()
         end
     end
 
-    hooksecurefunc("UnitFrameHealthBar_Update", function(bar)
+    Carpenter:SafeHook("UnitFrameHealthBar_Update", function(bar)
         if not bar or not ClassHealth.IsUnitFrameEnabled() then return end
         for _, unit in ipairs(UNIT_FRAME_UNITS) do
             if bar == GetUnitFrameHealthBar(unit) then

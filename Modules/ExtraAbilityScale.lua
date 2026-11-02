@@ -39,11 +39,7 @@ local function SetManagedScale(frame, enabled)
 end
 
 local function ScheduleApply(delay)
-    if Carpenter and Carpenter.After then
-        Carpenter:After(delay or 0, Carpenter_ApplyExtraAbilityScale)
-    elseif C_Timer and C_Timer.After then
-        C_Timer.After(delay or 0, Carpenter_ApplyExtraAbilityScale)
-    end
+    Carpenter:After(delay or 0, Carpenter_ApplyExtraAbilityScale)
 end
 
 local function GetFrames()

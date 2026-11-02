@@ -427,7 +427,7 @@ local function HookActionButtonOverlayFunctions()
     local hookedAny = false
     for _, functionName in ipairs(actionButtonOverlayFunctions) do
         if type(_G[functionName]) == "function" then
-            local ok = pcall(hooksecurefunc, functionName, function(button)
+            local ok = Carpenter:SafeHook(functionName, function(button)
                 ApplyActionButtonOverlayAlpha(button)
             end)
             hookedAny = hookedAny or ok
@@ -436,7 +436,7 @@ local function HookActionButtonOverlayFunctions()
 
     for _, functionName in ipairs(actionButtonRefreshFunctions) do
         if type(_G[functionName]) == "function" then
-            local ok = pcall(hooksecurefunc, functionName, function(button)
+            local ok = Carpenter:SafeHook(functionName, function(button)
                 ClampUpdatedActionButtonAlpha(button)
             end)
             hookedAny = hookedAny or ok
@@ -445,7 +445,7 @@ local function HookActionButtonOverlayFunctions()
 
     for _, functionName in ipairs(cooldownFrameFunctions) do
         if type(_G[functionName]) == "function" then
-            local ok = pcall(hooksecurefunc, functionName, function(cooldown)
+            local ok = Carpenter:SafeHook(functionName, function(cooldown)
                 ApplyCooldownFrameAlpha(cooldown)
             end)
             hookedAny = hookedAny or ok

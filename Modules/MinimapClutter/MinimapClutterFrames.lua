@@ -36,7 +36,7 @@ function Frames.Create(config)
         frame:SetAlpha(0)
 
         if not frame.IsCPMinimapHooked then
-            hooksecurefunc(frame, "Show", function(self)
+            Carpenter:SafeHook(frame, "Show", function(self)
                 if isEnabled() then
                     self:Hide()
                     self:SetAlpha(0)

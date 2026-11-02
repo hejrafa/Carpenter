@@ -64,6 +64,7 @@ function CreateFrame()
     return eventFrame
 end
 
+Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 local chunk = assert(loadfile(repo .. "/Modules/HideUIElements.lua"))
 chunk("Carpenter", {})
 

@@ -135,13 +135,8 @@ local function HookPortrait()
         RefreshWindow()
     end
 
-    if Carpenter and Carpenter.SafeHook then
-        Carpenter:SafeHook(portrait, "SetTexture", OnPortraitChanged)
-        Carpenter:SafeHook(portrait, "SetTexCoord", OnPortraitChanged)
-    elseif hooksecurefunc then
-        pcall(hooksecurefunc, portrait, "SetTexture", OnPortraitChanged)
-        pcall(hooksecurefunc, portrait, "SetTexCoord", OnPortraitChanged)
-    end
+    Carpenter:SafeHook(portrait, "SetTexture", OnPortraitChanged)
+    Carpenter:SafeHook(portrait, "SetTexCoord", OnPortraitChanged)
 
     hookedPortrait = true
 end
@@ -175,7 +170,7 @@ end
 
 local function HookGlobal(name)
     if hookedGlobals[name] or not hooksecurefunc or type(_G[name]) ~= "function" then return end
-    local ok = pcall(hooksecurefunc, name, function(...)
+    local ok = Carpenter:SafeHook(name, function(...)
         if not IsEnabled() then return end
         if name == "PanelTemplates_SetTab" then
             local frame = select(1, ...)
@@ -227,11 +222,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
 end)
 
 local function RegisterEvent(event)
-    if Carpenter and Carpenter.SafeRegisterEvent then
-        Carpenter:SafeRegisterEvent(eventFrame, event)
-    else
-        pcall(eventFrame.RegisterEvent, eventFrame, event)
-    end
+    Carpenter:SafeRegisterEvent(eventFrame, event)
 end
 
 local feature = {}
@@ -247,12 +238,10 @@ function feature:Enable()
         RefreshWindow()
     end
 
-    if Carpenter and Carpenter.RunStartupPasses then
-        Carpenter:RunStartupPasses("TalentIconPortrait:startup", { 0, 0.2, 1 }, function()
-            InstallHooks()
-            RefreshWindow()
-        end)
-    end
+    Carpenter:RunStartupPasses("TalentIconPortrait:startup", { 0, 0.2, 1 }, function()
+        InstallHooks()
+        RefreshWindow()
+    end)
 end
 
 function feature:Disable()

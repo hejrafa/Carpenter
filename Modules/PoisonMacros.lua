@@ -271,11 +271,7 @@ local function MarkDirty(delay, forceRescan)
     forceNextUpdate = forceNextUpdate or forceRescan
     if updateScheduled then return end
     updateScheduled = true
-    if Carpenter and Carpenter.Defer then
-        Carpenter:Defer("PoisonMacros:update", delay or 0.75, RunScheduledUpdate)
-    else
-        C_Timer.After(delay or 0.75, RunScheduledUpdate)
-    end
+    Carpenter:Defer("PoisonMacros:update", delay or 0.75, RunScheduledUpdate)
 end
 
 frame:SetScript("OnEvent", function(self, event)

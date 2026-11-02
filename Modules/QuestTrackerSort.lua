@@ -135,13 +135,7 @@ local function SortWatchList()
 end
 
 local function ScheduleSort()
-    if Carpenter and Carpenter.Defer then
-        Carpenter:Defer("QuestTrackerSort:update", UPDATE_DELAY, SortWatchList)
-    elseif C_Timer and C_Timer.After then
-        C_Timer.After(UPDATE_DELAY, SortWatchList)
-    else
-        SortWatchList()
-    end
+    Carpenter:Defer("QuestTrackerSort:update", UPDATE_DELAY, SortWatchList)
 end
 
 frame:SetScript("OnEvent", function(_, event)
@@ -157,7 +151,7 @@ local hookedBlizzardSort = false
 local function HookBlizzardSort()
     if hookedBlizzardSort or not (C_QuestLog and C_QuestLog.SortQuestWatches) then return end
     hookedBlizzardSort = true
-    hooksecurefunc(C_QuestLog, "SortQuestWatches", function()
+    Carpenter:SafeHook(C_QuestLog, "SortQuestWatches", function()
         if not IsEnabled() then return end
         lastAttemptedOrder = nil
         ScheduleSort()

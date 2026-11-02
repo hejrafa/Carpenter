@@ -147,6 +147,7 @@ local function AssertColor(expected, message)
     assert(actual[1] == expected[1] and actual[2] == expected[2] and actual[3] == expected[3], message)
 end
 
+Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 local sharedChunk = assert(loadfile(repo .. "/Modules/ClassHealthColorsShared.lua"))
 sharedChunk("Carpenter", ns)
 local unitFramesChunk = assert(loadfile(repo .. "/Modules/ClassHealthColorsUnitFrames.lua"))

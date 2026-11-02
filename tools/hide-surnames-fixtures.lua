@@ -122,6 +122,7 @@ CompactUnitFrame_UpdateName(plate1.UnitFrame)
 
 local ns = { Private = {} }
 assert(loadfile(repo .. "/Core/Nameplates.lua"))("Carpenter", ns)
+Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 assert(loadfile(repo .. "/Modules/HideSurnames.lua"))("Carpenter", ns)
 if not registeredFeature then fail("Hide Surnames did not register its feature") end
 

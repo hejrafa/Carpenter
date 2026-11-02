@@ -36,6 +36,7 @@ InCombatLockdown = function() return inCombat end
 CarpenterDB = {}
 Carpenter = { Client = { isForever = true } }
 local ns = { Private = {} }
+Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 assert(loadfile(repo .. "/Modules/SettingsPreset.lua"))("Carpenter", ns)
 local preset = assert(ns.Private.SettingsPreset, "settings preset module did not load")
 

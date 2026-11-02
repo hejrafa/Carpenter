@@ -130,11 +130,7 @@ local function RunScheduledUpdate()
     local now = GetTime and GetTime() or 0
     if lastUpdateTime > 0 and now - lastUpdateTime < 2 then
         updateScheduled = true
-        if Carpenter and Carpenter.Defer then
-            Carpenter:Defer("SmartMacros:update", 2 - (now - lastUpdateTime), RunScheduledUpdate)
-        else
-            C_Timer.After(2 - (now - lastUpdateTime), RunScheduledUpdate)
-        end
+        Carpenter:Defer("SmartMacros:update", 2 - (now - lastUpdateTime), RunScheduledUpdate)
         return
     end
 
@@ -155,11 +151,7 @@ local function MarkDirty(delay, forceRescan)
     forceNextUpdate = forceNextUpdate or forceRescan
     if updateScheduled then return end
     updateScheduled = true
-    if Carpenter and Carpenter.Defer then
-        Carpenter:Defer("SmartMacros:update", delay or 0.75, RunScheduledUpdate)
-    else
-        C_Timer.After(delay or 0.75, RunScheduledUpdate)
-    end
+    Carpenter:Defer("SmartMacros:update", delay or 0.75, RunScheduledUpdate)
 end
 
 addonFrame:SetScript("OnEvent", function(self, event, unit)

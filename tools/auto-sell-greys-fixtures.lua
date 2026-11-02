@@ -76,6 +76,7 @@ Carpenter = {
     end,
 }
 
+Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 local chunk = assert(loadfile(repo .. "/Modules/AutoSellGreys.lua"))
 chunk("Carpenter", ns)
 

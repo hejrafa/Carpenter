@@ -211,17 +211,11 @@ local function SetPortraitAlpha(portrait, alpha)
 end
 
 local function ScheduleRefresh(window)
-    if Carpenter and Carpenter.Defer then
-        Carpenter:Defer("ProfessionIconPortrait:" .. (window.frameName or "all"), 0, function()
-            if window then
-                windows.RefreshWindow(window)
-            end
-        end)
-        return
-    end
-    if window then
-        windows.RefreshWindow(window)
-    end
+    Carpenter:Defer("ProfessionIconPortrait:" .. (window.frameName or "all"), 0, function()
+        if window then
+            windows.RefreshWindow(window)
+        end
+    end)
 end
 
 local function HookPortrait(window)
@@ -233,14 +227,10 @@ local function HookPortrait(window)
         ScheduleRefresh(window)
     end
 
-    if Carpenter and Carpenter.SafeHook then
+    do
         Carpenter:SafeHook(portrait, "SetTexture", OnPortraitChanged)
         Carpenter:SafeHook(portrait, "SetTexCoord", OnPortraitChanged)
         Carpenter:SafeHook(portrait, "Show", OnPortraitChanged)
-    elseif hooksecurefunc then
-        pcall(hooksecurefunc, portrait, "SetTexture", OnPortraitChanged)
-        pcall(hooksecurefunc, portrait, "SetTexCoord", OnPortraitChanged)
-        pcall(hooksecurefunc, portrait, "Show", OnPortraitChanged)
     end
 
     portrait.CP_ProfessionIconHooked = true
@@ -355,7 +345,7 @@ end
 
 local function InstallGlobalHook(name, window)
     if globalHooks[name] or type(_G[name]) ~= "function" or not hooksecurefunc then return end
-    local ok = pcall(hooksecurefunc, name, function()
+    local ok = Carpenter:SafeHook(name, function()
         if IsEnabled() then
             ScheduleRefresh(window)
         end
@@ -396,11 +386,7 @@ frame:SetScript("OnEvent", function()
 end)
 
 local function RegisterEvent(event)
-    if Carpenter and Carpenter.SafeRegisterEvent then
-        Carpenter:SafeRegisterEvent(frame, event)
-    else
-        pcall(frame.RegisterEvent, frame, event)
-    end
+    Carpenter:SafeRegisterEvent(frame, event)
 end
 
 local feature = {}
@@ -416,9 +402,7 @@ function feature:Enable()
     InstallHooks()
     RefreshAll()
 
-    if Carpenter and Carpenter.RunStartupPasses then
-        Carpenter:RunStartupPasses("ProfessionIconPortrait:startup", { 0, 0.2, 1 }, RefreshAll)
-    end
+    Carpenter:RunStartupPasses("ProfessionIconPortrait:startup", { 0, 0.2, 1 }, RefreshAll)
 end
 
 function feature:Disable()

@@ -48,6 +48,7 @@ C_Timer = { After = function(delay, callback) timers[#timers + 1] = { delay = de
 C_ChatInfo = { PerformEmote = function(emote, target) performed[#performed + 1] = { emote = emote, target = target } end }
 
 local ns = { Private = {} }
+Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 local chunk = assert(loadfile(repo .. "/Modules/RPMacros.lua"))
 chunk("Carpenter", ns)
 

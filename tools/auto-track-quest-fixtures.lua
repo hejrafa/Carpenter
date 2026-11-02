@@ -126,6 +126,7 @@ local function ShowQuestWatchLine(index, text)
 end
 
 local function loadAddonFile(path)
+    Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
     local chunk, err = loadfile(repo .. "/" .. path)
     if not chunk then error(err) end
     return chunk("Carpenter", ns)

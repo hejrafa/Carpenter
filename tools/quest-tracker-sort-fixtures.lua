@@ -106,6 +106,7 @@ local function Fire(event)
 end
 
 local ns = { Private = {} }
+Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 local chunk = assert(loadfile(repo .. "/Modules/QuestTrackerSort.lua"))
 chunk("Carpenter", ns)
 

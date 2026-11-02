@@ -67,7 +67,7 @@ local function HookTab(tab)
     tab._Carpenter_ChatFadeHooked = true
     tab._Carpenter_ChatFadeBaseAlpha = tab.GetAlpha and tab:GetAlpha() or 1
 
-    hooksecurefunc(tab, "SetAlpha", function(self, alpha)
+    Carpenter:SafeHook(tab, "SetAlpha", function(self, alpha)
         if self._Carpenter_ChatFadeSetting then return end
         self._Carpenter_ChatFadeBaseAlpha = alpha
         ApplyTabAlpha(self)

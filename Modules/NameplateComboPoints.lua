@@ -291,9 +291,7 @@ function feature:Enable()
     addonFrame:RegisterUnitEvent("UNIT_FACTION", "target")
     addonFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     -- WoW Forever moves points to a new target without a power event.
-    if Carpenter.SafeRegisterEvent then
-        Carpenter:SafeRegisterEvent(addonFrame, "COMBO_TARGET_CHANGED")
-    end
+    Carpenter:SafeRegisterEvent(addonFrame, "COMBO_TARGET_CHANGED")
     update()
 end
 

@@ -188,12 +188,7 @@ local function ApplyStartupState()
     SetupButtonHoverScripts()
     if IsEnabled() then fader:Start(0) else fader:Stop(0) end
 
-    if Carpenter and Carpenter.DeferMany then
-        Carpenter:DeferMany("MenuTransparency:startup", { 2, 5 }, RefreshStartupState)
-    else
-        C_Timer.After(2, RefreshStartupState)
-        C_Timer.After(5, RefreshStartupState)
-    end
+    Carpenter:DeferMany("MenuTransparency:startup", { 2, 5 }, RefreshStartupState)
 end
 
 frame:SetScript("OnEvent", ApplyStartupState)

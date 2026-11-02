@@ -105,6 +105,7 @@ Carpenter = {
 
 local ns = { Private = {} }
 assert(loadfile(repo .. "/Core/Nameplates.lua"))("Carpenter", ns)
+Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 assert(loadfile(repo .. "/Modules/ForeverUnitFrameAuras.lua"))("Carpenter", ns)
 
 local feature = Carpenter.Features.unitFrameDebuffsEnabled

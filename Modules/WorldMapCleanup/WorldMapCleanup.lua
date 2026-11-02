@@ -44,11 +44,7 @@ Cleanup.ShouldShowMapPOIIcons = ShouldShowMapPOIIcons
 
 local function SafeRegisterEvent(event)
     if not event then return end
-    if Carpenter and Carpenter.SafeRegisterEvent then
-        Carpenter:SafeRegisterEvent(frame, event)
-    else
-        pcall(frame.RegisterEvent, frame, event)
-    end
+    Carpenter:SafeRegisterEvent(frame, event)
 end
 
 local function CaptureFramePoints(frameToCapture)
@@ -462,14 +458,8 @@ frame:SetScript("OnUpdate", function(_, elapsed)
 end)
 
 local function ScheduleApply(delay)
-    if Carpenter and Carpenter.Defer then
-        scheduleNonce = scheduleNonce + 1
-        Carpenter:Defer("WorldMapCleanup:apply:" .. scheduleNonce, delay or 0, ApplyWorldMapCleanup)
-    elseif C_Timer and C_Timer.After then
-        C_Timer.After(delay or 0, ApplyWorldMapCleanup)
-    else
-        ApplyWorldMapCleanup()
-    end
+    scheduleNonce = scheduleNonce + 1
+    Carpenter:Defer("WorldMapCleanup:apply:" .. scheduleNonce, delay or 0, ApplyWorldMapCleanup)
 end
 
 local function HookWorldMap()
@@ -493,25 +483,23 @@ local function HookWorldMap()
         end)
     end
 
-    if Carpenter and Carpenter.SafeHook then
-        Carpenter:SafeHook(mapFrame, "RefreshAllData", function() ScheduleApply(0) end)
-        Carpenter:SafeHook(mapFrame, "OnMapChanged", function()
-            CenterMapCanvasForCurrentMap()
-            ScheduleApply(0)
-        end)
-        Carpenter:SafeHook(mapFrame, "Maximize", function()
-            ApplyWorldMapCleanupImmediately()
-            ScheduleApply(0.1)
-        end)
-        Carpenter:SafeHook(mapFrame, "Minimize", function()
-            ApplyWorldMapCleanupImmediately()
-            ScheduleApply(0.1)
-        end)
-        Carpenter:SafeHook(mapFrame, "SynchronizeDisplayState", function()
-            ApplyWorldMapCleanupImmediately()
-            ScheduleApply(0.1)
-        end)
-    end
+    Carpenter:SafeHook(mapFrame, "RefreshAllData", function() ScheduleApply(0) end)
+    Carpenter:SafeHook(mapFrame, "OnMapChanged", function()
+        CenterMapCanvasForCurrentMap()
+        ScheduleApply(0)
+    end)
+    Carpenter:SafeHook(mapFrame, "Maximize", function()
+        ApplyWorldMapCleanupImmediately()
+        ScheduleApply(0.1)
+    end)
+    Carpenter:SafeHook(mapFrame, "Minimize", function()
+        ApplyWorldMapCleanupImmediately()
+        ScheduleApply(0.1)
+    end)
+    Carpenter:SafeHook(mapFrame, "SynchronizeDisplayState", function()
+        ApplyWorldMapCleanupImmediately()
+        ScheduleApply(0.1)
+    end)
 
     hookedWorldMap = true
 end
@@ -538,13 +526,7 @@ function feature:Enable()
 
     HookWorldMap()
     ApplyWorldMapCleanupImmediately()
-    if Carpenter and Carpenter.RunStartupPasses then
-        Carpenter:RunStartupPasses("WorldMapCleanup:startup", { 0.2, 1, 3 }, ApplyWorldMapCleanup)
-    else
-        ScheduleApply(0.2)
-        ScheduleApply(1)
-        ScheduleApply(3)
-    end
+    Carpenter:RunStartupPasses("WorldMapCleanup:startup", { 0.2, 1, 3 }, ApplyWorldMapCleanup)
 end
 
 function feature:Disable()

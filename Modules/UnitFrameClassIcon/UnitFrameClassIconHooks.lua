@@ -20,13 +20,7 @@ function ClassIcon.ScheduleUnitRefresh(unit)
 
     Refresh()
 
-    if Carpenter and Carpenter.DeferMany then
-        Carpenter:DeferMany("UnitFrameClassIcon:" .. unit, REFRESH_FOLLOWUP_DELAYS, Refresh)
-    elseif C_Timer and C_Timer.After then
-        C_Timer.After(0.25, Refresh)
-        C_Timer.After(0.75, Refresh)
-        C_Timer.After(1.25, Refresh)
-    end
+    Carpenter:DeferMany("UnitFrameClassIcon:" .. unit, REFRESH_FOLLOWUP_DELAYS, Refresh)
 end
 
 local function ScheduleUnitRefreshForUnitEvent(unit)

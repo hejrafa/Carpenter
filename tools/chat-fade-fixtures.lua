@@ -71,6 +71,7 @@ ChatFrame3Tab.alpha = 0.4
 CHAT_FRAMES = { "ChatFrame1", "ChatFrame3" }
 
 assert(loadfile(repo .. "/Core/HoverFade.lua"))("Carpenter", {})
+Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 assert(loadfile(repo .. "/Modules/ChatFade.lua"))("Carpenter", {})
 assert(feature, "the fade should register as a feature")
 feature:Enable()

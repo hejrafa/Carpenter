@@ -18,6 +18,7 @@ end
 local ns = { Private = {} }
 Carpenter = { Client = { isMainline = true } }
 
+Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 local chunk = assert(loadfile(repo .. "/Modules/EditModeLayout.lua"))
 chunk("Carpenter", ns)
 

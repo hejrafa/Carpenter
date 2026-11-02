@@ -34,11 +34,7 @@ end
 Cleanup.GetWorldMapID = GetWorldMapID
 
 local function SafeRegisterEvent(event)
-    if Carpenter and Carpenter.SafeRegisterEvent then
-        Carpenter:SafeRegisterEvent(frame, event)
-    else
-        pcall(frame.RegisterEvent, frame, event)
-    end
+    Carpenter:SafeRegisterEvent(frame, event)
 end
 
 local function CaptureFramePoints(target)
@@ -242,13 +238,7 @@ end
 local function ScheduleApply(delay)
     scheduleNonce = scheduleNonce + 1
     local key = "WorldMapCleanupForever:apply:" .. scheduleNonce
-    if Carpenter and Carpenter.Defer then
-        Carpenter:Defer(key, delay or 0, ApplyWorldMapCleanup)
-    elseif C_Timer and C_Timer.After then
-        C_Timer.After(delay or 0, ApplyWorldMapCleanup)
-    else
-        ApplyWorldMapCleanup()
-    end
+    Carpenter:Defer(key, delay or 0, ApplyWorldMapCleanup)
 end
 
 local function HookWorldMap()
@@ -270,28 +260,26 @@ local function HookWorldMap()
         end)
     end
 
-    if Carpenter and Carpenter.SafeHook then
-        Carpenter:SafeHook(mapFrame, "Maximize", function()
-            ApplyWorldMapCleanup()
-            ScheduleApply(0.1)
-        end)
-        Carpenter:SafeHook(mapFrame, "Minimize", function()
-            ApplyWorldMapCleanup()
-            ScheduleApply(0.1)
-        end)
-        Carpenter:SafeHook(mapFrame, "SynchronizeDisplayState", function()
-            ApplyWorldMapCleanup()
-            ScheduleApply(0.1)
-        end)
-        Carpenter:SafeHook(mapFrame, "OnMapChanged", function()
-            if Cleanup.ApplySilithusHighlightFix then Cleanup.ApplySilithusHighlightFix() end
-        end)
-        Carpenter:SafeHook(mapFrame, "AcquirePin", function(_, pinTemplate)
-            if pinTemplate == AREA_POI_PIN_TEMPLATE then
-                ApplyTownCityIcons()
-            end
-        end)
-    end
+    Carpenter:SafeHook(mapFrame, "Maximize", function()
+        ApplyWorldMapCleanup()
+        ScheduleApply(0.1)
+    end)
+    Carpenter:SafeHook(mapFrame, "Minimize", function()
+        ApplyWorldMapCleanup()
+        ScheduleApply(0.1)
+    end)
+    Carpenter:SafeHook(mapFrame, "SynchronizeDisplayState", function()
+        ApplyWorldMapCleanup()
+        ScheduleApply(0.1)
+    end)
+    Carpenter:SafeHook(mapFrame, "OnMapChanged", function()
+        if Cleanup.ApplySilithusHighlightFix then Cleanup.ApplySilithusHighlightFix() end
+    end)
+    Carpenter:SafeHook(mapFrame, "AcquirePin", function(_, pinTemplate)
+        if pinTemplate == AREA_POI_PIN_TEMPLATE then
+            ApplyTownCityIcons()
+        end
+    end)
 
     hookedWorldMap = true
 end

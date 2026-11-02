@@ -219,9 +219,9 @@ end
 
 -- Only hook TargetFrame; hooking FocusFrame taints it and blocks Set Focus.
 if TargetFrame_UpdateAuraPositions then
-    hooksecurefunc("TargetFrame_UpdateAuraPositions", TargetFrame_OnUpdateAuraPositions);
+    Carpenter:SafeHook("TargetFrame_UpdateAuraPositions", TargetFrame_OnUpdateAuraPositions);
 elseif TargetFrameMixin and TargetFrameMixin.UpdateAuraPositions then
-    hooksecurefunc(TargetFrame, "UpdateAuraPositions", TargetFrame_OnUpdateAuraPositions);
+    Carpenter:SafeHook(TargetFrame, "UpdateAuraPositions", TargetFrame_OnUpdateAuraPositions);
 end
 
 ----------------------------------

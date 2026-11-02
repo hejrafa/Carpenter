@@ -57,7 +57,7 @@ local function HookManagedFrame(frame)
     frame._CarpenterChatButtonsHooked = true
 
     if frame.Show then
-        hooksecurefunc(frame, "Show", function(self)
+        Carpenter:SafeHook(frame, "Show", function(self)
             if IsEnabled() then
                 SetFrameAlpha(self, fader.alpha)
             end
@@ -65,7 +65,7 @@ local function HookManagedFrame(frame)
     end
 
     if frame.SetAlpha then
-        hooksecurefunc(frame, "SetAlpha", function(self)
+        Carpenter:SafeHook(frame, "SetAlpha", function(self)
             if IsEnabled() and not self._CarpenterChatButtonsSettingAlpha then
                 SetFrameAlpha(self, fader.alpha)
             end
@@ -229,12 +229,7 @@ local function ApplyStartupState()
     fader.alpha = 0
     RefreshStartupState()
 
-    if Carpenter and Carpenter.DeferMany then
-        Carpenter:DeferMany("HideChatButtons:startup", { 2, 5 }, RefreshStartupState)
-    else
-        C_Timer.After(2, RefreshStartupState)
-        C_Timer.After(5, RefreshStartupState)
-    end
+    Carpenter:DeferMany("HideChatButtons:startup", { 2, 5 }, RefreshStartupState)
 end
 
 frame:SetScript("OnEvent", ApplyStartupState)

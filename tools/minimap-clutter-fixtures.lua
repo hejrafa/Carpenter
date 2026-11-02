@@ -57,6 +57,7 @@ function CreateFrame()
 end
 
 local faderNamespace = { Private = {} }
+Carpenter = dofile(root .. "/tools/fixture-carpenter.lua")(Carpenter)
 assert(loadfile(root .. "/Modules/MinimapClutter/MinimapClutterFader.lua"))("Carpenter", faderNamespace)
 local fader = assert(faderNamespace.Private.MinimapClutterFader.Create)({
     IsEnabled = function() return true end,

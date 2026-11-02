@@ -95,6 +95,7 @@ local function runUpdate(hoverFrame)
 end
 
 assert(loadfile(repo .. "/Core/HoverFade.lua"))("Carpenter", {})
+Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 local chunk, err = loadfile(repo .. "/Modules/HideChatButtons.lua")
 if not chunk then error(err) end
 chunk("Carpenter", {})

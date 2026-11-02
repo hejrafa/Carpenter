@@ -100,21 +100,21 @@ function Visuals.HookHide(frame, predicate)
         end)
     end
     if frame.Show then
-        pcall(hooksecurefunc, frame, "Show", function(self)
+        Carpenter:SafeHook(frame, "Show", function(self)
             if predicate() then
                 Visuals.HideFrame(self)
             end
         end)
     end
     if frame.SetAlpha then
-        pcall(hooksecurefunc, frame, "SetAlpha", function(self)
+        Carpenter:SafeHook(frame, "SetAlpha", function(self)
             if predicate() then
                 Visuals.HideFrame(self)
             end
         end)
     end
     if frame.SetVertexColor then
-        pcall(hooksecurefunc, frame, "SetVertexColor", function(self)
+        Carpenter:SafeHook(frame, "SetVertexColor", function(self)
             if predicate() then
                 Visuals.HideFrame(self)
             end
@@ -180,7 +180,7 @@ function Visuals.HookAlphaHide(frame, predicate)
         end)
     end
     if frame.SetAlpha then
-        pcall(hooksecurefunc, frame, "SetAlpha", function(self)
+        Carpenter:SafeHook(frame, "SetAlpha", function(self)
             if predicate() then
                 Visuals.HideFrameAlpha(self)
             end

@@ -56,6 +56,7 @@ local function Run(clientName, setupClient)
         RegisterFeature = function(_, _, registered) feature = registered end,
     }
 
+    Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
     assert(loadfile(repo .. "/Modules/EnchantWarning.lua"))("Carpenter", { Private = {} })
     feature:Enable()
     assert(ticker, clientName .. ": enabling should start the check")

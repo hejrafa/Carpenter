@@ -123,6 +123,7 @@ Carpenter = {
 
 local ns = { Private = {} }
 local function Load(path)
+    Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
     assert(loadfile(repo .. "/" .. path))("Carpenter", ns)
 end
 

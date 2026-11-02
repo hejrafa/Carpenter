@@ -103,7 +103,7 @@ local hookedUpdates = {}
 local function HookBarUpdates()
     for _, name in ipairs({ "MainMenuExpBar_Update", "ReputationWatchBar_Update", "StatusTrackingBarManager_Update" }) do
         if not hookedUpdates[name] and type(_G[name]) == "function" then
-            if pcall(hooksecurefunc, name, Apply) then
+            if Carpenter:SafeHook(name, Apply) then
                 hookedUpdates[name] = true
             end
         end
@@ -111,7 +111,7 @@ local function HookBarUpdates()
 
     local manager = _G.StatusTrackingBarManager
     if manager and not hookedUpdates.managerUpdate and type(manager.UpdateBarsShown) == "function" then
-        if pcall(hooksecurefunc, manager, "UpdateBarsShown", Apply) then
+        if Carpenter:SafeHook(manager, "UpdateBarsShown", Apply) then
             hookedUpdates.managerUpdate = true
         end
     end
@@ -128,12 +128,7 @@ end
 
 -- Blizzard UI loves to reset these on zone in/reload, and the status bar
 -- manager may not exist yet at load, so retry the hooks with the passes.
-if Carpenter and Carpenter.RunStartupPasses then
-    Carpenter:RunStartupPasses("SmallerExpBar:startup", { 0, 1, 5 }, function()
-        HookBarUpdates()
-        Apply()
-    end)
-else
-    C_Timer.After(1, Apply)
-    C_Timer.After(5, Apply)
-end
+Carpenter:RunStartupPasses("SmallerExpBar:startup", { 0, 1, 5 }, function()
+    HookBarUpdates()
+    Apply()
+end)

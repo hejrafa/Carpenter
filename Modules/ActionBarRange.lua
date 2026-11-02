@@ -168,19 +168,11 @@ local usableGlobalHooked = false
 local hookedButtons = setmetatable({}, { __mode = "k" })
 
 local function SafeHookGlobal(name, handler)
-    if Carpenter and Carpenter.SafeHook then
-        return Carpenter:SafeHook(name, handler)
-    end
-    if not hooksecurefunc or type(_G[name]) ~= "function" then return false end
-    return pcall(hooksecurefunc, name, handler) == true
+    return Carpenter:SafeHook(name, handler)
 end
 
 local function SafeHookMethod(target, method, handler)
-    if Carpenter and Carpenter.SafeHook then
-        return Carpenter:SafeHook(target, method, handler)
-    end
-    if not hooksecurefunc or type(target) ~= "table" or type(target[method]) ~= "function" then return false end
-    return pcall(hooksecurefunc, target, method, handler) == true
+    return Carpenter:SafeHook(target, method, handler)
 end
 
 local function HandleRangeUpdate(button, checksRange, inRange)

@@ -150,13 +150,7 @@ local function UpdateMacro()
 end
 
 local function ScheduleMacroUpdate(delay)
-    if Carpenter and Carpenter.Defer then
-        Carpenter:Defer("ThistleTeaMacro:update", delay or 0.5, UpdateMacro)
-    elseif C_Timer and C_Timer.After then
-        C_Timer.After(delay or 0.5, UpdateMacro)
-    else
-        UpdateMacro()
-    end
+    Carpenter:Defer("ThistleTeaMacro:update", delay or 0.5, UpdateMacro)
 end
 
 frame:SetScript("OnEvent", function(self, event, arg1)

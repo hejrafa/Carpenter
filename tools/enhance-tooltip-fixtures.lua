@@ -106,6 +106,7 @@ Carpenter = {
 
 local ns = { Private = {} }
 assert(loadfile(repo .. "/Core/Unit.lua"))("Carpenter", ns)
+Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 assert(loadfile(repo .. "/Modules/EnhanceTooltip.lua"))("Carpenter", ns)
 eventHandler(nil, "PLAYER_LOGIN")
 assert(scripts.OnTooltipSetUnit, "module should hook OnTooltipSetUnit")

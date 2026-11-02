@@ -84,6 +84,7 @@ local ns = {
         },
     },
 }
+Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 assert(loadfile(repo .. "/Modules/NameplateComboPoints.lua"))("Carpenter", ns)
 
 local function Fire(event)

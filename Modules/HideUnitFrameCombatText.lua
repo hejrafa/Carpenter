@@ -77,23 +77,23 @@ end
 local function hookHitIndicators()
     local playerHitIndicator = GetPlayerHitIndicator()
     if playerHitIndicator and not playerHitIndicator._CarpenterCombatTextHooked then
-        hooksecurefunc(playerHitIndicator, "Show", function(self)
+        Carpenter:SafeHook(playerHitIndicator, "Show", function(self)
             if shouldHide() then
                 HideIndicator(self)
             end
         end)
-        hooksecurefunc(playerHitIndicator, "SetAlpha", function(self)
+        Carpenter:SafeHook(playerHitIndicator, "SetAlpha", function(self)
             if shouldHide() then
                 HideIndicator(self)
             end
         end)
         if playerHitIndicator.HitText then
-            hooksecurefunc(playerHitIndicator.HitText, "Show", function(self)
+            Carpenter:SafeHook(playerHitIndicator.HitText, "Show", function(self)
                 if shouldHide() then
                     HideHitText(self)
                 end
             end)
-            hooksecurefunc(playerHitIndicator.HitText, "SetAlpha", function(self)
+            Carpenter:SafeHook(playerHitIndicator.HitText, "SetAlpha", function(self)
                 if shouldHide() then
                     HideHitText(self)
                 end
@@ -102,12 +102,12 @@ local function hookHitIndicators()
         playerHitIndicator._CarpenterCombatTextHooked = true
     end
     if PetHitIndicator and not PetHitIndicator._CarpenterCombatTextHooked then
-        hooksecurefunc(PetHitIndicator, "Show", function()
+        Carpenter:SafeHook(PetHitIndicator, "Show", function()
             if shouldHide() then
                 HidePetIndicator()
             end
         end)
-        hooksecurefunc(PetHitIndicator, "SetAlpha", function()
+        Carpenter:SafeHook(PetHitIndicator, "SetAlpha", function()
             if shouldHide() then
                 HidePetIndicator()
             end

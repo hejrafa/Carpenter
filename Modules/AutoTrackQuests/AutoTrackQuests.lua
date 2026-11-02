@@ -45,7 +45,7 @@ local function RefreshQuestTracker()
 end
 
 local function SafeRegisterEvent(event)
-    pcall(frame.RegisterEvent, frame, event)
+    Carpenter:SafeRegisterEvent(frame, event)
 end
 
 local function AddFallbackQuestWatch(index, questID, questName, quiet)
@@ -156,11 +156,7 @@ local function ScheduleRestoreNativeQuestWatches()
         RefreshQuestTracker()
     end
 
-    if Carpenter and Carpenter.After then
-        Carpenter:After(0, Restore)
-    else
-        Restore()
-    end
+    Carpenter:After(0, Restore)
 end
 
 local function KeepQuestWatchRemoved(questIndex, questID)
@@ -196,24 +192,24 @@ end
 
 local function HookQuestWatchUpdates()
     if not hookedQuestWatchUpdate and hooksecurefunc and QuestWatch_Update then
-        hooksecurefunc("QuestWatch_Update", Layout.UpdateQuestWatchLayout)
+        Carpenter:SafeHook("QuestWatch_Update", Layout.UpdateQuestWatchLayout)
         hookedQuestWatchUpdate = true
     end
 
     if not hookedQuestLogUpdate and hooksecurefunc and QuestLog_Update then
-        hooksecurefunc("QuestLog_Update", Layout.UpdateQuestLogWatchIndicators)
+        Carpenter:SafeHook("QuestLog_Update", Layout.UpdateQuestLogWatchIndicators)
         hookedQuestLogUpdate = true
     end
 
     if not hookedRemoveQuestWatch and hooksecurefunc and RemoveQuestWatch then
-        hooksecurefunc("RemoveQuestWatch", function(questIndex)
+        Carpenter:SafeHook("RemoveQuestWatch", function(questIndex)
             HandleQuestWatchRemoved(questIndex, nil)
         end)
         hookedRemoveQuestWatch = true
     end
 
     if not hookedCQuestLogRemoveQuestWatch and hooksecurefunc and C_QuestLog and C_QuestLog.RemoveQuestWatch then
-        hooksecurefunc(C_QuestLog, "RemoveQuestWatch", function(questID)
+        Carpenter:SafeHook(C_QuestLog, "RemoveQuestWatch", function(questID)
             HandleQuestWatchRemoved(nil, questID)
         end)
         hookedCQuestLogRemoveQuestWatch = true
@@ -326,28 +322,19 @@ frame:SetScript("OnEvent", function(_, event, questLogIndex, questID)
         State.PruneFallbackQuestWatches(AddQuestToWatch)
         State.RememberCurrentNativeQuestWatches()
         State.RestoreNativeQuestWatches(AddQuestToWatch)
-        if Carpenter and Carpenter.After then
-            Carpenter:After(0, function()
-                if QuestWatch_Update then
-                    QuestWatch_Update()
-                else
-                    Layout.UpdateQuestWatchLayout()
-                end
-                Layout.UpdateQuestLogWatchIndicators()
-            end)
-        else
-            Layout.UpdateQuestWatchLayout()
+        Carpenter:After(0, function()
+            if QuestWatch_Update then
+                QuestWatch_Update()
+            else
+                Layout.UpdateQuestWatchLayout()
+            end
             Layout.UpdateQuestLogWatchIndicators()
-        end
+        end)
         return
     end
 
     local questName = GetTitleText and GetTitleText()
-    if Carpenter and Carpenter.After then
-        Carpenter:After(0, function()
-            TrackQuest(questLogIndex, questID, questName)
-        end)
-    else
+    Carpenter:After(0, function()
         TrackQuest(questLogIndex, questID, questName)
-    end
+    end)
 end)

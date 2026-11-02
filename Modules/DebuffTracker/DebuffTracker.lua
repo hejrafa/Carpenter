@@ -455,17 +455,13 @@ local nameplateRefreshTickerActive = false
 local function StartNameplateRefreshTicker()
     if nameplateRefreshTickerActive then return end
     nameplateRefreshTickerActive = true
-    if Carpenter and Carpenter.StartTicker then
-        Carpenter:StartTicker("DebuffTracker:nameplates", 0.2, RefreshAllNameplates)
-    end
+    Carpenter:StartTicker("DebuffTracker:nameplates", 0.2, RefreshAllNameplates)
 end
 
 local function StopNameplateRefreshTicker()
     if not nameplateRefreshTickerActive then return end
     nameplateRefreshTickerActive = false
-    if Carpenter and Carpenter.StopTicker then
-        Carpenter:StopTicker("DebuffTracker:nameplates")
-    end
+    Carpenter:StopTicker("DebuffTracker:nameplates")
 end
 
 -- =========================================================
@@ -557,21 +553,21 @@ end
 
 -- After Blizzard positions unit frame auras, set their frame level so the aura row draws on top
 if TargetFrame_UpdateAuraPositions then
-    hooksecurefunc("TargetFrame_UpdateAuraPositions", OnBlizzardAuraPositionsUpdated)
+    Carpenter:SafeHook("TargetFrame_UpdateAuraPositions", OnBlizzardAuraPositionsUpdated)
 elseif TargetFrameMixin and TargetFrameMixin.UpdateAuraPositions then
-    hooksecurefunc(TargetFrame, "UpdateAuraPositions", OnBlizzardAuraPositionsUpdated)
+    Carpenter:SafeHook(TargetFrame, "UpdateAuraPositions", OnBlizzardAuraPositionsUpdated)
 end
 if _G.FocusFrame then
     if FocusFrame_UpdateAuraPositions then
-        hooksecurefunc("FocusFrame_UpdateAuraPositions", OnBlizzardAuraPositionsUpdated)
+        Carpenter:SafeHook("FocusFrame_UpdateAuraPositions", OnBlizzardAuraPositionsUpdated)
     elseif FocusFrame.UpdateAuraPositions then
-        hooksecurefunc(_G.FocusFrame, "UpdateAuraPositions", OnBlizzardAuraPositionsUpdated)
+        Carpenter:SafeHook(_G.FocusFrame, "UpdateAuraPositions", OnBlizzardAuraPositionsUpdated)
     end
 end
 
 -- Not present on every Classic build, so only hook it when the client has it
 if type(_G.CompactUnitFrame_UpdateAuras) == "function" then
-    hooksecurefunc("CompactUnitFrame_UpdateAuras", function(self)
+    Carpenter:SafeHook("CompactUnitFrame_UpdateAuras", function(self)
         if IsNameplateEnabled() and self.unit and self.unit:find("nameplate") then
             OnNameplateUpdate(self, self.unit)
         end

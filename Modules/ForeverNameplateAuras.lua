@@ -190,15 +190,15 @@ local function HookList(unitFrame, list)
     hookedLists[list] = unitFrame
     blizzardWantsShown[list] = IsListShown(list)
 
-    hooksecurefunc(list, "SetShown", function(self, shown)
+    Carpenter:SafeHook(list, "SetShown", function(self, shown)
         blizzardWantsShown[self] = shown and true or false
         if shown and ShouldSuppressList(self) then SuppressList(self) end
     end)
-    hooksecurefunc(list, "Show", function(self)
+    Carpenter:SafeHook(list, "Show", function(self)
         blizzardWantsShown[self] = true
         if ShouldSuppressList(self) then SuppressList(self) end
     end)
-    hooksecurefunc(list, "Hide", function(self)
+    Carpenter:SafeHook(list, "Hide", function(self)
         if not suppressingList then blizzardWantsShown[self] = false end
     end)
 end
@@ -249,7 +249,7 @@ local function Attach(unit)
 
     if not hookedUnitFrames[unitFrame] and unitFrame.UpdateAnchors then
         hookedUnitFrames[unitFrame] = true
-        hooksecurefunc(unitFrame, "UpdateAnchors", function(self)
+        Carpenter:SafeHook(unitFrame, "UpdateAnchors", function(self)
             local ownContainer = containersByUnitFrame[self]
             if ownContainer and managedUnitFrames[self] then
                 AnchorContainer(self, ownContainer)

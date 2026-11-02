@@ -56,6 +56,7 @@ MicroButtonAndBagsBar = NewFrame(1700, 6, 232, 80)
 MicroMenuContainer = NewFrame(200, 1800, 200, 80, 0.5)
 
 assert(loadfile(repo .. "/Core/HoverFade.lua"))("Carpenter", {})
+Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 assert(loadfile(repo .. "/Modules/MenuTransparency.lua"))("Carpenter", {})
 assert(feature, "the fade should register as a feature")
 feature:Enable()

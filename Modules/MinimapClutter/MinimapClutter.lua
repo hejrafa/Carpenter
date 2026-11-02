@@ -53,25 +53,16 @@ frame:SetScript("OnEvent", function()
     ApplyMinimapClutter()
 end)
 
-local function RegisterEventSafe(event)
-    pcall(frame.RegisterEvent, frame, event)
-end
-
 local feature = {}
 
 function feature:Enable()
-    RegisterEventSafe("PLAYER_LOGIN")
-    RegisterEventSafe("PLAYER_ENTERING_WORLD")
-    RegisterEventSafe("LFG_UPDATE")
-    RegisterEventSafe("LFG_QUEUE_STATUS_UPDATE")
+    Carpenter:SafeRegisterEvent(frame, "PLAYER_LOGIN")
+    Carpenter:SafeRegisterEvent(frame, "PLAYER_ENTERING_WORLD")
+    Carpenter:SafeRegisterEvent(frame, "LFG_UPDATE")
+    Carpenter:SafeRegisterEvent(frame, "LFG_QUEUE_STATUS_UPDATE")
     ApplyMinimapClutter()
     -- Re-enforce shortly after login/zone to catch any late layout changes.
-    if Carpenter and Carpenter.DeferMany then
-        Carpenter:DeferMany("MinimapClutter:startup", { 1, 5 }, ApplyMinimapClutter)
-    else
-        C_Timer.After(1, ApplyMinimapClutter)
-        C_Timer.After(5, ApplyMinimapClutter)
-    end
+    Carpenter:DeferMany("MinimapClutter:startup", { 1, 5 }, ApplyMinimapClutter)
 end
 
 function feature:Disable()

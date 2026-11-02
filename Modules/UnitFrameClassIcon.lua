@@ -23,22 +23,11 @@ frame:SetScript("OnEvent", ClassIcon.HandleEvent)
 local feature = {}
 
 function feature:Enable()
-    if Carpenter and Carpenter.SafeRegisterEvent then
-        Carpenter:SafeRegisterEvent(frame, "PLAYER_TARGET_CHANGED")
-        Carpenter:SafeRegisterEvent(frame, "PLAYER_FOCUS_CHANGED")
-        Carpenter:SafeRegisterEvent(frame, "PLAYER_ENTERING_WORLD")
-        Carpenter:SafeRegisterEvent(frame, "UNIT_PORTRAIT_UPDATE")
-    else
-        frame:RegisterEvent("PLAYER_TARGET_CHANGED")
-        frame:RegisterEvent("PLAYER_FOCUS_CHANGED")
-        frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-        frame:RegisterEvent("UNIT_PORTRAIT_UPDATE")
-    end
-    if Carpenter and Carpenter.SafeRegisterUnitEvent then
-        Carpenter:SafeRegisterUnitEvent(frame, "UNIT_TARGET", "target")
-    else
-        frame:RegisterUnitEvent("UNIT_TARGET", "target")
-    end
+    Carpenter:SafeRegisterEvent(frame, "PLAYER_TARGET_CHANGED")
+    Carpenter:SafeRegisterEvent(frame, "PLAYER_FOCUS_CHANGED")
+    Carpenter:SafeRegisterEvent(frame, "PLAYER_ENTERING_WORLD")
+    Carpenter:SafeRegisterEvent(frame, "UNIT_PORTRAIT_UPDATE")
+    Carpenter:SafeRegisterUnitEvent(frame, "UNIT_TARGET", "target")
     ClassIcon.RegisterUnitRefreshEvent(frame, "UNIT_HEALTH")
     ClassIcon.RegisterUnitRefreshEvent(frame, "UNIT_HEALTH_FREQUENT", true)
     ClassIcon.RegisterUnitRefreshEvent(frame, "UNIT_MAXHEALTH")

@@ -174,18 +174,18 @@ HookSpellOverlay = function()
         end
     end)
 
-    hooksecurefunc(SpellActivationOverlayFrame, "SetPoint", function()
+    Carpenter:SafeHook(SpellActivationOverlayFrame, "SetPoint", function()
         if spellOverlayApplying then return end
         ScheduleSpellOverlayOffset(0)
     end)
 
-    hooksecurefunc(SpellActivationOverlayFrame, "SetAllPoints", function()
+    Carpenter:SafeHook(SpellActivationOverlayFrame, "SetAllPoints", function()
         if spellOverlayApplying then return end
         ScheduleSpellOverlayOffset(0)
     end)
 
     if _G.SpellActivationOverlay_ShowOverlay then
-        hooksecurefunc("SpellActivationOverlay_ShowOverlay", function()
+        Carpenter:SafeHook("SpellActivationOverlay_ShowOverlay", function()
             ScheduleSpellOverlayOffset(0)
         end)
     end
@@ -355,7 +355,7 @@ end
 local function HookNarcissusFunction(name)
     if narcissusHooks[name] or type(_G[name]) ~= "function" or not hooksecurefunc then return end
 
-    local ok = pcall(hooksecurefunc, name, OnNarcissusToggle)
+    local ok = Carpenter:SafeHook(name, OnNarcissusToggle)
     if ok then
         narcissusHooks[name] = true
     end
