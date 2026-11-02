@@ -11,6 +11,11 @@ local MINIMAP_FRAMES = {
     "MinimapZoomOut",
     "MinimapCloseButton",     -- Old-style close button sitting on that strip
     "MinimapToggleButton",    -- Old-style plus/minus minimap toggle button
+    -- The strip above a Classic minimap: the zone name with its border
+    -- texture, and the sun-and-moon day/night button.
+    "MinimapZoneTextButton",
+    "MinimapBorderTop",
+    "GameTimeFrame",
 }
 
 function Frames.Create(config)
@@ -94,6 +99,10 @@ function Frames.Create(config)
         end
         if cluster.ToggleButton then
             HideMinimapFrame(cluster.ToggleButton)
+        end
+        -- Classic Era keeps the zone name's border texture as a key only.
+        if cluster.BorderTop then
+            HideMinimapFrame(cluster.BorderTop)
         end
     end
 

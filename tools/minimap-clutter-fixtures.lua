@@ -103,15 +103,17 @@ assertEqual(MinimapZoomIn.shown, false, "classic zoom in is hidden")
 assertEqual(MinimapZoomOut.shown, false, "classic zoom out is hidden")
 assertEqual(MinimapCloseButton.shown, false, "classic close button is hidden")
 assertEqual(MinimapToggleButton.shown, false, "classic toggle button is hidden")
-assertEqual(GameTimeFrame.shown, true, "calendar remains shown")
+assertEqual(GameTimeFrame.shown, false, "classic sun-and-moon button is hidden")
 assertEqual(MinimapCluster.DielFrame.shown, false, "day/night artwork is hidden")
-assertEqual(MinimapZoneTextButton.shown, true, "zone text button remains shown")
-assertEqual(MinimapZoneText.shown, true, "zone text remains shown")
-assertEqual(MinimapBorderTop.shown, true, "zone text border remains shown")
-assertEqual(MinimapCluster.BorderTop.shown, true, "cluster zone border remains shown")
+assertEqual(MinimapZoneTextButton.shown, false, "classic zone name is hidden")
+assertEqual(MinimapBorderTop.shown, false, "classic zone name border is hidden")
+assertEqual(MinimapCluster.BorderTop.shown, false, "classic zone name border key is hidden")
 
 frames.Apply(false)
 assertEqual(MinimapCluster.DielFrame.shown, true, "day/night artwork restores on disable")
+assertEqual(GameTimeFrame.shown, true, "sun-and-moon button restores on disable")
+assertEqual(MinimapZoneTextButton.shown, true, "zone name restores on disable")
+assertEqual(MinimapBorderTop.shown, true, "zone name border restores on disable")
 
 local function newZoomButton(name)
     local button = newWidget(name)
@@ -274,7 +276,7 @@ for _, fileName in ipairs(localizationFiles) do
 
     local description = assert(source:match('L%.DESC_MINIMAP_CLUTTER%s*=%s*"(.-)"'), fileName .. " minimap description")
     local _, highlights = description:gsub("{hl}", "")
-    assertEqual(highlights, 1, fileName .. " minimap description only names addon buttons")
+    assertEqual(highlights, 2, fileName .. " minimap description highlights the addon buttons and the zone name")
 end
 
 print("minimap clutter fixtures: passed")
