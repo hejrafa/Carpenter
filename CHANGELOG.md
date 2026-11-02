@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.13
+
+- Fade Minimap on Retail now fades the map itself along with its header. Before, the map and the buttons on it stayed at full strength until the map cut out at the end of the fade.
+- Chat Cleaner shows a completed appearance set as "Completed: Head Chef's Uniform" without "the set", with the set's name in the appearance color.
+- Hide Chat Buttons now fades the social button beside the chat on Retail too, as it already did on WoW Forever.
+- The Edit Mode Layout checkbox on the hidden version-number page now shows on WoW Forever only. The layout is a Forever export, and Retail's Edit Mode rejects it.
+- Fade Micro Menu & Bags and Hide Chat Buttons fade out over the same 0.6 seconds as the other fades; they took slightly longer before.
+- The package no longer ships ten Blizzard interface files that slipped into the 1.8.10 to 1.8.12 releases by mistake.
+
 ## 1.8.12
 
 - Enhance Tooltip no longer repeats the class on the level line when the game already shows a spec line, so a player reads as "Level 60 Orc" over "Shadow Priest", matching the default UI.

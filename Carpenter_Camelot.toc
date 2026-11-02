@@ -13,7 +13,7 @@
 ## Notes-zhTW: 量好尺寸，鋸掉雜亂。Carpenter 替你整理介面，還附上一整箱實用的便利功能。|n|n開啟工坊：|n/carpenter 或 /cp
 ## LoadSavedVariablesFirst: 1
 ## SavedVariables: CarpenterDB
-## Version: 1.8.12
+## Version: 1.8.13
 ## X-Build: @project-revision@
 ## Author: Rafael Polutta
 ## IconTexture: Interface\AddOns\Carpenter\Art\Icons\Carpenter_Logo
