@@ -173,6 +173,35 @@ function System.Create(config)
         return nil
     end
 
+    -- "You've completed the set %s." (ERR_COMPLETED_TRANSMOG_SET_S) as a
+    -- pattern that captures the set's name, built from the client's own
+    -- string so every locale matches.
+    local completedSetPattern
+    local function GetCompletedSetPattern()
+        if completedSetPattern then return completedSetPattern end
+        local template = _G.ERR_COMPLETED_TRANSMOG_SET_S
+        if type(template) ~= "string" or not template:find("%s", 1, true) then
+            template = "You've completed the set %s."
+        end
+        local pattern = template:gsub("%%s", "\1")
+        pattern = pattern:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0")
+        pattern = pattern:gsub("%%%.%s*$", "%%.?")
+        pattern = pattern:gsub("\1", "(.-)")
+        completedSetPattern = "^%s*" .. pattern .. "%s*$"
+        return completedSetPattern
+    end
+
+    -- The set's name alone, in the appearance color: its link keeps working
+    -- but loses its brackets and the color the game gave it.
+    local function FormatCompletedSet(setName, prefixPlus)
+        local display = cleanPunctuation(setName)
+        display = display:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+        display = display:gsub("|h%[(.-)%]|h", "|h%1|h")
+        display = stripBrackets(display):gsub("^%s+", ""):gsub("%s+$", "")
+        if display == "" then return nil end
+        return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_COMPLETED_LABEL", "Completed:") .. " |r" .. colorTransmog .. display .. "|r")
+    end
+
     function api.FormatQuestProgressMessage(event, message, plainText, prefixPlus)
         if event ~= "CHAT_MSG_SYSTEM" or not message or type(message) ~= "string" then return nil end
         plainText = (type(plainText) == "string" and plainText) or message
@@ -199,6 +228,14 @@ function System.Create(config)
         local questAccepted = nil
         if lowerPlainText:find("quest accepted:") then
             questAccepted = message:match("[Qq]uest [Aa]ccepted: (.+)") or message:match("[Qq]uest [Aa]ccepted (.+)")
+        end
+
+        -- A completed transmog set reads like a completed quest; show it as
+        -- "Completed: <set>" without "the set".
+        local completedSet = message:match(GetCompletedSetPattern())
+        if completedSet then
+            local formatted = FormatCompletedSet(completedSet, prefixPlus)
+            if formatted then return formatted end
         end
 
         local questCompleted = message:match("^(.+) [Cc]ompleted%.?%s*$")

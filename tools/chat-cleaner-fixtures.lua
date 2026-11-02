@@ -545,6 +545,23 @@ local fixtures = {
         rejectPlain = "that quest",
     },
     {
+        name = "retail completed transmog set drops the set",
+        event = "CHAT_MSG_SYSTEM",
+        isRetail = true,
+        message = "You've completed the set |cffff80ff|Htransmogset:4321|h[Head Chef's Uniform (Black)]|h|r.",
+        expectPlain = "+ Completed: Head Chef's Uniform (Black)",
+        rejectPlain = "the set",
+        requireColors = { "|cffffffffCompleted: |r", "|cffff80ff|Htransmogset:4321|hHead Chef's Uniform (Black)|h|r" },
+    },
+    {
+        name = "plain completed transmog set drops the set",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You've completed the set Head Chef's Uniform (Black).",
+        expectPlain = "+ Completed: Head Chef's Uniform (Black)",
+        rejectPlain = "the set",
+        requireColor = "|cffff80ffHead Chef's Uniform (Black)|r",
+    },
+    {
         name = "ready check initiated strips realm",
         event = "CHAT_MSG_SYSTEM",
         message = "Mirella-Grobbulus has initiated a ready check.",
