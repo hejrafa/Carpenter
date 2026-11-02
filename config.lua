@@ -788,8 +788,8 @@ local function CreateHiddenPage()
         ShowHiddenPageSidebar = ShowHiddenPageSidebar or showDetails
     end
 
-    -- One Settings section: the keybinds on Forever, the Edit Mode layout
-    -- wherever Edit Mode exists.
+    -- One Settings section: the keybinds and the Edit Mode layout, both on
+    -- Forever only.
     local hasSettingsPreset = SettingsPreset.IsAvailable and SettingsPreset.IsAvailable()
     local hasEditModeLayout = EditModeLayout.IsAvailable and EditModeLayout.IsAvailable()
     if hasSettingsPreset or hasEditModeLayout then
