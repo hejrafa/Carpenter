@@ -94,13 +94,21 @@ local function runUpdate(hoverFrame)
     if not ok then fail("hover update errored: " .. tostring(err)) end
 end
 
+assert(loadfile(repo .. "/Core/HoverFade.lua"))("Carpenter", {})
 local chunk, err = loadfile(repo .. "/Modules/HideChatButtons.lua")
 if not chunk then error(err) end
 chunk("Carpenter", {})
 
 if not registeredFeature then fail("Hide Chat Buttons did not register its feature") end
+-- The hitbox above the chat is created first; the shared fader's frame
+-- carries the OnUpdate.
 local hoverFrame = createdFrames[1]
 if not hoverFrame then fail("Hide Chat Buttons did not create its hover frame") end
+local updateFrame
+for _, created in ipairs(createdFrames) do
+    if created.scripts.OnUpdate then updateFrame = created end
+end
+if not updateFrame then fail("Hide Chat Buttons did not start a hover fader") end
 
 registeredFeature:Enable()
 assertEqual(QuickJoinToastButton.alpha, 0, "the social button should start hidden with the chat buttons")
@@ -108,7 +116,7 @@ assertEqual(QuickJoinToastButton.alpha, 0, "the social button should start hidde
 -- Retail no longer guarantees the legacy MouseIsOver global. The frame method
 -- must drive hover fading without it.
 hoverFrame.mouseOver = true
-runUpdate(hoverFrame)
+runUpdate(updateFrame)
 assertEqual(ChatFrame1Tab.alpha, 0.25, "frame-method hover did not start the fade")
 assertEqual(QuickJoinToastButton.alpha, 0.25, "the social button should fade in with the chat buttons")
 
@@ -117,7 +125,7 @@ assertEqual(QuickJoinToastButton.alpha, 0.25, "the social button should fade in 
 hoverFrame.IsMouseOver = nil
 hoverFrame.legacyMouseOver = true
 MouseIsOver = function(frame) return frame.legacyMouseOver == true end
-runUpdate(hoverFrame)
+runUpdate(updateFrame)
 assertEqual(ChatFrame1Tab.alpha, 0.5, "legacy hover fallback did not continue the fade")
 
 print("hide-chat-buttons fixtures: passed")

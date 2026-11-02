@@ -2,12 +2,8 @@
 -- Reduces opacity of the Game Menu and Bag interface buttons to 0% (hidden)
 -- and reveals them on hover with a smooth transition.
 
-local HIDDEN_OPACITY = 0
-local HOVER_OPACITY = 1
-local FADE_IN_SPEED = 0.25
-local FADE_OUT_SPEED = 0.08
 local HOVER_PADDING = 14
-local UPDATE_INTERVAL = 0.05
+local HoverFade = Carpenter.HoverFade
 
 -- =========================
 -- Config
@@ -19,9 +15,6 @@ end
 -- =========================
 -- Core Logic: Hover Fading
 -- =========================
-
-local currentAlpha = 0
-local targetAlpha = 0
 
 local function SetFrameAlpha(frame, alpha, depth)
     if not frame then return end
@@ -102,25 +95,9 @@ local function IsHoverArea(name)
     return not (name == "MicroButtonAndBagsBar" and client and client.isMainline)
 end
 
-local function IsMouseOverPaddedFrame(frame, padding)
-    if not frame or not frame.GetLeft or not frame:IsShown() then return false end
-
-    local left, right, top, bottom = frame:GetLeft(), frame:GetRight(), frame:GetTop(), frame:GetBottom()
-    if not left or not right or not top or not bottom then return false end
-
-    -- A frame's edges are in its own scale, which Edit Mode can change.
-    local scale = (frame.GetEffectiveScale and frame:GetEffectiveScale())
-        or (UIParent and UIParent:GetEffectiveScale()) or 1
-    local x, y = GetCursorPosition()
-    x, y = x / scale, y / scale
-    padding = padding or 0
-
-    return x >= left - padding and x <= right + padding and y >= bottom - padding and y <= top + padding
-end
-
 local function IsMouseOverGroup(group, padding)
     for _, name in ipairs(group) do
-        if IsHoverArea(name) and IsMouseOverPaddedFrame(_G[name], padding) then
+        if IsHoverArea(name) and HoverFade.IsMouseOverPaddedFrame(_G[name], padding, "shown") then
             return true
         end
     end
@@ -175,84 +152,51 @@ local function ApplyTransparency(alpha)
     SetGroupAlpha(microButtons, alpha)
 end
 
--- Logic to detect mouseover and handle smooth fading
-local updateFrame = CreateFrame("Frame")
-updateFrame:SetScript("OnUpdate", function(self, elapsed)
-    if not IsEnabled() then
-        self:Hide()
-        return
-    end
-
-    self.elapsed = (self.elapsed or 0) + elapsed
-    if self.elapsed < UPDATE_INTERVAL then return end
-    self.elapsed = 0
-
-    -- Check if any bag/menu is actually open
-    local bagsOpen = false
+local function ShouldShow()
+    -- An open bag keeps the bars up.
     for i = 0, 4 do
-        if IsBagOpen and IsBagOpen(i) then
-            bagsOpen = true
-            break
-        end
+        if IsBagOpen and IsBagOpen(i) then return true end
     end
 
     -- Treat the micro menu and bags as one cluster.
-    local clusterHovered = hoverCount > 0
+    return hoverCount > 0
         or IsMouseOverGroup(containerFrames, HOVER_PADDING)
         or IsMouseOverGroup(bagButtons, HOVER_PADDING)
         or IsMouseOverGroup(microButtons, HOVER_PADDING)
+end
 
-    if clusterHovered or bagsOpen then
-        targetAlpha = HOVER_OPACITY
-    else
-        targetAlpha = HIDDEN_OPACITY
-    end
-
-    -- Smooth transition logic
-    if currentAlpha ~= targetAlpha then
-        if currentAlpha < targetAlpha then
-            currentAlpha = math.min(targetAlpha, currentAlpha + FADE_IN_SPEED)
-        else
-            currentAlpha = math.max(targetAlpha, currentAlpha - FADE_OUT_SPEED)
-        end
-        ApplyTransparency(currentAlpha)
-    end
-end)
+local fader = HoverFade.Create({
+    isEnabled = IsEnabled,
+    shouldShow = ShouldShow,
+    apply = ApplyTransparency,
+})
 
 -- =========================
 -- Events
 -- =========================
 local frame = CreateFrame("Frame")
 
-local function ApplyStartupState()
-    currentAlpha = HIDDEN_OPACITY
+-- Buttons that load late (the Guild button) get their hooks and alpha on
+-- the later passes.
+local function RefreshStartupState()
     SetupButtonHoverScripts()
-    ApplyTransparency(HIDDEN_OPACITY)
-    if IsEnabled() then updateFrame:Show() else updateFrame:Hide() end
+    if IsEnabled() then fader:Start() else fader:Stop() end
+    fader:Apply()
+end
 
-    -- Secondary enforcement after a small delay to catch lazy-loading buttons (like Guild button)
+local function ApplyStartupState()
+    SetupButtonHoverScripts()
+    if IsEnabled() then fader:Start(0) else fader:Stop(0) end
+
     if Carpenter and Carpenter.DeferMany then
-        Carpenter:DeferMany("MenuTransparency:startup", { 2, 5 }, function()
-            SetupButtonHoverScripts()
-            ApplyTransparency(currentAlpha)
-            if IsEnabled() then updateFrame:Show() else updateFrame:Hide() end
-        end)
+        Carpenter:DeferMany("MenuTransparency:startup", { 2, 5 }, RefreshStartupState)
     else
-        C_Timer.After(2, function()
-            SetupButtonHoverScripts()
-            ApplyTransparency(currentAlpha)
-            if IsEnabled() then updateFrame:Show() else updateFrame:Hide() end
-        end)
-        C_Timer.After(5, function()
-            SetupButtonHoverScripts()
-            ApplyTransparency(currentAlpha)
-            if IsEnabled() then updateFrame:Show() else updateFrame:Hide() end
-        end)
+        C_Timer.After(2, RefreshStartupState)
+        C_Timer.After(5, RefreshStartupState)
     end
 end
 
 frame:SetScript("OnEvent", ApplyStartupState)
-updateFrame:Hide()
 
 local feature = {}
 
@@ -264,10 +208,7 @@ end
 
 function feature:Disable()
     frame:UnregisterAllEvents()
-    updateFrame:Hide()
-    currentAlpha = 1
-    targetAlpha = 1
-    ApplyTransparency(1)
+    fader:Stop(1)
 end
 
 if Carpenter and Carpenter.RegisterFeature then

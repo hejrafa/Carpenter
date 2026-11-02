@@ -2,10 +2,8 @@
 -- Fades the chat windows and all of their tabs and reveals them on hover or
 -- while typing, with a smooth transition.
 
-local FADE_IN_SECONDS = 0.2
-local FADE_OUT_SECONDS = 0.6
 local HOVER_PADDING = 10
-local UPDATE_INTERVAL = 0.05
+local HoverFade = Carpenter.HoverFade
 
 -- =========================
 -- Config
@@ -91,21 +89,6 @@ local function ApplyFade()
     end
 end
 
-local function IsMouseOverPaddedFrame(frame, padding)
-    if not frame or not frame.GetLeft or not frame:IsVisible() then return false end
-
-    local left, right, top, bottom = frame:GetLeft(), frame:GetRight(), frame:GetTop(), frame:GetBottom()
-    if not left or not right or not top or not bottom then return false end
-
-    -- A frame's edges are in its own scale, which Edit Mode can change.
-    local scale = (frame.GetEffectiveScale and frame:GetEffectiveScale())
-        or (UIParent and UIParent:GetEffectiveScale()) or 1
-    local x, y = GetCursorPosition()
-    x, y = x / scale, y / scale
-
-    return x >= left - padding and x <= right + padding and y >= bottom - padding and y <= top + padding
-end
-
 local function ShouldShow()
     -- Edit Mode needs to see the chat to move it.
     local editMode = _G.EditModeManagerFrame
@@ -113,52 +96,36 @@ local function ShouldShow()
         return true
     end
 
-    local shown = IsMouseOverPaddedFrame(_G.GeneralDockManager, HOVER_PADDING)
+    local IsHovered = HoverFade.IsMouseOverPaddedFrame
+    local shown = IsHovered(_G.GeneralDockManager, HOVER_PADDING, "visible")
     ForEachChatFrame(function(chatFrame, tab)
         if shown then return end
         local editBox = chatFrame.editBox or _G[chatFrame:GetName() .. "EditBox"]
         shown = (editBox and editBox.HasFocus and editBox:HasFocus())
-            or IsMouseOverPaddedFrame(chatFrame, HOVER_PADDING)
-            or IsMouseOverPaddedFrame(editBox, HOVER_PADDING)
-            or IsMouseOverPaddedFrame(tab, HOVER_PADDING)
+            or IsHovered(chatFrame, HOVER_PADDING, "visible")
+            or IsHovered(editBox, HOVER_PADDING, "visible")
+            or IsHovered(tab, HOVER_PADDING, "visible")
     end)
     return shown and true or false
 end
 
-local updateFrame = CreateFrame("Frame")
-updateFrame:Hide()
-updateFrame:SetScript("OnUpdate", function(self, elapsed)
-    if not IsEnabled() then
-        self:Hide()
-        return
-    end
-
-    self.elapsed = (self.elapsed or 0) + elapsed
-    if self.elapsed < UPDATE_INTERVAL then return end
-    local step = self.elapsed
-    self.elapsed = 0
-
-    local targetAlpha = ShouldShow() and 1 or 0
-    local changed = false
-    if currentAlpha < targetAlpha then
-        currentAlpha = math.min(targetAlpha, currentAlpha + step / FADE_IN_SECONDS)
-        changed = true
-    elseif currentAlpha > targetAlpha then
-        currentAlpha = math.max(targetAlpha, currentAlpha - step / FADE_OUT_SECONDS)
-        changed = true
-    end
-
-    -- A whisper window opened since the last pass joins the fade too.
-    local chatFrameCount = type(CHAT_FRAMES) == "table" and #CHAT_FRAMES or 0
-    if chatFrameCount ~= self.chatFrameCount then
-        self.chatFrameCount = chatFrameCount
-        changed = true
-    end
-
-    if changed then
+local chatFrameCount
+local fader = HoverFade.Create({
+    isEnabled = IsEnabled,
+    shouldShow = ShouldShow,
+    apply = function(alpha)
+        currentAlpha = alpha
         ApplyFade()
-    end
-end)
+    end,
+    -- A whisper window opened since the last pass joins the fade too.
+    onTick = function()
+        local count = type(CHAT_FRAMES) == "table" and #CHAT_FRAMES or 0
+        if count ~= chatFrameCount then
+            chatFrameCount = count
+            return true
+        end
+    end,
+})
 
 -- =========================
 -- Events
@@ -174,16 +141,12 @@ function feature:Enable()
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
     frame:RegisterEvent("UPDATE_CHAT_WINDOWS")
     frame:RegisterEvent("UPDATE_FLOATING_CHAT_WINDOWS")
-    currentAlpha = 0
-    ApplyFade()
-    updateFrame:Show()
+    fader:Start(0)
 end
 
 function feature:Disable()
     frame:UnregisterAllEvents()
-    updateFrame:Hide()
-    currentAlpha = 1
-    ApplyFade()
+    fader:Stop(1)
 end
 
 if Carpenter and Carpenter.RegisterFeature then

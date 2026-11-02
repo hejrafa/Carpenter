@@ -2,10 +2,8 @@
 -- Fades the minimap and everything around it (zone name, clock, tracking,
 -- addon buttons) and reveals it on hover with a smooth transition.
 
-local FADE_IN_SECONDS = 0.2
-local FADE_OUT_SECONDS = 0.6
 local HOVER_PADDING = 14
-local UPDATE_INTERVAL = 0.05
+local HoverFade = Carpenter.HoverFade
 
 -- =========================
 -- Config
@@ -18,7 +16,6 @@ end
 -- Core Logic: Hover Fading
 -- =========================
 
-local currentAlpha = 1
 local minimapHiddenByFade = false
 
 -- Every client keeps the map, its header, and addon buttons inside
@@ -66,22 +63,6 @@ local function SetMinimapHidden(hidden)
     end
 end
 
--- Hidden frames keep their edges, so the hidden map still counts as hovered.
-local function IsMouseOverPaddedFrame(frame, padding)
-    if not frame or not frame.GetLeft then return false end
-
-    local left, right, top, bottom = frame:GetLeft(), frame:GetRight(), frame:GetTop(), frame:GetBottom()
-    if not left or not right or not top or not bottom then return false end
-
-    -- A frame's edges are in its own scale, which Edit Mode can change.
-    local scale = (frame.GetEffectiveScale and frame:GetEffectiveScale())
-        or (UIParent and UIParent:GetEffectiveScale()) or 1
-    local x, y = GetCursorPosition()
-    x, y = x / scale, y / scale
-
-    return x >= left - padding and x <= right + padding and y >= bottom - padding and y <= top + padding
-end
-
 local function IsMenuOpen(button)
     return button and button.IsMenuOpen and button:IsMenuOpen() == true
 end
@@ -102,54 +83,37 @@ local function ShouldShow()
         return true
     end
 
-    return IsMouseOverPaddedFrame(cluster, HOVER_PADDING)
-        or IsMouseOverPaddedFrame(cluster and cluster.MinimapContainer, HOVER_PADDING)
-        or IsMouseOverPaddedFrame(_G.Minimap, HOVER_PADDING)
+    -- Hidden frames keep their edges, so the hidden map still counts as
+    -- hovered: no visibility check.
+    local IsHovered = HoverFade.IsMouseOverPaddedFrame
+    return IsHovered(cluster, HOVER_PADDING)
+        or IsHovered(cluster and cluster.MinimapContainer, HOVER_PADDING)
+        or IsHovered(_G.Minimap, HOVER_PADDING)
 end
 
-local updateFrame = CreateFrame("Frame")
-updateFrame:Hide()
-updateFrame:SetScript("OnUpdate", function(self, elapsed)
-    if not IsEnabled() then
-        self:Hide()
-        return
-    end
-
-    self.elapsed = (self.elapsed or 0) + elapsed
-    if self.elapsed < UPDATE_INTERVAL then return end
-    local step = self.elapsed
-    self.elapsed = 0
-
-    local targetAlpha = ShouldShow() and 1 or 0
-    if currentAlpha < targetAlpha then
-        SetMinimapHidden(false)
-        currentAlpha = math.min(targetAlpha, currentAlpha + step / FADE_IN_SECONDS)
-        SetFadeAlpha(currentAlpha)
-    elseif currentAlpha > targetAlpha then
-        currentAlpha = math.max(targetAlpha, currentAlpha - step / FADE_OUT_SECONDS)
-        SetFadeAlpha(currentAlpha)
-    end
-
-    if currentAlpha == 0 then
-        SetMinimapHidden(true)
-    end
-end)
+local fader = HoverFade.Create({
+    isEnabled = IsEnabled,
+    shouldShow = ShouldShow,
+    apply = function(alpha)
+        if alpha > 0 then SetMinimapHidden(false) end
+        SetFadeAlpha(alpha)
+    end,
+    -- The map stays hidden while fully faded, even if something shows it.
+    onTick = function(alpha)
+        if alpha == 0 then SetMinimapHidden(true) end
+    end,
+})
 
 local feature = {}
 
 function feature:Enable()
-    currentAlpha = 0
     SetMinimapIgnoresParentAlpha(true)
-    SetFadeAlpha(0)
+    fader:Start(0)
     SetMinimapHidden(true)
-    updateFrame:Show()
 end
 
 function feature:Disable()
-    updateFrame:Hide()
-    currentAlpha = 1
-    SetMinimapHidden(false)
-    SetFadeAlpha(1)
+    fader:Stop(1)
     SetMinimapIgnoresParentAlpha(false)
 end
 

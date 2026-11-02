@@ -31,6 +31,7 @@ Localization\ruRU.lua
 Localization\zhCN.lua
 Localization\zhTW.lua
 Core\Carpenter.lua
+Core\HoverFade.lua
 Core\Unit.lua
 Core\Nameplates.lua
 Core\ErrorTrace.lua

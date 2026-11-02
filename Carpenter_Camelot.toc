@@ -32,6 +32,7 @@ Localization\ruRU.lua
 Localization\zhCN.lua
 Localization\zhTW.lua
 Core\Carpenter.lua
+Core\HoverFade.lua
 Modules\AddonCompartment.lua
 Core\Unit.lua
 Core\Nameplates.lua

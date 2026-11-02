@@ -2,11 +2,8 @@
 -- Reduces opacity of chat buttons to 0% (hidden) and reveals them on hover
 -- with a smooth transition, just like the micromenu.
 
-local HIDDEN_OPACITY = 0
-local HOVER_OPACITY = 1
-local FADE_IN_SPEED = 0.25
-local FADE_OUT_SPEED = 0.08
-local UPDATE_INTERVAL = 0.05
+local HoverFade = Carpenter.HoverFade
+local IsMouseOverFrame = HoverFade.IsMouseOverFrame
 
 -- =========================
 -- Config
@@ -22,26 +19,11 @@ local frameAlphaOnly = {
     QuickJoinToastButton = true,
 }
 
-local function IsMouseOverFrame(frame)
-    if not frame then return false end
-
-    if type(frame.IsMouseOver) == "function" then
-        return frame:IsMouseOver() == true
-    end
-
-    if type(MouseIsOver) == "function" then
-        return MouseIsOver(frame) == true
-    end
-
-    return false
-end
-
 -- =========================
 -- Core Logic: Hover Fading
 -- =========================
 
-local currentAlpha = 0
-local targetAlpha = 0
+local fader
 
 local function SetFrameAlpha(frame, alpha, depth)
     if not frame then return end
@@ -77,7 +59,7 @@ local function HookManagedFrame(frame)
     if frame.Show then
         hooksecurefunc(frame, "Show", function(self)
             if IsEnabled() then
-                SetFrameAlpha(self, currentAlpha)
+                SetFrameAlpha(self, fader.alpha)
             end
         end)
     end
@@ -85,7 +67,7 @@ local function HookManagedFrame(frame)
     if frame.SetAlpha then
         hooksecurefunc(frame, "SetAlpha", function(self)
             if IsEnabled() and not self._CarpenterChatButtonsSettingAlpha then
-                SetFrameAlpha(self, currentAlpha)
+                SetFrameAlpha(self, fader.alpha)
             end
         end)
     end
@@ -196,97 +178,62 @@ hoverFrame:SetPoint("BOTTOMLEFT", ChatFrame1, "TOPLEFT", 0, 5)
 hoverFrame:SetPoint("TOPRIGHT", ChatFrame1, "TOPRIGHT", 0, 35)
 hoverFrame:SetFrameStrata("TOOLTIP")
 
--- Logic to detect mouseover and handle smooth fading
-hoverFrame:SetScript("OnUpdate", function(self, elapsed)
-    if not IsEnabled() then
-        self:Hide()
-        return
-    end
+-- The hitbox, any of the buttons, a chat window or a tab under the mouse
+-- keeps the buttons up.
+local function ShouldShow()
+    if IsMouseOverFrame(hoverFrame) then return true end
 
-    self.elapsed = (self.elapsed or 0) + elapsed
-    if self.elapsed < UPDATE_INTERVAL then return end
-    self.elapsed = 0
-
-    -- Check if mouse is over the hover frame OR any of the buttons themselves
-    local mouseOverButtons = IsMouseOverFrame(self)
-    
-    -- Also check each button individually
-    if not mouseOverButtons then
-        RefreshChatFrames()
-        for _, buttonName in ipairs(allChatButtons) do
-            local button = _G[buttonName]
-            if IsMouseOverFrame(button) then
-                mouseOverButtons = true
-                break
-            end
-        end
+    RefreshChatFrames()
+    for _, buttonName in ipairs(allChatButtons) do
+        if IsMouseOverFrame(_G[buttonName]) then return true end
     end
-
-    if not mouseOverButtons then
-        for _, chatFrame in ipairs(chatFrames) do
-            if IsMouseOverFrame(chatFrame) then
-                mouseOverButtons = true
-                break
-            end
-        end
+    for _, chatFrame in ipairs(chatFrames) do
+        if IsMouseOverFrame(chatFrame) then return true end
     end
-
-    if not mouseOverButtons then
-        for _, tab in ipairs(chatTabs) do
-            if IsMouseOverFrame(tab) then
-                mouseOverButtons = true
-                break
-            end
-        end
+    for _, tab in ipairs(chatTabs) do
+        if IsMouseOverFrame(tab) then return true end
     end
+    return false
+end
 
-    -- Determine the goal alpha
-    if mouseOverButtons then
-        targetAlpha = HOVER_OPACITY
-    else
-        targetAlpha = HIDDEN_OPACITY
-    end
-
-    -- Smooth transition logic
-    if currentAlpha ~= targetAlpha then
-        if currentAlpha < targetAlpha then
-            currentAlpha = math.min(targetAlpha, currentAlpha + FADE_IN_SPEED)
-        else
-            currentAlpha = math.max(targetAlpha, currentAlpha - FADE_OUT_SPEED)
-        end
-        ApplyTransparency(currentAlpha)
-    end
-end)
+fader = HoverFade.Create({
+    isEnabled = IsEnabled,
+    shouldShow = ShouldShow,
+    apply = ApplyTransparency,
+})
 
 -- =========================
 -- Events
 -- =========================
 local frame = CreateFrame("Frame")
 
-local function ApplyStartupState()
-    currentAlpha = HIDDEN_OPACITY
-    RefreshChatFrames()
-    ApplyTransparency(HIDDEN_OPACITY)
-    if IsEnabled() then hoverFrame:Show() else hoverFrame:Hide() end
-
-    -- Secondary enforcement after a small delay to catch lazy-loading buttons
-    if Carpenter and Carpenter.DeferMany then
-        Carpenter:DeferMany("HideChatButtons:startup", { 2, 5 }, function()
-            RefreshChatFrames()
-            ApplyTransparency(currentAlpha)
-            if IsEnabled() then hoverFrame:Show() else hoverFrame:Hide() end
-        end)
+local function SetRunning(running)
+    if running then
+        hoverFrame:Show()
+        fader:Start()
     else
-        C_Timer.After(2, function()
-            RefreshChatFrames()
-            ApplyTransparency(currentAlpha)
-            if IsEnabled() then hoverFrame:Show() else hoverFrame:Hide() end
-        end)
-        C_Timer.After(5, function()
-            RefreshChatFrames()
-            ApplyTransparency(currentAlpha)
-            if IsEnabled() then hoverFrame:Show() else hoverFrame:Hide() end
-        end)
+        hoverFrame:Hide()
+        fader:Stop()
+    end
+end
+
+-- Buttons that load late get their hooks and alpha on the later passes.
+local function RefreshStartupState()
+    RefreshChatFrames()
+    fader:Apply()
+    SetRunning(IsEnabled())
+end
+
+local function ApplyStartupState()
+    RefreshChatFrames()
+    fader.alpha = 0
+    RefreshStartupState()
+
+    if Carpenter and Carpenter.DeferMany then
+        Carpenter:DeferMany("HideChatButtons:startup", { 2, 5 }, RefreshStartupState)
+    else
+        C_Timer.After(2, RefreshStartupState)
+        C_Timer.After(5, RefreshStartupState)
     end
 end
 
@@ -304,10 +251,8 @@ end
 
 function feature:Disable()
     frame:UnregisterAllEvents()
-    hoverFrame:Hide()
-    currentAlpha = 1
-    targetAlpha = 1
-    ApplyTransparency(1)
+    SetRunning(false)
+    fader:Stop(1)
 end
 
 if Carpenter and Carpenter.RegisterFeature then

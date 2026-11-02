@@ -52,6 +52,7 @@ MinimapCluster.MinimapContainer = NewFrame(MinimapCluster, 1180, 540, 100, 100, 
 Minimap = NewFrame(MinimapCluster.MinimapContainer, 1185, 545, 90, 90, 1.5)
 MinimapCluster.Tracking = { Button = { IsMenuOpen = function(self) return self.open end } }
 
+assert(loadfile(repo .. "/Core/HoverFade.lua"))("Carpenter", {})
 assert(loadfile(repo .. "/Modules/MinimapFade.lua"))("Carpenter", {})
 assert(feature, "the fade should register as a feature")
 feature:Enable()
