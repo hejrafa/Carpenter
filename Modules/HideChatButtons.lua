@@ -15,14 +15,9 @@ local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("hideChatButtonsEnabled")
 end
 
-local function ShouldManageSocialButtons()
-    local client = Carpenter and Carpenter.Client
-    return client and (client.isClassic or client.isForever)
-end
-
--- Frames whose regions and children run their own alpha animations (Forever's
--- QuickJoinToastButton keeps its queue icon, flash and toasts at 0 until a
--- toast plays), so only the frame itself is faded.
+-- Frames whose regions and children run their own alpha animations (the
+-- Retail and Forever QuickJoinToastButton keeps its queue icon, flash and
+-- toasts at 0 until a toast plays), so only the frame itself is faded.
 local frameAlphaOnly = {
     QuickJoinToastButton = true,
 }
@@ -119,6 +114,8 @@ local chatButtons = {
     "ChatFrameToggleButton"
 }
 
+-- The social button beside the chat: the quick-join toast on Retail and
+-- Forever, the friends button on Classic.
 local socialButtons = {
     "QuickJoinToastButton",
     "ChatSocialButton",
@@ -156,22 +153,10 @@ local arrowButtons = {
 
 -- All buttons that should be affected
 local allChatButtons = {}
-for _, group in ipairs({chatButtons, arrowButtons, minimizeButtons}) do
+for _, group in ipairs({chatButtons, arrowButtons, minimizeButtons, socialButtons}) do
     for _, btn in ipairs(group) do
         table.insert(allChatButtons, btn)
     end
-end
-
-local allChatButtonsWithSocial = {}
-for _, btn in ipairs(allChatButtons) do
-    table.insert(allChatButtonsWithSocial, btn)
-end
-for _, btn in ipairs(socialButtons) do
-    table.insert(allChatButtonsWithSocial, btn)
-end
-
-local function GetManagedChatButtons()
-    return ShouldManageSocialButtons() and allChatButtonsWithSocial or allChatButtons
 end
 
 local chatTabs = {}
@@ -194,15 +179,13 @@ local function RefreshChatFrames()
 end
 
 local function ApplyTransparency(alpha)
-    local managedChatButtons = GetManagedChatButtons()
-
     if not IsEnabled() then
-        SetGroupAlpha(managedChatButtons, 1.0)
+        SetGroupAlpha(allChatButtons, 1.0)
         SetFramesAlpha(chatTabs, 1.0)
         return
     end
 
-    SetGroupAlpha(managedChatButtons, alpha)
+    SetGroupAlpha(allChatButtons, alpha)
     SetFramesAlpha(chatTabs, alpha)
     
 end
@@ -230,7 +213,7 @@ hoverFrame:SetScript("OnUpdate", function(self, elapsed)
     -- Also check each button individually
     if not mouseOverButtons then
         RefreshChatFrames()
-        for _, buttonName in ipairs(GetManagedChatButtons()) do
+        for _, buttonName in ipairs(allChatButtons) do
             local button = _G[buttonName]
             if IsMouseOverFrame(button) then
                 mouseOverButtons = true

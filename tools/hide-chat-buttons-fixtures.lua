@@ -51,6 +51,8 @@ UIParent = NewFrame("UIParent")
 ChatFrame1 = NewFrame("ChatFrame1")
 ChatFrame1Tab = NewFrame("ChatFrame1Tab")
 ChatFrameMenuButton = NewFrame("ChatFrameMenuButton")
+-- Retail's social button beside the chat fades with the rest.
+QuickJoinToastButton = NewFrame("QuickJoinToastButton")
 NUM_CHAT_WINDOWS = 1
 
 function CreateFrame(_, name)
@@ -101,12 +103,14 @@ local hoverFrame = createdFrames[1]
 if not hoverFrame then fail("Hide Chat Buttons did not create its hover frame") end
 
 registeredFeature:Enable()
+assertEqual(QuickJoinToastButton.alpha, 0, "the social button should start hidden with the chat buttons")
 
 -- Retail no longer guarantees the legacy MouseIsOver global. The frame method
 -- must drive hover fading without it.
 hoverFrame.mouseOver = true
 runUpdate(hoverFrame)
 assertEqual(ChatFrame1Tab.alpha, 0.25, "frame-method hover did not start the fade")
+assertEqual(QuickJoinToastButton.alpha, 0.25, "the social button should fade in with the chat buttons")
 
 -- Older clients can still fall back to the legacy global if a region does not
 -- expose IsMouseOver as a method.
