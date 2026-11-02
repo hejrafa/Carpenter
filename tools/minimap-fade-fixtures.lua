@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
--- Verifies Fade Minimap fades the whole minimap cluster until it is hovered,
--- hides the map itself once faded so its blips go too, and never shows a
--- minimap the player hid themselves.
+-- Verifies Fade Minimap fades the minimap cluster and the map's own alpha
+-- together until it is hovered, hides the map itself once faded so its blips
+-- go too, and never shows a minimap the player hid themselves.
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then repo = repo:sub(1, -2) end
@@ -22,6 +22,8 @@ local function NewFrame(parent, left, bottom, width, height, scale)
     function frame:Show() self.shown = true end
     function frame:Hide() self.shown = false end
     function frame:SetAlpha(alpha) self.alpha = alpha end
+    function frame:SetIgnoreParentAlpha(ignore) self.ignoreParentAlpha = ignore end
+    function frame:IsIgnoringParentAlpha() return self.ignoreParentAlpha == true end
     return frame
 end
 
@@ -62,16 +64,25 @@ local function Settle()
 end
 
 assert(MinimapCluster.alpha == 0 and not Minimap.shown, "the minimap should start faded and hidden")
-assert(Minimap.alpha == 1, "a minimap inside the cluster fades with it, not on its own")
+-- The engine draws the map from the Minimap frame's own alpha, so the map
+-- gets the fade directly and ignores the cluster's alpha to fade only once.
+assert(Minimap.alpha == 0, "the map itself should start faded")
+assert(Minimap.ignoreParentAlpha == true, "the map should ignore the cluster's alpha while fading")
 
 cursorX, cursorY = 900, 500
 assert(Settle() == 0 and not Minimap.shown, "the minimap should stay hidden away from it")
 
 cursorX, cursorY = 1750, 1000
-assert(Settle() == 1 and Minimap.shown, "hovering the cluster should bring the minimap back")
+scripts.OnUpdate.handler(scripts.OnUpdate.frame, 0.1)
+assert(Minimap.shown and MinimapCluster.alpha > 0 and MinimapCluster.alpha < 1, "the fade-in should run over several frames")
+assert(Minimap.alpha == MinimapCluster.alpha, "the map should fade in step with the cluster")
+assert(Settle() == 1 and Minimap.shown and Minimap.alpha == 1, "hovering the cluster should bring the minimap back")
 
 cursorX, cursorY = 900, 500
-assert(Settle() == 0 and not Minimap.shown, "leaving should fade the minimap and hide its blips")
+scripts.OnUpdate.handler(scripts.OnUpdate.frame, 0.1)
+assert(Minimap.shown and MinimapCluster.alpha > 0 and MinimapCluster.alpha < 1, "the fade-out should run over several frames")
+assert(Minimap.alpha == MinimapCluster.alpha, "the map should fade out in step with the cluster")
+assert(Settle() == 0 and not Minimap.shown and Minimap.alpha == 0, "leaving should fade the minimap and hide its blips")
 
 cursorX, cursorY = 1850, 795
 assert(Settle() == 1, "the scaled map should be hovered where it is on screen, below the cluster")
@@ -95,13 +106,14 @@ cursorX, cursorY = 1750, 1000
 assert(Settle() == 1 and not Minimap.shown, "a minimap the player hid should stay hidden")
 Minimap:Show()
 
--- Another addon moved the minimap out of the cluster: it fades on its own.
+-- Another addon moved the minimap out of the cluster: it still fades.
 Minimap.parent = UIParent
 cursorX, cursorY = 900, 500
 Settle()
-assert(Minimap.alpha == 0, "a minimap outside the cluster should get its own fade")
+assert(Minimap.alpha == 0, "a minimap outside the cluster should still fade")
 
 feature:Disable()
 assert(MinimapCluster.alpha == 1 and Minimap.alpha == 1 and Minimap.shown, "turning the fade off should restore the minimap")
+assert(Minimap.ignoreParentAlpha == false, "turning the fade off should give the map its parent's alpha back")
 
 print("minimap fade fixtures: passed")
