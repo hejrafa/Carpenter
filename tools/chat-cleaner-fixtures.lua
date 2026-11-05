@@ -234,6 +234,24 @@ local fixtures = {
         message = "%s points at %o target.",
         expectPlain = "Defias Thief points at Defias Thief target.",
     },
+    {
+        name = "feel rested",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You feel rested.",
+        expectPlain = "Rested",
+    },
+    {
+        name = "feel normal",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You feel normal.",
+        expectPlain = "Normal",
+    },
+    {
+        name = "Forever no longer rested reads like feel normal",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You are no longer rested.",
+        expectPlain = "Normal",
+    },
     -- The link keeps its brackets at this stage; the post-processor drops them.
     {
         name = "learned spell",

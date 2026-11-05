@@ -329,7 +329,10 @@ function Social.Create(config)
         if plainMsg:match("^You feel rested%.?%s*$") or (plainMsg:lower():find("feel rested") and plainMsg:lower():find("you")) then
             return colorRestedBar .. T("CHAT_RESTED", "Rested") .. "|r"
         end
-        if plainMsg:match("^You feel normal%.?%s*$") or (plainMsg:lower():find("feel normal") and plainMsg:lower():find("you")) then
+        -- WoW Forever says "You are no longer rested." where the other clients
+        -- say "You feel normal."
+        if plainMsg:match("^You feel normal%.?%s*$") or (plainMsg:lower():find("feel normal") and plainMsg:lower():find("you"))
+            or plainMsg:match("^You are no longer rested%.?%s*$") then
             return colorNormalBar .. T("CHAT_NORMAL", "Normal") .. "|r"
         end
         local homeLocation = plainMsg:match("^(.+) is now your home%.?%s*$")
