@@ -234,6 +234,21 @@ local fixtures = {
         message = "%s points at %o target.",
         expectPlain = "Defias Thief points at Defias Thief target.",
     },
+    -- The link keeps its brackets at this stage; the post-processor drops them.
+    {
+        name = "learned spell",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You have learned a new spell: |cff71d5ff|Hspell:2983|h[Sprint]|h|r.",
+        expectPlain = "+ Learned: [Sprint]",
+        requireColors = { "|cffffffffLearned:" },
+    },
+    {
+        name = "learned passive effect reads like a learned spell",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You have learned a new passive effect: |cff71d5ff|Hspell:3127|h[Parry (Passive)]|h|r.",
+        expectPlain = "+ Learned: [Parry (Passive)]",
+        requireColors = { "|cffffffffLearned:" },
+    },
     {
         name = "loot roll range",
         event = "CHAT_MSG_LOOT",

@@ -360,6 +360,7 @@ function System.Create(config)
         plainText = (type(plainText) == "string" and plainText) or message
 
         local learned = message:match("You have learned a new spell: (.+)") or message:match("You have learned: (.+)") or
+            message:match("You have learned a new passive effect: (.+)") or
             message:match("You have learned how to create:? (.+)") or message:match("You have learned the recipe:? (.+)") or
             message:match("Recipe learned: (.+)") or message:match("You have learned a new ability: (.+)") or
             message:match("You have learned the ability: (.+)") or message:match("Ability learned: (.+)")
