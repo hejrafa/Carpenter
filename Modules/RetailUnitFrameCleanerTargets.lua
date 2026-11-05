@@ -177,13 +177,15 @@ function Targets.GetPartyFrameTitleFrames()
     return frames
 end
 
+-- The colored strip behind the name on the target and focus frames.
 function Targets.GetTargetReputationColorFrames()
     local frames = {}
-    if TargetFrame and TargetFrame.TargetFrameContent and TargetFrame.TargetFrameContent.TargetFrameContentMain then
-        local main = TargetFrame.TargetFrameContent.TargetFrameContentMain
-        AddFrame(frames, main.ReputationColor)
+    for _, unitFrame in ipairs({ TargetFrame, FocusFrame }) do
+        local main = unitFrame and unitFrame.TargetFrameContent and unitFrame.TargetFrameContent.TargetFrameContentMain
+        AddFrame(frames, main and main.ReputationColor)
     end
     AddFrame(frames, TargetFrameTextureFrameReputationColor)
+    AddFrame(frames, FocusFrameTextureFrameReputationColor)
     return frames
 end
 

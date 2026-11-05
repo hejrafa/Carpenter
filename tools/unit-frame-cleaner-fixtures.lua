@@ -1,7 +1,8 @@
 #!/usr/bin/env lua
 -- Verifies Clean Unit Frame softens the red threat glow around the player,
 -- target, focus, and party portraits and hides the PvP timer (not the icon):
--- never touched in combat, and restored when the option is turned off.
+-- never touched in combat, and restored when the option is turned off. Also
+-- that the reputation color goes from the focus frame as well as the target.
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then repo = repo:sub(1, -2) end
@@ -39,6 +40,9 @@ PlayerFrame = { PlayerFrameContainer = { FrameFlash = playerGlow } }
 TargetFrame = { TargetFrameContainer = { Flash = targetGlow } }
 FocusFrame = { TargetFrameContainer = { Flash = focusGlow } }
 PartyFrame = { MemberFrame1 = { Flash = partyGlow } }
+local targetRepColor, focusRepColor = NewTexture(), NewTexture()
+TargetFrame.TargetFrameContent = { TargetFrameContentMain = { ReputationColor = targetRepColor } }
+FocusFrame.TargetFrameContent = { TargetFrameContentMain = { ReputationColor = focusRepColor } }
 CompactPartyFrameTitle = NewTexture()
 PlayerPVPTimerText = NewTexture()
 -- Forever's PvP icon, which stays.
@@ -72,14 +76,18 @@ end
 assert(PlayerPVPTimerText.alpha == 0, "the PvP timer should be hidden")
 assert(pvpIcon.alpha == 1, "the PvP icon should stay")
 
--- Forever keeps its party frame title (and corner icon, reputation color, and
--- realm indicators); Retail still cleans them.
+assert(targetRepColor.alpha == 0, "the target reputation color should be hidden")
+assert(focusRepColor.alpha == 0, "the focus reputation color should be hidden")
+
+-- Forever keeps its party frame title (and corner icon and realm indicators);
+-- Retail still cleans them.
 assert(CompactPartyFrameTitle.alpha == 1, "Forever should leave the party frame title alone")
 
 cleanEnabled = false
 feature:Disable()
 assert(playerGlow.alpha == 1 and targetGlow.alpha == 1, "turning the option off should restore the threat glow")
 assert(PlayerPVPTimerText.alpha == 1, "turning the option off should restore the PvP timer")
+assert(targetRepColor.alpha == 1 and focusRepColor.alpha == 1, "turning the option off should restore the reputation colors")
 
 Carpenter.Client.isForever = false
 cleanEnabled = true
