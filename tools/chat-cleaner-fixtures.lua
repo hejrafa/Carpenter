@@ -690,6 +690,41 @@ end
 inCombatLockdown = false
 Carpenter.Client.isMainline = false
 
+-- A profession rank teaches two spells with one name, and the game announces
+-- both: the second line is dropped, per chat frame and only for a moment.
+do
+    local frameA, frameB = {}, {}
+    local first = "You have learned a new spell: |cff71d5ff|Hspell:7731|h[Fishing]|h|r."
+    local second = "You have learned a new spell: |cff71d5ff|Hspell:7733|h[Fishing]|h|r."
+    local function Learn(frame, message)
+        local hidden, out = filter(frame, "CHAT_MSG_SYSTEM", message, "")
+        additionalChecks = additionalChecks + 1
+        return hidden, plain(out)
+    end
+    local function expectShown(label, hidden, out, expected)
+        if hidden == true or out ~= expected then
+            failures[#failures + 1] = "learned twice: " .. label .. ", got hidden=" .. tostring(hidden) .. " [" .. tostring(out) .. "]"
+        end
+    end
+
+    now = now + 100
+    local hidden, out = Learn(frameA, first)
+    expectShown("the first line should show", hidden, out, "+ Learned: [Fishing]")
+    -- The same message reaches every chat frame showing system messages.
+    hidden, out = Learn(frameB, first)
+    expectShown("another chat frame should show its own copy", hidden, out, "+ Learned: [Fishing]")
+    hidden = Learn(frameA, second)
+    if hidden ~= true then
+        failures[#failures + 1] = "learned twice: the same name again should be dropped"
+    end
+    hidden, out = Learn(frameA, "You have learned a new spell: |cff71d5ff|Hspell:45694|h[Fish Bowl]|h|r.")
+    expectShown("a different name should show", hidden, out, "+ Learned: [Fish Bowl]")
+    now = now + 10
+    hidden, out = Learn(frameA, first)
+    expectShown("the same name later should show again", hidden, out, "+ Learned: [Fishing]")
+    now = now + 100
+end
+
 do
     local emoteSenders = {
         { "You bow before Toxic Masculnity.", "T", "" },

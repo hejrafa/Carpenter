@@ -456,7 +456,7 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     end
 
     -- 7. Learning Spells, Recipes, Abilities & Skill Increases
-    local skillMessage = FormatSkillMessage and FormatSkillMessage(msg, plainSys, prefixPlus, prefixMinus)
+    local skillMessage = FormatSkillMessage and FormatSkillMessage(msg, plainSys, prefixPlus, prefixMinus, self)
     if skillMessage == true then
         return true
     elseif skillMessage then

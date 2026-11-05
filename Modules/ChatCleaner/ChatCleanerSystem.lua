@@ -36,6 +36,33 @@ function System.Create(config)
     local appliedLevelUpGlobals = nil
     local lastLearnedSkillName, lastLearnedSkillTime = nil, 0
     local learnedSkillDedupSeconds = config.LearnedSkillDedupSeconds or 3
+    -- The last "Learned" line each chat frame showed. The filter runs once per
+    -- frame for the same message, so the lines are tracked per frame.
+    local lastLearnedLines = setmetatable({}, { __mode = "k" })
+    local sharedLearnedLineKey = {}
+
+    -- The learned name as shown, without colors, link data, or brackets: two
+    -- spells with one name have different links.
+    local function PlainLearnedName(display)
+        local name = display:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
+        name = name:gsub("[%[%]]", ""):gsub("^%s+", ""):gsub("%s+$", "")
+        return name:lower()
+    end
+
+    -- A profession rank teaches two spells that share a name, and the game
+    -- announces both, so the same name again within a moment is dropped.
+    local function IsRepeatedLearnedLine(frame, display)
+        local key = frame or sharedLearnedLineKey
+        local name = PlainLearnedName(display)
+        local now = GetTime and GetTime() or 0
+        local last = lastLearnedLines[key]
+        if last and last.name == name and (now - last.time) <= learnedSkillDedupSeconds then
+            last.time = now
+            return true
+        end
+        lastLearnedLines[key] = { name = name, time = now }
+        return false
+    end
 
     local function ShouldSuppressStoryModeQuestAccepted(message)
         local storyMode = _G.StoryMode
@@ -355,7 +382,7 @@ function System.Create(config)
         return nil
     end
 
-    function api.FormatSkillMessage(message, plainText, prefixPlus, prefixMinus)
+    function api.FormatSkillMessage(message, plainText, prefixPlus, prefixMinus, frame)
         if not message or type(message) ~= "string" then return nil end
         plainText = (type(plainText) == "string" and plainText) or message
 
@@ -370,6 +397,9 @@ function System.Create(config)
             if display:match("%b()%s*$") then
                 lastLearnedSkillName = api.NormalizeSkillName(display)
                 lastLearnedSkillTime = GetTime and GetTime() or 0
+            end
+            if IsRepeatedLearnedLine(frame, display) then
+                return true
             end
             return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_LEARNED_LABEL", "Learned:") .. " |r" .. colorPurple .. display .. "|r")
         end
