@@ -19,9 +19,14 @@ local function IsMainlineClient()
     return Carpenter and Carpenter.Client and Carpenter.Client.isMainline
 end
 
+local function IsForeverClient()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isForever
+end
+
 local frameHelpers = FrameHelpers.Create and FrameHelpers.Create({
     IsEnabled = IsEnabled,
     IsMainlineClient = IsMainlineClient,
+    IsForeverClient = IsForeverClient,
 }) or {}
 
 local faderHelpers = FaderHelpers.Create and FaderHelpers.Create({

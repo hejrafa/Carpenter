@@ -18,10 +18,22 @@ local MINIMAP_FRAMES = {
     "GameTimeFrame",
 }
 
+-- WoW Forever draws the north arrow into the minimap's border art. Blizzard
+-- ships the same border without it (it sits under the pointer of a rotating
+-- minimap), so the border swaps to that one, as BetterBlizzFrames does.
+local NORTH_BORDER_ATLAS = "UI-HUD-Minimap-Frame"
+local PLAIN_BORDER_ATLAS = "UI-HUD-Minimap-Frame-Circle"
+
+local function IsAtlas(texture, atlas)
+    local current = texture:GetAtlas()
+    return type(current) == "string" and current:lower() == atlas:lower()
+end
+
 function Frames.Create(config)
     config = config or {}
     local isEnabled = config.IsEnabled or function() return false end
     local isMainlineClient = config.IsMainlineClient or function() return false end
+    local isForeverClient = config.IsForeverClient or function() return false end
     local hiddenFrames = {}
     local mutedButtons = {}
 
@@ -113,14 +125,54 @@ function Frames.Create(config)
         end
     end
 
+    local borderHooked = false
+    local swappingBorder = false
+
+    local function SetBorderAtlas(border, atlas)
+        swappingBorder = true
+        border:SetAtlas(atlas)
+        swappingBorder = false
+    end
+
+    -- Only Blizzard's own fixed border is swapped: a rotating minimap keeps its
+    -- pointer, and a border another addon restyled is left alone.
+    local function HideNorthArrow()
+        local border = _G["MinimapCompassTexture"]
+        if not isForeverClient() or not border or not border.SetAtlas or not border.GetAtlas then return end
+
+        if not borderHooked then
+            -- Blizzard sets the border again when minimap rotation is toggled.
+            borderHooked = Carpenter:SafeHook(border, "SetAtlas", function()
+                if not swappingBorder and isEnabled() then
+                    HideNorthArrow()
+                end
+            end)
+        end
+
+        if not IsAtlas(border, NORTH_BORDER_ATLAS) then return end
+        if not (C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(PLAIN_BORDER_ATLAS)) then return end
+        SetBorderAtlas(border, PLAIN_BORDER_ATLAS)
+    end
+
+    local function RestoreNorthArrow()
+        local border = _G["MinimapCompassTexture"]
+        if not border or not border.SetAtlas or not border.GetAtlas then return end
+        if isForeverClient() and IsAtlas(border, PLAIN_BORDER_ATLAS) then
+            SetBorderAtlas(border, NORTH_BORDER_ATLAS)
+        end
+    end
+
     local api = {}
 
     function api.Apply(enabled)
         if not enabled then
             RestoreMinimapFrames()
             RestoreZoomButtons()
+            RestoreNorthArrow()
             return
         end
+
+        HideNorthArrow()
 
         -- Forever exposes its day/night artwork as a separate DielFrame. Never
         -- hide the calendar here; the fader fades it with the minimap header.

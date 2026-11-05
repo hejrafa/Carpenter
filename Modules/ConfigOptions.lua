@@ -38,6 +38,9 @@ function Options.Create(context)
 
     local function MinimapClutterDescription()
         local client = Carpenter and Carpenter.Client
+        if client and client.isForever then
+            return Description("DESC_MINIMAP_CLUTTER_FOREVER")
+        end
         return Description(client and client.isMainline and "DESC_MINIMAP_CLUTTER_RETAIL" or "DESC_MINIMAP_CLUTTER")
     end
 

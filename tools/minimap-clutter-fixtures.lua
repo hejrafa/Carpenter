@@ -279,4 +279,47 @@ for _, fileName in ipairs(localizationFiles) do
     assertEqual(highlights, 2, fileName .. " minimap description highlights the addon buttons and the zone name")
 end
 
+-- WoW Forever: the border with the north arrow swaps to Blizzard's plain
+-- circle, comes back on disable, and a rotating minimap keeps its pointer.
+local border = { atlas = "UI-HUD-Minimap-Frame" }
+function border:SetAtlas(atlas) self.atlas = atlas end
+function border:GetAtlas() return self.atlas end
+MinimapCompassTexture = border
+local knownAtlases = { ["UI-HUD-Minimap-Frame-Circle"] = true }
+C_Texture = { GetAtlasInfo = function(atlas) return knownAtlases[atlas] and { width = 215, height = 226 } or nil end }
+
+local arrowEnabled = true
+local arrowFrames = assert(frameNamespace.Private.MinimapClutterFrames.Create)({
+    IsEnabled = function() return arrowEnabled end,
+    IsMainlineClient = function() return true end,
+    IsForeverClient = function() return true end,
+})
+arrowFrames.Apply(true)
+assertEqual(border.atlas, "UI-HUD-Minimap-Frame-Circle", "Forever border loses its north arrow")
+
+-- Blizzard writes the border again; the plain one comes straight back.
+border:SetAtlas("UI-HUD-Minimap-Frame")
+assertEqual(border.atlas, "UI-HUD-Minimap-Frame-Circle", "the north arrow stays hidden after Blizzard resets the border")
+
+border:SetAtlas("UI-HUD-Minimap-Frame-Pointer")
+assertEqual(border.atlas, "UI-HUD-Minimap-Frame-Pointer", "a rotating minimap keeps its pointer")
+arrowFrames.Apply(true)
+assertEqual(border.atlas, "UI-HUD-Minimap-Frame-Pointer", "applying again leaves the rotating pointer alone")
+
+border:SetAtlas("UI-HUD-Minimap-Frame")
+arrowEnabled = false
+arrowFrames.Apply(false)
+assertEqual(border.atlas, "UI-HUD-Minimap-Frame", "the north arrow returns on disable")
+border:SetAtlas("UI-HUD-Minimap-Frame")
+assertEqual(border.atlas, "UI-HUD-Minimap-Frame", "a disabled option leaves Blizzard's border alone")
+
+-- Retail's border is different art and is never touched.
+border.atlas = "UI-HUD-Minimap-Frame"
+local retailFrames = assert(frameNamespace.Private.MinimapClutterFrames.Create)({
+    IsEnabled = function() return true end,
+    IsMainlineClient = function() return true end,
+})
+retailFrames.Apply(true)
+assertEqual(border.atlas, "UI-HUD-Minimap-Frame", "Retail keeps its border")
+
 print("minimap clutter fixtures: passed")
