@@ -41,26 +41,34 @@ function System.Create(config)
     local lastLearnedLines = setmetatable({}, { __mode = "k" })
     local sharedLearnedLineKey = {}
 
-    -- The learned name as shown, without colors, link data, or brackets: two
-    -- spells with one name have different links.
+    -- The learned name as shown, without colors, link data, or brackets (two
+    -- spells with one name have different links), split into the name and a
+    -- trailing "(Journeyman)" or "(Rank 2)".
     local function PlainLearnedName(display)
         local name = display:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
-        name = name:gsub("[%[%]]", ""):gsub("^%s+", ""):gsub("%s+$", "")
-        return name:lower()
+        name = name:gsub("[%[%]]", ""):gsub("^%s+", ""):gsub("%s+$", ""):lower()
+        local base, rank = name:match("^(.-)%s*(%b())$")
+        if base and base ~= "" then
+            return base, rank
+        end
+        return name, ""
     end
 
     -- A profession rank teaches two spells that share a name, and the game
-    -- announces both, so the same name again within a moment is dropped.
+    -- announces both ("Cooking (Journeyman)" then "Cooking", or "Fishing"
+    -- twice), so the same name again within a moment is dropped. Two different
+    -- ranks, like "(Rank 2)" then "(Rank 3)", are separate lessons and both show.
     local function IsRepeatedLearnedLine(frame, display)
         local key = frame or sharedLearnedLineKey
-        local name = PlainLearnedName(display)
+        local name, rank = PlainLearnedName(display)
         local now = GetTime and GetTime() or 0
         local last = lastLearnedLines[key]
-        if last and last.name == name and (now - last.time) <= learnedSkillDedupSeconds then
+        if last and last.name == name and (now - last.time) <= learnedSkillDedupSeconds
+            and (last.rank == rank or last.rank == "" or rank == "") then
             last.time = now
             return true
         end
-        lastLearnedLines[key] = { name = name, time = now }
+        lastLearnedLines[key] = { name = name, rank = rank, time = now }
         return false
     end
 

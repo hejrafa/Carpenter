@@ -722,6 +722,22 @@ do
     now = now + 10
     hidden, out = Learn(frameA, first)
     expectShown("the same name later should show again", hidden, out, "+ Learned: [Fishing]")
+
+    -- The ranked line shows and the bare name that follows it is dropped.
+    now = now + 100
+    hidden, out = Learn(frameA, "You have learned a new spell: |cff71d5ff|Hspell:3102|h[Cooking (Journeyman)]|h|r.")
+    expectShown("the ranked line should show", hidden, out, "+ Learned: [Cooking (Journeyman)]")
+    hidden = Learn(frameA, "You have learned a new spell: |cff71d5ff|Hspell:3413|h[Cooking]|h|r.")
+    if hidden ~= true then
+        failures[#failures + 1] = "learned twice: the bare name after its ranked line should be dropped"
+    end
+
+    -- Two ranks of one spell are separate lessons.
+    now = now + 100
+    hidden, out = Learn(frameA, "You have learned a new spell: |cff71d5ff|Hspell:1757|h[Sinister Strike (Rank 2)]|h|r.")
+    expectShown("rank 2 should show", hidden, out, "+ Learned: [Sinister Strike (Rank 2)]")
+    hidden, out = Learn(frameA, "You have learned a new spell: |cff71d5ff|Hspell:1758|h[Sinister Strike (Rank 3)]|h|r.")
+    expectShown("rank 3 right after rank 2 should show", hidden, out, "+ Learned: [Sinister Strike (Rank 3)]")
     now = now + 100
 end
 
