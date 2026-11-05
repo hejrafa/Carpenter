@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.15
+
+- Nameplate combo points no longer blink when other nameplates appear or disappear. They now only react to the nameplate they sit on.
+- Clean Unit Frame hides the reputation color on the focus frame too, as it already did on the target frame.
+- Chat Cleaner now styles three lines that slipped through: a learned passive reads "+ Learned: Parry (Passive)", WoW Forever's "You are no longer rested" reads "Normal", and a suggested group invite reads "Suggested Vispera Maur".
+- Chat Cleaner shows "Removed from the group" in red, like leaving a group or a disband.
+
 ## 1.8.14
 
 - Remove Minimap Clutter on Classic Era and TBC now also hides the zone name with its border, and the sun-and-moon day/night button, as its description already promised.
