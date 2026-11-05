@@ -1,7 +1,8 @@
 #!/usr/bin/env lua
 -- Verifies nameplate combo points follow the target's plate on events alone:
 -- no polling ticker, and they hide when the plate goes away or the target
--- dies or turns friendly.
+-- dies or turns friendly. Other units' plates coming and going must leave
+-- them alone, or they blink.
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then
@@ -87,8 +88,14 @@ local ns = {
 Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 assert(loadfile(repo .. "/Modules/NameplateComboPoints.lua"))("Carpenter", ns)
 
-local function Fire(event)
-    eventFrame.handler(eventFrame, event)
+local function Fire(event, unit)
+    eventFrame.handler(eventFrame, event, unit)
+end
+
+-- The target's plate is also reachable by its nameplate unit, as in game.
+local function SetTargetPlate(plate)
+    plates.target = plate
+    plates.nameplate1 = plate
 end
 
 local resourceFrame
@@ -96,24 +103,45 @@ Carpenter.Features.nameplateComboEnabled:Enable()
 assert(registered.UNIT_HEALTH and registered.UNIT_FLAGS and registered.UNIT_FACTION, "target state events should be registered")
 
 -- Target with a plate: points attach to that plate's health bar.
-plates.target = NewPlate()
-Fire("NAME_PLATE_UNIT_ADDED")
+SetTargetPlate(NewPlate())
+Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
 resourceFrame = _G.CarpenterComboFrame
 assert(resourceFrame, "combo frame should exist")
 assert(resourceFrame.parent == plates.target and resourceFrame:IsShown(), "points should sit on the target's plate")
 assert(resourceFrame.points[1] == plates.target.UnitFrame.healthBar, "points should anchor to the health bar")
 assert(tickersStarted == 0, "points must not poll with a ticker")
 
+-- Another unit's plate appears and goes: the points stay put, with no hide
+-- and re-show a frame later.
+local hides, anchors = 0, 0
+local originalHide, originalClearAllPoints = resourceFrame.Hide, resourceFrame.ClearAllPoints
+function resourceFrame:Hide() hides = hides + 1; originalHide(self) end
+function resourceFrame:ClearAllPoints() anchors = anchors + 1; originalClearAllPoints(self) end
+plates.nameplate2 = NewPlate()
+Fire("NAME_PLATE_UNIT_ADDED", "nameplate2")
+Fire("NAME_PLATE_UNIT_REMOVED", "nameplate2")
+plates.nameplate2 = nil
+assert(hides == 0 and resourceFrame:IsShown(), "another unit's plate going away must not hide the points")
+assert(anchors == 0, "another unit's plate must not re-anchor the points")
+assert(#deferred == 0, "another unit's plate going away must not schedule a re-show")
+resourceFrame.Hide, resourceFrame.ClearAllPoints = originalHide, originalClearAllPoints
+
+-- A removal that can no longer be matched to a plate still hides them.
+Fire("NAME_PLATE_UNIT_REMOVED", "nameplate9")
+assert(not resourceFrame:IsShown(), "an unmatched plate removal should hide the points")
+RunDeferred()
+assert(resourceFrame:IsShown(), "points should return while the target still has its plate")
+
 -- The plate is released: hide now, and stay hidden once it's gone.
-Fire("NAME_PLATE_UNIT_REMOVED")
+Fire("NAME_PLATE_UNIT_REMOVED", "nameplate1")
 assert(not resourceFrame:IsShown(), "points should hide when the plate is removed")
-plates.target = nil
+SetTargetPlate(nil)
 RunDeferred()
 assert(not resourceFrame:IsShown(), "points should stay hidden without a plate")
 
 -- The plate comes back, then the target dies.
-plates.target = NewPlate()
-Fire("NAME_PLATE_UNIT_ADDED")
+SetTargetPlate(NewPlate())
+Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
 assert(resourceFrame:IsShown() and resourceFrame.parent == plates.target, "points should return to the new plate")
 target.dead = true
 Fire("UNIT_HEALTH")

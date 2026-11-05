@@ -262,11 +262,18 @@ end
 -- =========================================================
 -- Events
 -- =========================================================
-addonFrame:SetScript("OnEvent", function(self, event, ...)
-    if event == "PLAYER_TARGET_CHANGED" or event == "NAME_PLATE_UNIT_ADDED" or event == "PLAYER_ENTERING_WORLD" then
-        suppressNextAnimation = true
-    end
+-- Plates for other units come and go all the time, so a plate event only
+-- counts when it is known to be about the given plate. An unknown plate
+-- counts too, so the points never stay behind on a recycled one.
+local function IsOtherPlate(unit, plate)
+    local eventPlate = Nameplates.GetForUnit and Nameplates.GetForUnit(unit)
+    return eventPlate ~= nil and eventPlate ~= plate
+end
+
+addonFrame:SetScript("OnEvent", function(self, event, unit)
     if event == "NAME_PLATE_UNIT_REMOVED" then
+        if not resourceFrame or not resourceFrame:IsShown() then return end
+        if IsOtherPlate(unit, resourceFrame:GetParent()) then return end
         -- The plate is still assigned while this fires; check again once it
         -- has been released so the points don't stay on a recycled plate.
         hide()
@@ -274,6 +281,12 @@ addonFrame:SetScript("OnEvent", function(self, event, ...)
             C_Timer.After(0, update)
         end
         return
+    end
+    if event == "NAME_PLATE_UNIT_ADDED" and IsOtherPlate(unit, Nameplates.GetForUnit and Nameplates.GetForUnit("target")) then
+        return
+    end
+    if event == "PLAYER_TARGET_CHANGED" or event == "NAME_PLATE_UNIT_ADDED" or event == "PLAYER_ENTERING_WORLD" then
+        suppressNextAnimation = true
     end
     update()
 end)
