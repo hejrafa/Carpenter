@@ -443,6 +443,11 @@ function Social.Create(config)
         if youInvited and youInvited ~= "" then
             return colorGreen .. T("CHAT_INVITED_PLAYER", "Invited %s", youInvited:gsub("^%s+", ""):gsub("%s+$", "")) .. "|r"
         end
+        -- A group member who isn't the leader suggests an invite instead.
+        local youSuggested = plainMsg:match("^%s*You have suggested that%s+(.-)%s+join your group%.?%s*$")
+        if youSuggested and youSuggested ~= "" then
+            return colorGreen .. T("CHAT_SUGGESTED_PLAYER", "Suggested %s", youSuggested:gsub("^%s+", ""):gsub("%s+$", "")) .. "|r"
+        end
         local decliner = plainMsg:match("^%s*(.-)%s+declines your group invitation%.?%s*$") or plainMsg:match("^%s*(.-)%s+declines%.?%s*$")
         if decliner and decliner ~= "" then
             return colorRed .. T("CHAT_PLAYER_DECLINES", "%s declines", decliner:gsub("^%s+", ""):gsub("%s+$", "")) .. "|r"

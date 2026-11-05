@@ -235,6 +235,20 @@ local fixtures = {
         expectPlain = "Defias Thief points at Defias Thief target.",
     },
     {
+        name = "invited a player",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You have invited Vispera Maur to join your group.",
+        expectPlain = "Invited Vispera Maur",
+        requireColor = "|cff00ff00",
+    },
+    {
+        name = "suggested a player reads like an invite",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You have suggested that Vispera Maur join your group.",
+        expectPlain = "Suggested Vispera Maur",
+        requireColor = "|cff00ff00",
+    },
+    {
         name = "feel rested",
         event = "CHAT_MSG_SYSTEM",
         message = "You feel rested.",
