@@ -1147,6 +1147,15 @@ do
     end
     groupMembers = 0
 
+    -- Being removed from a group is red, like leaving one or a disband.
+    for _, line in ipairs({ "You have been removed from the group.", "You have been removed from the raid." }) do
+        local removed = social.FormatSystemSocialMessage(line)
+        additionalChecks = additionalChecks + 1
+        if removed ~= "|cffff4040Removed from the group|r" then
+            failures[#failures + 1] = "group: being removed should be red, got [" .. tostring(removed) .. "]"
+        end
+    end
+
     -- In a party or raid the roll keeps that chat's color, not the class color.
     groupMembers = 2
     out = Roll("Koji Kurosawa rolls 29 (1-100)")

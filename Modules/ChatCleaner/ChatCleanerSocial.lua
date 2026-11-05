@@ -463,7 +463,7 @@ function Social.Create(config)
             end
         end
         if plainMsg:match("^%s*You have been removed from the group%.?%s*$") or plainMsg:match("^%s*You have been removed from the raid%.?%s*$") then
-            return groupColor .. T("CHAT_REMOVED_FROM_GROUP", "Removed from the group") .. "|r"
+            return colorRed .. T("CHAT_REMOVED_FROM_GROUP", "Removed from the group") .. "|r"
         end
 
         local joiner = plainMsg:match("^%s*(.-)%s+joins the party%.?%s*$") or plainMsg:match("^%s*(.-)%s+joins the raid%.?%s*$")
