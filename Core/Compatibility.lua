@@ -72,6 +72,7 @@ local featureManifest = {
     professionIconPortraitEnabled = { { clients = CLASSIC, files = { "Modules/ProfessionIconPortrait.lua" } } },
     talentIconPortraitEnabled = { { clients = CLASSIC, files = { "Modules/TalentIconPortrait.lua" } } },
     enhanceTooltipEnabled = { { clients = ALL, files = { "Modules/EnhanceTooltip.lua" } } },
+    hideBuffCollapseArrowEnabled = { { clients = ALL, files = { "Modules/HideBuffCollapseArrow.lua" } } },
     scaleExtraAbilityEnabled = { { clients = "retail", files = { "Modules/ExtraAbilityScale.lua" } } },
 
     -- Unit frames

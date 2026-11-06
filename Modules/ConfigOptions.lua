@@ -143,6 +143,11 @@ function Options.Create(context)
                     image = GetSettingsImage("tooltip.png"),
                 },
                 {
+                    key = "hideBuffCollapseArrowEnabled",
+                    label = L.OPTION_HIDE_BUFF_COLLAPSE_ARROW or "Hide Buff Collapse Arrow",
+                    description = Description("DESC_HIDE_BUFF_COLLAPSE_ARROW"),
+                },
+                {
                     key = "scaleExtraAbilityEnabled",
                     label = L.OPTION_SCALE_EXTRA_ABILITY or "Scale Extra Ability",
                     description = Description("DESC_SCALE_EXTRA_ABILITY"),

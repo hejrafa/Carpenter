@@ -63,6 +63,7 @@ Modules\WorldMapCleanup\WorldMapCleanup.lua
 Modules\ProfessionIconPortrait.lua
 Modules\TalentIconPortrait.lua
 Modules\EnhanceTooltip.lua
+Modules\HideBuffCollapseArrow.lua
 Modules\ReadyCheckCompat.lua
 
 # Unit Frames

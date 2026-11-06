@@ -54,6 +54,7 @@ Modules\MinimapClutter\MinimapClutterFrames.lua
 Modules\MinimapClutter\MinimapClutterFader.lua
 Modules\MinimapClutter\MinimapClutter.lua
 Modules\EnhanceTooltip.lua
+Modules\HideBuffCollapseArrow.lua
 Modules\ExtraAbilityScale.lua
 Modules\HideQuestTrackerTitles.lua
 
