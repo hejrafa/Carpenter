@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.8.16
+
+- Chat Cleaner no longer floods the start of a battleground with errors and the same join or leave line printed over and over. Those lines now read "Gorb Garnsson left" in red and "Muhlixier Naturebro, Peti Lucko joined" in green.
+- On WoW Forever, Chat Cleaner now styles group deaths, joins, and leaves during fights, which the game hides from addons in combat: "Tahlya died" and "Gorb Garnsson left" in red, joins in green.
+- Class Colored Health keeps the class color on the target and focus during battlegrounds and fights on WoW Forever, where it used to turn green for a while. The focus target and the battleground flag carrier frames are now class colored too.
+- Enhanced Tooltip no longer errors when you hover units in combat on WoW Forever.
+- Chat Cleaner shows a learned profession spell once. The game announces two spells with the same name, with or without a rank, and both used to show.
+- Remove Minimap Clutter now also hides the north arrow on the minimap border on WoW Forever.
+- Hide Surnames is now called Hide Secondary Names, the term WoW Forever's own settings use.
+
 ## 1.8.15
 
 - Nameplate combo points no longer blink when other nameplates appear or disappear. They now only react to the nameplate they sit on.
