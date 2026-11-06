@@ -1,4 +1,4 @@
---[[ Carpenter - Hide Surnames ]]
+--[[ Carpenter - Hide Secondary Names ]]
 -- WoW Forever gives every character a surname, and its GetUnitName always
 -- adds it. This shows first names only on unit frames, party and raid frames,
 -- and nameplates. Tooltips build their own name line, so they keep the full

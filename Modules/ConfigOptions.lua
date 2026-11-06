@@ -204,7 +204,7 @@ function Options.Create(context)
                 },
                 {
                     key = "hideSurnamesEnabled",
-                    label = L.OPTION_HIDE_SURNAMES or "Hide Surnames",
+                    label = L.OPTION_HIDE_SURNAMES or "Hide Secondary Names",
                     description = Description("DESC_HIDE_SURNAMES"),
                     image = GetSettingsImage(nil, "unitnumbers.png"),
                 },
