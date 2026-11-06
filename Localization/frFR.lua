@@ -182,6 +182,7 @@ L.THISTLE_TEA_MISSING = "Il vous manque des ingrédients pour le Thé de chardon
 L.POISON_DAMAGE_MISSING = "Aucun poison de dégâts dans vos sacs."
 L.POISON_UTILITY_MISSING = "Aucun poison utilitaire dans vos sacs."
 L.CHAT_PLAYERS_JOINED = "%s joueurs ont rejoint la bataille"
+L.CHAT_PLAYERS_LEFT = "%s joueurs ont quitté la bataille"
 L.CHAT_PLAYER_JOINED = "%s nous rejoint"
 L.CHAT_PLAYER_LEFT = "%s nous quitte"
 L.CHAT_FLAG_RESET = "Drapeau remis en place"

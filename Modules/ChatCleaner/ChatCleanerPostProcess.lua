@@ -87,6 +87,37 @@ function PostProcess.Create(config)
         return (text and text:gsub("^%s+", ""):gsub("%s+$", "") or "")
     end
 
+    -- For the first minute of a battleground, Blizzard collects joins and
+    -- leaves and prints them as one line straight to the chat frame, so no
+    -- chat filter ever sees them.
+    local function FormatBattleRosterLine(plain)
+        local joinedList = plain:match("^%s*%d+%s+players have joined the battle:%s*(.-)%.?%s*$")
+        if joinedList and Trim(joinedList) ~= "" then
+            return colorGreen .. T("CHAT_PLAYER_JOINED", "%s joined", Trim(joinedList)) .. "|r"
+        end
+        local leftList = plain:match("^%s*%d+%s+players have left the battle:%s*(.-)%.?%s*$")
+        if leftList and Trim(leftList) ~= "" then
+            return colorRed .. T("CHAT_PLAYER_LEFT", "%s left", Trim(leftList)) .. "|r"
+        end
+        local joinedCount = plain:match("^%s*(%d+)%s+players have joined the battle%.?%s*$")
+        if joinedCount then
+            return colorGreen .. T("CHAT_PLAYERS_JOINED", "%s players joined", joinedCount) .. "|r"
+        end
+        local leftCount = plain:match("^%s*(%d+)%s+players have left the battle%.?%s*$")
+        if leftCount then
+            return colorRed .. T("CHAT_PLAYERS_LEFT", "%s players left", leftCount) .. "|r"
+        end
+        local joinedName = plain:match("^%s*(.-)%s+has joined the battle%.?%s*$")
+        if joinedName and Trim(joinedName) ~= "" then
+            return colorGreen .. T("CHAT_PLAYER_JOINED", "%s joined", Trim(joinedName)) .. "|r"
+        end
+        local leftName = plain:match("^%s*(.-)%s+has left the battle%.?%s*$")
+        if leftName and Trim(leftName) ~= "" then
+            return colorRed .. T("CHAT_PLAYER_LEFT", "%s left", Trim(leftName)) .. "|r"
+        end
+        return nil
+    end
+
     local function StyleBareLootItem(item)
         if not item or item == "" or item:find("|Hitem:", 1, true) then return item end
         return colorGreen .. item .. "|r"
@@ -401,6 +432,16 @@ function PostProcess.Create(config)
             lastJoinKey, lastJoinTime = joinKey, GetTime()
         end
 
+        local rosterLine = FormatBattleRosterLine(plain)
+        if rosterLine then
+            -- A styled long-form join reads like the short form, so a short
+            -- duplicate right after it is dropped too.
+            if joinKey then
+                lastJoinKey, lastJoinTime = joinKey, GetTime()
+            end
+            return originalAddMessage(frame, rosterLine, unpack(args))
+        end
+
         if plain:lower():find("honor") then
             local honor = message:match("Estimated Honor Points: (%d+)") or message:match("Honor Points: (%d+)") or
                 message:match("honor points: (%d+)") or message:match("Honor points: (%d+)") or
@@ -428,8 +469,98 @@ function PostProcess.Create(config)
         return originalAddMessage(frame, message, unpack(args))
     end
 
+    local function IsSecret(value)
+        return issecretvalue ~= nil and issecretvalue(value) == true
+    end
+
+    -- What the post-processor would print for a line: the new text, or
+    -- nothing when the line should go.
+    local function ResolveMessage(frame, message, args)
+        local added, result = false, nil
+        api.ProcessMessage(frame, function(_, text)
+            added, result = true, text
+        end, message, args)
+        return added, result
+    end
+
+    -- Blizzard's own code calls AddMessage and keeps running afterwards; the
+    -- battleground join batching clears its list of hidden player names right
+    -- after printing. A replaced AddMessage taints that code, it errors every
+    -- frame, and the same line prints again and again. Where the chat frame
+    -- offers Blizzard's secure line edits, change the line after it is added
+    -- instead.
+    local function CanEditAfterAdd(frame)
+        return issecretvalue ~= nil
+            and hooksecurefunc ~= nil
+            and type(frame.AddMessage) == "function"
+            and type(frame.TransformMessages) == "function"
+            and type(frame.RemoveMessagesByPredicate) == "function"
+    end
+
+    local function IsSameLine(text, original)
+        return not IsSecret(text) and text == original
+    end
+
+    local function ReplaceLine(frame, original, replacement)
+        frame:TransformMessages(function(text)
+            return IsSameLine(text, original)
+        end, function(_, ...)
+            return replacement, ...
+        end)
+    end
+
+    -- Removal walks the history oldest first, so the last match is the line
+    -- that was just added. Older copies stay, which keeps join dedup intact.
+    local function RemoveNewestLine(frame, original)
+        local matches = 0
+        frame:RemoveMessagesByPredicate(function(text)
+            if IsSameLine(text, original) then
+                matches = matches + 1
+            end
+            return false
+        end)
+        if matches == 0 then return end
+
+        local seen = 0
+        frame:RemoveMessagesByPredicate(function(text)
+            if not IsSameLine(text, original) then return false end
+            seen = seen + 1
+            return seen == matches
+        end)
+    end
+
+    local function EditAddedLine(frame, message, ...)
+        local added, result = ResolveMessage(frame, message, { ... })
+        if not added then
+            RemoveNewestLine(frame, message)
+        elseif result ~= message then
+            ReplaceLine(frame, message, result)
+        end
+    end
+
+    local function OnLineAdded(frame, message, ...)
+        if not frame._CP_AddMessageHooked then return end
+        if not (Carpenter and Carpenter:IsEnabled("chatCleanerEnabled")) then return end
+        if IsSecret(message) or type(message) ~= "string" then return end
+
+        if Carpenter.Profile then
+            pcall(Carpenter.Profile, Carpenter, "ChatCleaner:AddMessage", EditAddedLine, frame, message, ...)
+        else
+            pcall(EditAddedLine, frame, message, ...)
+        end
+    end
+
     function api.HookChatFrameAddMessage(frame)
         if not frame or frame._CP_AddMessageHooked then return end
+        if frame._CP_AddMessagePostHooked or CanEditAfterAdd(frame) then
+            if not frame._CP_AddMessagePostHooked then
+                if not pcall(hooksecurefunc, frame, "AddMessage", OnLineAdded) then return end
+                frame._CP_AddMessagePostHooked = true
+            end
+            frame._CP_AddMessageHooked = true
+            return
+        end
+
         local originalAddMessage = frame._CP_OriginalAddMessage or frame.AddMessage
         if not originalAddMessage then return end
         frame._CP_OriginalAddMessage = originalAddMessage
@@ -459,7 +590,13 @@ function PostProcess.Create(config)
     end
 
     function api.RestoreChatFrameAddMessage(frame)
-        if not frame or not frame._CP_AddMessageHooked or not frame._CP_OriginalAddMessage then return end
+        if not frame or not frame._CP_AddMessageHooked then return end
+        -- A secure hook can't be removed; it goes quiet instead.
+        if frame._CP_AddMessagePostHooked then
+            frame._CP_AddMessageHooked = false
+            return
+        end
+        if not frame._CP_OriginalAddMessage then return end
         frame.AddMessage = frame._CP_OriginalAddMessage
         frame._CP_AddMessageHooked = false
     end

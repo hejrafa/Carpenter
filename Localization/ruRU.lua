@@ -182,6 +182,7 @@ L.THISTLE_TEA_MISSING = "Не хватает ингредиентов для с�
 L.POISON_DAMAGE_MISSING = "В сумках нет яда на урон."
 L.POISON_UTILITY_MISSING = "В сумках нет яда на контроль."
 L.CHAT_PLAYERS_JOINED = "Игроков присоединилось: %s"
+L.CHAT_PLAYERS_LEFT = "Игроков ушло: %s"
 L.CHAT_PLAYER_JOINED = "%s присоединяется"
 L.CHAT_PLAYER_LEFT = "%s уходит"
 L.CHAT_FLAG_RESET = "Флаг сброшен"

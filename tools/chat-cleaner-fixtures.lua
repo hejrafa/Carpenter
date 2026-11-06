@@ -193,6 +193,39 @@ local fixtures = {
         message = "Hulksmash was slain by Baron Silverlaine in Shadowfang Keep! They were level 25",
         expectPlain = "Hulksmash was slain by Baron Silverlaine! Level 25",
     },
+    -- Blizzard batches battleground joins and leaves at the start and prints
+    -- them straight to the chat frame, past every chat filter.
+    {
+        name = "batched battleground joins",
+        path = "post",
+        event = "CHAT_MSG_SYSTEM",
+        message = "3 players have joined the battle: Muhlixier Naturebro, Xarodas Schwarzhuf, Peti Lucko",
+        expectPlain = "Muhlixier Naturebro, Xarodas Schwarzhuf, Peti Lucko joined",
+    },
+    {
+        name = "batched battleground leave",
+        path = "post",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Gorb Garnsson has left the battle.",
+        expectPlain = "Gorb Garnsson left",
+        requireColor = "|cffff4040",
+    },
+    {
+        name = "batched battleground leaves list",
+        path = "post",
+        event = "CHAT_MSG_SYSTEM",
+        message = "2 players have left the battle: Gorb Garnsson, Peti Lucko",
+        expectPlain = "Gorb Garnsson, Peti Lucko left",
+        requireColor = "|cffff4040",
+    },
+    {
+        name = "batched battleground leave count",
+        path = "post",
+        event = "CHAT_MSG_SYSTEM",
+        message = "5 players have left the battle.",
+        expectPlain = "5 players left",
+        requireColor = "|cffff4040",
+    },
     {
         name = "player links keep original color",
         path = "post",
@@ -1189,6 +1222,76 @@ do
     if HiddenSkillUp(1004) ~= HIDDEN then
         failures[#failures + 1] = "hidden skill-up: without a rank change the message should pass through"
     end
+    issecretvalue = nil
+end
+
+-- Retail and Forever: Blizzard code prints through AddMessage and keeps
+-- running, so the line is edited after it is added rather than replacing
+-- AddMessage, which would taint that code.
+do
+    local HIDDEN = {}
+    issecretvalue = function(value) return value == HIDDEN end
+    local realHook = hooksecurefunc
+    hooksecurefunc = function(target, method, hook)
+        local original = target[method]
+        target[method] = function(...)
+            original(...)
+            hook(...)
+        end
+    end
+
+    local frame = { lines = {} }
+    local function original(self, message, r, g, b)
+        table.insert(self.lines, { message, r, g, b })
+    end
+    frame.AddMessage = original
+    function frame:TransformMessages(predicate, transform)
+        for i, line in ipairs(self.lines) do
+            if predicate(line[1], line[2], line[3], line[4]) then
+                self.lines[i] = { transform(line[1], line[2], line[3], line[4]) }
+            end
+        end
+    end
+    function frame:RemoveMessagesByPredicate(predicate)
+        local kept = {}
+        for _, line in ipairs(self.lines) do
+            if not predicate(line[1], line[2], line[3], line[4]) then
+                kept[#kept + 1] = line
+            end
+        end
+        self.lines = kept
+    end
+
+    postProcessor.HookChatFrameAddMessage(frame)
+    additionalChecks = additionalChecks + 1
+    if frame._CP_AddMessagePostHooked ~= true or frame._CP_OriginalAddMessage ~= nil then
+        failures[#failures + 1] = "post-hook: expected a secure post-hook instead of a replaced AddMessage"
+    end
+
+    frame:AddMessage("Gorb Garnsson has left the battle.", 1, 1, 0)
+    additionalChecks = additionalChecks + 1
+    local last = frame.lines[#frame.lines]
+    if not last or plain(last[1]) ~= "Gorb Garnsson left" or last[2] ~= 1 then
+        failures[#failures + 1] = "post-hook: expected the added line restyled with its color kept, got [" .. tostring(last and last[1]) .. "]"
+    end
+
+    -- Hidden lines are left alone, and lines the post-processor drops go.
+    frame:AddMessage(HIDDEN, 1, 1, 0)
+    frame:AddMessage("Changed Channel: |Hchannel:channel:1|h[1. General - Durotar]|h", 1, 1, 1)
+    additionalChecks = additionalChecks + 1
+    if #frame.lines ~= 2 or frame.lines[2][1] ~= HIDDEN then
+        failures[#failures + 1] = "post-hook: expected the hidden line kept and the dropped line removed, got " .. #frame.lines .. " lines"
+    end
+
+    -- Turning Chat Cleaner off leaves later lines untouched.
+    postProcessor.RestoreChatFrameAddMessage(frame)
+    frame:AddMessage("Gorb Garnsson has left the battle.", 1, 1, 0)
+    additionalChecks = additionalChecks + 1
+    if frame.lines[#frame.lines][1] ~= "Gorb Garnsson has left the battle." then
+        failures[#failures + 1] = "post-hook: expected no edits once restored"
+    end
+
+    hooksecurefunc = realHook
     issecretvalue = nil
 end
 
