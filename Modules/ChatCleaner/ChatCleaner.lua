@@ -250,6 +250,7 @@ local socialFormatter = ChatCleanerSocial.Create and ChatCleanerSocial.Create({
 }) or {}
 local FormatBattlegroundAndGroupNotice = socialFormatter.FormatBattlegroundAndGroupNotice
 local FormatSystemSocialMessage = socialFormatter.FormatSystemSocialMessage
+local FormatHiddenGroupNotice = socialFormatter.FormatHiddenGroupNotice
 local RememberSenderClass = socialFormatter.RememberSenderClass
 GetPlayerClassColor = socialFormatter.GetPlayerClassColor
 
@@ -299,11 +300,17 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     end
 
     -- WoW Forever hides some chat text in combat inside instances. Skill-ups
-    -- are rebuilt from skill ranks (the line ID stays readable); anything else
-    -- passes through untouched.
+    -- are rebuilt from skill ranks and group deaths, joins and leaves from
+    -- the group itself (the line ID stays readable); anything else passes
+    -- through untouched.
     if issecretvalue and issecretvalue(msg) then
         if event == "CHAT_MSG_SKILL" and FormatHiddenSkillMessage then
             local styled = FormatHiddenSkillMessage(select(9, ...), ColorPlus .. "+|r ")
+            if styled then
+                return false, styled, author, ...
+            end
+        elseif event == "CHAT_MSG_SYSTEM" and FormatHiddenGroupNotice then
+            local styled = FormatHiddenGroupNotice(select(9, ...))
             if styled then
                 return false, styled, author, ...
             end
@@ -530,6 +537,7 @@ local chatCleanerFeature = ChatCleanerLifecycle.Create and ChatCleanerLifecycle.
 ns.Private.ChatCleaner = ns.Private.ChatCleaner or {}
 ns.Private.ChatCleaner.FilterImpl = ChatFilterImpl
 ns.Private.ChatCleaner.PostProcessor = postProcessor
+ns.Private.ChatCleaner.SocialFormatter = socialFormatter
 
 if Carpenter and Carpenter.RegisterFeature then
     Carpenter:RegisterFeature("chatCleanerEnabled", chatCleanerFeature)
@@ -552,6 +560,19 @@ skillRankFrame:SetScript("OnEvent", function()
     end
 end)
 
+-- Keeps group deaths and the roster current, so hidden death, join, and
+-- leave lines can be rebuilt from them.
+local groupNoticeFrame = CreateFrame("Frame")
+groupNoticeFrame:SetScript("OnEvent", function(_, event, unit)
+    if event == "UNIT_HEALTH" or event == "UNIT_FLAGS" then
+        if socialFormatter.NoteGroupMemberHealth then
+            socialFormatter.NoteGroupMemberHealth(unit)
+        end
+    elseif socialFormatter.NoteGroupRoster then
+        socialFormatter.NoteGroupRoster(event == "PLAYER_ENTERING_WORLD")
+    end
+end)
+
 if Carpenter and Carpenter.RegisterFeature then
     Carpenter:RegisterFeature("chatCleanerEnabled", {
         Enable = function()
@@ -560,9 +581,17 @@ if Carpenter and Carpenter.RegisterFeature then
             if systemFormatter.RefreshSkillRanks then
                 systemFormatter.RefreshSkillRanks()
             end
+            if socialFormatter.NoteGroupRoster then
+                groupNoticeFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+                groupNoticeFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
+                groupNoticeFrame:RegisterEvent("UNIT_HEALTH")
+                groupNoticeFrame:RegisterEvent("UNIT_FLAGS")
+                socialFormatter.NoteGroupRoster(true)
+            end
         end,
         Disable = function()
             skillRankFrame:UnregisterAllEvents()
+            groupNoticeFrame:UnregisterAllEvents()
         end,
     })
 end

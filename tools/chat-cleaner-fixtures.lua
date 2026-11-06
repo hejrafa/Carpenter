@@ -1225,6 +1225,117 @@ do
     issecretvalue = nil
 end
 
+-- Group deaths, joins, and leaves are hidden the same way; they are rebuilt
+-- from the group, which stays readable.
+do
+    local HIDDEN = {}
+    issecretvalue = function(value) return value == HIDDEN end
+    local inLockdown = false
+    C_ChatInfo = { InChatMessagingLockdown = function() return inLockdown end }
+    Carpenter.Client.isForever = true
+    local members = {
+        raid1 = { "Tester", "" },
+        raid2 = { "Tahlya", "Dawnsorrow" },
+        raid3 = { "Fufel", "Shmerz" },
+        raid4 = { "Gorb", "Garnsson" },
+    }
+    local dead = {}
+    local realUnitName = UnitName
+    UnitName = function(unit)
+        local member = members[unit]
+        if member then return member[1], member[2] end
+        return realUnitName(unit)
+    end
+    UnitIsUnit = function(a, b) return a == b or (a == "raid1" and b == "player") end
+    UnitIsDeadOrGhost = function(unit) return dead[unit] == true end
+    inRaid, groupMembers = true, 4
+
+    local socialFeature = registeredChatFeatures[#registeredChatFeatures].feature
+    socialFeature.Enable()
+    local social = ns.Private.ChatCleaner.SocialFormatter
+
+    local lineID = 2000
+    local function HiddenSystemLine()
+        lineID = lineID + 1
+        local results = { filter(nil, "CHAT_MSG_SYSTEM", HIDDEN, "", "", "", "", "", 0, 0, "", 0, lineID) }
+        return results[2], lineID
+    end
+
+    -- Out of lockdown nothing is noted; the readable line is styled as usual.
+    dead.raid2 = true
+    social.NoteGroupMemberHealth("raid2")
+    dead.raid2 = nil
+    social.NoteGroupMemberHealth("raid2")
+
+    inLockdown = true
+    now = 2000
+    dead.raid2 = true
+    social.NoteGroupMemberHealth("raid2")
+    local died, diedID = HiddenSystemLine()
+    additionalChecks = additionalChecks + 1
+    if plain(died) ~= "Tahlya died" or not tostring(died):find("|cffff4040", 1, true) then
+        failures[#failures + 1] = "hidden group notice: expected red [Tahlya died] got [" .. tostring(died) .. "]"
+    end
+    additionalChecks = additionalChecks + 1
+    if select(2, filter(nil, "CHAT_MSG_SYSTEM", HIDDEN, "", "", "", "", "", 0, 0, "", 0, diedID)) ~= died then
+        failures[#failures + 1] = "hidden group notice: other chat frames should get the same line"
+    end
+
+    -- The line can arrive before the death shows: the poll at the line finds it.
+    dead.raid3 = true
+    additionalChecks = additionalChecks + 1
+    if plain((HiddenSystemLine())) ~= "Fufel died" then
+        failures[#failures + 1] = "hidden group notice: a death seen only at its line should still be rebuilt"
+    end
+
+    -- Your own death has its own line.
+    dead.raid1 = true
+    social.NoteGroupMemberHealth("raid1")
+    additionalChecks = additionalChecks + 1
+    if HiddenSystemLine() ~= HIDDEN then
+        failures[#failures + 1] = "hidden group notice: your own death should not be rebuilt"
+    end
+
+    -- A member leaving the instance group uses the full name.
+    now = 2005
+    members.raid4 = nil
+    groupMembers = 3
+    social.NoteGroupRoster()
+    now = 2006
+    additionalChecks = additionalChecks + 1
+    if plain((HiddenSystemLine())) ~= "Gorb Garnsson left" then
+        failures[#failures + 1] = "hidden group notice: expected [Gorb Garnsson left]"
+    end
+
+    -- Old changes expire, and an unmatched line passes through untouched.
+    members.raid4 = { "Peti", "Lucko" }
+    groupMembers = 4
+    social.NoteGroupRoster()
+    now = 2010
+    additionalChecks = additionalChecks + 1
+    if HiddenSystemLine() ~= HIDDEN then
+        failures[#failures + 1] = "hidden group notice: a stale change should not be matched"
+    end
+
+    -- A line that comes first and matches nothing claims the change that
+    -- follows, so later lines don't take the wrong name.
+    now = 2020
+    HiddenSystemLine()
+    dead.raid4 = true
+    social.NoteGroupMemberHealth("raid4")
+    additionalChecks = additionalChecks + 1
+    if HiddenSystemLine() ~= HIDDEN then
+        failures[#failures + 1] = "hidden group notice: a change claimed by an earlier line should not be reused"
+    end
+
+    socialFeature.Disable()
+    inRaid, groupMembers = false, 0
+    UnitName, UnitIsUnit, UnitIsDeadOrGhost = realUnitName, nil, nil
+    C_ChatInfo = nil
+    Carpenter.Client.isForever = nil
+    issecretvalue = nil
+end
+
 -- Retail and Forever: Blizzard code prints through AddMessage and keeps
 -- running, so the line is edited after it is added rather than replacing
 -- AddMessage, which would taint that code.

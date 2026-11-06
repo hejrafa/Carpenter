@@ -153,6 +153,184 @@ function Social.Create(config)
         return string.format("|cff%02x%02x%02x", Byte(color.r), Byte(color.g), Byte(color.b))
     end
 
+    -- WoW Forever hides system lines from addons during chat messaging
+    -- lockdown (combat in instances), group deaths and departures included.
+    -- Deaths and the roster stay readable, so each change is noted as it
+    -- happens and the hidden line that arrives with it is rebuilt from it.
+    -- A change and its line can come in either order: a line with nothing to
+    -- match waits briefly for the change, which then counts as shown.
+    local NOTICE_WINDOW = 3
+    local UNCLAIMED_LINE_WINDOW = 1.5
+    local pendingNotices = {}
+    local unclaimedLineTimes = {}
+    local hiddenNoticeLines = {}
+    local hiddenNoticeLineCount = 0
+    local deadMembers = {}
+    local rosterNames = {}
+
+    local function Now()
+        return GetTime and GetTime() or 0
+    end
+
+    local function InChatLockdown()
+        local chatInfo = C_ChatInfo
+        if not (chatInfo and chatInfo.InChatMessagingLockdown) then return false end
+        local ok, inLockdown = pcall(chatInfo.InChatMessagingLockdown)
+        return ok and IsReadable(inLockdown) and inLockdown == true
+    end
+
+    -- The death line uses the first name; join and leave lines use the full
+    -- name, which on WoW Forever includes the surname.
+    local function GetMemberNames(unit)
+        if not UnitName then return nil end
+        local ok, name, surname = pcall(UnitName, unit)
+        if not ok or not IsReadable(name) or not IsReadable(surname) then return nil end
+        if type(name) ~= "string" or name == "" or name == UNKNOWNOBJECT then return nil end
+        local fullName = name
+        local client = Carpenter and Carpenter.Client
+        if client and client.isForever and type(surname) == "string" and surname ~= "" then
+            local consts = Constants and Constants.CharacterNameSeparatorConsts
+            fullName = name .. (consts and consts.CHARACTERNAME_SURNAME_SEPARATOR or " ") .. surname
+        end
+        return fullName, name
+    end
+
+    -- Your own death has its own line, so you are never a tracked member.
+    -- Unit comparisons can be hidden too, so the name decides as well.
+    local function IsSelf(unit, fullName)
+        local okSelf, isSelf = pcall(UnitIsUnit, unit, "player")
+        if okSelf and IsReadable(isSelf) and isSelf then return true end
+        return fullName ~= nil and fullName == GetMemberNames("player")
+    end
+
+    local function ForEachGroupMember(callback)
+        local inRaid = IsInRaid and IsInRaid()
+        local prefix = inRaid and "raid" or "party"
+        local count = GetNumGroupMembers and GetNumGroupMembers() or 0
+        if not inRaid then count = count - 1 end
+        for i = 1, count do
+            local unit = prefix .. i
+            local fullName, firstName = GetMemberNames(unit)
+            if fullName and not IsSelf(unit, fullName) then
+                callback(unit, fullName, firstName)
+            end
+        end
+    end
+
+    local function PruneTimes(list, window, now)
+        while list[1] do
+            local first = list[1]
+            local time = type(first) == "table" and first.time or first
+            if now - time <= window then return end
+            table.remove(list, 1)
+        end
+    end
+
+    local function AddNotice(kind, name, now)
+        PruneTimes(unclaimedLineTimes, UNCLAIMED_LINE_WINDOW, now)
+        if unclaimedLineTimes[1] then
+            table.remove(unclaimedLineTimes, 1)
+            return
+        end
+        pendingNotices[#pendingNotices + 1] = { kind = kind, name = name, time = now }
+    end
+
+    local function NoteMemberDeath(unit, fullName, firstName, announce, now)
+        local ok, dead = pcall(UnitIsDeadOrGhost, unit)
+        if not ok or not IsReadable(dead) then return end
+        dead = dead == true
+        if dead and not deadMembers[fullName] and announce then
+            AddNotice("died", firstName, now)
+        end
+        deadMembers[fullName] = dead or nil
+    end
+
+    local function NoteDeaths(now, announce)
+        if not UnitIsDeadOrGhost then return end
+        ForEachGroupMember(function(unit, fullName, firstName)
+            NoteMemberDeath(unit, fullName, firstName, announce, now)
+        end)
+    end
+
+    local BYTE_R, BYTE_P = ("r"):byte(), ("p"):byte()
+
+    -- Health events fire for every nameplate too, so only group tokens get
+    -- past the first byte.
+    function api.NoteGroupMemberHealth(unit)
+        if type(unit) ~= "string" or not UnitIsDeadOrGhost then return end
+        local first = unit:byte(1)
+        if first ~= BYTE_R and first ~= BYTE_P then return end
+        if not (unit:match("^raid%d+$") or unit:match("^party%d$")) then return end
+        local fullName, firstName = GetMemberNames(unit)
+        if fullName and not IsSelf(unit, fullName) then
+            NoteMemberDeath(unit, fullName, firstName, InChatLockdown(), Now())
+        end
+    end
+
+    -- Pass reset to take a fresh snapshot without noting any change, such as
+    -- after a loading screen.
+    function api.NoteGroupRoster(reset)
+        local now = Now()
+        local announce = not reset and InChatLockdown()
+        local current = {}
+        ForEachGroupMember(function(_, fullName)
+            current[fullName] = true
+            if announce and not rosterNames[fullName] then
+                AddNotice("joined", fullName, now)
+            end
+        end)
+        if announce then
+            for fullName in pairs(rosterNames) do
+                if not current[fullName] then
+                    AddNotice("left", fullName, now)
+                end
+            end
+        end
+        rosterNames = current
+        for fullName in pairs(deadMembers) do
+            if not current[fullName] then
+                deadMembers[fullName] = nil
+            end
+        end
+        if reset then
+            pendingNotices, unclaimedLineTimes = {}, {}
+        end
+        NoteDeaths(now, announce)
+    end
+
+    local function FormatNotice(notice)
+        if notice.kind == "died" then
+            return colorRed .. T("CHAT_PLAYER_DIED", "%s died", notice.name) .. "|r"
+        elseif notice.kind == "left" then
+            return colorRed .. T("CHAT_PLAYER_LEFT", "%s left", notice.name) .. "|r"
+        end
+        return colorGreen .. T("CHAT_PLAYER_JOINED", "%s joined", notice.name) .. "|r"
+    end
+
+    -- Every chat frame filters the same line, so results are kept per line ID.
+    function api.FormatHiddenGroupNotice(lineID)
+        if lineID == nil then return nil end
+        if hiddenNoticeLines[lineID] ~= nil then
+            return hiddenNoticeLines[lineID] or nil
+        end
+
+        local now = Now()
+        NoteDeaths(now, true)
+        PruneTimes(pendingNotices, NOTICE_WINDOW, now)
+        local notice = table.remove(pendingNotices, 1)
+        local text = notice and FormatNotice(notice) or nil
+        if not notice then
+            unclaimedLineTimes[#unclaimedLineTimes + 1] = now
+        end
+
+        if hiddenNoticeLineCount >= 50 then
+            hiddenNoticeLines, hiddenNoticeLineCount = {}, 0
+        end
+        hiddenNoticeLines[lineID] = text or false
+        hiddenNoticeLineCount = hiddenNoticeLineCount + 1
+        return text
+    end
+
     local function GetFriendCount()
         if C_FriendList and C_FriendList.GetNumFriends then
             local ok, count = pcall(C_FriendList.GetNumFriends)
