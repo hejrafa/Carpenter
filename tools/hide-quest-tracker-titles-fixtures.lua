@@ -174,6 +174,21 @@ assert(campaignHeader.alpha == 0 and campaignHeader.height == 0.001, "tracker up
 assert(questModule.offsetY == 0 and questModule.height == 175, "tracker updates should keep compact module geometry")
 assert(campaignModule.height == 135, "tracker updates should keep compact campaign geometry")
 
+-- WoW Forever's Quest Timers box sits at the top of the tracker and adds its
+-- height to Blizzard's top padding; the quests must stay below it.
+local questTimer = { visible = true }
+function questTimer:GetTopPadding() return self.visible and 77 or 0 end
+ObjectiveTrackerFrame.topPaddingProviders = { [questTimer] = true }
+questModule.offsetY = -(38 + 77)
+containerUpdateHook(ObjectiveTrackerFrame)
+assert(questModule.offsetY == -77, "quests should stay below the quest timer, without the header space")
+
+questTimer.visible = false
+questModule.offsetY = -38
+containerUpdateHook(ObjectiveTrackerFrame)
+assert(questModule.offsetY == 0, "quests should move back to the top once the timer is gone")
+ObjectiveTrackerFrame.topPaddingProviders = nil
+
 questModule:UpdateHeight()
 campaignModule:UpdateHeight()
 assert(questModule.height == 175, "standalone quest module height updates should remain compact")

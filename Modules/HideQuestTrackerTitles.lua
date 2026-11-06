@@ -152,6 +152,26 @@ local function GetTopAnchor(frame, relativeTo)
     end
 end
 
+-- Blizzard drops the first module below the tracker header plus any top
+-- padding providers, such as WoW Forever's Quest Timers box, which sits at the
+-- top of the tracker. Only the header's share is reclaimed, so the quests
+-- still move down below a timer.
+local function GetProvidedTopPadding(tracker)
+    local providers = tracker and tracker.topPaddingProviders
+    if type(providers) ~= "table" then return 0 end
+
+    local padding = 0
+    for provider in pairs(providers) do
+        if type(provider) == "table" and type(provider.GetTopPadding) == "function" then
+            local ok, providerPadding = pcall(provider.GetTopPadding, provider)
+            if ok and type(providerPadding) == "number" and providerPadding > 0 then
+                padding = padding + providerPadding
+            end
+        end
+    end
+    return padding
+end
+
 local function MoveFirstModuleToTop(tracker)
     local modules = tracker and tracker.modules
     if type(modules) ~= "table" then return end
@@ -168,8 +188,9 @@ local function MoveFirstModuleToTop(tracker)
                     offsetY = offsetY,
                 }
             end
-            if offsetY ~= 0 then
-                CallWidgetMethodSecurely(module, "SetPoint", point, relativeTo, relativePoint, offsetX, 0)
+            local topOffset = -GetProvidedTopPadding(tracker)
+            if math.abs(offsetY - topOffset) > 0.01 then
+                CallWidgetMethodSecurely(module, "SetPoint", point, relativeTo, relativePoint, offsetX, topOffset)
             end
             return
         end
