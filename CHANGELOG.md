@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.17
+
+- New option in the Interface settings: Hide Buff Collapse Arrow hides the small arrow beside your buffs that collapses and expands them. If your buffs are collapsed, the arrow stays until you expand them once.
+- Hide Quest Tracker Titles no longer lets the Quest Timers box cover your tracked quests on WoW Forever. The quests now sit below the timer and move back up when it ends.
+
 ## 1.8.16
 
 - Chat Cleaner no longer floods the start of a battleground with errors and the same join or leave line printed over and over. Those lines now read "Gorb Garnsson left" in red and "Muhlixier Naturebro, Peti Lucko joined" in green.
