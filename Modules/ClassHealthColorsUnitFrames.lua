@@ -214,25 +214,57 @@ local function IsReadable(value)
     return not (issecretvalue and issecretvalue(value))
 end
 
--- Forever hides the target of target's GUID and class from addons, but its
--- class still feeds C_ClassColor, and the health bar accepts the resulting
--- hidden color. That marks the bar's color and alpha as hidden values, so it
--- is only used for this one bar and only when the class can't be read.
+-- Battlegrounds and combat hide a player's GUID and class from addons on
+-- Forever, but the class still feeds C_ClassColor, and the health bar accepts
+-- the resulting hidden color. That marks the bar's color and alpha as hidden
+-- values, so it is kept to these bars and to when the class can't be read.
+-- UnitIsPlayer is never hidden, so NPCs keep Blizzard's colors.
+local HIDDEN_CLASS_COLOR_UNITS = {
+    target = true,
+    focus = true,
+    targettarget = true,
+    focustarget = true,
+    arena1 = true,
+    arena2 = true,
+    arena3 = true,
+    arena4 = true,
+    arena5 = true,
+}
+
+local function IsReadablePlayer(unit)
+    if not UnitIsPlayer then return false end
+    local ok, isPlayer = pcall(UnitIsPlayer, unit)
+    return ok and IsReadable(isPlayer) and isPlayer == true
+end
+
+local function CanUseHiddenClassColor(unit)
+    return IsMainlineClient() and HIDDEN_CLASS_COLOR_UNITS[unit] == true
+end
+
+-- Whether Carpenter colors this unit's bar at all: a player whose class is
+-- readable, or one whose class is hidden on a bar allowed the hidden color.
+local function ShouldClassColor(unit)
+    if ClassHealth.IsPlayerUnit(unit) then return true end
+    return CanUseHiddenClassColor(unit) and ClassHealth.UnitExists(unit) and IsReadablePlayer(unit)
+end
+
+-- Kept free of closures: target of target repaints every frame.
+local function PaintHiddenClassColor(bar, unit)
+    local _, classToken = UnitClass(unit)
+    local color = C_ClassColor.GetClassColor(classToken)
+    local r, g, b = color:GetRGB()
+    if bar.SetStatusBarDesaturated then
+        bar:SetStatusBarDesaturated(true)
+    end
+    bar:SetStatusBarColor(r, g, b)
+end
+
 local function ApplyHiddenClassColor(bar, unit)
-    if not (C_ClassColor and C_ClassColor.GetClassColor and UnitIsPlayer and UnitClass) then return false end
+    if not CanUseHiddenClassColor(unit) then return false end
+    if not (C_ClassColor and C_ClassColor.GetClassColor and UnitClass) then return false end
+    if not IsReadablePlayer(unit) then return false end
 
-    local okPlayer, isPlayer = pcall(UnitIsPlayer, unit)
-    if not okPlayer or not IsReadable(isPlayer) or isPlayer ~= true then return false end
-
-    local ok = pcall(function()
-        local _, classToken = UnitClass(unit)
-        local color = C_ClassColor.GetClassColor(classToken)
-        local r, g, b = color:GetRGB()
-        if bar.SetStatusBarDesaturated then
-            bar:SetStatusBarDesaturated(true)
-        end
-        bar:SetStatusBarColor(r, g, b)
-    end)
+    local ok = pcall(PaintHiddenClassColor, bar, unit)
     if ok then
         bar._Carpenter_IsUnitClassColored = true
         UseStatusFill(bar)
@@ -248,7 +280,7 @@ local function UpdateHealthBarColor(bar, unit)
         return
     end
     if not ClassHealth.IsPlayerUnit(unit) then
-        if IsMainlineClient() and unit == "targettarget" and ApplyHiddenClassColor(bar, unit) then
+        if ApplyHiddenClassColor(bar, unit) then
             return
         end
         RestoreDefaultUnitColor(bar, unit, true)
@@ -292,20 +324,85 @@ local function RefreshPartyFrameColors(onlyUnit)
     end
 end
 
+-- Battlegrounds show flag carriers in the old arena frames. Their plain bar
+-- is repainted green on every health change and gray while the carrier is
+-- out of sight or offline, so the class color goes on right after each green
+-- paint and the gray is left alone.
+local ARENA_UNITS = { "arena1", "arena2", "arena3", "arena4", "arena5" }
+
+local function RestoreArenaBarColor(bar)
+    if ClassHealth.ClearBarState(bar) and not bar.lockColor then
+        bar:SetStatusBarColor(0, 1, 0)
+    end
+end
+
+local function ApplyArenaBarColor(bar)
+    if bar.lockColor or not ClassHealth.IsUnitFrameEnabled() then return end
+    local unit = bar._CarpenterArenaUnit
+    if ClassHealth.UnitExists(unit) then
+        if ClassHealth.IsPlayerUnit(unit) and ClassHealth.ApplyUnitFrameClassColor(bar, unit) then return end
+        if ApplyHiddenClassColor(bar, unit) then return end
+    end
+    RestoreArenaBarColor(bar)
+end
+
+-- Carpenter's own paints come back through this hook too, possibly with
+-- hidden values, so the guard is checked before the color is compared.
+local function OnArenaBarColorSet(bar, r, g, b)
+    if bar._CarpenterRecoloring then return end
+    bar._CarpenterRecoloring = true
+    if r == 0 and g == 1 and b == 0 then
+        pcall(ApplyArenaBarColor, bar)
+    else
+        ClassHealth.ClearBarState(bar)
+    end
+    bar._CarpenterRecoloring = false
+end
+
+local function RefreshArenaFrameColors()
+    for _, unit in ipairs(ARENA_UNITS) do
+        local bar = GetUnitFrameHealthBar(unit)
+        if bar and bar.SetStatusBarColor then
+            if not bar._CarpenterArenaClassColorHooked then
+                bar._CarpenterArenaUnit = unit
+                bar._CarpenterArenaClassColorHooked = Carpenter:SafeHook(bar, "SetStatusBarColor", OnArenaBarColorSet)
+            end
+            if bar._CarpenterArenaClassColorHooked and bar:IsShown() and not bar._CarpenterRecoloring then
+                bar._CarpenterRecoloring = true
+                pcall(ApplyArenaBarColor, bar)
+                bar._CarpenterRecoloring = false
+            end
+        end
+    end
+end
+
+local function RestoreArenaFrameColors()
+    for _, unit in ipairs(ARENA_UNITS) do
+        local bar = GetUnitFrameHealthBar(unit)
+        if bar and bar._CarpenterArenaClassColorHooked and not bar._CarpenterRecoloring then
+            bar._CarpenterRecoloring = true
+            pcall(RestoreArenaBarColor, bar)
+            bar._CarpenterRecoloring = false
+        end
+    end
+end
+
 local function RefreshUnitFrameColors()
     UpdateHealthBarColor(GetUnitFrameHealthBar("player"), "player")
     UpdateHealthBarColor(GetUnitFrameHealthBar("target"), "target")
     UpdateHealthBarColor(GetUnitFrameHealthBar("targettarget"), "targettarget")
     UpdateHealthBarColor(GetUnitFrameHealthBar("focus"), "focus")
+    UpdateHealthBarColor(GetUnitFrameHealthBar("focustarget"), "focustarget")
 
     RefreshPartyFrameColors()
+    RefreshArenaFrameColors()
 end
 
 -- Retail-style clients repaint these bars green in UnitFrameHealthBar_Update.
--- Target of target runs that every frame from OnUpdate, so recolor right
--- after Blizzard instead of waiting for the next event. Party bars are tinted
--- through their texture and never pass through here.
-local UNIT_FRAME_UNITS = { "player", "target", "targettarget", "focus" }
+-- Target of target and focus target run that every frame from OnUpdate, so
+-- recolor right after Blizzard instead of waiting for the next event. Party
+-- bars are tinted through their texture and never pass through here.
+local UNIT_FRAME_UNITS = { "player", "target", "targettarget", "focus", "focustarget" }
 local healthBarUpdateHooked = false
 
 local function HookBlizzardHealthBarUpdates()
@@ -320,7 +417,7 @@ local function HookBlizzardHealthBarUpdates()
             Carpenter:SafeHook(frame, "UpdateHealthBarVisuals", function()
                 local bar = GetUnitFrameHealthBar(unit)
                 if bar and ClassHealth.IsUnitFrameEnabled()
-                    and (bar._Carpenter_IsUnitClassColored or ClassHealth.IsPlayerUnit(unit)) then
+                    and (bar._Carpenter_IsUnitClassColored or ShouldClassColor(unit)) then
                     UpdateHealthBarColor(bar, unit)
                 end
             end)
@@ -332,7 +429,7 @@ local function HookBlizzardHealthBarUpdates()
         for _, unit in ipairs(UNIT_FRAME_UNITS) do
             if bar == GetUnitFrameHealthBar(unit) then
                 -- NPC bars stay Blizzard's unless Carpenter colored them before.
-                if bar._Carpenter_IsUnitClassColored or ClassHealth.IsPlayerUnit(unit) then
+                if bar._Carpenter_IsUnitClassColored or ShouldClassColor(unit) then
                     UpdateHealthBarColor(bar, unit)
                 end
                 return
@@ -365,6 +462,7 @@ local function HandleUnitFrameEvent(self, event, unit)
             UpdateHealthBarColor(GetUnitFrameHealthBar("targettarget"), "targettarget")
         elseif unit == "focus" then
             UpdateHealthBarColor(GetUnitFrameHealthBar("focus"), "focus")
+            UpdateHealthBarColor(GetUnitFrameHealthBar("focustarget"), "focustarget")
         elseif unit == "player" then
             UpdateHealthBarColor(GetUnitFrameHealthBar("player"), "player")
             RefreshPartyFrameColors("player")
@@ -373,8 +471,14 @@ local function HandleUnitFrameEvent(self, event, unit)
         end
     elseif event == "UNIT_TARGET" and unit == "target" then
         UpdateHealthBarColor(GetUnitFrameHealthBar("targettarget"), "targettarget")
+    elseif event == "UNIT_TARGET" and unit == "focus" then
+        UpdateHealthBarColor(GetUnitFrameHealthBar("focustarget"), "focustarget")
     elseif event == "GROUP_ROSTER_UPDATE" then
         RefreshUnitFrameColors()
+    elseif event == "ARENA_OPPONENT_UPDATE" then
+        RefreshArenaFrameColors()
+    elseif event == "ADDON_LOADED" and (unit == "Blizzard_Deprecated_ArenaUI" or unit == "Blizzard_ArenaUI") then
+        RefreshArenaFrameColors()
     end
 end
 
@@ -394,9 +498,11 @@ function unitFrameFeature:Enable()
     unitFrameDriver:RegisterUnitEvent("UNIT_MAXHEALTH", "player", "target", "targettarget", "focus", "party1", "party2", "party3", "party4")
     unitFrameDriver:RegisterUnitEvent("UNIT_FLAGS", "player", "target", "targettarget", "focus", "party1", "party2", "party3", "party4")
     unitFrameDriver:RegisterUnitEvent("UNIT_FACTION", "player", "target", "targettarget", "focus", "party1", "party2", "party3", "party4")
-    unitFrameDriver:RegisterUnitEvent("UNIT_TARGET", "target")
+    unitFrameDriver:RegisterUnitEvent("UNIT_TARGET", "target", "focus")
     unitFrameDriver:RegisterEvent("GROUP_ROSTER_UPDATE")
     unitFrameDriver:RegisterEvent("PLAYER_ENTERING_WORLD")
+    Carpenter:SafeRegisterEvent(unitFrameDriver, "ARENA_OPPONENT_UPDATE")
+    unitFrameDriver:RegisterEvent("ADDON_LOADED")
     unitFrameDriver:Show()
     HookBlizzardHealthBarUpdates()
     RefreshUnitFrameColors()
@@ -407,6 +513,8 @@ function unitFrameFeature:Disable()
     RestoreDefaultUnitColor(GetUnitFrameHealthBar("target"), "target", true)
     RestoreDefaultUnitColor(GetUnitFrameHealthBar("targettarget"), "targettarget", true)
     RestoreDefaultUnitColor(GetUnitFrameHealthBar("focus"), "focus", true)
+    RestoreDefaultUnitColor(GetUnitFrameHealthBar("focustarget"), "focustarget", true)
+    RestoreArenaFrameColors()
 
     for i = 1, PARTY_MEMBER_FRAME_COUNT do
         if IsMainlineClient() then

@@ -226,4 +226,60 @@ do
     registeredFeature:Disable()
 end
 
+-- Battlegrounds and combat hide the class of the target, focus, focus target,
+-- and flag carriers too, so each of those bars takes the hidden class color.
+do
+    local function NewBar()
+        local bar = { color = { 0, 1, 0 }, shown = true }
+        function bar:SetStatusBarColor(r, g, b) self.color = { r, g, b } end
+        function bar:SetStatusBarDesaturated() end
+        function bar:IsShown() return self.shown end
+        return bar
+    end
+    local bars = { target = NewBar(), focus = NewBar(), focustarget = NewBar(), arena1 = NewBar() }
+    local hiddenPlayers = { target = true, focus = true, focustarget = true, arena1 = true }
+
+    local Unit = ns.Private.Unit
+    local realFrameHealthBar, realExists = Unit.FrameHealthBar, Unit.Exists
+    Unit.FrameHealthBar = function(unit) return bars[unit] or realFrameHealthBar(unit) end
+    Unit.Exists = function(unit) return bars[unit] ~= nil or realExists(unit) end
+    UnitIsPlayer = function(unit) return hiddenPlayers[unit] == true end
+
+    local function IsClassColored(bar) return bar.color[1] == 1 and bar.color[2] == 0.96 end
+
+    registeredFeature:Enable()
+    for _, unit in ipairs({ "target", "focus", "focustarget", "arena1" }) do
+        assert(IsClassColored(bars[unit]), unit .. " should take the hidden class color")
+    end
+
+    UnitFrameHealthBar_Update(bars.focustarget, "focustarget")
+    assert(IsClassColored(bars.focustarget), "focus target should keep its class color after Blizzard repaints it")
+
+    -- Flag carriers: Blizzard paints green on each health change and gray
+    -- while the carrier is out of sight.
+    local carrier = bars.arena1
+    carrier:SetStatusBarColor(0, 1, 0)
+    assert(IsClassColored(carrier), "a flag carrier should keep its class color after a health change")
+    carrier.lockColor = true
+    carrier:SetStatusBarColor(0.5, 0.5, 0.5)
+    assert(carrier.color[1] == 0.5 and carrier.color[2] == 0.5, "an unseen flag carrier should stay Blizzard's gray")
+    carrier.lockColor = false
+    carrier:SetStatusBarColor(0, 1, 0)
+    assert(IsClassColored(carrier), "a flag carrier seen again should take the class color back")
+
+    -- A target that turns out to be an NPC goes back to Blizzard's color.
+    hiddenPlayers.target = false
+    UnitFrameHealthBar_Update(bars.target, "target")
+    assert(bars.target.color[1] == 1 and bars.target.color[2] == 1 and bars.target.color[3] == 1, "an NPC target should drop the hidden class color")
+
+    registeredFeature:Disable()
+    Carpenter.enabled = false
+    assert(carrier.color[1] == 0 and carrier.color[2] == 1 and carrier.color[3] == 0, "disabling should give the flag carrier Blizzard's green back")
+    carrier:SetStatusBarColor(0, 1, 0)
+    assert(carrier.color[1] == 0 and carrier.color[2] == 1, "the flag carrier hook should stay inert while disabled")
+
+    Carpenter.enabled = true
+    Unit.FrameHealthBar, Unit.Exists = realFrameHealthBar, realExists
+end
+
 print("class-health-colors fixtures: passed")

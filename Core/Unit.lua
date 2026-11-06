@@ -42,6 +42,19 @@ function Unit.FrameHealthBar(unit)
         return (TargetFrameToT and TargetFrameToT.HealthBar)
             or TargetFrameToTHealthBar
             or (TargetFrameToT and TargetFrameToT.healthbar)
+    elseif unit == "focustarget" then
+        return (FocusFrameToT and FocusFrameToT.HealthBar)
+            or FocusFrameToTHealthBar
+            or (FocusFrameToT and FocusFrameToT.healthbar)
+    elseif type(unit) == "string" then
+        -- The old arena frames; battlegrounds use them for flag carriers.
+        local index = unit:match("^arena(%d)$")
+        if index then
+            local frame = _G["ArenaEnemyMatchFrame" .. index] or _G["ArenaEnemyFrame" .. index]
+            return _G["ArenaEnemyMatchFrame" .. index .. "HealthBar"]
+                or _G["ArenaEnemyFrame" .. index .. "HealthBar"]
+                or (frame and frame.healthbar)
+        end
     end
 end
 
