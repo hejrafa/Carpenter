@@ -224,15 +224,17 @@ local function ApplyNameLine(tooltip, unit)
     -- Player, or friendly (reaction > 4), or player-controlled
     if tipIsPlayer or playerControl or reaction > 4 then
         if tipIsPlayer then
-            local _, classToken = UnitClass(unit)
-            local c = classToken and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classToken]
+            -- Unit.ClassColor skips class tokens Forever hides from addons.
+            local c = Unit.ClassColor and Unit.ClassColor(unit)
             if c then
                 left1:SetTextColor(c.r, c.g, c.b)
             else
                 left1:SetTextColor(1, 1, 1)
             end
         else
-            if UnitIsPVP(unit) then
+            -- Forever hides PvP flags in combat; a hidden one reads as not flagged.
+            local okPvP, isPvP = pcall(UnitIsPVP, unit)
+            if okPvP and not (issecretvalue and issecretvalue(isPvP)) and isPvP then
                 left1:SetTextColor(0, 1, 0)
             else
                 left1:SetTextColor(0, 0.67, 1)
