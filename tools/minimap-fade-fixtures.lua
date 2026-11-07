@@ -26,8 +26,12 @@ MinimapCluster.MinimapContainer = NewFrame(MinimapCluster, 1180, 540, 100, 100, 
 Minimap = NewFrame(MinimapCluster.MinimapContainer, 1185, 545, 90, 90, 1.5)
 MinimapCluster.Tracking = { Button = { IsMenuOpen = function(self) return self.open end } }
 
+-- Explorer Mode reports whether it has brought the HUD back.
+local explorerRevealed = false
+local ns = { Private = { ExplorerMode = { IsHUDRevealed = function() return explorerRevealed end } } }
+
 H.load("Core/HoverFade.lua")
-H.load("Modules/MinimapFade.lua")
+H.load("Modules/MinimapFade.lua", ns)
 local feature = assert(H.features.minimapFadeEnabled, "the fade should register as a feature")
 feature:Enable()
 
@@ -72,6 +76,13 @@ MinimapCluster.Tracking.Button.open = nil
 EditModeManagerFrame = { IsEditModeActive = function() return true end }
 assert(Settle() == 1, "Edit Mode should always show the minimap")
 EditModeManagerFrame = nil
+
+-- Explorer Mode brings the HUD back in combat and below full health.
+assert(Settle() == 0, "the minimap should fade again away from it")
+explorerRevealed = true
+assert(Settle() == 1 and Minimap.shown, "the minimap should come back with Explorer Mode's HUD")
+explorerRevealed = false
+assert(Settle() == 0 and not Minimap.shown, "the minimap should fade once Explorer Mode fades the HUD")
 
 -- The player hides the minimap while it's up; the fade must not show it again.
 H.setCursor(1750, 1000)

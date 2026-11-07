@@ -27,6 +27,13 @@ function ExplorerMode.IsFaded()
     return IsEnabled() and S.explorerFaded == true
 end
 
+-- Whether Explorer Mode has brought the HUD back for combat, missing health,
+-- or Edit Mode, until it fades out again. False after login, when the HUD is
+-- up only because it hasn't faded yet. Fade Minimap and Fade Chat follow it.
+function ExplorerMode.IsHUDRevealed()
+    return IsEnabled() and S.hudRevealed == true
+end
+
 local function IsClassicOrTBCClient()
     local client = Carpenter and Carpenter.Client
     return client and (client.isVanilla or client.isTBC or client.isClassic)

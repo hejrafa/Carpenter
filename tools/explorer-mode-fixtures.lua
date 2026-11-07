@@ -22,6 +22,7 @@ end
 local now = 0
 local inCombat = false
 local healthSecret = false
+local playerHealth = 100
 local mouseOver = {}
 local cursorX = 0
 local editModeActive = false
@@ -32,7 +33,7 @@ function GetTime() return now end
 function InCombatLockdown() return inCombat end
 function UnitHealth()
     if healthSecret then error("secret health") end
-    return 100
+    return playerHealth
 end
 function UnitHealthMax()
     if healthSecret then error("secret health") end
@@ -198,12 +199,14 @@ local function Visible(frameObject) return frameObject.alpha > 0.99 end
 feature:Enable()
 Tick(0.5)
 check(Visible(playerFrame), "HUD should stay visible during the fade-out delay")
+check(not ExplorerMode.IsHUDRevealed(), "the HUD left up after login should not count as revealed")
 Tick(5)
 check(Faded(playerFrame) and Faded(targetFrame) and playerTexture.alpha < 0.01, "unit frames should fade out")
 check(Faded(actionButton), "action buttons should fade out")
 check(cooldown.draw.SetDrawSwipe == false, "cooldown swipes should hide while faded on Classic")
 check(Visible(Minimap), "the minimap should never fade")
 check(ExplorerMode.IsFaded(), "IsFaded should report the faded state")
+check(not ExplorerMode.IsHUDRevealed(), "a faded HUD should not count as revealed")
 
 -- 2. Hovering a frame brings it back, and it fades again after leaving.
 mouseOver[playerFrame] = true
@@ -229,10 +232,26 @@ Fire("PLAYER_REGEN_DISABLED")
 check(Visible(playerFrame) and Visible(actionButton), "combat should restore the HUD immediately")
 check(cooldown.draw.SetDrawSwipe == true, "combat should restore cooldown swipes")
 check(not ExplorerMode.IsFaded(), "combat should clear the faded state")
+check(ExplorerMode.IsHUDRevealed(), "combat should report the HUD as revealed")
 inCombat = false
 Fire("PLAYER_REGEN_ENABLED")
-Tick(6)
+Tick(0.5)
+check(ExplorerMode.IsHUDRevealed(), "the HUD should stay revealed until it fades after combat")
+Tick(5.5)
 check(Faded(playerFrame), "leaving combat should fade the HUD again")
+check(not ExplorerMode.IsHUDRevealed(), "fading after combat should end the reveal")
+
+-- 4b. Missing health brings the HUD back until it is full again.
+playerHealth = 60
+Fire("UNIT_HEALTH", "player")
+Tick(1)
+check(Visible(playerFrame), "missing health should bring the HUD back")
+check(ExplorerMode.IsHUDRevealed(), "missing health should report the HUD as revealed")
+playerHealth = 100
+Fire("UNIT_HEALTH", "player")
+Tick(6)
+check(Faded(playerFrame), "full health should fade the HUD again")
+check(not ExplorerMode.IsHUDRevealed(), "full health should end the reveal")
 
 -- 5. Edit Mode while faded restores the HUD.
 editModeActive = true
@@ -258,6 +277,7 @@ check(Faded(playerFrame), "hidden health should fade once health has settled")
 Fire("UNIT_HEALTH", "player")
 Tick(1)
 check(Visible(playerFrame), "a hidden health change should bring the HUD back")
+check(ExplorerMode.IsHUDRevealed(), "a hidden health change should report the HUD as revealed")
 Tick(7)
 check(Faded(playerFrame), "the HUD should fade again after hidden health settles")
 
@@ -268,6 +288,7 @@ check(Visible(playerFrame) and playerTexture.alpha > 0.99, "turning off should r
 check(math.abs(targetFrame.alpha - 0.8) < 0.001, "turning off should restore the original alpha")
 check(Visible(actionButton), "turning off should restore action buttons")
 check(not ExplorerMode.IsFaded(), "turning off should clear the faded state")
+check(not ExplorerMode.IsHUDRevealed(), "turning off should clear the reveal")
 
 if #failures > 0 then
     io.stderr:write(table.concat(failures, "\n") .. "\n")

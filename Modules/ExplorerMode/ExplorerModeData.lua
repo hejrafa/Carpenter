@@ -17,6 +17,8 @@ Internal.State = {
     hoverFadeOutAt = {},
     trackingBarHoverSources = setmetatable({}, { __mode = "k" }),
     explorerFaded = false,
+    -- Set while the HUD is back for combat, missing health, or Edit Mode.
+    hudRevealed = false,
     actionButtonTargetAlpha = nil,
 }
 

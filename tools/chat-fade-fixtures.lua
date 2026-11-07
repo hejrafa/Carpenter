@@ -35,8 +35,12 @@ NewFrame("ChatFrame3Tab", UIParent, 1400, 900, 80, 25)
 ChatFrame3Tab.alpha = 0.4
 CHAT_FRAMES = { "ChatFrame1", "ChatFrame3" }
 
+-- Explorer Mode reports whether it has brought the HUD back.
+local explorerRevealed = false
+local ns = { Private = { ExplorerMode = { IsHUDRevealed = function() return explorerRevealed end } } }
+
 H.load("Core/HoverFade.lua")
-H.load("Modules/ChatFade.lua")
+H.load("Modules/ChatFade.lua", ns)
 local feature = assert(H.features.chatFadeEnabled, "the fade should register as a feature")
 feature:Enable()
 
@@ -88,6 +92,12 @@ EditModeManagerFrame = { IsEditModeActive = function() return true end }
 assert(Settle() == 1, "Edit Mode should always show the chat")
 EditModeManagerFrame = nil
 Settle()
+
+-- Explorer Mode brings the HUD back in combat and below full health.
+explorerRevealed = true
+assert(Settle() == 1 and ChatFrame3.alpha == 1, "the chat should come back with Explorer Mode's HUD")
+explorerRevealed = false
+assert(Settle() == 0, "the chat should fade once Explorer Mode fades the HUD")
 
 -- Docking the separate window moves its tab into the dock: it gets its own
 -- alpha back, and the dock fades it from then on.

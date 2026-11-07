@@ -2,6 +2,7 @@
 -- Fades the minimap and everything around it (zone name, clock, tracking,
 -- addon buttons) and reveals it on hover with a smooth transition.
 
+local _, ns = ...
 local HOVER_PADDING = 14
 local HoverFade = Carpenter.HoverFade
 
@@ -67,10 +68,21 @@ local function IsMenuOpen(button)
     return button and button.IsMenuOpen and button:IsMenuOpen() == true
 end
 
+-- Explorer Mode brings the HUD back in combat and below full health.
+local function IsRevealedByExplorerMode()
+    local explorerMode = ns and ns.Private and ns.Private.ExplorerMode
+    return explorerMode and explorerMode.IsHUDRevealed and explorerMode.IsHUDRevealed() == true
+end
+
 local function ShouldShow()
     -- Edit Mode needs to see the minimap to move it.
     local editMode = _G.EditModeManagerFrame
     if editMode and editMode.IsEditModeActive and editMode:IsEditModeActive() then
+        return true
+    end
+
+    -- The minimap comes back with the HUD when Explorer Mode reveals it.
+    if IsRevealedByExplorerMode() then
         return true
     end
 

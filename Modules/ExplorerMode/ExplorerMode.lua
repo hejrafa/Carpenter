@@ -68,6 +68,7 @@ local function RestoreVisible(duration, forceApply)
     hoverDriver:Hide()
     S.hoverFadeOutAt = {}
     S.explorerFaded = false
+    S.hudRevealed = true
 
     if forceApply or not IsInCombat() then
         ApplyTargetAlpha(VISIBLE_ALPHA, duration or 0)
@@ -93,6 +94,7 @@ local function RestoreManagedFrames()
     S.hoverFadeOutAt = {}
     S.actionButtonTargetAlpha = nil
     S.explorerFaded = false
+    S.hudRevealed = false
 end
 
 local function ScheduleRefresh()
@@ -170,6 +172,7 @@ local function FadeOutForExploration()
     end
 
     S.explorerFaded = true
+    S.hudRevealed = false
     ApplyTargetAlpha(EXPLORING_ALPHA, FADE_OUT_SECONDS)
     hoverDriver:Show()
     ScheduleRefresh()
