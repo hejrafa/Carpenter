@@ -30,7 +30,7 @@ MinimapCluster.Tracking = { Button = { IsMenuOpen = function(self) return self.o
 local explorerRevealed = false
 local ns = { Private = { ExplorerMode = { IsHUDRevealed = function() return explorerRevealed end } } }
 
-H.load("Core/HoverFade.lua")
+H.load("Core/HoverFade.lua", ns)
 H.load("Modules/MinimapFade.lua", ns)
 local feature = assert(H.features.minimapFadeEnabled, "the fade should register as a feature")
 feature:Enable()

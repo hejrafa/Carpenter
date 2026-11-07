@@ -2,7 +2,6 @@
 -- Fades the chat windows and all of their tabs and reveals them on hover or
 -- while typing, with a smooth transition.
 
-local _, ns = ...
 local HOVER_PADDING = 10
 local HoverFade = Carpenter.HoverFade
 
@@ -90,24 +89,7 @@ local function ApplyFade()
     end
 end
 
--- Explorer Mode brings the HUD back in combat and below full health.
-local function IsRevealedByExplorerMode()
-    local explorerMode = ns and ns.Private and ns.Private.ExplorerMode
-    return explorerMode and explorerMode.IsHUDRevealed and explorerMode.IsHUDRevealed() == true
-end
-
 local function ShouldShow()
-    -- Edit Mode needs to see the chat to move it.
-    local editMode = _G.EditModeManagerFrame
-    if editMode and editMode.IsEditModeActive and editMode:IsEditModeActive() then
-        return true
-    end
-
-    -- The chat comes back with the HUD when Explorer Mode reveals it.
-    if IsRevealedByExplorerMode() then
-        return true
-    end
-
     local IsHovered = HoverFade.IsMouseOverPaddedFrame
     local shown = IsHovered(_G.GeneralDockManager, HOVER_PADDING, "visible")
     ForEachChatFrame(function(chatFrame, tab)
@@ -121,10 +103,13 @@ local function ShouldShow()
     return shown and true or false
 end
 
+-- The chat also comes back in Edit Mode, to move it, and with the HUD when
+-- Explorer Mode brings it back.
 local chatFrameCount
 local fader = HoverFade.Create({
     isEnabled = IsEnabled,
     shouldShow = ShouldShow,
+    showWithHUD = true,
     apply = function(alpha)
         currentAlpha = alpha
         ApplyFade()

@@ -1,7 +1,8 @@
 #!/usr/bin/env lua
 -- Verifies the shared hover fader: padded hit tests in the frame's own scale
 -- with optional visibility, a fade that steps over fixed times toward what
--- shouldShow says, and Start/Stop/Apply driving the apply callback.
+-- shouldShow says, Edit Mode and Explorer Mode's HUD bringing back the
+-- faders that ask, and Start/Stop/Apply driving the apply callback.
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then repo = repo:sub(1, -2) end
@@ -12,7 +13,9 @@ H.installCursor()
 H.installUIParent()
 H.carpenter({})
 
-H.load("Core/HoverFade.lua")
+local explorerRevealed = false
+local ns = { Private = { ExplorerMode = { IsHUDRevealed = function() return explorerRevealed end } } }
+H.load("Core/HoverFade.lua", ns)
 local HoverFade = assert(Carpenter.HoverFade, "the hover fader did not register on Carpenter")
 
 -- A 100x100 frame at 200,200, drawn at half scale so it covers 100..150.
@@ -94,6 +97,42 @@ assert(#applied == before, "an idle fader should not apply")
 force = true
 forcedUpdate.handler(forcedUpdate.frame, 0.1)
 assert(applied[#applied] == "forced", "onTick returning true should apply")
+
+-- Edit Mode and Explorer Mode's HUD bring back only the faders that ask.
+assert(not HoverFade.IsHUDRevealed(), "the HUD should not count as revealed by default")
+EditModeManagerFrame = { IsEditModeActive = function() return true end }
+assert(HoverFade.IsHUDRevealed(), "Edit Mode should count as revealing the HUD")
+EditModeManagerFrame = nil
+explorerRevealed = true
+assert(HoverFade.IsHUDRevealed(), "Explorer Mode bringing the HUD back should count")
+explorerRevealed = false
+
+local function FaderAt(showWithHUD)
+    local result = HoverFade.Create({
+        shouldShow = function() return false end,
+        showWithHUD = showWithHUD,
+        apply = function() end,
+    })
+    local script = H.scripts.OnUpdate
+    result:Start(0)
+    return result, function() script.handler(script.frame, 0.1) end
+end
+local follower, TickFollower = FaderAt(true)
+local loner, TickLoner = FaderAt(nil)
+explorerRevealed = true
+TickFollower()
+TickLoner()
+assert(follower.alpha == 0.5, "a fader that shows with the HUD should fade in when Explorer Mode reveals it")
+assert(loner.alpha == 0, "a fader that doesn't ask should stay faded when Explorer Mode reveals the HUD")
+EditModeManagerFrame = { IsEditModeActive = function() return true end }
+explorerRevealed = false
+TickLoner()
+assert(loner.alpha == 0, "a fader that doesn't ask should stay faded in Edit Mode")
+TickFollower()
+assert(follower.alpha == 1, "a fader that shows with the HUD should stay up in Edit Mode")
+EditModeManagerFrame = nil
+TickFollower()
+assert(follower.alpha < 1, "a fader that shows with the HUD should fade out once Edit Mode closes")
 
 -- A disabled feature stops the loop; Stop with an alpha restores the frames.
 enabled = false

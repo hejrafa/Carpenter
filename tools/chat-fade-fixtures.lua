@@ -39,7 +39,7 @@ CHAT_FRAMES = { "ChatFrame1", "ChatFrame3" }
 local explorerRevealed = false
 local ns = { Private = { ExplorerMode = { IsHUDRevealed = function() return explorerRevealed end } } }
 
-H.load("Core/HoverFade.lua")
+H.load("Core/HoverFade.lua", ns)
 H.load("Modules/ChatFade.lua", ns)
 local feature = assert(H.features.chatFadeEnabled, "the fade should register as a feature")
 feature:Enable()

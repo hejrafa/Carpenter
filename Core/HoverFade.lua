@@ -5,6 +5,7 @@
 -- edges. Fade Chat, Fade Minimap, Fade Micro Menu & Bags and Hide Chat
 -- Buttons all run on it.
 
+local _, ns = ...
 Carpenter = Carpenter or {}
 
 local HoverFade = {}
@@ -48,9 +49,23 @@ function HoverFade.IsMouseOverFrame(frame)
     return false
 end
 
+-- Whether the HUD is up whatever the mouse does: Edit Mode is open, so the
+-- frames can be seen to move them, or Explorer Mode has brought the HUD back
+-- for combat or missing health.
+function HoverFade.IsHUDRevealed()
+    local editMode = _G.EditModeManagerFrame
+    if editMode and editMode.IsEditModeActive and editMode:IsEditModeActive() then
+        return true
+    end
+
+    local explorerMode = ns and ns.Private and ns.Private.ExplorerMode
+    return explorerMode and explorerMode.IsHUDRevealed and explorerMode.IsHUDRevealed() == true or false
+end
+
 -- A fader steps its alpha toward 1 while options.shouldShow() holds and
 -- toward 0 otherwise, calling options.apply(alpha) whenever it changes.
 --   isEnabled()           optional; a false answer stops the loop
+--   showWithHUD           also show while HoverFade.IsHUDRevealed() holds
 --   onTick(alpha, changed) optional; runs every pass, return true to apply anyway
 --   fadeIn, fadeOut       seconds for a full fade; interval between passes
 function HoverFade.Create(options)
@@ -58,6 +73,7 @@ function HoverFade.Create(options)
     local fadeOut = options.fadeOut or HoverFade.FADE_OUT_SECONDS
     local interval = options.interval or HoverFade.UPDATE_INTERVAL
     local shouldShow, apply, isEnabled, onTick = options.shouldShow, options.apply, options.isEnabled, options.onTick
+    local showWithHUD = options.showWithHUD == true
 
     local fader = { alpha = 1 }
     local frame = CreateFrame("Frame")
@@ -73,7 +89,8 @@ function HoverFade.Create(options)
         local step = self.elapsed
         self.elapsed = 0
 
-        local target = shouldShow() and 1 or 0
+        local show = (showWithHUD and HoverFade.IsHUDRevealed()) or shouldShow()
+        local target = show and 1 or 0
         local changed = false
         if fader.alpha < target then
             fader.alpha = math.min(target, fader.alpha + step / fadeIn)
