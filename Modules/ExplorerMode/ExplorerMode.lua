@@ -67,8 +67,7 @@ local function RestoreVisible(duration, forceApply)
     fadeDriver:Hide()
     hoverDriver:Hide()
     S.hoverFadeOutAt = {}
-    S.explorerFaded = false
-    S.hudRevealed = true
+    S.hudState = "revealed"
 
     if forceApply or not IsInCombat() then
         ApplyTargetAlpha(VISIBLE_ALPHA, duration or 0)
@@ -93,13 +92,12 @@ local function RestoreManagedFrames()
     S.trackingBarHoverSources = setmetatable({}, { __mode = "k" })
     S.hoverFadeOutAt = {}
     S.actionButtonTargetAlpha = nil
-    S.explorerFaded = false
-    S.hudRevealed = false
+    S.hudState = "idle"
 end
 
 local function ScheduleRefresh()
     local callback = function()
-        if IsEnabled() and S.explorerFaded and not IsInCombat() and not IsPlayerKnownHurt() and not IsGameEditModeActive() then
+        if IsEnabled() and S.hudState == "faded" and not IsInCombat() and not IsPlayerKnownHurt() and not IsGameEditModeActive() then
             RefreshExplorerTargets()
         end
     end
@@ -108,7 +106,7 @@ local function ScheduleRefresh()
 end
 
 local function ShouldRefreshActionButtons()
-    if not (IsEnabled() and S.explorerFaded and not IsInCombat() and not IsPlayerKnownHurt() and not IsGameEditModeActive()) then
+    if not (IsEnabled() and S.hudState == "faded" and not IsInCombat() and not IsPlayerKnownHurt() and not IsGameEditModeActive()) then
         return false
     end
 
@@ -116,7 +114,7 @@ local function ShouldRefreshActionButtons()
 end
 
 local function ShouldQueueActionButtonRefresh()
-    return IsEnabled() and S.explorerFaded and not IsInCombat() and not IsGameEditModeActive()
+    return IsEnabled() and S.hudState == "faded" and not IsInCombat() and not IsGameEditModeActive()
 end
 
 local function RunActionButtonRefresh()
@@ -171,8 +169,7 @@ local function FadeOutForExploration()
         return
     end
 
-    S.explorerFaded = true
-    S.hudRevealed = false
+    S.hudState = "faded"
     ApplyTargetAlpha(EXPLORING_ALPHA, FADE_OUT_SECONDS)
     hoverDriver:Show()
     ScheduleRefresh()
@@ -206,7 +203,7 @@ local function ApplyExplorerMode(forceVisible)
         RestoreVisible(0, true)
     elseif IsPlayerKnownHurt() then
         RestoreVisible(HOVER_FADE_IN_SECONDS)
-    elseif S.explorerFaded then
+    elseif S.hudState == "faded" then
         RefreshExplorerTargets()
         hoverDriver:Show()
         ScheduleRefresh()

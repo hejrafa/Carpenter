@@ -16,9 +16,10 @@ Internal.State = {
     activeFades = {},
     hoverFadeOutAt = {},
     trackingBarHoverSources = setmetatable({}, { __mode = "k" }),
-    explorerFaded = false,
-    -- Set while the HUD is back for combat, missing health, or Edit Mode.
-    hudRevealed = false,
+    -- Where the HUD stands: "idle" after login or turning on, before it
+    -- first fades; "faded" while exploring; "revealed" while it is back for
+    -- combat, missing health, or Edit Mode.
+    hudState = "idle",
     actionButtonTargetAlpha = nil,
 }
 

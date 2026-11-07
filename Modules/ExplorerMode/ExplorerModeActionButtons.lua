@@ -328,7 +328,7 @@ local function ApplyActionButtonOverlayAlpha(button, targetAlphaOverride)
         return
     end
 
-    if targetAlpha == EXPLORING_ALPHA and (IsInCombat() or not S.explorerFaded or IsPlayerKnownHurt()) then
+    if targetAlpha == EXPLORING_ALPHA and (IsInCombat() or S.hudState ~= "faded" or IsPlayerKnownHurt()) then
         return
     end
 
@@ -345,7 +345,7 @@ local function ClampUpdatedActionButtonAlpha(button)
     if S.actionButtonTargetAlpha == nil then
         return
     end
-    if not (IsEnabled() and S.explorerFaded and not IsInCombat() and not IsPlayerKnownHurt() and not IsGameEditModeActive()) then
+    if not (IsEnabled() and S.hudState == "faded" and not IsInCombat() and not IsPlayerKnownHurt() and not IsGameEditModeActive()) then
         return
     end
 

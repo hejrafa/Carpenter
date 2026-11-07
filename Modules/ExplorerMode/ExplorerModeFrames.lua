@@ -24,14 +24,14 @@ local function IsEnabled()
 end
 
 function ExplorerMode.IsFaded()
-    return IsEnabled() and S.explorerFaded == true
+    return IsEnabled() and S.hudState == "faded"
 end
 
 -- Whether Explorer Mode has brought the HUD back for combat, missing health,
 -- or Edit Mode, until it fades out again. False after login, when the HUD is
 -- up only because it hasn't faded yet. Fade Minimap and Fade Chat follow it.
 function ExplorerMode.IsHUDRevealed()
-    return IsEnabled() and S.hudRevealed == true
+    return IsEnabled() and S.hudState == "revealed"
 end
 
 local function IsClassicOrTBCClient()
@@ -404,7 +404,7 @@ local function GetManagedTargetForFrame(frameObject)
 end
 
 function ExplorerMode.GetStatusTrackingTargetAlpha(frameObject)
-    if not (IsEnabled() and S.explorerFaded) then return nil end
+    if not (IsEnabled() and S.hudState == "faded") then return nil end
 
     local targetAlpha, managedRoot = GetManagedTargetForFrame(frameObject)
     if managedRoot ~= frameObject or not S.trackingBarHoverSources[managedRoot] then
