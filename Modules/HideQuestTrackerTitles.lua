@@ -12,7 +12,6 @@ local managedModuleHeights = setmetatable({}, { __mode = "k" })
 local managedModuleAnchors = setmetatable({}, { __mode = "k" })
 local hookedTrackers = setmetatable({}, { __mode = "k" })
 local containerUpdateHookInstalled = false
-local pendingCombatApply = false
 
 local eventFrame = CreateFrame("Frame")
 eventFrame:Hide()
@@ -275,13 +274,9 @@ end
 
 local function ApplyQuestTrackerTitleVisibility()
     if InCombatLockdown and InCombatLockdown() then
-        pendingCombatApply = true
-        eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+        Carpenter:AfterCombat(FEATURE_KEY, ApplyQuestTrackerTitleVisibility)
         return
     end
-
-    pendingCombatApply = false
-    eventFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
 
     if not IsEnabled() then
         RestoreHeaders()
@@ -346,7 +341,6 @@ eventFrame:SetScript("OnEvent", function(_, event, loadedAddonName)
     then
         return
     end
-    if event == "PLAYER_REGEN_ENABLED" and not pendingCombatApply then return end
 
     EnsureTrackerUpdateHook()
     ApplyQuestTrackerTitleVisibility()

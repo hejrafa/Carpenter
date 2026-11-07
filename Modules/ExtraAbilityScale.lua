@@ -4,7 +4,7 @@
 local SCALE_MULTIPLIER = 0.8
 
 local originalScales = setmetatable({}, { __mode = "k" })
-local pendingCombatApply = false
+local ApplyWithFollowUps
 
 local function IsRetail()
     return Carpenter and Carpenter.Client and Carpenter.Client.isMainline
@@ -17,7 +17,7 @@ end
 local function CanChangeFrame(frame)
     if not frame then return false end
     if InCombatLockdown and InCombatLockdown() and frame.IsProtected and frame:IsProtected() then
-        pendingCombatApply = true
+        Carpenter:AfterCombat("ExtraAbilityScale", ApplyWithFollowUps)
         return false
     end
     return true
@@ -68,20 +68,17 @@ function Carpenter_ApplyExtraAbilityScale()
     end
 end
 
-local eventFrame = CreateFrame("Frame")
-eventFrame:SetScript("OnEvent", function(_, event)
-    if event == "PLAYER_REGEN_ENABLED" and not pendingCombatApply then return end
-    pendingCombatApply = false
-
+-- Runs on the events below, and once combat ends if combat blocked a change.
+function ApplyWithFollowUps()
     Carpenter_ApplyExtraAbilityScale()
-    if not IsEnabled() then
-        -- Disabled while in combat: the restore has now run.
-        eventFrame:UnregisterAllEvents()
-        return
+    if IsEnabled() then
+        ScheduleApply(0.2)
+        ScheduleApply(1)
     end
-    ScheduleApply(0.2)
-    ScheduleApply(1)
-end)
+end
+
+local eventFrame = CreateFrame("Frame")
+eventFrame:SetScript("OnEvent", ApplyWithFollowUps)
 
 local feature = {}
 
@@ -92,20 +89,15 @@ function feature:Enable()
     eventFrame:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR")
     eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     eventFrame:RegisterEvent("UI_SCALE_CHANGED")
-    eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     Carpenter_ApplyExtraAbilityScale()
     ScheduleApply(0.2)
     ScheduleApply(1)
 end
 
+-- Protected frames can't be rescaled in combat; they are restored afterwards.
 function feature:Disable()
     eventFrame:UnregisterAllEvents()
-    pendingCombatApply = false
     Carpenter_ApplyExtraAbilityScale()
-    if pendingCombatApply then
-        -- Protected frames cannot be rescaled in combat; restore them afterwards.
-        eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-    end
 end
 
 if Carpenter and Carpenter.RegisterFeature then

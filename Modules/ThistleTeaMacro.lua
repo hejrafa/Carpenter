@@ -124,10 +124,12 @@ local function BuildMacroBody()
     return body, teaName ~= nil
 end
 
+local UpdateAfterCombat
+
 local function UpdateMacro()
     if not IsEnabled() or not IsSupportedClient() or not IsRogue() then return end
     if InCombatLockdown() then
-        frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+        Carpenter:AfterCombat("ThistleTeaMacro", UpdateAfterCombat)
         return
     end
 
@@ -153,12 +155,14 @@ local function ScheduleMacroUpdate(delay)
     Carpenter:Defer("ThistleTeaMacro:update", delay or 0.5, UpdateMacro)
 end
 
+-- Macros can't be edited in combat; this catches up once it ends.
+function UpdateAfterCombat()
+    ScheduleMacroUpdate(0.25)
+end
+
 frame:SetScript("OnEvent", function(self, event, arg1)
     if event == "TRADE_SKILL_SHOW" or event == "TRADE_SKILL_UPDATE" then
         TryBrew()
-    elseif event == "PLAYER_REGEN_ENABLED" then
-        self:UnregisterEvent(event)
-        ScheduleMacroUpdate(0.25)
     elseif event == "PLAYER_ENTERING_WORLD" then
         ScheduleMacroUpdate(1.5)
     elseif event == "GET_ITEM_INFO_RECEIVED" then
@@ -181,6 +185,7 @@ end
 
 function feature:Disable()
     frame:UnregisterAllEvents()
+    Carpenter:CancelAfterCombat("ThistleTeaMacro")
     pendingUntil = nil
 end
 

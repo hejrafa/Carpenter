@@ -235,6 +235,44 @@ function Carpenter:DeferMany(key, delays, callback)
     end
 end
 
+-- Combat lockdown blocks some changes until combat ends. A module that hits
+-- it queues the change here under its own key, and it runs once combat ends.
+-- Queuing a key that is already waiting replaces its callback, so a burst of
+-- updates during a fight runs once.
+Carpenter.AfterCombatQueue = Carpenter.AfterCombatQueue or {}
+local afterCombatFrame
+
+function Carpenter:RunAfterCombatQueue()
+    if afterCombatFrame then
+        afterCombatFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
+    end
+    local queue = self.AfterCombatQueue
+    self.AfterCombatQueue = {}
+
+    -- Each callback runs on its own, so one error doesn't stop the rest.
+    local onError = geterrorhandler and geterrorhandler() or print
+    for _, callback in pairs(queue) do
+        xpcall(callback, onError)
+    end
+end
+
+function Carpenter:AfterCombat(key, callback)
+    if not key or type(callback) ~= "function" then return end
+    self.AfterCombatQueue[key] = callback
+
+    if not afterCombatFrame then
+        afterCombatFrame = CreateFrame("Frame")
+        afterCombatFrame:SetScript("OnEvent", function()
+            Carpenter:RunAfterCombatQueue()
+        end)
+    end
+    afterCombatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+end
+
+function Carpenter:CancelAfterCombat(key)
+    if key then self.AfterCombatQueue[key] = nil end
+end
+
 function Carpenter:RunStartupPasses(key, delays, callback)
     if type(callback) ~= "function" then return end
     if key and type(delays) == "table" and self.DeferMany then

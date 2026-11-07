@@ -62,6 +62,22 @@ return function(Carpenter)
         end
     end
 
+    -- Fixtures call RunAfterCombatQueue where the game would fire
+    -- PLAYER_REGEN_ENABLED. Errors propagate, so a failing callback fails.
+    Carpenter.AfterCombatQueue = Carpenter.AfterCombatQueue or {}
+    Carpenter.AfterCombat = Carpenter.AfterCombat or function(self, key, callback)
+        if not key or type(callback) ~= "function" then return end
+        self.AfterCombatQueue[key] = callback
+    end
+    Carpenter.CancelAfterCombat = Carpenter.CancelAfterCombat or function(self, key)
+        if key then self.AfterCombatQueue[key] = nil end
+    end
+    Carpenter.RunAfterCombatQueue = Carpenter.RunAfterCombatQueue or function(self)
+        local queue = self.AfterCombatQueue
+        self.AfterCombatQueue = {}
+        for _, callback in pairs(queue) do callback() end
+    end
+
     Carpenter.RunStartupPasses = Carpenter.RunStartupPasses or function(self, key, delays, callback)
         if type(callback) ~= "function" then return end
         if key and type(delays) == "table" then

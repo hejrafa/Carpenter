@@ -72,6 +72,10 @@ local function Fire(event)
             frame.handler(frame, event)
         end
     end
+    -- Core runs the changes combat held back on this event.
+    if event == "PLAYER_REGEN_ENABLED" then
+        Carpenter:RunAfterCombatQueue()
+    end
     RunTimers()
 end
 
@@ -83,6 +87,7 @@ Carpenter = {
     RegisterFeature = function(self, key, feature) self.Features[key] = feature end,
     After = function(_, _, callback) pendingTimers[#pendingTimers + 1] = callback end,
 }
+Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 
 local function Toggle(key, enabled)
     CarpenterDB[key] = enabled

@@ -206,10 +206,10 @@ eventFrame.OnEvent(eventFrame, "QUEST_LOG_UPDATE")
 assert(allObjectivesHeader.alpha == 1, "All Objectives header must not change during combat")
 assert(questsHeader.alpha == 1, "Quests header must not change during combat")
 assert(campaignHeader.alpha == 1, "Campaign header must not change during combat")
-assert(eventFrame.events.PLAYER_REGEN_ENABLED, "combat changes should be deferred")
+assert(Carpenter.AfterCombatQueue.hideQuestTrackerTitlesEnabled, "combat changes should wait for combat to end")
 
 inCombat = false
-eventFrame.OnEvent(eventFrame, "PLAYER_REGEN_ENABLED")
+Carpenter:RunAfterCombatQueue()
 assert(allObjectivesHeader.alpha == 0, "All Objectives header should hide after combat")
 assert(questsHeader.alpha == 0, "Quests header should hide after combat")
 assert(campaignHeader.alpha == 0, "Campaign header should hide after combat")

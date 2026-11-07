@@ -8,7 +8,8 @@ local fail, assertEqual = H.fail, H.assertEqual
 
 H.installCreateFrame()
 H.installHooks()
-InCombatLockdown = function() return false end
+local inCombat = false
+InCombatLockdown = function() return inCombat end
 
 CarpenterDB = { hideBuffCollapseArrowEnabled = true }
 H.carpenter({
@@ -47,6 +48,16 @@ assertEqual(arrow.shown, true, "the arrow should stay while the buffs are collap
 arrow.checked = true
 BlizzardRefresh(true)
 assertEqual(arrow.shown, false, "the arrow should hide once the buffs are expanded")
+
+-- A protected arrow can't change in combat; it hides once combat ends.
+function arrow:IsProtected() return true end
+inCombat = true
+BlizzardRefresh(true)
+assertEqual(arrow.shown, true, "a protected arrow should wait out combat")
+inCombat = false
+Carpenter:RunAfterCombatQueue()
+assertEqual(arrow.shown, false, "the arrow should hide once combat ends")
+arrow.IsProtected = nil
 
 -- Turning the option off brings the arrow back when Blizzard wants it shown.
 CarpenterDB.hideBuffCollapseArrowEnabled = false

@@ -211,7 +211,7 @@ local refreshFrame = CreateFrame and CreateFrame("Frame")
 
 function RPMacros.RefreshBuiltMacros()
     if InCombatLockdown and InCombatLockdown() then
-        if refreshFrame then refreshFrame:RegisterEvent("PLAYER_REGEN_ENABLED") end
+        Carpenter:AfterCombat("RPMacros", RPMacros.RefreshBuiltMacros)
         return
     end
     if type(GetMacroIndexByName) ~= "function" or type(GetMacroInfo) ~= "function" then return end
@@ -231,12 +231,7 @@ if refreshFrame then
     refreshFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     refreshFrame:RegisterEvent("BAG_UPDATE_DELAYED")
     refreshFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
-    refreshFrame:SetScript("OnEvent", function(self, event)
-        if event == "PLAYER_REGEN_ENABLED" then
-            self:UnregisterEvent(event)
-        end
-        RPMacros.RefreshBuiltMacros()
-    end)
+    refreshFrame:SetScript("OnEvent", RPMacros.RefreshBuiltMacros)
 end
 
 -- /cpemote <emote> [seconds] [none]: performs a built-in emote a moment

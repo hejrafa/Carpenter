@@ -166,8 +166,8 @@ inCombat = true
 rp.RefreshBuiltMacros()
 assert(macros[fishIndex].body:find("Strong Fishing Pole", 1, true), "built macros must not be rewritten in combat")
 inCombat = false
-rp.RefreshBuiltMacros()
-assert(macros[fishIndex].body:find("Nat Pagle", 1, true), "fishing macro should switch to a better pole")
+Carpenter:RunAfterCombatQueue()
+assert(macros[fishIndex].body:find("Nat Pagle", 1, true), "fishing macro should switch to a better pole once combat ends")
 rp.Remove(fish)
 bags[0] = {}
 rp.RefreshBuiltMacros()

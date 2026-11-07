@@ -102,6 +102,10 @@ local function Fire(event)
     if eventFrame.events[event] then
         eventFrame.handler(eventFrame, event)
     end
+    -- Core runs the changes combat held back on this event.
+    if event == "PLAYER_REGEN_ENABLED" then
+        Carpenter:RunAfterCombatQueue()
+    end
     Flush()
 end
 

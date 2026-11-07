@@ -12,7 +12,6 @@ local arrow
 local blizzardShown = false
 local hiddenByCarpenter = false
 local settingShown = false
-local pendingCombatApply = false
 
 local eventFrame = CreateFrame("Frame")
 
@@ -44,8 +43,7 @@ end
 local function Apply()
     if not arrow then return end
     if not CanChangeArrow() then
-        pendingCombatApply = true
-        eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+        Carpenter:AfterCombat(FEATURE_KEY, Apply)
         return
     end
 
@@ -87,18 +85,10 @@ local function InstallHooks()
     return true
 end
 
-eventFrame:SetScript("OnEvent", function(self, event, addonName)
-    if event == "PLAYER_REGEN_ENABLED" then
-        self:UnregisterEvent("PLAYER_REGEN_ENABLED")
-        if pendingCombatApply then
-            pendingCombatApply = false
-            Apply()
-        end
-    elseif event == "ADDON_LOADED" then
-        if addonName == "Blizzard_BuffFrame" and IsEnabled() and InstallHooks() then
-            self:UnregisterEvent("ADDON_LOADED")
-            Apply()
-        end
+eventFrame:SetScript("OnEvent", function(self, _, addonName)
+    if addonName == "Blizzard_BuffFrame" and IsEnabled() and InstallHooks() then
+        self:UnregisterEvent("ADDON_LOADED")
+        Apply()
     end
 end)
 

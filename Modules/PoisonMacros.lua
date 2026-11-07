@@ -218,11 +218,12 @@ local function DeleteMacroByName(name)
 end
 
 local lastBagFingerprint
+local UpdateAfterCombat
 
 local function ProcessUpdate(forceRescan)
     if not IsEnabled() or not IsSupportedClient() or not IsRogue() then return end
     if InCombatLockdown() then
-        frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+        Carpenter:AfterCombat("PoisonMacros", UpdateAfterCombat)
         return
     end
 
@@ -274,11 +275,13 @@ local function MarkDirty(delay, forceRescan)
     Carpenter:Defer("PoisonMacros:update", delay or 0.75, RunScheduledUpdate)
 end
 
+-- Macros can't be edited in combat; this catches up once it ends.
+function UpdateAfterCombat()
+    MarkDirty(0.25, true)
+end
+
 frame:SetScript("OnEvent", function(self, event)
-    if event == "PLAYER_REGEN_ENABLED" then
-        self:UnregisterEvent(event)
-        MarkDirty(0.25, true)
-    elseif event == "PLAYER_ENTERING_WORLD" then
+    if event == "PLAYER_ENTERING_WORLD" then
         MarkDirty(1.5, true)
     elseif event == "BAG_UPDATE" or event == "BAG_UPDATE_DELAYED" then
         MarkDirty(0.75, true)
@@ -311,6 +314,7 @@ end
 
 function feature:Disable()
     frame:UnregisterAllEvents()
+    Carpenter:CancelAfterCombat("PoisonMacros")
     isDirty = false
     forceNextUpdate = false
     updateScheduled = false

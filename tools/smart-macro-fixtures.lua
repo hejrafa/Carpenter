@@ -22,6 +22,7 @@ Carpenter = {
         return callback(...)
     end,
 }
+Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 
 local bagSlots = {
     [0] = {

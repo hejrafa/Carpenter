@@ -14,7 +14,7 @@ local QuestTrackerSort = {}
 ns.Private.QuestTrackerSort = QuestTrackerSort
 
 local frame = CreateFrame("Frame")
-local pendingCombatSort = false
+local ScheduleSort
 -- The watch order we last tried to fix. If the same order comes back, the
 -- client did not keep our order, so stop instead of re-adding in a loop.
 local lastAttemptedOrder
@@ -91,7 +91,7 @@ local function SortWatchList()
         return
     end
     if InCombatLockdown and InCombatLockdown() then
-        pendingCombatSort = true
+        Carpenter:AfterCombat(FEATURE_KEY, ScheduleSort)
         return
     end
 
@@ -134,17 +134,11 @@ local function SortWatchList()
     end
 end
 
-local function ScheduleSort()
+function ScheduleSort()
     Carpenter:Defer("QuestTrackerSort:update", UPDATE_DELAY, SortWatchList)
 end
 
-frame:SetScript("OnEvent", function(_, event)
-    if event == "PLAYER_REGEN_ENABLED" then
-        if not pendingCombatSort then return end
-        pendingCombatSort = false
-    end
-    ScheduleSort()
-end)
+frame:SetScript("OnEvent", ScheduleSort)
 
 -- Blizzard re-sorts the watch list itself on zone and subzone changes.
 local hookedBlizzardSort = false
@@ -164,7 +158,6 @@ function feature:Enable()
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
     frame:RegisterEvent("QUEST_WATCH_LIST_CHANGED")
     frame:RegisterEvent("QUEST_ACCEPTED")
-    frame:RegisterEvent("PLAYER_REGEN_ENABLED")
     HookBlizzardSort()
     lastAttemptedOrder = nil
     ScheduleSort()
@@ -172,7 +165,7 @@ end
 
 function feature:Disable()
     frame:UnregisterAllEvents()
-    pendingCombatSort = false
+    Carpenter:CancelAfterCombat(FEATURE_KEY)
     lastAttemptedOrder = nil
 end
 

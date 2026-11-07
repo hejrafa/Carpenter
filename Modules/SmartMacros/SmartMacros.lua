@@ -56,10 +56,12 @@ local function RememberItem(key, item)
     end
 end
 
+local UpdateAfterCombat
+
 local function ProcessUpdate(forceRescan)
     if not IsEnabled() then return end
     if InCombatLockdown() then
-        addonFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+        Carpenter:AfterCombat("SmartMacros", UpdateAfterCombat)
         return
     end
 
@@ -123,7 +125,7 @@ local function RunScheduledUpdate()
         return
     end
     if InCombatLockdown() then
-        addonFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+        Carpenter:AfterCombat("SmartMacros", UpdateAfterCombat)
         return
     end
 
@@ -154,11 +156,13 @@ local function MarkDirty(delay, forceRescan)
     Carpenter:Defer("SmartMacros:update", delay or 0.75, RunScheduledUpdate)
 end
 
+-- Macros can't be edited in combat; this catches up once it ends.
+function UpdateAfterCombat()
+    MarkDirty(0.25)
+end
+
 addonFrame:SetScript("OnEvent", function(self, event, unit)
-    if event == "PLAYER_REGEN_ENABLED" then
-        self:UnregisterEvent(event)
-        MarkDirty(0.25)
-    elseif event == "PLAYER_ENTERING_WORLD" then
+    if event == "PLAYER_ENTERING_WORLD" then
         MarkDirty(1.5, true)
     elseif event == "BAG_UPDATE" then
         MarkDirty(0.75, true)
@@ -191,6 +195,7 @@ end
 
 function feature:Disable()
     addonFrame:UnregisterAllEvents()
+    Carpenter:CancelAfterCombat("SmartMacros")
     isDirty = false
     updateScheduled = false
     forceNextUpdate = false
