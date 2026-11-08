@@ -64,6 +64,7 @@ local defaults = {
     autoTrackQuestsEnabled = false,
     autoSellGreys = false,
     autoRepair = false,
+    autoRepairGuildFundsEnabled = false,
     -- Text
     enchantWarningEnabled = false,
     hideErrorMessagesEnabled = false,

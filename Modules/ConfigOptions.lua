@@ -18,6 +18,7 @@ function Options.Create(context)
     local ShowMacroPreviews = SideLogic.MacroPreviews or context.ShowMacroPreviews
     local ShowPoisonMacroPreviews = SideLogic.PoisonMacroPreviews or context.ShowPoisonMacroPreviews
     local ShowSellJunkOptions = SideLogic.SellJunkOptions or context.ShowSellJunkOptions
+    local ShowAutoRepairOptions = SideLogic.AutoRepairOptions or context.ShowAutoRepairOptions
     local ShowWorldMapOptions = SideLogic.WorldMapOptions or context.ShowWorldMapOptions
 
     local function Description(key)
@@ -306,6 +307,8 @@ function Options.Create(context)
                     key = "autoRepair",
                     label = L.OPTION_AUTO_REPAIR or "Auto Repair",
                     description = Description("DESC_AUTO_REPAIR"),
+                    -- Classic Era has no guild bank to pay from.
+                    sideLogic = not (Carpenter and Carpenter.Client and Carpenter.Client.isVanilla) and ShowAutoRepairOptions or nil,
                     image = GetSettingsImage("repair.png"),
                 },
             },

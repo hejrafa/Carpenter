@@ -145,6 +145,9 @@ function Sidebar.Create(context)
         if _G["CP_ChatCleaner_EditBoxTexture"] then
             _G["CP_ChatCleaner_EditBoxTexture"]:Hide()
         end
+        if _G["CP_AutoRepair_GuildFunds"] then
+            _G["CP_AutoRepair_GuildFunds"]:Hide()
+        end
         if _G["CP_HiddenPageStatus"] then
             _G["CP_HiddenPageStatus"]:Hide()
         end
@@ -292,6 +295,28 @@ function Sidebar.Create(context)
         ShowSideContent()
     end
 
+    local function ShowAutoRepairOptions()
+        ShowSideContent()
+
+        if not _G["CP_AutoRepair_GuildFunds"] then
+            local cb = CreateFrame("CheckButton", "CP_AutoRepair_GuildFunds", sideContent, "InterfaceOptionsCheckButtonTemplate")
+            cb:SetPoint("TOPLEFT", 0, 0)
+            SetCheckboxLabel(cb, L.OPTION_AUTO_REPAIR_GUILD_FUNDS or "Use Guild Funds If Available")
+            cb:SetScript("OnClick", function(self)
+                if CarpenterDB then
+                    CarpenterDB.autoRepairGuildFundsEnabled = self:GetChecked()
+                    UpdateReloadButton()
+                end
+            end)
+        end
+
+        local checkbox = _G["CP_AutoRepair_GuildFunds"]
+        if checkbox then
+            checkbox:Show()
+            checkbox:SetChecked(CarpenterDB and CarpenterDB.autoRepairGuildFundsEnabled)
+        end
+    end
+
     local function ShowWorldMapOptions()
         ShowSideContent()
 
@@ -389,12 +414,14 @@ function Sidebar.Create(context)
             MacroPreviews = ShowMacroPreviews,
             PoisonMacroPreviews = ShowPoisonMacroPreviews,
             SellJunkOptions = ShowSellJunkOptions,
+            AutoRepairOptions = ShowAutoRepairOptions,
             WorldMapOptions = ShowWorldMapOptions,
         },
         ShowCarrotSlots = ShowCarrotSlots,
         ShowMacroPreviews = ShowMacroPreviews,
         ShowPoisonMacroPreviews = ShowPoisonMacroPreviews,
         ShowSellJunkOptions = ShowSellJunkOptions,
+        ShowAutoRepairOptions = ShowAutoRepairOptions,
         ShowWorldMapOptions = ShowWorldMapOptions,
         ShowFilterOptions = ShowFilterOptions,
         ShowChatCleanerOptions = ShowChatCleanerOptions,
