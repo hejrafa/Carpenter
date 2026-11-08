@@ -442,9 +442,13 @@ function System.Create(config)
 
     -- WoW Forever hides skill-up text from addons during chat messaging
     -- lockdown (combat in instances). Skill ranks stay readable, so remember
-    -- them and rebuild the usual line from whichever rank went up.
+    -- them and rebuild the usual line from whichever rank went up. The game
+    -- can report the new rank just before it hands over the line, so a rise
+    -- waits here until a line claims it. One that nothing claims soon is
+    -- dropped, so it can't land on a later line.
+    local SKILL_RISE_WINDOW_SECONDS = 3
     local skillRanks = {}
-    local pendingSkillUps = {}
+    local skillRises = {}
     local hiddenSkillLines = {}
     local hiddenSkillLineCount = 0
 
@@ -468,9 +472,30 @@ function System.Create(config)
     end
 
     function api.RefreshSkillRanks()
-        pcall(ForEachSkillLine, function(key, _, rank)
+        local now = GetTime and GetTime() or 0
+        while skillRises[1] and now - skillRises[1].time > SKILL_RISE_WINDOW_SECONDS do
+            table.remove(skillRises, 1)
+        end
+
+        pcall(ForEachSkillLine, function(key, name, rank)
+            local previous = skillRanks[key]
+            if previous and rank > previous then
+                skillRises[#skillRises + 1] = { name = name, rank = rank, time = now }
+            end
             skillRanks[key] = rank
         end)
+    end
+
+    -- A readable skill-up line speaks for itself, so its rise isn't left
+    -- waiting for a hidden line.
+    function api.ClaimVisibleSkillRise(message)
+        api.RefreshSkillRanks()
+        for index, rise in ipairs(skillRises) do
+            if message:find(rise.name, 1, true) then
+                table.remove(skillRises, index)
+                return
+            end
+        end
     end
 
     -- Every chat frame filters the same message, so results are kept per
@@ -480,18 +505,11 @@ function System.Create(config)
             return hiddenSkillLines[lineID] or nil
         end
 
-        if #pendingSkillUps == 0 then
-            pcall(ForEachSkillLine, function(key, name, rank)
-                local previous = skillRanks[key]
-                if previous and rank > previous then
-                    pendingSkillUps[#pendingSkillUps + 1] = spaceBeforeX(prefixPlus .. colorWhite .. rank .. " " ..
-                        T("CHAT_SKILL_LABEL", "Skill:") .. " |r" .. colorPurple .. name .. "|r")
-                end
-                skillRanks[key] = rank
-            end)
-        end
+        api.RefreshSkillRanks()
 
-        local text = table.remove(pendingSkillUps, 1)
+        local rise = table.remove(skillRises, 1)
+        local text = rise and spaceBeforeX(prefixPlus .. colorWhite .. rise.rank .. " " ..
+            T("CHAT_SKILL_LABEL", "Skill:") .. " |r" .. colorPurple .. rise.name .. "|r")
         if lineID ~= nil then
             if hiddenSkillLineCount >= 50 then
                 hiddenSkillLines, hiddenSkillLineCount = {}, 0

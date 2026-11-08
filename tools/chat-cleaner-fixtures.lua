@@ -119,9 +119,11 @@ function GetItemInfo(item)
     end
     return nil, nil, nil
 end
+local createdFrames = {}
 function CreateFrame()
-    local frame = { _scripts = {} }
-    function frame:RegisterEvent() end
+    local frame = { _scripts = {}, _events = {} }
+    createdFrames[#createdFrames + 1] = frame
+    function frame:RegisterEvent(event) self._events[event] = true end
     function frame:RegisterUnitEvent() end
     function frame:UnregisterAllEvents() end
     function frame:SetScript(script, handler) self._scripts[script] = handler end
@@ -1222,6 +1224,74 @@ do
     if HiddenSkillUp(1004) ~= HIDDEN then
         failures[#failures + 1] = "hidden skill-up: without a rank change the message should pass through"
     end
+
+    local function FireSkillLinesChanged()
+        for _, candidate in ipairs(createdFrames) do
+            if candidate._events.SKILL_LINES_CHANGED and candidate._scripts.OnEvent then
+                candidate._scripts.OnEvent(candidate, "SKILL_LINES_CHANGED")
+            end
+        end
+    end
+
+    local function ExpectSkillUp(lineID, expected, label)
+        local line = HiddenSkillUp(lineID)
+        additionalChecks = additionalChecks + 1
+        if line == HIDDEN or plain(line) ~= expected then
+            failures[#failures + 1] = "hidden skill-up: " .. label .. ", expected [" .. expected .. "] got [" ..
+                (line == HIDDEN and "the hidden line" or tostring(plain(line))) .. "]"
+        end
+    end
+    local function ExpectPassThrough(lineID, label)
+        additionalChecks = additionalChecks + 1
+        if HiddenSkillUp(lineID) ~= HIDDEN then
+            failures[#failures + 1] = "hidden skill-up: " .. label
+        end
+    end
+
+    -- Right as combat starts or ends, the game can report the new rank just
+    -- before it hands over the hidden line. The line still gets styled.
+    skills[1].rank = 37
+    FireSkillLinesChanged()
+    ExpectSkillUp(1005, "+ 37 Skill: Unarmed", "a rank reported just before the line should style it")
+
+    -- The same inside lockdown, where the snapshot used to stay put.
+    C_ChatInfo = { InChatMessagingLockdown = function() return true end }
+    skills[2].rank = 112
+    FireSkillLinesChanged()
+    ExpectSkillUp(1006, "+ 112 Skill: Defense", "a rank reported during lockdown should style the line")
+    C_ChatInfo = nil
+
+    -- Two ranks reported before either line: each line takes one.
+    skills[1].rank, skills[2].rank = 38, 113
+    FireSkillLinesChanged()
+    local firstOfTwo, secondOfTwo = plain(HiddenSkillUp(1007)), plain(HiddenSkillUp(1008))
+    additionalChecks = additionalChecks + 1
+    if not ((firstOfTwo == "+ 38 Skill: Unarmed" and secondOfTwo == "+ 113 Skill: Defense")
+        or (firstOfTwo == "+ 113 Skill: Defense" and secondOfTwo == "+ 38 Skill: Unarmed")) then
+        failures[#failures + 1] = "hidden skill-up: expected one line per reported rank, got [" .. tostring(firstOfTwo) .. "] and [" .. tostring(secondOfTwo) .. "]"
+    end
+
+    -- A readable line claims its rise, before or after the rank is reported,
+    -- so the next hidden line doesn't repeat it.
+    skills[1].rank = 39
+    FireSkillLinesChanged()
+    filter(nil, "CHAT_MSG_SKILL", "Your skill in Unarmed has increased to 39.", "", "", "", "", "", 0, 0, "", 0, 1009)
+    ExpectPassThrough(1010, "a skill-up shown readably should not style a later hidden line")
+    skills[1].rank = 40
+    filter(nil, "CHAT_MSG_SKILL", "Your skill in Unarmed has increased to 40.", "", "", "", "", "", 0, 0, "", 0, 1011)
+    FireSkillLinesChanged()
+    ExpectPassThrough(1012, "a readable line arriving before the rank report should claim it too")
+
+    -- A rise no line claimed doesn't land on a line much later.
+    skills[2].rank = 114
+    FireSkillLinesChanged()
+    now = now + 10
+    ExpectPassThrough(1013, "an old unclaimed rise should not style a later line")
+    skills[2].rank = 115
+    FireSkillLinesChanged()
+    now = now + 10
+    skills[1].rank = 41
+    ExpectSkillUp(1014, "+ 41 Skill: Unarmed", "a new rise should not wait behind an old unclaimed one")
     issecretvalue = nil
 end
 

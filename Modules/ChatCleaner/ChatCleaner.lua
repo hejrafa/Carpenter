@@ -199,6 +199,7 @@ local FormatReputationMessage = systemFormatter.FormatReputationMessage
 local FormatQueueNotice = systemFormatter.FormatQueueNotice
 local FormatSkillMessage = systemFormatter.FormatSkillMessage
 local FormatHiddenSkillMessage = systemFormatter.FormatHiddenSkillMessage
+local ClaimVisibleSkillRise = systemFormatter.ClaimVisibleSkillRise
 local FormatAppearanceCollectionMessage = systemFormatter.FormatAppearanceCollectionMessage
 local ApplyLevelUpGlobalStringStyling = systemFormatter.ApplyLevelUpGlobalStringStyling
 local RestoreLevelUpGlobalStringStyling = systemFormatter.RestoreLevelUpGlobalStringStyling
@@ -316,6 +317,10 @@ local function ChatFilterImpl(self, event, msg, author, ...)
             end
         end
         return false, msg, author, ...
+    end
+
+    if event == "CHAT_MSG_SKILL" and ClaimVisibleSkillRise and type(msg) == "string" then
+        ClaimVisibleSkillRise(msg)
     end
 
     -- Chat events carry the sender's GUID (arg12); remember their class so
@@ -550,12 +555,11 @@ function Carpenter_ApplyChatEditBoxTexture()
     end
 end
 
--- Keeps the skill rank snapshot current outside chat messaging lockdown, so
--- hidden skill-ups inside it can be compared against it.
+-- Keeps the skill rank snapshot current, so hidden skill-ups can be rebuilt
+-- from what rose.
 local skillRankFrame = CreateFrame("Frame")
 skillRankFrame:SetScript("OnEvent", function()
-    local inLockdown = C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown()
-    if not inLockdown and systemFormatter.RefreshSkillRanks then
+    if systemFormatter.RefreshSkillRanks then
         systemFormatter.RefreshSkillRanks()
     end
 end)
