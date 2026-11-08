@@ -1464,6 +1464,17 @@ do
         failures[#failures + 1] = "post-hook: expected the hidden line kept and the dropped line removed, got " .. #frame.lines .. " lines"
     end
 
+    -- A Forever honor gain prints twice: the first line is restyled, the second goes.
+    local linesBefore = #frame.lines
+    local _, currencyLine = filter(nil, "CHAT_MSG_CURRENCY", "You receive currency: |cnIQ1:|Hcurrency:1901:0|h[Honor Points]|h|rx4", "")
+    frame:AddMessage(currencyLine, 1, 1, 0)
+    frame:AddMessage("You have been awarded 4 Honor.", 1, 1, 0)
+    additionalChecks = additionalChecks + 1
+    if #frame.lines ~= linesBefore + 1 or plain(frame.lines[#frame.lines][1]) ~= "+ 4 Honor Points" then
+        failures[#failures + 1] = "post-hook: expected one honor line, got " .. (#frame.lines - linesBefore)
+            .. " ending in [" .. tostring(plain(frame.lines[#frame.lines][1])) .. "]"
+    end
+
     -- Turning Chat Cleaner off leaves later lines untouched.
     postProcessor.RestoreChatFrameAddMessage(frame)
     frame:AddMessage("Gorb Garnsson has left the battle.", 1, 1, 0)
@@ -1580,7 +1591,17 @@ do
         return captured
     end
 
+    -- Each client's own wording, from its COMBATLOG_HONOR* and CURRENCY_GAINED* strings.
     local amounts = {
+        -- Forever and Retail
+        { "CHAT_MSG_CURRENCY", "You receive currency: |cnIQ1:|Hcurrency:1901:0|h[Honor Points]|h|rx4", "4" },
+        { "CHAT_MSG_CURRENCY", "You receive currency: |cffffffff|Hcurrency:1901:0|h[Honor Points]|h|rx4", "4" },
+        { "CHAT_MSG_CURRENCY", "You receive currency: |cnIQ1:|Hcurrency:1792:0|h[Honor]|h|rx4", "4" },
+        { "CHAT_MSG_COMBAT_HONOR_GAIN", "You have been awarded 4 Honor.", "4" },
+        { "CHAT_MSG_COMBAT_HONOR_GAIN", "Koji Kurosawa dies (Honorable Kill). You gain 4 Honor.", "4" },
+        { "CHAT_MSG_COMBAT_HONOR_GAIN", "Koji Kurosawa dies (Honorable Kill: Private). You gain 4 Honor.", "4" },
+        { "CHAT_MSG_COMBAT_HONOR_GAIN", "Koji Kurosawa dies (Honorable Kill: Private). You gain 4 Honor (2 Rested bonus).", "4" },
+        -- Classic
         { "CHAT_MSG_CURRENCY", "You receive currency: |cffffffff|Hcurrency:1901:0|h[Honor Points]|h|r x3.", "3" },
         { "CHAT_MSG_CURRENCY", "You receive currency: |cffe6cc80|Hcurrency:392:0|h[Honor Points]|h|r x12.", "12" },
         { "CHAT_MSG_SYSTEM", "You have been awarded 3 honor points.", "3" },
@@ -1598,11 +1619,63 @@ do
         end
     end
 
-    -- Retail's currency is named Honor, and keeps the normal currency line.
-    local retail = Honor("CHAT_MSG_CURRENCY", "You receive currency: |cffffffff|Hcurrency:1792:0|h[Honor]|h|r x3.")
+    -- One gain prints a currency line and an award or kill line, in either order.
+    -- What reaches a chat frame, oldest first, with the clock moved by "wait".
+    local CURRENCY_4 = { "CHAT_MSG_CURRENCY", "You receive currency: |cnIQ1:|Hcurrency:1901:0|h[Honor Points]|h|rx4" }
+    local CURRENCY_5 = { "CHAT_MSG_CURRENCY", "You receive currency: |cnIQ1:|Hcurrency:1901:0|h[Honor Points]|h|rx5" }
+    local AWARD_4 = { "CHAT_MSG_COMBAT_HONOR_GAIN", "You have been awarded 4 Honor." }
+    local AWARD_5 = { "CHAT_MSG_COMBAT_HONOR_GAIN", "You have been awarded 5 Honor." }
+    local KILL_4 = { "CHAT_MSG_COMBAT_HONOR_GAIN", "Koji Kurosawa dies (Honorable Kill). You gain 4 Honor." }
+    local WAIT = { wait = 4 }
+
+    local function Shown(frame, lines)
+        local shown = {}
+        for _, line in ipairs(lines) do
+            if line.wait then
+                now = now + line.wait
+            else
+                local _, filtered = filter(nil, line[1], line[2], "")
+                postProcessor.ProcessMessage(frame, function(_, text)
+                    shown[#shown + 1] = plain(text)
+                end, filtered or line[2], {})
+            end
+        end
+        now = now + 60
+        return table.concat(shown, " / ")
+    end
+
+    local gains = {
+        { "a currency line then its award", { CURRENCY_4, AWARD_4 }, "+ 4 Honor Points" },
+        { "an award then its currency line", { AWARD_4, CURRENCY_4 }, "+ 4 Honor Points" },
+        { "a currency line then its kill", { CURRENCY_4, KILL_4 }, "+ 4 Honor Points" },
+        { "two gains in a row", { CURRENCY_4, AWARD_4, CURRENCY_4, AWARD_4 }, "+ 4 Honor Points / + 4 Honor Points" },
+        { "two gains of different amounts", { CURRENCY_4, AWARD_4, CURRENCY_5, AWARD_5 }, "+ 4 Honor Points / + 5 Honor Points" },
+        { "two currency lines", { CURRENCY_4, CURRENCY_4 }, "+ 4 Honor Points / + 4 Honor Points" },
+        { "two kills", { KILL_4, KILL_4 }, "+ 4 Honor Points / + 4 Honor Points" },
+        { "an award of another amount", { CURRENCY_4, AWARD_5 }, "+ 4 Honor Points / + 5 Honor Points" },
+        { "an award after the window", { CURRENCY_4, WAIT, AWARD_4 }, "+ 4 Honor Points / + 4 Honor Points" },
+    }
+    for _, gain in ipairs(gains) do
+        local got = Shown({}, gain[2])
+        additionalChecks = additionalChecks + 1
+        if got ~= gain[3] then
+            failures[#failures + 1] = "honor: " .. gain[1] .. " should show [" .. gain[3] .. "], got [" .. got .. "]"
+        end
+    end
+
+    -- Every chat frame showing these lines gets one line of its own.
+    local generalFrame, lootFrame = {}, {}
+    local general, loot = {}, {}
+    for _, line in ipairs({ CURRENCY_4, AWARD_4 }) do
+        local _, filtered = filter(nil, line[1], line[2], "")
+        postProcessor.ProcessMessage(generalFrame, function(_, text) general[#general + 1] = plain(text) end, filtered or line[2], {})
+        postProcessor.ProcessMessage(lootFrame, function(_, text) loot[#loot + 1] = plain(text) end, filtered or line[2], {})
+    end
+    now = now + 60
     additionalChecks = additionalChecks + 1
-    if plain(retail) ~= "+ Honor x3" then
-        failures[#failures + 1] = "honor: Retail's currency line should stay as it is, got [" .. tostring(plain(retail)) .. "]"
+    if table.concat(general, " / ") ~= "+ 4 Honor Points" or table.concat(loot, " / ") ~= "+ 4 Honor Points" then
+        failures[#failures + 1] = "honor: each chat frame should show the gain once, got ["
+            .. table.concat(general, " / ") .. "] and [" .. table.concat(loot, " / ") .. "]"
     end
 
     -- Chat goes straight to the chat frame, so these skip the filter. Guild color

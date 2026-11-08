@@ -54,19 +54,21 @@ end
 
 -- The game's own honor lines, as their visible text reads once the chat filter has
 -- styled them. Only these count: color codes hold digits too (the 8 in |cffc8c8c8),
--- and players and NPCs can mention honor points in chat.
-local HONOR_LINE_PATTERNS = {
-    "^%s*%+%s*Honor Points%s+x(%d+)",                    -- + Honor Points x3
-    "^%s*%+%s*(%d+) Honor Points",                       -- + 3 Honor Points
-    "^%s*You have been awarded (%d+) [Hh]onor",          -- You have been awarded 3 honor points.
-    "^[^:]- dies, honorable kill.-Honor Points: (%d+)",  -- Foo dies, honorable kill Rank: Private (Estimated Honor Points: 3)
-    "^[^:]- dies, honorable kill.-%((%d+) Honor Points", -- Foo dies, honorable kill (3 Honor Points, +2 Rested)
+-- and players and NPCs can mention honor points in chat. One gain can print both
+-- kinds, a currency line and an award or kill line.
+local HONOR_LINES = {
+    { kind = "currency", pattern = "^%s*%+%s*Honor Points%s+x(%d+)" },                       -- + Honor Points x4
+    { kind = "currency", pattern = "^%s*%+%s*Honor%s+x(%d+)" },                              -- + Honor x4
+    { kind = "award", pattern = "^%s*You have been awarded (%d+) [Hh]onor" },                -- You have been awarded 4 Honor.
+    { kind = "award", pattern = "^[^:]- dies %(Honorable Kill.-%)%. You gain (%d+) Honor" }, -- Foo dies (Honorable Kill: Private). You gain 4 Honor.
+    { kind = "award", pattern = "^[^:]- dies, honorable kill.-Honor Points: (%d+)" },        -- Foo dies, honorable kill Rank: Private (Estimated Honor Points: 4)
+    { kind = "award", pattern = "^[^:]- dies, honorable kill.-%((%d+) Honor Points" },       -- Foo dies, honorable kill (4 Honor Points, +2 Rested)
 }
 
-local function ParseHonorAmount(plainText)
-    for _, pattern in ipairs(HONOR_LINE_PATTERNS) do
-        local amount = plainText:match(pattern)
-        if amount then return amount end
+local function ParseHonorLine(plainText)
+    for _, line in ipairs(HONOR_LINES) do
+        local amount = plainText:match(line.pattern)
+        if amount then return amount, line.kind end
     end
     return nil
 end
@@ -89,7 +91,7 @@ function PostProcess.Create(config)
     local joinDedupDelay = config.JoinDedupDelay or 8
     local L = config.L or (Carpenter and Carpenter.L) or {}
 
-    local lastStyledHonor = nil
+    local lastHonorByFrame = {}
     local lastJoinKey, lastJoinTime = nil, nil
 
     local api = {}
@@ -182,7 +184,7 @@ function PostProcess.Create(config)
 
     local function StripColorCodes(text)
         if not text or type(text) ~= "string" then return "" end
-        return text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
+        return text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[^:|]*:", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
     end
 
     local function HasChatChannelPrefix(plainText)
@@ -461,17 +463,19 @@ function PostProcess.Create(config)
             return originalAddMessage(frame, rosterLine, unpack(args))
         end
 
-        local honor = ParseHonorAmount(plain)
+        local honor, honorKind = ParseHonorLine(plain)
         if honor then
-            if lastStyledHonor and (GetTime() - lastStyledHonor) < honorDelay then
-                if not plain:find("^[%+%-]%s*%d+%s*%w*Honor") then
-                    return
-                end
-            else
-                local styled = spaceBeforeX(colorPlus .. "+|r " .. "|cffffffff" .. honor .. " |r|cffffffffHonor Points|r")
-                lastStyledHonor = GetTime()
-                return originalAddMessage(frame, styled, unpack(args))
+            -- The other kind of line with the same amount right after is the same
+            -- gain. Two lines of one kind are two gains, and each chat frame gets
+            -- its own copy of the lines.
+            local last = lastHonorByFrame[frame]
+            if last and last.kind ~= honorKind and last.amount == honor and (GetTime() - last.time) < honorDelay then
+                lastHonorByFrame[frame] = nil
+                return
             end
+            lastHonorByFrame[frame] = { kind = honorKind, amount = honor, time = GetTime() }
+            local styled = spaceBeforeX(colorPlus .. "+|r " .. "|cffffffff" .. honor .. " |r|cffffffffHonor Points|r")
+            return originalAddMessage(frame, styled, unpack(args))
         end
 
         return originalAddMessage(frame, message, unpack(args))
