@@ -23,18 +23,18 @@ chunk("Carpenter", ns)
 
 local layout = assert(ns.Private.EditModeLayout, "Edit Mode layout module did not load")
 local value = assert(layout.LayoutString, "Edit Mode layout string is missing")
-assert(#value == 2700, "Edit Mode layout string has the wrong length")
+assert(#value == 2726, "Edit Mode layout string has the wrong length")
 assert(value:match("^5 0 59 "), "Edit Mode layout string has the wrong header")
 assert(value:match("29 2 1 7 7 UIParent 0%.0 400%.0 %-1 #&%$U%%#&D&%%'2%(%$%)%$$"), "Edit Mode layout string has the wrong ending")
 assert(not value:find("\n", 1, true), "Edit Mode layout string must be a single line")
 assert(not value:find("\\", 1, true), "Edit Mode layout string contains an escaped Markdown asterisk")
 assertContains(value, "CompactRaidFrameManager", "raid-frame placement")
--- Raid frames: border on (setting 12), separate groups laid out horizontally (13).
-assertContains(value, "3 4 1 0 2 CompactRaidFrameManager 0.0 -5.0 -1 ,#-=.+/$0$1#", "raid-frame border and group layout")
-assertContains(value, "14 -1 0 0 0 UIParent 1582.7 -942.5", "micro-menu placement")
-assertContains(value, "13 -1 0 0 0 UIParent 1544.6 -983.0", "bag-bar placement")
+-- Raid frames: border on (setting 12), separate groups laid out vertically (13).
+assertContains(value, "3 4 1 0 2 CompactRaidFrameManager 0.0 -5.0 -1 ,#-=.+/$0#1#", "raid-frame border and group layout")
+assertContains(value, "14 -1 0 0 0 UIParent 1712.7 -1016.6", "micro-menu placement")
+assertContains(value, "13 -1 0 0 0 UIParent 1676.6 -1057.1", "bag-bar placement")
 assertContains(value, "Minimap -68.0 -68.0", "minimap placement")
-assertContains(value, "0 12 0 0 2 StanceBar 4.0 0.0", "stance-bar placement")
+assertContains(value, "0 12 0 0 0 UIParent 705.2 -903.1", "stance-bar placement")
 assertContains(value, "26 0 0 1 1 UIParent -729.6 -559.0", "encounter-bar placement")
 
 -- The string is a Forever export; Retail's Edit Mode rejects it.
