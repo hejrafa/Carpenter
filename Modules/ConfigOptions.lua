@@ -50,6 +50,11 @@ function Options.Create(context)
         return Description(client and client.isForever and "DESC_NAMEPLATE_DEBUFFS_FOREVER" or "DESC_NAMEPLATE_DEBUFFS")
     end
 
+    local function UnitFrameDebuffsDescription()
+        local client = Carpenter and Carpenter.Client
+        return Description(client and client.isForever and "DESC_UNIT_FRAME_DEBUFFS_FOREVER" or "DESC_UNIT_FRAME_DEBUFFS")
+    end
+
     local function WorldMapCleanupDescription()
         local client = Carpenter and Carpenter.Client
         return Description(client and client.isForever and "DESC_WORLD_MAP_CLEANUP_FOREVER" or "DESC_WORLD_MAP_CLEANUP")
@@ -180,7 +185,7 @@ function Options.Create(context)
                 {
                     key = "unitFrameDebuffsEnabled",
                     label = L.OPTION_DEBUFFS or "Debuffs",
-                    description = Description("DESC_UNIT_FRAME_DEBUFFS"),
+                    description = UnitFrameDebuffsDescription(),
                     image = GetSettingsImage("unitdebuff.png"),
                 },
                 {

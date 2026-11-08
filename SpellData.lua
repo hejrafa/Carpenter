@@ -61,6 +61,43 @@ addon.PriorityDebuffs = {
     23605, -- Nightfall, Spell Vulnerability
 }
 
+-- Crowd control that isn't a stun or a root: fears, sleeps, polymorphs, silences,
+-- and the like. Keyed by the spell ID its ranks point to in addon.Spells.
+addon.OtherCrowdControl = {
+    [1090] = true, -- Magic Dust
+    [5134] = true, -- Flash Bomb
+    [605] = true, -- Mind Control
+    [8122] = true, -- Psychic Scream
+    [15487] = true, -- Silence
+    [9484] = true, -- Shackle Undead
+    [24259] = true, -- Spell Lock Silence
+    [6358] = true, -- Seduction
+    [5782] = true, -- Fear
+    [5484] = true, -- Howl of Terror
+    [710] = true, -- Banish
+    [6789] = true, -- Death Coil
+    [43523] = true, -- Unstable Affliction Silence
+    [20066] = true, -- Repentance
+    [10326] = true, -- Turn Evil
+    [1513] = true, -- Scare Beast
+    [3355] = true, -- Freezing Trap
+    [19386] = true, -- Wyvern Sting
+    [19503] = true, -- Scatter Shot
+    [34490] = true, -- Silencing Shot
+    [2637] = true, -- Hibernate
+    [33786] = true, -- Cyclone
+    [18469] = true, -- Improved Counterspell
+    [118] = true, -- Polymorph
+    [31661] = true, -- Dragon's Breath
+    [18425] = true, -- Improved Kick
+    [2070] = true, -- Sap
+    [2094] = true, -- Blind
+    [1776] = true, -- Gouge
+    [1330] = true, -- Garrote Silence
+    [18498] = true, -- Improved Shield Bash
+    [5246] = true, -- Intimidating Shout
+}
+
 addon.Spells = {
 
     -- Racials
@@ -553,6 +590,17 @@ end
 function addon.IsImportantDebuff(spellId)
     local t = addon.GetSpellInfo(spellId)
     return t == CROWD_CONTROL or t == ROOT
+end
+
+-- Every rank of the spells in OtherCrowdControl, as { [spellID] = true }.
+function addon.GetOtherCrowdControlSpells()
+    local spells = {}
+    for spellId in pairs(addon.Spells) do
+        if addon.OtherCrowdControl[addon.GetRootSpellId(spellId)] then
+            spells[spellId] = true
+        end
+    end
+    return spells
 end
 
 function addon.IsBleedDebuff(spellId)

@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
 -- Verifies the Forever crowd control portrait icon: one aura slot per unit
--- frame, centered on the portrait, refreshed when the unit behind a token
--- changes, and released when the feature is turned off.
+-- frame, centered on the portrait, limited to stuns and roots, refreshed when
+-- the unit behind a token changes, and released when the feature is turned off.
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then
@@ -104,6 +104,7 @@ Carpenter = {
 }
 
 local ns = { Private = {} }
+assert(loadfile(repo .. "/SpellData.lua"))("Carpenter", ns)
 assert(loadfile(repo .. "/Core/Nameplates.lua"))("Carpenter", ns)
 Carpenter = dofile(repo .. "/tools/fixture-carpenter.lua")(Carpenter)
 assert(loadfile(repo .. "/Modules/ForeverUnitFrameAuras.lua"))("Carpenter", ns)
@@ -132,6 +133,41 @@ local slot = player.slots[1]
 assert(slot.filter == "HARMFUL|CROWD_CONTROL", "the slot should only take crowd control")
 assert(slot.options.sortMethod == AuraContainerSortMethod.ExpirationOnly
     and slot.options.sortDirection == AuraContainerSortDirection.Reverse, "the longest crowd control should win")
+
+-- Only stuns and roots. The game applies these filters after its crowd control
+-- one; a duration of 0 means permanent, which a maximum duration never lets by.
+local filters = slot.options.candidateFilters
+assert(filters, "the slot should narrow down the game's crowd control filter")
+local function PassesDuration(duration)
+    return duration ~= 0 and duration <= filters.maxDuration
+end
+assert(not PassesDuration(0), "permanent debuffs like Bonus XP should stay off the portrait")
+assert(not PassesDuration(60), "the shortest Resurrection Sickness should stay off the portrait")
+assert(not PassesDuration(600), "the longest Resurrection Sickness should stay off the portrait")
+assert(PassesDuration(27), "the longest root, Entangling Roots, should show")
+assert(PassesDuration(6), "a Kidney Shot should show")
+
+local hiddenOnEnemies = {
+    { 118, "Polymorph" }, { 12826, "Polymorph rank 4" }, { 5782, "Fear" }, { 6215, "Fear rank 3" },
+    { 2070, "Sap" }, { 11297, "Sap rank 3" }, { 2094, "Blind" }, { 8122, "Psychic Scream" },
+    { 15487, "Silence" }, { 3355, "Freezing Trap" }, { 5246, "Intimidating Shout" },
+}
+for _, spell in ipairs(hiddenOnEnemies) do
+    assert(filters.excludeSpellIDs[spell[1]], spell[2] .. " should stay off an enemy's portrait")
+end
+local shown = {
+    { 853, "Hammer of Justice" }, { 408, "Kidney Shot" }, { 8643, "Kidney Shot rank 2" }, { 1833, "Cheap Shot" },
+    { 5211, "Bash" }, { 20549, "War Stomp" }, { 122, "Frost Nova" }, { 339, "Entangling Roots" },
+}
+for _, spell in ipairs(shown) do
+    assert(not filters.excludeSpellIDs[spell[1]], spell[2] .. " should show")
+end
+
+-- A wrong ID in the list would quietly leave that spell showing.
+for spellId in pairs(CarpenterSpellData.OtherCrowdControl) do
+    assert(CarpenterSpellData.GetSpellInfo(spellId) == "cc", "spell " .. spellId .. " should be crowd control in the spell list")
+    assert(filters.excludeSpellIDs[spellId], "spell " .. spellId .. " should be excluded")
+end
 
 local button = slot.button
 assert(button.width == 56 and button.height == 56, "the icon should be inset inside the portrait ring")
