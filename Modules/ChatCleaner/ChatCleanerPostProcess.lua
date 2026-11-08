@@ -59,6 +59,7 @@ end
 local HONOR_LINES = {
     { kind = "currency", pattern = "^%s*%+%s*Honor Points%s+x(%d+)" },                       -- + Honor Points x4
     { kind = "currency", pattern = "^%s*%+%s*Honor%s+x(%d+)" },                              -- + Honor x4
+    { kind = "award", pattern = "^%s*%+%s*(%d+) Honor Points" },                             -- + 4 Honor Points, from "You have been awarded 4 Honor."
     { kind = "award", pattern = "^%s*You have been awarded (%d+) [Hh]onor" },                -- You have been awarded 4 Honor.
     { kind = "award", pattern = "^[^:]- dies %(Honorable Kill.-%)%. You gain (%d+) Honor" }, -- Foo dies (Honorable Kill: Private). You gain 4 Honor.
     { kind = "award", pattern = "^[^:]- dies, honorable kill.-Honor Points: (%d+)" },        -- Foo dies, honorable kill Rank: Private (Estimated Honor Points: 4)

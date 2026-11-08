@@ -508,7 +508,7 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     end
 
     -- 11. Generic rewards (awarded, received, earned, rewarded, badges, marks, tokens, points, etc.)
-    local genericReward = FormatGenericReward(msg, prefixPlus)
+    local genericReward = FormatGenericReward(event, msg, prefixPlus)
     if genericReward then
         return false, genericReward, author, ...
     end

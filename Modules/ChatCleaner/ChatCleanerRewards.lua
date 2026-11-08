@@ -5,6 +5,27 @@ ns.Private = ns.Private or {}
 local Rewards = ns.Private.ChatCleanerRewards or {}
 ns.Private.ChatCleanerRewards = Rewards
 
+-- The chat filter also sees what players say, so only the game's own lines count,
+-- and only from the start of the line.
+local GENERIC_REWARD_EVENTS = {
+    CHAT_MSG_SYSTEM = true,
+    CHAT_MSG_CURRENCY = true,
+    CHAT_MSG_LOOT = true,
+    CHAT_MSG_COMBAT_HONOR_GAIN = true,
+    CHAT_MSG_COMBAT_MISC_INFO = true,
+}
+
+local GENERIC_REWARD_PATTERNS = {
+    "^You have been awarded (%d+) (.+)",
+    "^You have received (%d+) (.+)",
+    "^You receive (%d+) (.+)",
+    "^You gain (%d+) (.+)",
+    "^You earn (%d+) (.+)",
+    "^You were awarded (%d+) (.+)",
+    "^Rewarded with (%d+) (.+)",
+    "^Received (%d+) (.+)",
+}
+
 function Rewards.Create(config)
     config = config or {}
     local cleanPunctuation = config.CleanPunctuation or function(text) return text end
@@ -334,21 +355,15 @@ function Rewards.Create(config)
         return spaceBeforeX(colorWhite .. T("CHAT_REFUNDED_LABEL", "Refunded:") .. " |r" .. display .. " " .. colorPlus .. "(" .. count .. ")|r")
     end
 
-    function api.FormatGenericReward(message, prefixPlus)
+    function api.FormatGenericReward(event, message, prefixPlus)
+        if not GENERIC_REWARD_EVENTS[event] then return nil end
+
         local lowerMsg = message:lower()
-        local rewardAmount, rewardType =
-            message:match("You have been awarded (%d+) (.+)") or
-            message:match("You have received (%d+) (.+)") or
-            message:match("You receive (%d+) (.+)") or
-            message:match("You gain (%d+) (.+)") or
-            message:match("You earn (%d+) (.+)") or
-            message:match("You were awarded (%d+) (.+)") or
-            message:match("Rewarded with (%d+) (.+)") or
-            message:match("Received (%d+) (.+)") or
-            message:match("(%d+) (.+) received") or
-            message:match("(%d+) (.+) awarded") or
-            message:match("(%d+) (.+) earned") or
-            message:match("(%d+) (.+) gained")
+        local rewardAmount, rewardType
+        for _, pattern in ipairs(GENERIC_REWARD_PATTERNS) do
+            rewardAmount, rewardType = message:match(pattern)
+            if rewardAmount then break end
+        end
 
         if not rewardAmount or not rewardType then return nil end
 
@@ -361,7 +376,8 @@ function Rewards.Create(config)
         local clean = cleanPunctuation(stripBrackets(rewardType))
         if #clean <= 0 then return nil end
 
-        local isHonor = clean:lower():find("honor")
+        local lowerClean = clean:lower()
+        local isHonor = lowerClean == "honor" or lowerClean:find("^honor points?$")
         local color = isHonor and colorHonor or colorCyan
         local display = isHonor and T("CHAT_HONOR_POINTS", "Honor Points") or clean
         return spaceBeforeX(prefixPlus .. colorWhite .. rewardAmount .. " |r" .. color .. display .. "|r")

@@ -674,6 +674,55 @@ local fixtures = {
         message = "Auctionator: scan complete",
         expectHidden = true,
     },
+    {
+        name = "generic reward: arena points",
+        event = "CHAT_MSG_COMBAT_HONOR_GAIN",
+        message = "You have been awarded 5 arena points.",
+        expectPlain = "+ 5 arena points",
+        requireColor = "|cff00ccff",
+    },
+    {
+        name = "generic reward: a server's own reward line",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You have received 5 Bonus Tokens.",
+        expectPlain = "+ 5 Bonus Tokens",
+    },
+    {
+        name = "generic reward: a name with honor in it is not honor points",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You have received 5 Honor Hold Favors.",
+        expectPlain = "+ 5 Honor Hold Favors",
+    },
+    {
+        name = "generic reward: players saying it stays chat",
+        event = "CHAT_MSG_SAY",
+        message = "You receive 5 tokens",
+        expectPlain = "You receive 5 tokens",
+    },
+    {
+        name = "generic reward: party chat stays chat",
+        event = "CHAT_MSG_PARTY",
+        message = "You have been awarded 5 tokens",
+        expectPlain = "You have been awarded 5 tokens",
+    },
+    {
+        name = "generic reward: whispers stay chat",
+        event = "CHAT_MSG_WHISPER",
+        message = "You gain 5 levels",
+        expectPlain = "You gain 5 levels",
+    },
+    {
+        name = "generic reward: only from the start of the line",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Koji says You receive 5 tokens",
+        expectPlain = "Koji says You receive 5 tokens",
+    },
+    {
+        name = "generic reward: a number and earned somewhere in a line is no reward",
+        event = "CHAT_MSG_SYSTEM",
+        message = "At least 3 out of 5 players in your group are members of Foo. Guild achievements can be earned.",
+        expectPlain = "At least 3 out of 5 players in your group are members of Foo. Guild achievements can be earned.",
+    },
 }
 
 local failures = {}
