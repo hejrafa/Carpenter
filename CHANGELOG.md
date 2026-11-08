@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.8.18
+
+- New checkbox in the Auto Repair settings: Use Guild Funds If Available. The guild pays when your daily allowance covers the whole repair, and you pay otherwise. It's off by default and doesn't show on Classic Era.
+- Fade Minimap and Fade Chat now come back with Explorer Mode's HUD, during combat and when your health is under 100%.
+- Auto Sell Junk now skips bags you've marked with the bag menu's "Ignore this bag" Sell Junk checkbox.
+- Hide Quest Tracker Titles no longer lets your tracked quests drop and jump back up during combat.
+- Enhanced Tooltip now shows "Level ??" for units the game hides that way. Before, it could show their real level.
+- Chat Cleaner keeps skill-ups styled during dungeon fights on WoW Forever, where one could slip through as plain text.
+- The Carpenter Edit Mode layout is updated on WoW Forever.
+
 ## 1.8.17
 
 - New option in the Interface settings: Hide Buff Collapse Arrow hides the small arrow beside your buffs that collapses and expands them. If your buffs are collapsed, the arrow stays until you expand them once.
