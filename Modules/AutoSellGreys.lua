@@ -11,6 +11,18 @@ local ColorJunk = Colors and Colors.quality and Colors.quality[0] and Colors.qua
 local sellAttemptedThisMerchant = false
 local GetItemDetails = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo
 
+-- The bag menu's "Ignore this bag" Sell Junk checkbox. The backpack keeps it
+-- apart from the other bags, and Classic clients have no call for it there.
+local function IsIgnoredForSellJunk(bag)
+    if not C_Container then return false end
+    if bag == 0 then
+        return C_Container.GetBackpackSellJunkDisabled and C_Container.GetBackpackSellJunkDisabled() == true
+    end
+
+    local flag = Enum and Enum.BagSlotFlags and Enum.BagSlotFlags.ExcludeJunkSell
+    return flag and C_Container.GetBagSlotFlag and C_Container.GetBagSlotFlag(bag, flag) == true
+end
+
 local function SellGreyItems()
     if sellAttemptedThisMerchant then return end
     sellAttemptedThisMerchant = true
@@ -54,7 +66,7 @@ local function SellGreyItems()
 
     for bag = 0, 4 do
         local numSlots = getNumSlots(bag)
-        if numSlots and numSlots > 0 then
+        if numSlots and numSlots > 0 and not IsIgnoredForSellJunk(bag) then
             for slot = 1, numSlots do
                 local info = GetSlotInfo(bag, slot)
                 local itemLink = info.hyperlink or (getItemLink and getItemLink(bag, slot))

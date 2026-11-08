@@ -92,4 +92,50 @@ assert(Carpenter.MerchantState.autoSoldJunk == true, "merchant state did not rec
 assert(Carpenter.MerchantState.autoSoldAmount == 246, "expected two items worth 123 copper each")
 assert(#messages == 1 and messages[1]:find("246", 1, true), "sale summary did not include the vendor value")
 
+-- The bag menu's "Ignore this bag" Sell Junk checkbox. Bag 1 holds the same
+-- items as the backpack.
+local numSlots, itemInfo = C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo
+C_Container.GetContainerNumSlots = function(bag) return numSlots(bag == 1 and 0 or bag) end
+C_Container.GetContainerItemInfo = function(bag, slot) return itemInfo(bag == 1 and 0 or bag, slot) end
+
+local backpackIgnored, ignoredBags = false, {}
+Enum = { BagSlotFlags = { ExcludeJunkSell = 64 } }
+C_Container.GetBackpackSellJunkDisabled = function() return backpackIgnored end
+C_Container.GetBagSlotFlag = function(bag, flag)
+    assert(flag == 64, "expected the Sell Junk flag")
+    return ignoredBags[bag] == true
+end
+
+-- Returns the bags sold from on one merchant visit, like "0,1".
+local function VisitMerchant()
+    sold = {}
+    addonFrame:OnEvent("MERCHANT_CLOSED")
+    addonFrame:OnEvent("MERCHANT_SHOW")
+    local bags = {}
+    for index, entry in ipairs(sold) do bags[index] = tostring(entry.bag) end
+    return table.concat(bags, ",")
+end
+
+assert(VisitMerchant() == "0,1", "with nothing ignored, both bags should be sold from")
+
+backpackIgnored = true
+assert(VisitMerchant() == "1", "an ignored backpack should be skipped")
+
+backpackIgnored = false
+ignoredBags[1] = true
+assert(VisitMerchant() == "0", "an ignored bag should be skipped")
+
+backpackIgnored = true
+local messageCount = #messages
+assert(VisitMerchant() == "", "with every bag ignored, nothing should be sold")
+assert(#messages == messageCount, "with nothing sold, no summary should print")
+
+-- Classic clients have the bag flag but no backpack call: the backpack is sold from.
+C_Container.GetBackpackSellJunkDisabled = nil
+assert(VisitMerchant() == "0", "without the backpack call, the backpack should be sold from")
+
+-- Without the bag flag either, every bag is sold from.
+C_Container.GetBagSlotFlag = nil
+assert(VisitMerchant() == "0,1", "without the bag flag, every bag should be sold from")
+
 print("auto-sell-greys fixtures: passed")
