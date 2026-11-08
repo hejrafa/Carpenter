@@ -253,21 +253,27 @@ local function ApplyNameLine(tooltip, unit)
     end
 end
 
+-- The level text for the line about to be replaced. The game writes "??" there
+-- for a unit too far above the player, even where UnitLevel still returns the
+-- real level, so its line decides what stays hidden. Our own text keeps the "??"
+-- for the next pass over the same line.
+local function FormatLevel(unit, levelLine)
+    local unitLevel = UnitLevel(unit)
+    local lineText = levelLine:GetText()
+    if unitLevel == -1 or (lineText and lineText:find("??", 1, true)) then
+        return "|cffff3333" .. LEVEL_STR .. " ??|r"
+    end
+
+    local levelColor = GetCreatureDifficultyColor(unitLevel)
+    local levelHex = levelColor and string.format("%02x%02x%02x", levelColor.r * 255, levelColor.g * 255, levelColor.b * 255) or "ffffffff"
+    return "|cff" .. levelHex .. LEVEL_STR .. " " .. unitLevel .. "|r"
+end
+
 -- Player info line (level, race, class) - find line 2/3 that looks like the info line and replace
 local function ApplyPlayerInfoLine(tooltip, unit)
     local className, classToken = UnitClass(unit)  -- className = localized (e.g. "Warrior"), classToken = "WARRIOR"
     local classColor = GetClassColorHex(unit) or "|cffffffff"
     local race = UnitRace(unit)
-    local unitLevel = UnitLevel(unit)
-    local levelColor = GetCreatureDifficultyColor(unitLevel)
-    local levelHex = levelColor and string.format("%02x%02x%02x", levelColor.r * 255, levelColor.g * 255, levelColor.b * 255) or "ffffffff"
-
-    local levelPart
-    if unitLevel == -1 then
-        levelPart = "|cffff3333" .. LEVEL_STR .. " ??|r"
-    else
-        levelPart = "|cff" .. levelHex .. LEVEL_STR .. " " .. unitLevel .. "|r"
-    end
 
     -- Locate the level line and check whether the game already shows the class on its
     -- own line (e.g. "Shadow Priest" under "Level 60 Orc"), so we don't repeat it.
@@ -290,6 +296,8 @@ local function ApplyPlayerInfoLine(tooltip, unit)
     local classShownElsewhere = levelLine ~= nil and classOnlyLine ~= nil
     levelLine = levelLine or classOnlyLine
     if not levelLine then return end
+
+    local levelPart = FormatLevel(unit, levelLine)
 
     local classPart = ""
     if not classShownElsewhere then
@@ -319,18 +327,18 @@ local function ApplyMobLevelLine(tooltip, unit)
     if reaction >= 5 then return end
     if not SafeUnitCanAttack("player", unit) then return end
 
-    local unitLevel = UnitLevel(unit)
-    local levelColor = GetCreatureDifficultyColor(unitLevel)
-    local levelHex = levelColor and string.format("%02x%02x%02x", levelColor.r * 255, levelColor.g * 255, levelColor.b * 255) or "ffffffff"
+    local levelLine
+    for i = 2, 4 do
+        local line = _G["GameTooltipTextLeft" .. i]
+        if line and (line:GetText() or ""):lower():find(LEVEL_STR:lower()) then
+            levelLine = line
+            break
+        end
+    end
+    if not levelLine then return end
+
     local creatureType = UnitCreatureType(unit)
     local classification = UnitClassification(unit)
-
-    local levelPart
-    if unitLevel == -1 then
-        levelPart = "|cffff3333" .. LEVEL_STR .. " ??|r "
-    else
-        levelPart = "|cff" .. levelHex .. LEVEL_STR .. " " .. unitLevel .. "|r "
-    end
 
     local typePart = ""
     if creatureType and creatureType ~= "Not specified" then
@@ -347,18 +355,7 @@ local function ApplyMobLevelLine(tooltip, unit)
         end
     end
 
-    local infoText = levelPart .. typePart .. specPart
-
-    for i = 2, 4 do
-        local line = _G["GameTooltipTextLeft" .. i]
-        if line then
-            local text = (line:GetText() or ""):lower()
-            if text:find(LEVEL_STR:lower()) then
-                line:SetText(infoText)
-                return
-            end
-        end
-    end
+    levelLine:SetText(FormatLevel(unit, levelLine) .. " " .. typePart .. specPart)
 end
 
 local TARGET_PREFIX = (L.TOOLTIP_TARGET_PREFIX or "Target:") .. " "
