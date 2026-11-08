@@ -1568,6 +1568,81 @@ do
     GetPlayerInfoByGUID = nil
 end
 
+-- Honor lines keep the amount the game gave, and only the game's own lines count.
+do
+    -- The in-game path. Each line is a new gain, past the duplicate window.
+    local function Honor(event, message)
+        now = now + 60
+        local hidden, filtered = filter(nil, event, message, "")
+        if hidden then return nil end
+        local captured
+        postProcessor.ProcessMessage({}, function(_, text) captured = text end, filtered or message, {})
+        return captured
+    end
+
+    local amounts = {
+        { "CHAT_MSG_CURRENCY", "You receive currency: |cffffffff|Hcurrency:1901:0|h[Honor Points]|h|r x3.", "3" },
+        { "CHAT_MSG_CURRENCY", "You receive currency: |cffe6cc80|Hcurrency:392:0|h[Honor Points]|h|r x12.", "12" },
+        { "CHAT_MSG_SYSTEM", "You have been awarded 3 honor points.", "3" },
+        { "CHAT_MSG_COMBAT_HONOR_GAIN", "You have been awarded 3 honor points.", "3" },
+        { "CHAT_MSG_COMBAT_HONOR_GAIN", "Koji Kurosawa dies, honorable kill Rank: Private (Estimated Honor Points: 3)", "3" },
+        { "CHAT_MSG_COMBAT_HONOR_GAIN", "Koji Kurosawa dies, honorable kill Rank: Private (3 Honor Points)", "3" },
+        { "CHAT_MSG_COMBAT_HONOR_GAIN", "Koji Kurosawa dies, honorable kill Rank: Private (3 Honor Points, +2 Rested)", "3" },
+        { "CHAT_MSG_COMBAT_HONOR_GAIN", "Koji Kurosawa dies, honorable kill (3 Honor Points)", "3" },
+    }
+    for _, case in ipairs(amounts) do
+        local out = Honor(case[1], case[2])
+        additionalChecks = additionalChecks + 1
+        if plain(out) ~= "+ " .. case[3] .. " Honor Points" then
+            failures[#failures + 1] = "honor: [" .. case[2] .. "] should read + " .. case[3] .. " Honor Points, got [" .. tostring(plain(out)) .. "]"
+        end
+    end
+
+    -- Retail's currency is named Honor, and keeps the normal currency line.
+    local retail = Honor("CHAT_MSG_CURRENCY", "You receive currency: |cffffffff|Hcurrency:1792:0|h[Honor]|h|r x3.")
+    additionalChecks = additionalChecks + 1
+    if plain(retail) ~= "+ Honor x3" then
+        failures[#failures + 1] = "honor: Retail's currency line should stay as it is, got [" .. tostring(plain(retail)) .. "]"
+    end
+
+    -- Chat goes straight to the chat frame, so these skip the filter. Guild color
+    -- first: its digits used to end up as the amount.
+    local chatLines = {
+        "|cff40ff40|Hchannel:GUILD|h[Guild]|h |Hplayer:Bob:1:GUILD|h[Bob]|h: honor points are capped at 75000|r",
+        "|cffaaaaff|Hchannel:PARTY|h[Party]|h |Hplayer:Bob:2:PARTY|h[Bob]|h: I have 20 honor points|r",
+        "|cffffffff|Hplayer:Bob:3:SAY|h[Bob]|h says: anyone got 20 honor?|r",
+        "|cffff80ff|Hplayer:Bob:4:WHISPER|h[Bob]|h whispers: I need 1500 Honor Points for the shoulders|r",
+        "|cffff80ff|HBNplayer:Bob:5:6:BN_WHISPER:Bob|h[Bob]|h whispers: 3 honor points left|r",
+        "|cffff4040Herald yells: The victors earn 300 Honor Points!|r",
+        "|cffffffff|Hplayer:Bob:7:SAY|h[Bob]|h says: Foo dies, honorable kill (3 Honor Points)|r",
+    }
+    for _, line in ipairs(chatLines) do
+        now = now + 60
+        local captured
+        postProcessor.ProcessMessage({}, function(_, text) captured = text end, line, {})
+        local message = plain(line):gsub("^.-: ", "", 1):gsub("^.- yells: ", "", 1)
+        additionalChecks = additionalChecks + 1
+        if not captured or not captured:find(message, 1, true) then
+            failures[#failures + 1] = "honor: chat should stay as written [" .. line .. "], got [" .. tostring(captured) .. "]"
+        end
+    end
+
+    -- Other lines that only mention honor stay as the filter styled them.
+    local others = {
+        { "CHAT_MSG_COMBAT_FACTION_CHANGE", "Reputation with Honor Hold increased by 50.", "+ 50 Reputation: Honor Hold" },
+        { "CHAT_MSG_LOOT", "You receive loot: |cff1eff00|Hitem:20560:0|h[Alterac Valley Mark of Honor]|h|rx3.", "Alterac Valley Mark of Honor" },
+        { "CHAT_MSG_LOOT", "You receive loot: |cffffffff|Hitem:24579:0|h[Mark of Honor Hold]|h|rx5.", "Mark of Honor Hold" },
+        { "CHAT_MSG_SYSTEM", "Quest accepted: Honor the Dead", "+ Accepted: Honor the Dead" },
+    }
+    for _, case in ipairs(others) do
+        local out = plain(Honor(case[1], case[2]))
+        additionalChecks = additionalChecks + 1
+        if not out or not out:find(case[3], 1, true) or out:find("Honor Points", 1, true) then
+            failures[#failures + 1] = "honor: [" .. case[2] .. "] should not become an honor gain, got [" .. tostring(out) .. "]"
+        end
+    end
+end
+
 if #failures > 0 then
     io.stderr:write(table.concat(failures, "\n") .. "\n")
     os.exit(1)

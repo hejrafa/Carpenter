@@ -52,6 +52,25 @@ local function ApplyChannelStyling(text)
     return text
 end
 
+-- The game's own honor lines, as their visible text reads once the chat filter has
+-- styled them. Only these count: color codes hold digits too (the 8 in |cffc8c8c8),
+-- and players and NPCs can mention honor points in chat.
+local HONOR_LINE_PATTERNS = {
+    "^%s*%+%s*Honor Points%s+x(%d+)",                    -- + Honor Points x3
+    "^%s*%+%s*(%d+) Honor Points",                       -- + 3 Honor Points
+    "^%s*You have been awarded (%d+) [Hh]onor",          -- You have been awarded 3 honor points.
+    "^[^:]- dies, honorable kill.-Honor Points: (%d+)",  -- Foo dies, honorable kill Rank: Private (Estimated Honor Points: 3)
+    "^[^:]- dies, honorable kill.-%((%d+) Honor Points", -- Foo dies, honorable kill (3 Honor Points, +2 Rested)
+}
+
+local function ParseHonorAmount(plainText)
+    for _, pattern in ipairs(HONOR_LINE_PATTERNS) do
+        local amount = plainText:match(pattern)
+        if amount then return amount end
+    end
+    return nil
+end
+
 function PostProcess.Create(config)
     config = config or {}
     local applyChannelStyling = config.ApplyChannelStyling or ApplyChannelStyling
@@ -442,27 +461,16 @@ function PostProcess.Create(config)
             return originalAddMessage(frame, rosterLine, unpack(args))
         end
 
-        if plain:lower():find("honor") then
-            local honor = message:match("Estimated Honor Points: (%d+)") or message:match("Honor Points: (%d+)") or
-                message:match("honor points: (%d+)") or message:match("Honor points: (%d+)") or
-                message:match("honor points (%d+)") or message:match("(%d+) honor points") or
-                message:match("(%d+) honor point") or message:match("(%d+) Honor Point") or
-                message:match("(%d+) Honor Points") or message:match("(%d+) honor") or
-                message:match("honor: (%d+)") or message:match("Honor: (%d+)") or message:match("(%d+) Honor") or
-                message:match("%+(%d+)%).*[Hh]onor") or message:match("[Hh]onor.*%+(%d+)") or
-                message:match("(%d+).*[Hh]onor [Pp]oint") or message:match("%[Honor [Pp]oints%].*x(%d+)") or
-                message:match("x(%d+).*%[Honor [Pp]oints%]") or message:match("%[Honor [Pp]oints%].*(%d+)") or
-                message:match("currency.*[Hh]onor.*x(%d+)") or message:match("[Rr]eceive currency.*[Hh]onor.*(%d+)")
-            if honor then
-                if lastStyledHonor and (GetTime() - lastStyledHonor) < honorDelay then
-                    if not plain:find("^[%+%-]%s*%d+%s*%w*Honor") then
-                        return
-                    end
-                else
-                    local styled = spaceBeforeX(colorPlus .. "+|r " .. "|cffffffff" .. honor .. " |r|cffffffffHonor Points|r")
-                    lastStyledHonor = GetTime()
-                    return originalAddMessage(frame, styled, unpack(args))
+        local honor = ParseHonorAmount(plain)
+        if honor then
+            if lastStyledHonor and (GetTime() - lastStyledHonor) < honorDelay then
+                if not plain:find("^[%+%-]%s*%d+%s*%w*Honor") then
+                    return
                 end
+            else
+                local styled = spaceBeforeX(colorPlus .. "+|r " .. "|cffffffff" .. honor .. " |r|cffffffffHonor Points|r")
+                lastStyledHonor = GetTime()
+                return originalAddMessage(frame, styled, unpack(args))
             end
         end
 
