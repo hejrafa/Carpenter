@@ -1,6 +1,7 @@
 #!/usr/bin/env lua
--- Verifies quest tracker headers are compacted safely, restored on disable,
--- and never changed while combat lockdown is active.
+-- Verifies quest tracker headers are compacted safely, restored on disable, and
+-- never changed while combat lockdown is active. Only the first module's anchor
+-- moves during combat, because Blizzard's refreshes put the header's gap back.
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then
@@ -213,6 +214,63 @@ Carpenter:RunAfterCombatQueue()
 assert(allObjectivesHeader.alpha == 0, "All Objectives header should hide after combat")
 assert(questsHeader.alpha == 0, "Quests header should hide after combat")
 assert(campaignHeader.alpha == 0, "Campaign header should hide after combat")
+
+-- A refresh during combat puts the header's gap back; the quests must not drop.
+inCombat = true
+questModule.offsetY = -38
+containerUpdateHook(ObjectiveTrackerFrame)
+assert(questModule.offsetY == 0, "a refresh during combat should keep the quests at the top")
+
+-- They still stay below a quest timer during combat.
+ObjectiveTrackerFrame.topPaddingProviders = { [questTimer] = true }
+questTimer.visible = true
+questModule.offsetY = -(38 + 77)
+containerUpdateHook(ObjectiveTrackerFrame)
+assert(questModule.offsetY == -77, "quests should stay below the quest timer during combat")
+questTimer.visible = false
+ObjectiveTrackerFrame.topPaddingProviders = nil
+
+-- The headers and the rest still wait for combat to end.
+questsHeader.alpha = 1
+questModule.offsetY = -38
+containerUpdateHook(ObjectiveTrackerFrame)
+assert(questModule.offsetY == 0, "the anchor should move during combat")
+assert(questsHeader.alpha == 1, "headers must not change during combat")
+inCombat = false
+Carpenter:RunAfterCombatQueue()
+assert(questsHeader.alpha == 0, "headers should hide after combat")
+
+-- The game blocks moving a protected frame in combat, so it waits for the end.
+questModule.IsProtected = function() return true end
+inCombat = true
+questModule.offsetY = -38
+containerUpdateHook(ObjectiveTrackerFrame)
+assert(questModule.offsetY == -38, "a protected module must not move during combat")
+inCombat = false
+Carpenter:RunAfterCombatQueue()
+assert(questModule.offsetY == 0, "a protected module should move once combat ends")
+questModule.IsProtected = nil
+
+-- Turned off during combat: nothing moves until the restore after combat.
+featureEnabled = false
+inCombat = true
+registeredFeature:Disable()
+questModule.offsetY = -38
+eventFrame.OnEvent(eventFrame, "QUEST_LOG_UPDATE")
+assert(questModule.offsetY == -38, "a turned off feature must not move the quests during combat")
+assert(questsHeader.alpha == 0, "the restore should wait for combat to end")
+inCombat = false
+Carpenter:RunAfterCombatQueue()
+assert(questsHeader.alpha == 1 and questModule.offsetY == -38, "the restore should run once combat ends")
+
+-- Turned on during combat: the headers still show, so the quests can't cover them yet.
+featureEnabled = true
+inCombat = true
+registeredFeature:Enable()
+assert(questsHeader.alpha == 1 and questModule.offsetY == -38, "visible headers should keep their gap during combat")
+inCombat = false
+Carpenter:RunAfterCombatQueue()
+assert(questsHeader.alpha == 0 and questModule.offsetY == 0, "turning on during combat should apply once combat ends")
 
 featureEnabled = false
 registeredFeature:Disable()

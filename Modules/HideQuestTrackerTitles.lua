@@ -178,6 +178,10 @@ local function MoveFirstModuleToTop(tracker)
     for _, module in ipairs(modules) do
         local point, relativeTo, relativePoint, offsetX, offsetY = GetTopAnchor(module, tracker)
         if point then
+            -- The game blocks moving a protected frame during combat.
+            if InCombatLockdown and InCombatLockdown() and module.IsProtected and module:IsProtected() then
+                return
+            end
             if not managedModuleAnchors[module] then
                 managedModuleAnchors[module] = {
                     point = point,
@@ -274,6 +278,12 @@ end
 
 local function ApplyQuestTrackerTitleVisibility()
     if InCombatLockdown and InCombatLockdown() then
+        -- Blizzard's refreshes put the header's gap back during combat too, which
+        -- would drop the quests until combat ends. Everything else can wait, and
+        -- while the headers still show, the quests need the gap to stay below them.
+        if IsEnabled() and next(originalAlphas) then
+            MoveFirstModuleToTop(_G.ObjectiveTrackerFrame)
+        end
         Carpenter:AfterCombat(FEATURE_KEY, ApplyQuestTrackerTitleVisibility)
         return
     end
