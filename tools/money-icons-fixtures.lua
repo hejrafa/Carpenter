@@ -1,6 +1,6 @@
 #!/usr/bin/env lua
--- Pins which coin art money lines use: Forever matches its newer money frames,
--- and every other client keeps the older files.
+-- Pins which coin art money lines use: Retail and Forever match their newer
+-- money frames, and the Classic clients keep the older files.
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then repo = repo:sub(1, -2) end
@@ -21,19 +21,26 @@ local function LoadCore(client)
     return Carpenter
 end
 
-local core = LoadCore({ isMainline = true, isForever = true })
-local expected = "1|r |A:coin-gold:14:14:2:0|a 23|r |A:coin-silver:14:14:2:0|a 45|r |A:coin-copper:14:14:2:0|a"
-assert(core:FormatMoney(12345, "") == expected, "Forever should use its newer coins, got " .. core:FormatMoney(12345, ""))
-assert(core:FormatMoney(45, "") == "45|r |A:coin-copper:14:14:2:0|a", "Forever should show copper alone, got " .. core:FormatMoney(45, ""))
+local function CheckClients(clients, expected, description)
+    for name, client in pairs(clients) do
+        local core = LoadCore(client)
+        local money = core:FormatMoney(12345, "")
+        assert(money == expected, name .. " should " .. description .. ", got " .. money)
+    end
+end
 
-expected = "1|r |TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:0|t 23|r |TInterface\\MoneyFrame\\UI-SilverIcon:12:12:2:0|t 45|r |TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:0|t"
-for name, client in pairs({
+CheckClients({
     Retail = { isMainline = true, isRetail = true },
+    Forever = { isMainline = true, isForever = true },
+}, "1|r |A:coin-gold:14:14:2:0|a 23|r |A:coin-silver:14:14:2:0|a 45|r |A:coin-copper:14:14:2:0|a", "use the newer coins")
+
+CheckClients({
     TBC = { isTBC = true, isClassic = true },
     Vanilla = { isVanilla = true, isClassic = true },
-}) do
-    core = LoadCore(client)
-    assert(core:FormatMoney(12345, "") == expected, name .. " should keep the older coins, got " .. core:FormatMoney(12345, ""))
-end
+}, "1|r |TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:0|t 23|r |TInterface\\MoneyFrame\\UI-SilverIcon:12:12:2:0|t 45|r |TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:0|t", "keep the older coins")
+
+-- Smaller amounts leave out the coins they don't need.
+local core = LoadCore({ isMainline = true, isRetail = true })
+assert(core:FormatMoney(45, "") == "45|r |A:coin-copper:14:14:2:0|a", "copper alone should show one coin, got " .. core:FormatMoney(45, ""))
 
 print("money icons fixtures: passed")

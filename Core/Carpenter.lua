@@ -343,9 +343,10 @@ function Carpenter:StopTicker(key)
     self.Tickers[key] = nil
 end
 
--- Forever's money frames moved to newer coin art, so its money lines match them.
--- That art leaves more room around the coin, so it's drawn a little larger.
-if Carpenter.Client and Carpenter.Client.isForever then
+-- Retail's and Forever's money frames moved to newer coin art, so their money
+-- lines match them. That art leaves more room around the coin, so it's drawn a
+-- little larger.
+if Carpenter.Client and Carpenter.Client.isMainline then
     Carpenter.MoneyIcons = {
         Gold = "|A:coin-gold:14:14:2:0|a",
         Silver = "|A:coin-silver:14:14:2:0|a",

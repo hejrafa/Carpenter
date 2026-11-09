@@ -13,8 +13,9 @@ local ns = { Private = {} }
 Carpenter = {
     L = {},
     Client = { isMainline = false },
-    -- Forever's atlas markup, so every money line tests the whole chat pipeline
-    -- with it. tools/money-icons-fixtures.lua pins which client gets which icons.
+    -- Retail's and Forever's atlas markup, so every money line tests the whole
+    -- chat pipeline with it. tools/money-icons-fixtures.lua pins which client gets
+    -- which icons.
     MoneyIcons = {
         Gold = "|A:coin-gold:14:14:2:0|a",
         Silver = "|A:coin-silver:14:14:2:0|a",
