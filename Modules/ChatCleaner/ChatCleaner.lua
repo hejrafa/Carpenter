@@ -38,10 +38,6 @@ local ColorRepair         = ColorGray
 local ColorRestedBar = Colors and Colors.restedValue and Colors.restedValue.colorCode or "|cff3399ff"
 local ColorNormalBar = Colors and Colors.xpValue and Colors.xpValue.colorCode or "|cff9940ff"
 
--- Money Icons
-local GoldIcon = "|TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:0|t"
-local silverIcon = "|TInterface\\MoneyFrame\\UI-SilverIcon:12:12:2:0|t"
-local copperIcon = "|TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:0|t"
 local ChatCleanerUtils = ns and ns.Private and ns.Private.ChatCleanerUtils or {}
 local ParseRetailMoneyGain = ChatCleanerUtils.ParseRetailMoneyGain
 local StripBrackets = ChatCleanerUtils.StripBrackets
@@ -57,14 +53,8 @@ local ChatCleanerSocial = ns and ns.Private and ns.Private.ChatCleanerSocial or 
 local ChatCleanerPostProcess = ns and ns.Private and ns.Private.ChatCleanerPostProcess or {}
 local ChatCleanerLifecycle = ns and ns.Private and ns.Private.ChatCleanerLifecycle or {}
 
-local moneyIcons = {
-    Gold = GoldIcon,
-    Silver = silverIcon,
-    Copper = copperIcon,
-}
-
 local function FormatMoney(amount, amountColor)
-    return ChatCleanerUtils.FormatMoney(amount, amountColor or ColorWhite, moneyIcons)
+    return ChatCleanerUtils.FormatMoney(amount, amountColor or ColorWhite, Carpenter.MoneyIcons)
 end
 
 local GetItemLinkWithQualityColor = ChatCleanerUtils.GetItemLinkWithQualityColor or function(itemLink) return itemLink end

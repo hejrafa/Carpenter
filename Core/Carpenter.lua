@@ -343,9 +343,21 @@ function Carpenter:StopTicker(key)
     self.Tickers[key] = nil
 end
 
-local GoldIcon = "|TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:0|t"
-local SilverIcon = "|TInterface\\MoneyFrame\\UI-SilverIcon:12:12:2:0|t"
-local CopperIcon = "|TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:0|t"
+-- Forever's money frames moved to newer coin art, so its money lines match them.
+-- That art leaves more room around the coin, so it's drawn a little larger.
+if Carpenter.Client and Carpenter.Client.isForever then
+    Carpenter.MoneyIcons = {
+        Gold = "|A:coin-gold:14:14:2:0|a",
+        Silver = "|A:coin-silver:14:14:2:0|a",
+        Copper = "|A:coin-copper:14:14:2:0|a",
+    }
+else
+    Carpenter.MoneyIcons = {
+        Gold = "|TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:0|t",
+        Silver = "|TInterface\\MoneyFrame\\UI-SilverIcon:12:12:2:0|t",
+        Copper = "|TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:0|t",
+    }
+end
 
 function Carpenter:FormatMoney(amount, amountColor)
     amountColor = amountColor or ns.Private.Colors.white.colorCode
@@ -357,13 +369,13 @@ function Carpenter:FormatMoney(amount, amountColor)
     local str = ""
 
     if gold > 0 then
-        str = str .. amountColor .. gold .. "|r " .. GoldIcon .. " "
+        str = str .. amountColor .. gold .. "|r " .. self.MoneyIcons.Gold .. " "
     end
     if silver > 0 or gold > 0 then
-        str = str .. amountColor .. silver .. "|r " .. SilverIcon .. " "
+        str = str .. amountColor .. silver .. "|r " .. self.MoneyIcons.Silver .. " "
     end
 
-    return str .. amountColor .. copper .. "|r " .. CopperIcon
+    return str .. amountColor .. copper .. "|r " .. self.MoneyIcons.Copper
 end
 
 function Carpenter:AddChatMessage(msg)

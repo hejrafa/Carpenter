@@ -13,6 +13,13 @@ local ns = { Private = {} }
 Carpenter = {
     L = {},
     Client = { isMainline = false },
+    -- Forever's atlas markup, so every money line tests the whole chat pipeline
+    -- with it. tools/money-icons-fixtures.lua pins which client gets which icons.
+    MoneyIcons = {
+        Gold = "|A:coin-gold:14:14:2:0|a",
+        Silver = "|A:coin-silver:14:14:2:0|a",
+        Copper = "|A:coin-copper:14:14:2:0|a",
+    },
     IsEnabled = function(_, key) return key == "chatCleanerEnabled" end,
     RegisterFeature = function(_, key, feature)
         registeredChatFeatures = registeredChatFeatures or {}
@@ -168,6 +175,7 @@ local function plain(text)
         :gsub("|r", "")
         :gsub("|H.-|h(.-)|h", "%1")
         :gsub("|T.-|t", "")
+        :gsub("|A.-|a", "")
         :gsub("%s+", " ")
         :gsub("^%s+", "")
         :gsub("%s+$", "")
@@ -667,6 +675,28 @@ local fixtures = {
         event = "CHAT_MSG_SYSTEM",
         message = "You gained: 1 Gold 23 Silver 45 Copper.",
         expectHidden = true,
+    },
+    {
+        name = "money loot uses the client's coin icon",
+        event = "CHAT_MSG_MONEY",
+        message = "You loot 5 Copper",
+        expectPlain = "+ 5",
+        requireColors = { "|A:coin-copper:14:14:2:0|a" },
+    },
+    {
+        name = "money loot shows every coin",
+        event = "CHAT_MSG_MONEY",
+        message = "You loot 1 Gold, 23 Silver, 45 Copper",
+        expectPlain = "+ 1 23 45",
+        requireColors = { "|A:coin-gold:14:14:2:0|a", "|A:coin-silver:14:14:2:0|a", "|A:coin-copper:14:14:2:0|a" },
+    },
+    {
+        name = "money line survives the post-processor",
+        path = "post",
+        event = "CHAT_MSG_MONEY",
+        message = "+ 5 |A:coin-copper:14:14:2:0|a",
+        expectPlain = "+ 5",
+        requireColors = { "|A:coin-copper:14:14:2:0|a" },
     },
     {
         name = "auctionator hidden",
