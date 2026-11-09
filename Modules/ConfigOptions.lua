@@ -152,6 +152,7 @@ function Options.Create(context)
                     key = "hideBuffCollapseArrowEnabled",
                     label = L.OPTION_HIDE_BUFF_COLLAPSE_ARROW or "Hide Buff Collapse Arrow",
                     description = Description("DESC_HIDE_BUFF_COLLAPSE_ARROW"),
+                    image = GetSettingsImage(nil, "buffarrow.png"),
                 },
                 {
                     key = "scaleExtraAbilityEnabled",

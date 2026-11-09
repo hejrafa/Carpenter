@@ -23,6 +23,7 @@ local RETAIL_SETTINGS_IMAGES = {
 -- here. Make these with tools/settings-image.swift.
 local FOREVER_SETTINGS_IMAGES = {
     ["actioncam.png"] = true,
+    ["buffarrow.png"] = true,
     ["chatbuttons.png"] = true,
     ["chatcleaner.png"] = true,
     ["classhealthbar.png"] = true,
