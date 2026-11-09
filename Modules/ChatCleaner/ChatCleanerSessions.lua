@@ -80,7 +80,7 @@ function Sessions.Create(config)
             if net > 0 then
                 print((colorPlus .. "+|r ") .. formatMoney(net))
             elseif net < 0 then
-                print((colorMinus .. "-|r ") .. formatMoney(-net))
+                print((colorMinus .. Carpenter.MinusSign .. "|r ") .. formatMoney(-net))
             end
 
             DeferMerchantClosed(self)

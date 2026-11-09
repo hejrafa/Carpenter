@@ -15,7 +15,7 @@ local GUILD_REPAIR_RESULT_SECONDS = 0.5
 local pendingGuildRepairCost
 
 local function ReportRepair(label, cost)
-    Carpenter:AddChatMessage((ColorPlus .. "-|r ") .. ColorRepair .. label .. ": " .. Carpenter:FormatMoney(cost) .. "|r")
+    Carpenter:AddChatMessage((ColorPlus .. Carpenter.MinusSign .. "|r ") .. ColorRepair .. label .. ": " .. Carpenter:FormatMoney(cost) .. "|r")
 end
 
 local function RepairWithOwnGold()

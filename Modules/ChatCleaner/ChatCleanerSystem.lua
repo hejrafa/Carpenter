@@ -336,7 +336,7 @@ function System.Create(config)
         if not repFaction then repAmount, repFaction = message:match("(%d+) reputation with (.-) lost") end
         if not repFaction then repFaction, repAmount = message:match("(.-) reputation decreased by (%d+)") end
         if repFaction and repAmount then
-            return spaceBeforeX(colorMinus .. "-|r " .. colorWhite .. repAmount .. " " .. T("CHAT_REPUTATION_LABEL", "Reputation:") .. " |r" .. colorBluePurple .. repFaction .. "|r")
+            return spaceBeforeX(colorMinus .. Carpenter.MinusSign .. "|r " .. colorWhite .. repAmount .. " " .. T("CHAT_REPUTATION_LABEL", "Reputation:") .. " |r" .. colorBluePurple .. repFaction .. "|r")
         end
 
         return nil

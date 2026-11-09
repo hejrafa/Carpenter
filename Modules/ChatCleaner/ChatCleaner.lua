@@ -359,7 +359,7 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     end
 
     local prefixPlus = ColorPlus .. "+|r "
-    local prefixMinus = ColorMinus .. "-|r "
+    local prefixMinus = ColorMinus .. Carpenter.MinusSign .. "|r "
 
     if event == "CHAT_MSG_YELL" then
         local playerName = ChatCleanerLoot.GetGroupLootPlayerName and ChatCleanerLoot.GetGroupLootPlayerName(msg, GroupLootPatterns, author)

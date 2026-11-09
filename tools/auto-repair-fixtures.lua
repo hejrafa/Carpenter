@@ -58,6 +58,7 @@ InstallGuildCalls()
 CarpenterDB = {}
 Carpenter = {
     MerchantState = {},
+    MinusSign = "\226\136\146",
     IsEnabled = function(_, key) return key == "autoRepair" end,
     AddChatMessage = function(_, message) messages[#messages + 1] = message end,
     FormatMoney = function(_, amount) return tostring(amount) end,
@@ -93,8 +94,8 @@ local function Expect(repairList, messageList, label)
     assert(table.concat(messages, ",") == messageList, label .. ": expected messages [" .. messageList .. "], got [" .. table.concat(messages, ",") .. "]")
 end
 
-local OWN_LINE = "-|r Gear repaired: 120|r"
-local GUILD_LINE = "-|r Gear repaired with guild funds: 120|r"
+local OWN_LINE = "\226\136\146|r Gear repaired: 120|r"
+local GUILD_LINE = "\226\136\146|r Gear repaired with guild funds: 120|r"
 
 -- Off: the guild is never asked, and the summary counts the gold.
 Reset(false)

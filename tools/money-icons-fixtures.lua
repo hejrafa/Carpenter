@@ -32,7 +32,7 @@ end
 CheckClients({
     Retail = { isMainline = true, isRetail = true },
     Forever = { isMainline = true, isForever = true },
-}, "1|r|A:coin-gold:12:12:2:0|a 23|r|A:coin-silver:12:12:2:0|a 45|r|A:coin-copper:12:12:2:0|a", "use the newer coins, right after each amount")
+}, "1|r|A:coin-gold:10:10:2:0|a 23|r|A:coin-silver:10:10:2:0|a 45|r|A:coin-copper:10:10:2:0|a", "use the newer coins, right after each amount")
 
 CheckClients({
     TBC = { isTBC = true, isClassic = true },
@@ -41,6 +41,21 @@ CheckClients({
 
 -- Smaller amounts leave out the coins they don't need.
 local core = LoadCore({ isMainline = true, isRetail = true })
-assert(core:FormatMoney(45, "") == "45|r|A:coin-copper:12:12:2:0|a", "copper alone should show one coin, got " .. core:FormatMoney(45, ""))
+assert(core:FormatMoney(45, "") == "45|r|A:coin-copper:10:10:2:0|a", "copper alone should show one coin, got " .. core:FormatMoney(45, ""))
+
+-- The minus sign lines up with "+", except where the chat font couldn't be checked.
+for locale, expected in pairs({
+    enUS = "\226\136\146",
+    deDE = "\226\136\146",
+    ruRU = "\226\136\146",
+    koKR = "-",
+    zhCN = "-",
+    zhTW = "-",
+}) do
+    GetLocale = function() return locale end
+    core = LoadCore({ isMainline = true, isForever = true })
+    assert(core.MinusSign == expected, locale .. " has the wrong minus sign")
+end
+GetLocale = nil
 
 print("money icons fixtures: passed")

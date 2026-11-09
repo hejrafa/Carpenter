@@ -17,10 +17,11 @@ Carpenter = {
     -- chat pipeline with it. tools/money-icons-fixtures.lua pins which client gets
     -- which icons.
     MoneyIcons = {
-        Gold = "|A:coin-gold:12:12:2:0|a",
-        Silver = "|A:coin-silver:12:12:2:0|a",
-        Copper = "|A:coin-copper:12:12:2:0|a",
+        Gold = "|A:coin-gold:10:10:2:0|a",
+        Silver = "|A:coin-silver:10:10:2:0|a",
+        Copper = "|A:coin-copper:10:10:2:0|a",
     },
+    MinusSign = "\226\136\146",
     IsEnabled = function(_, key) return key == "chatCleanerEnabled" end,
     RegisterFeature = function(_, key, feature)
         registeredChatFeatures = registeredChatFeatures or {}
@@ -560,7 +561,7 @@ local fixtures = {
         name = "possessive reputation loss",
         event = "CHAT_MSG_COMBAT_FACTION_CHANGE",
         message = "Your Bloodsail Buccaneers reputation has decreased by 125.",
-        expectPlain = "- 125 Reputation: Bloodsail Buccaneers",
+        expectPlain = "\226\136\146 125 Reputation: Bloodsail Buccaneers",
     },
     {
         name = "nameless level up stays unchanged",
@@ -682,22 +683,34 @@ local fixtures = {
         event = "CHAT_MSG_MONEY",
         message = "You loot 5 Copper",
         expectPlain = "+ 5",
-        requireColors = { "5|r|A:coin-copper:12:12:2:0|a" },
+        requireColors = { "5|r|A:coin-copper:10:10:2:0|a" },
     },
     {
         name = "money loot shows every coin",
         event = "CHAT_MSG_MONEY",
         message = "You loot 1 Gold, 23 Silver, 45 Copper",
         expectPlain = "+ 1 23 45",
-        requireColors = { "1|r|A:coin-gold:12:12:2:0|a ", "23|r|A:coin-silver:12:12:2:0|a ", "45|r|A:coin-copper:12:12:2:0|a" },
+        requireColors = { "1|r|A:coin-gold:10:10:2:0|a ", "23|r|A:coin-silver:10:10:2:0|a ", "45|r|A:coin-copper:10:10:2:0|a" },
     },
     {
         name = "money line survives the post-processor",
         path = "post",
         event = "CHAT_MSG_MONEY",
-        message = "+ 5|A:coin-copper:12:12:2:0|a",
+        message = "+ 5|A:coin-copper:10:10:2:0|a",
         expectPlain = "+ 5",
-        requireColors = { "5|A:coin-copper:12:12:2:0|a" },
+        requireColors = { "5|A:coin-copper:10:10:2:0|a" },
+    },
+    {
+        name = "money loss uses the minus sign",
+        event = "CHAT_MSG_MONEY",
+        message = "You paid 5 Copper",
+        expectPlain = "\226\136\146 5",
+    },
+    {
+        name = "repair cost uses the minus sign",
+        event = "CHAT_MSG_MONEY",
+        message = "You paid 7 Copper to repair your items",
+        expectPlain = "\226\136\146 7",
     },
     {
         name = "auctionator hidden",

@@ -224,7 +224,7 @@ function Rewards.Create(config)
         end
         if isRepair then
             lastRepairAmount, lastRepairTime = total, GetTime()
-            return spaceBeforeX(colorMinus .. "-|r " .. formatMoney(total, colorPalered))
+            return spaceBeforeX(colorMinus .. Carpenter.MinusSign .. "|r " .. formatMoney(total, colorPalered))
         end
         if lastRepairAmount and total == lastRepairAmount and (GetTime() - lastRepairTime) < repairDedupSeconds then
             return true

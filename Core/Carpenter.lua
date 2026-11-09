@@ -343,13 +343,25 @@ function Carpenter:StopTicker(key)
     self.Tickers[key] = nil
 end
 
+-- A true minus sign is exactly as wide as "+" in the chat font, so text after the
+-- two prefixes lines up; a hyphen is much narrower. The Korean and Chinese chat
+-- fonts couldn't be checked for it, and a missing character would be worse than a
+-- small misalignment, so those keep the hyphen.
+local clientLocale = GetLocale and GetLocale()
+if clientLocale == "koKR" or clientLocale == "zhCN" or clientLocale == "zhTW" then
+    Carpenter.MinusSign = "-"
+else
+    Carpenter.MinusSign = "\226\136\146"
+end
+
 -- Retail's and Forever's money frames moved to newer coin art, so their money
--- lines match them.
+-- lines match them. That art fills its whole box, so it's drawn smaller than the
+-- older coins to sit at about the height of the digits, as it does in those frames.
 if Carpenter.Client and Carpenter.Client.isMainline then
     Carpenter.MoneyIcons = {
-        Gold = "|A:coin-gold:12:12:2:0|a",
-        Silver = "|A:coin-silver:12:12:2:0|a",
-        Copper = "|A:coin-copper:12:12:2:0|a",
+        Gold = "|A:coin-gold:10:10:2:0|a",
+        Silver = "|A:coin-silver:10:10:2:0|a",
+        Copper = "|A:coin-copper:10:10:2:0|a",
     }
 else
     Carpenter.MoneyIcons = {
