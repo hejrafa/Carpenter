@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.8.19
+
+- Carpenter now has its own section in the game's Keybindings, with a key that turns Explorer Mode on and off. The key fades the HUD right away, and the settings checkbox follows along.
+- Action Cam now brings the camera back to your own distance after a flight path. Riding up to a flight master used to leave it further out once you landed.
+- Chat money lines on Retail and WoW Forever now use the same coins as the bags and tooltips. On every client the coin now sits right after the amount, as in Blizzard's own text, and minus lines line up with plus lines (except on Korean and Chinese clients).
+- Chat Cleaner shows the honor you really gained, once per gain. It used to show 8, and could print one gain twice.
+- Chat Cleaner now styles the game's other reward lines, like "+ 5 Bonus Tokens", and no longer turns player chat that mentions honor into reward lines.
+- Local Defense lines in chat no longer show a stray colon after the channel number.
+- The portrait debuff icon on WoW Forever now only shows stuns and roots, including Gouge, so Bonus XP and Resurrection Sickness no longer cover the portrait. Short fears and polymorphs can still show on friendly units. Its dark countdown swipe no longer covers the level badge.
+- Updated settings previews on WoW Forever, and Hide Buff Collapse Arrow has a preview there now.
+
 ## 1.8.18
 
 - New checkbox in the Auto Repair settings: Use Guild Funds If Available. The guild pays when your daily allowance covers the whole repair, and you pay otherwise. It's off by default and doesn't show on Classic Era.
