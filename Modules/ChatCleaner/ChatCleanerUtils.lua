@@ -95,13 +95,13 @@ function Utils.FormatMoney(amount, amountColor, icons)
     local text = ""
 
     if gold > 0 then
-        text = text .. amountColor .. gold .. "|r " .. (icons.Gold or "") .. " "
+        text = text .. amountColor .. gold .. "|r" .. (icons.Gold or "") .. " "
     end
     if silver > 0 or gold > 0 then
-        text = text .. amountColor .. silver .. "|r " .. (icons.Silver or "") .. " "
+        text = text .. amountColor .. silver .. "|r" .. (icons.Silver or "") .. " "
     end
 
-    return text .. amountColor .. copper .. "|r " .. (icons.Copper or "")
+    return text .. amountColor .. copper .. "|r" .. (icons.Copper or "")
 end
 
 function Utils.GetItemLinkWithQualityColor(itemLink)

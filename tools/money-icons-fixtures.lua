@@ -32,15 +32,15 @@ end
 CheckClients({
     Retail = { isMainline = true, isRetail = true },
     Forever = { isMainline = true, isForever = true },
-}, "1|r |A:coin-gold:14:14:2:0|a 23|r |A:coin-silver:14:14:2:0|a 45|r |A:coin-copper:14:14:2:0|a", "use the newer coins")
+}, "1|r|A:coin-gold:14:14:2:0|a 23|r|A:coin-silver:14:14:2:0|a 45|r|A:coin-copper:14:14:2:0|a", "use the newer coins, right after each amount")
 
 CheckClients({
     TBC = { isTBC = true, isClassic = true },
     Vanilla = { isVanilla = true, isClassic = true },
-}, "1|r |TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:0|t 23|r |TInterface\\MoneyFrame\\UI-SilverIcon:12:12:2:0|t 45|r |TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:0|t", "keep the older coins")
+}, "1|r|TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:0|t 23|r|TInterface\\MoneyFrame\\UI-SilverIcon:12:12:2:0|t 45|r|TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:0|t", "keep the older coins, right after each amount")
 
 -- Smaller amounts leave out the coins they don't need.
 local core = LoadCore({ isMainline = true, isRetail = true })
-assert(core:FormatMoney(45, "") == "45|r |A:coin-copper:14:14:2:0|a", "copper alone should show one coin, got " .. core:FormatMoney(45, ""))
+assert(core:FormatMoney(45, "") == "45|r|A:coin-copper:14:14:2:0|a", "copper alone should show one coin, got " .. core:FormatMoney(45, ""))
 
 print("money icons fixtures: passed")

@@ -370,13 +370,13 @@ function Carpenter:FormatMoney(amount, amountColor)
     local str = ""
 
     if gold > 0 then
-        str = str .. amountColor .. gold .. "|r " .. self.MoneyIcons.Gold .. " "
+        str = str .. amountColor .. gold .. "|r" .. self.MoneyIcons.Gold .. " "
     end
     if silver > 0 or gold > 0 then
-        str = str .. amountColor .. silver .. "|r " .. self.MoneyIcons.Silver .. " "
+        str = str .. amountColor .. silver .. "|r" .. self.MoneyIcons.Silver .. " "
     end
 
-    return str .. amountColor .. copper .. "|r " .. self.MoneyIcons.Copper
+    return str .. amountColor .. copper .. "|r" .. self.MoneyIcons.Copper
 end
 
 function Carpenter:AddChatMessage(msg)
