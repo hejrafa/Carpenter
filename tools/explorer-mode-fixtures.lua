@@ -112,6 +112,10 @@ Carpenter = {
     Client = { isTBC = true, isClassic = true },
     Deferred = {},
     IsEnabled = function(_, key) return CarpenterDB[key] == true end,
+    ToggleOption = function(_, key)
+        CarpenterDB[key] = CarpenterDB[key] ~= true
+        if CarpenterDB[key] then feature:Enable() else feature:Disable() end
+    end,
     Defer = function(self, key, delay, callback) self.Deferred[key] = { at = now + delay, callback = callback } end,
     After = function(_, delay, callback) timers[#timers + 1] = { at = now + delay, callback = callback } end,
     SafeRegisterEvent = function(_, frameObject, event) frameObject:RegisterEvent(event) return true end,
@@ -289,6 +293,57 @@ check(math.abs(targetFrame.alpha - 0.8) < 0.001, "turning off should restore the
 check(Visible(actionButton), "turning off should restore action buttons")
 check(not ExplorerMode.IsFaded(), "turning off should clear the faded state")
 check(not ExplorerMode.IsHUDRevealed(), "turning off should clear the reveal")
+
+-- 8. The keybinding turns it on without waiting for hidden health to settle,
+-- and a health change still brings the HUD back.
+Carpenter_ToggleExplorerMode()
+check(CarpenterDB.explorerModeEnabled == true, "the key should turn Explorer Mode on")
+check(not Carpenter.Deferred["ExplorerMode:fadeOut"], "the key should not leave a delayed fade behind")
+Tick(3)
+check(Faded(playerFrame), "the key should fade the HUD without waiting for hidden health")
+Fire("UNIT_HEALTH", "player")
+Tick(1)
+check(Visible(playerFrame), "a hidden health change should still bring the HUD back after the key")
+Tick(7)
+check(Faded(playerFrame), "the HUD should fade again once hidden health settles after the key")
+
+-- 8b. Pressing it again restores the HUD at once.
+Carpenter_ToggleExplorerMode()
+check(CarpenterDB.explorerModeEnabled == false, "the key should turn Explorer Mode off")
+check(Visible(playerFrame) and Visible(actionButton), "the key should restore the HUD at once")
+
+-- 8c. It won't fade the HUD in combat, but fades it once combat ends.
+inCombat = true
+Carpenter_ToggleExplorerMode()
+Tick(3)
+check(CarpenterDB.explorerModeEnabled == true, "the key should turn Explorer Mode on in combat")
+check(Visible(playerFrame), "the key should not fade the HUD in combat")
+inCombat = false
+Fire("PLAYER_REGEN_ENABLED")
+Tick(8)
+check(Faded(playerFrame), "the HUD should fade once combat ends after the key")
+
+-- 8d. Turning it off in combat stays off after combat.
+inCombat = true
+Fire("PLAYER_REGEN_DISABLED")
+Carpenter_ToggleExplorerMode()
+check(Visible(playerFrame), "the key should leave the HUD up when turned off in combat")
+inCombat = false
+Fire("PLAYER_REGEN_ENABLED")
+Tick(8)
+check(Visible(playerFrame), "the HUD should stay up after combat once the key turned it off")
+
+-- 8e. It won't fade the HUD while the player is known to be hurt.
+healthSecret = false
+playerHealth = 60
+Carpenter_ToggleExplorerMode()
+Tick(3)
+check(Visible(playerFrame), "the key should not fade the HUD while hurt")
+playerHealth = 100
+Fire("UNIT_HEALTH", "player")
+Tick(5)
+check(Faded(playerFrame), "the HUD should fade once health is full after the key")
+Carpenter_ToggleExplorerMode()
 
 if #failures > 0 then
     io.stderr:write(table.concat(failures, "\n") .. "\n")

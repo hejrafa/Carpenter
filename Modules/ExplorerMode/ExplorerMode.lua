@@ -9,6 +9,7 @@ local Internal = ns.Private.ExplorerModeInternal
 local S = Internal.State
 local ACTION_BUTTON_REFRESH_THROTTLE_SECONDS = Internal.ACTION_BUTTON_REFRESH_THROTTLE_SECONDS
 local EXPLORING_ALPHA = Internal.EXPLORING_ALPHA
+local FEATURE_KEY = Internal.FEATURE_KEY
 local FADE_OUT_DELAY_SECONDS = Internal.FADE_OUT_DELAY_SECONDS
 local FADE_OUT_SECONDS = Internal.FADE_OUT_SECONDS
 local HIDDEN_HEALTH_SETTLE_SECONDS = Internal.HIDDEN_HEALTH_SETTLE_SECONDS
@@ -294,6 +295,15 @@ end
 
 if Carpenter and Carpenter.RegisterFeature then
     Carpenter:RegisterFeature("explorerModeEnabled", feature)
+end
+
+-- Bindings.xml calls this. A key press should answer right away, so unlike the
+-- checkbox it skips the wait for hidden health to settle. If health does change,
+-- the HUD comes back as usual.
+function Carpenter_ToggleExplorerMode()
+    Carpenter:ToggleOption(FEATURE_KEY)
+    CancelScheduledFadeOut()
+    FadeOutForExploration()
 end
 
 Internal.RestoreVisible = RestoreVisible

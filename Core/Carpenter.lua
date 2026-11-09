@@ -205,6 +205,19 @@ function Carpenter:RefreshFeatures()
     end
 end
 
+-- Flips an option from outside the settings panel, as a keybinding does. An
+-- open panel's checkbox follows along.
+function Carpenter:ToggleOption(key)
+    if not CarpenterDB or not self:IsFeatureAvailable(key) then return end
+    CarpenterDB[key] = CarpenterDB[key] ~= true
+    self:RefreshFeature(key)
+
+    local checkbox = _G["CP_Check_" .. key]
+    if checkbox then
+        checkbox:SetChecked(CarpenterDB[key])
+    end
+end
+
 function Carpenter:Defer(key, delay, callback)
     if not key or type(callback) ~= "function" then return end
     delay = delay or 0
@@ -430,6 +443,10 @@ function Carpenter_InitializeSettings()
         end
     end
 end
+
+-- Names for Bindings.xml. The game's Keybindings list looks them up as globals.
+BINDING_HEADER_CARPENTER = L.ADDON_NAME or "Carpenter"
+BINDING_NAME_CARPENTER_EXPLORER_MODE = L.OPTION_EXPLORER_MODE or "Explorer Mode"
 
 SLASH_CARPENTER1 = "/carpenter"
 SLASH_CARPENTER2 = "/cp"

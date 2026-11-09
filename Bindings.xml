@@ -1,0 +1,5 @@
+<Bindings>
+	<Binding name="CARPENTER_EXPLORER_MODE" category="BINDING_HEADER_CARPENTER">
+		Carpenter_ToggleExplorerMode()
+	</Binding>
+</Bindings>

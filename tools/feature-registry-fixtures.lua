@@ -63,4 +63,26 @@ CarpenterDB.hideErrorMessagesEnabled = false
 Carpenter:RefreshFeature("hideErrorMessagesEnabled")
 assert(table.concat(calls, ",") == "errors:on", "expected only the enable call, got " .. table.concat(calls, ","))
 
+-- A keybinding flips the option, runs its modules, and moves the panel's checkbox.
+calls = {}
+local checked
+CP_Check_cleanUpUnitFramesEnabled = { SetChecked = function(_, value) checked = value end }
+Carpenter:ToggleOption("cleanUpUnitFramesEnabled")
+assert(CarpenterDB.cleanUpUnitFramesEnabled == true and checked == true, "toggling should turn the option and its checkbox on")
+assert(table.concat(calls, ",") == "cleaner:on,combatText:on", "toggling on should enable both modules, got " .. table.concat(calls, ","))
+
+calls = {}
+Carpenter:ToggleOption("cleanUpUnitFramesEnabled")
+assert(CarpenterDB.cleanUpUnitFramesEnabled == false and checked == false, "toggling again should turn the option and its checkbox off")
+assert(table.concat(calls, ",") == "cleaner:off,combatText:off", "toggling off should disable both modules, got " .. table.concat(calls, ","))
+
+-- The checkbox is optional, and an option this client doesn't offer stays put.
+CP_Check_cleanUpUnitFramesEnabled = nil
+Carpenter:ToggleOption("hideErrorMessagesEnabled")
+assert(CarpenterDB.hideErrorMessagesEnabled == true, "toggling should work without a checkbox")
+calls = {}
+Carpenter.IsFeatureAvailable = function() return false end
+Carpenter:ToggleOption("cleanUpUnitFramesEnabled")
+assert(CarpenterDB.cleanUpUnitFramesEnabled == false and #calls == 0, "toggling an unavailable option should do nothing")
+
 print("feature registry fixtures: passed")
