@@ -62,7 +62,8 @@ addon.PriorityDebuffs = {
 }
 
 -- Crowd control that isn't a stun or a root: fears, sleeps, polymorphs, silences,
--- and the like. Keyed by the spell ID its ranks point to in addon.Spells.
+-- and the like. Keyed by the spell ID its ranks point to in addon.Spells. Gouge is
+-- left out on purpose: it's an incapacitate, but it plays like a stun.
 addon.OtherCrowdControl = {
     [1090] = true, -- Magic Dust
     [5134] = true, -- Flash Bomb
@@ -92,7 +93,6 @@ addon.OtherCrowdControl = {
     [18425] = true, -- Improved Kick
     [2070] = true, -- Sap
     [2094] = true, -- Blind
-    [1776] = true, -- Gouge
     [1330] = true, -- Garrote Silence
     [18498] = true, -- Improved Shield Bash
     [5246] = true, -- Intimidating Shout

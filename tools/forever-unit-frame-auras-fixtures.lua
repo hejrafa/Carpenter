@@ -166,6 +166,8 @@ end
 local shown = {
     { 853, "Hammer of Justice" }, { 408, "Kidney Shot" }, { 8643, "Kidney Shot rank 2" }, { 1833, "Cheap Shot" },
     { 5211, "Bash" }, { 20549, "War Stomp" }, { 122, "Frost Nova" }, { 339, "Entangling Roots" },
+    { 1776, "Gouge" }, { 1777, "Gouge rank 2" }, { 8629, "Gouge rank 3" }, { 11285, "Gouge rank 4" },
+    { 11286, "Gouge rank 5" }, { 38764, "Gouge rank 6" },
 }
 for _, spell in ipairs(shown) do
     assert(not filters.excludeSpellIDs[spell[1]], spell[2] .. " should show")
