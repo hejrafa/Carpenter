@@ -47,6 +47,9 @@ local function ApplyChannelStyling(text)
 
     text = text:gsub("|Hchannel:(.-):(%d+)|h%[(%d+)%. (.-)%s%-%s.-%]|h", "|Hchannel:%1:%2|h%3.|h")
     text = text:gsub("|Hchannel:(.-):(%d+)|h%[(%d+)%. (.-)%]|h", "|Hchannel:%1:%2|h%3.|h")
+    -- Lines with no sender, like Local Defense's, read "3. : text". The colon was
+    -- meant to follow the name, so it goes too.
+    text = text:gsub("(|Hchannel:[^|]*|h%d+%.|h) : ", "%1 ")
     text = text:gsub("^Changed Channel: |Hchannel:(.-):(%d+)|h%[(%d+)%. (.-)%]|h", "|Hchannel:%1:%2|h%3. %4|h")
 
     return text

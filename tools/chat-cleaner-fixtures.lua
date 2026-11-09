@@ -247,6 +247,27 @@ local fixtures = {
         rejectColor = "|cffc69b6d",
     },
     {
+        name = "channel line keeps the number and the sender",
+        path = "post",
+        event = "CHAT_MSG_CHANNEL",
+        message = "|Hchannel:channel:1|h[1. General - Mulgore]|h |Hplayer:Bob:1:CHANNEL:1|h[Bob]|h: hello",
+        expectPlain = "1. Bob: hello",
+    },
+    {
+        name = "channel line with no sender drops the colon",
+        path = "post",
+        event = "CHAT_MSG_CHANNEL",
+        message = "|Hchannel:channel:3|h[3. LocalDefense - Mulgore]|h : Thunder Bluff is under attack!",
+        expectPlain = "3. Thunder Bluff is under attack!",
+    },
+    {
+        name = "channel line keeps a colon the sender typed",
+        path = "post",
+        event = "CHAT_MSG_CHANNEL",
+        message = "|Hchannel:channel:1|h[1. General - Mulgore]|h |Hplayer:Bob:1:CHANNEL:1|h[Bob]|h:  : hello",
+        expectPlain = "1. Bob: : hello",
+    },
+    {
         name = "story mode say lost in battle passes",
         event = "CHAT_MSG_SAY",
         author = "Kohji",
