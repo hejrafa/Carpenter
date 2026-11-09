@@ -23,13 +23,21 @@ local function NewRegion()
     function region:SetTexCoord() end
     function region:SetTexture(texture) self.texture = texture end
     function region:AddMaskTexture(mask) self.mask = mask end
-    function region:SetFrameLevel(level) self.level = level end
-    function region:GetFrameLevel() return self.level end
+    function region:SetFrameLevel(level) self.level, self.usesParentLevel = level, false end
+    function region:SetUsingParentLevel(using) self.usesParentLevel = using end
+    function region:GetFrameLevel()
+        if self.usesParentLevel then return self.parent:GetFrameLevel() end
+        return self.level
+    end
     function region:Show() self.shown = true end
     function region:Hide() self.shown = false end
     function region:CreateTexture() return NewRegion() end
     function region:CreateMaskTexture() return NewRegion() end
-    function region:CreateFontString() return NewRegion() end
+    function region:CreateFontString()
+        local text = NewRegion()
+        text.owner = self
+        return text
+    end
     function region:SetReverse() end
     function region:SetDrawEdge() end
     function region:SetSwipeTexture(texture) self.swipeTexture = texture end
@@ -48,14 +56,18 @@ end
 local containers = {}
 function CreateFrame(frameType, _, parent, template)
     local frame = NewRegion()
+    frame.parent = parent
+    -- As in the game, a new child frame starts one level above its parent.
+    if parent then
+        frame.level = parent:GetFrameLevel() + 1
+    end
     if frameType == "AuraContainer" then
         assert(template == "CustomAuraContainerTemplate", "expected the custom aura container template")
-        frame.parent = parent
         frame.slots = {}
         frame.refreshes = 0
         function frame:AddAuraSlot(key, filter, options)
-            -- The game creates the slot button and runs the initializer.
-            local button = NewRegion()
+            -- The game creates the slot button as the container's child and runs the initializer.
+            local button = CreateFrame("AuraButton", nil, self)
             function button:SetIcon(texture) self.icon = texture end
             function button:SetDurationCooldown(cooldown) self.cooldown = cooldown end
             function button:SetDurationText(text, textOptions) self.durationText, self.durationOptions = text, textOptions end
@@ -126,7 +138,7 @@ assert(#containers == 7, "each unit frame should get exactly one container")
 local player = byUnit.player
 local portrait = PlayerFrame.PlayerFrameContainer.PlayerPortrait
 assert(player.parent == PlayerFrame.PlayerFrameContainer, "the player container should sit with the portrait")
-assert(player.level == 4, "the icon should share the portrait frame's level so the level badge above it stays visible")
+assert(player:GetFrameLevel() == 4, "the container should share the portrait frame's level")
 assert(player.points[1][1] == "CENTER" and player.points[1][2] == portrait, "the container should be centered on the portrait")
 assert(#player.slots == 1, "the player frame should have one slot")
 local slot = player.slots[1]
@@ -176,6 +188,16 @@ assert(button.cooldown and button.cooldown.swipeTexture, "the swipe should be ro
 assert(button.durationText and button.durationText.fontSize == 24, "the timer should use the Classic portrait size")
 assert(button.durationOptions and button.durationOptions.textFormatter, "the timer should use the shared formatter")
 assert(byUnit.party1.slots[1].button.durationText.fontSize == 14, "party portraits should use a smaller timer")
+
+-- The level badge's frame is one level above the portrait's frame, so the icon and
+-- the swipe have to stay at the portrait frame's level on every unit frame.
+for unit, container in pairs(byUnit) do
+    local portraitLevel = container.parent:GetFrameLevel()
+    local unitButton = container.slots[1].button
+    assert(unitButton:GetFrameLevel() == portraitLevel, unit .. "'s icon should stay under the level badge")
+    assert(unitButton.cooldown:GetFrameLevel() == portraitLevel, unit .. "'s swipe should stay under the level badge")
+    assert(unitButton.durationText.owner:GetFrameLevel() > portraitLevel, unit .. "'s timer should draw over the swipe")
+end
 
 -- A new unit behind the same token is refreshed.
 local targetRefreshes, focusRefreshes, partyRefreshes = byUnit.target.refreshes, byUnit.focus.refreshes, byUnit.party2.refreshes

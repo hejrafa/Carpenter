@@ -83,6 +83,7 @@ end
 -- =========================
 local function CreateIconInitializer(size, textSize)
     return function(button)
+        button:SetUsingParentLevel(true)
         button:SetSize(size, size)
         button:ClearAllPoints()
         button:SetPoint("CENTER")
@@ -98,6 +99,7 @@ local function CreateIconInitializer(size, textSize)
 
         -- Round swipe, like the Classic portrait icon.
         local cooldown = CreateFrame("Cooldown", nil, button)
+        cooldown:SetUsingParentLevel(true)
         cooldown:SetAllPoints(button)
         cooldown:SetReverse(true)
         cooldown:SetDrawEdge(false)
@@ -106,6 +108,8 @@ local function CreateIconInitializer(size, textSize)
         cooldown:SetHideCountdownNumbers(true)
         button:SetDurationCooldown(cooldown)
 
+        -- One level up ties with the level badge, but the timer sits in the middle
+        -- of the portrait, clear of it.
         local overlay = CreateFrame("Frame", nil, button)
         overlay:SetAllPoints(button)
         overlay:SetFrameLevel(cooldown:GetFrameLevel() + 1)
@@ -122,12 +126,14 @@ local function CreateContainer(unit)
     local parent, portrait = GetPortrait(unit)
     if not parent or not portrait then return nil end
 
-    -- Same level as the portrait's frame, so the icon draws over the portrait
-    -- like the frame's own children do, while the level badge one level up
-    -- (TargetFrameContentMain on the target and focus frames) stays on top.
+    -- The level badge's frame (TargetFrameContentMain on the target and focus
+    -- frames) is one level above the portrait's frame, and a new child frame starts
+    -- one level above its parent. So the container, the icon button, and the swipe
+    -- all use the portrait frame's level, which keeps the badge on top. At the same
+    -- level a child still draws over its parent, as action button cooldowns do.
     -- The inset keeps the portrait ring visible.
     local container = CreateFrame("AuraContainer", nil, parent, "CustomAuraContainerTemplate")
-    container:SetFrameLevel(parent:GetFrameLevel())
+    container:SetUsingParentLevel(true)
     container:SetPoint("CENTER", portrait, "CENTER")
 
     local size = GetPortraitSize(portrait) - PORTRAIT_INSET * 2
