@@ -109,18 +109,6 @@ local function GetCurrentZoom()
     end
 end
 
--- TEMPORARY: records what the camera does around a flight in the saved variables,
--- to read back after a /reload. Remove once flights are confirmed in game.
-local function TraceZoom(label)
-    pcall(function()
-        local log = CarpenterDB.actionCamZoomTrace or {}
-        CarpenterDB.actionCamZoomTrace = log
-        if #log >= 80 then table.remove(log, 1) end
-        log[#log + 1] = string.format("%.2f %s zoom=%.2f mounted=%s taxi=%s pre=%s target=%s", GetTime(), label,
-            GetCurrentZoom(), tostring(IsMounted()), tostring(UnitOnTaxi("player")), tostring(preMountZoom), tostring(zoomTarget))
-    end)
-end
-
 -- Mid-sequence, the camera is only part of the way to where it's heading, so that
 -- reading isn't a distance worth coming back to.
 local function GetIntendedZoom()
@@ -168,8 +156,6 @@ local function SmoothZoomTo(targetZoom, duration)
 
             if i == steps then
                 zoomInProgress = false
-                TraceZoom("arrived")
-                C_Timer.After(3, function() TraceZoom("3s later") end)
             end
         end)
     end
@@ -232,10 +218,8 @@ local function UpdateCameraZoom()
         -- Restoring the view after hiding the UI re-checks while still mounted, and
         -- by then the camera is at the mounted distance, so keep the saved one.
         preMountZoom = preMountZoom or GetIntendedZoom()
-        TraceZoom("mounted")
         SmoothZoomTo(MOUNT_ZOOM_VALUE, MOUNT_ZOOM_TRANSITION_TIME)
     elseif preMountZoom then
-        TraceZoom("dismounted")
         SmoothZoomTo(preMountZoom, MOUNT_ZOOM_TRANSITION_TIME)
         preMountZoom = nil
     end
@@ -446,7 +430,6 @@ local function HandleActionCamEvent(self, event, addon)
             event == "UNIT_MODEL_CHANGED") then
         -- Mount/aura changed; delay so IsMounted() is up to date
         if IsEnabled() then
-            TraceZoom(event)
             ScheduleCameraZoomCheck(0.25)
         end
     end

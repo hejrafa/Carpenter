@@ -19,7 +19,6 @@ local tocByClient = {
 -- Saved state tables that intentionally live inside CarpenterDB but are not
 -- settings toggles.
 local stateKeys = {
-    actionCamZoomTrace = true, -- temporary, goes with TraceZoom in Modules/ActionCam.lua
     autoTrackQuestWatches = true,
     blankLuaErrorTraceLog = true,
     blockedActionLog = true,
@@ -37,6 +36,7 @@ local dormantOptionKeys = {}
 -- Removed settings that survive only in the upgrade migration, which clears
 -- them from saved variables. They intentionally have no defaults entry.
 local removedOptionKeys = {
+    actionCamZoomTrace = true, -- a debug log, not a setting, but cleared the same way
     backSheathOneHandWeaponsEnabled = true,
     chatGlossaryEnabled = true,
     classicSettingsPresetEnabled = true,

@@ -13,12 +13,10 @@ local zoom = 6
 local mounted = false
 local createdFrames = {}
 
-function GetTime() return now end
 function GetCameraZoom() return zoom end
 function CameraZoomIn(amount) zoom = zoom - amount end
 function CameraZoomOut(amount) zoom = zoom + amount end
 function IsMounted() return mounted end
-function UnitOnTaxi() return false end
 function SetCVar() end
 function GetCVar() end
 function SetView() end
