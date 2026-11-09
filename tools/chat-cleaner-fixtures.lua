@@ -17,9 +17,9 @@ Carpenter = {
     -- chat pipeline with it. tools/money-icons-fixtures.lua pins which client gets
     -- which icons.
     MoneyIcons = {
-        Gold = "|A:coin-gold:14:14:2:0|a",
-        Silver = "|A:coin-silver:14:14:2:0|a",
-        Copper = "|A:coin-copper:14:14:2:0|a",
+        Gold = "|A:coin-gold:12:12:2:0|a",
+        Silver = "|A:coin-silver:12:12:2:0|a",
+        Copper = "|A:coin-copper:12:12:2:0|a",
     },
     IsEnabled = function(_, key) return key == "chatCleanerEnabled" end,
     RegisterFeature = function(_, key, feature)
@@ -682,22 +682,22 @@ local fixtures = {
         event = "CHAT_MSG_MONEY",
         message = "You loot 5 Copper",
         expectPlain = "+ 5",
-        requireColors = { "5|r|A:coin-copper:14:14:2:0|a" },
+        requireColors = { "5|r|A:coin-copper:12:12:2:0|a" },
     },
     {
         name = "money loot shows every coin",
         event = "CHAT_MSG_MONEY",
         message = "You loot 1 Gold, 23 Silver, 45 Copper",
         expectPlain = "+ 1 23 45",
-        requireColors = { "1|r|A:coin-gold:14:14:2:0|a ", "23|r|A:coin-silver:14:14:2:0|a ", "45|r|A:coin-copper:14:14:2:0|a" },
+        requireColors = { "1|r|A:coin-gold:12:12:2:0|a ", "23|r|A:coin-silver:12:12:2:0|a ", "45|r|A:coin-copper:12:12:2:0|a" },
     },
     {
         name = "money line survives the post-processor",
         path = "post",
         event = "CHAT_MSG_MONEY",
-        message = "+ 5|A:coin-copper:14:14:2:0|a",
+        message = "+ 5|A:coin-copper:12:12:2:0|a",
         expectPlain = "+ 5",
-        requireColors = { "5|A:coin-copper:14:14:2:0|a" },
+        requireColors = { "5|A:coin-copper:12:12:2:0|a" },
     },
     {
         name = "auctionator hidden",

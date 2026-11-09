@@ -32,7 +32,7 @@ end
 CheckClients({
     Retail = { isMainline = true, isRetail = true },
     Forever = { isMainline = true, isForever = true },
-}, "1|r|A:coin-gold:14:14:2:0|a 23|r|A:coin-silver:14:14:2:0|a 45|r|A:coin-copper:14:14:2:0|a", "use the newer coins, right after each amount")
+}, "1|r|A:coin-gold:12:12:2:0|a 23|r|A:coin-silver:12:12:2:0|a 45|r|A:coin-copper:12:12:2:0|a", "use the newer coins, right after each amount")
 
 CheckClients({
     TBC = { isTBC = true, isClassic = true },
@@ -41,6 +41,6 @@ CheckClients({
 
 -- Smaller amounts leave out the coins they don't need.
 local core = LoadCore({ isMainline = true, isRetail = true })
-assert(core:FormatMoney(45, "") == "45|r|A:coin-copper:14:14:2:0|a", "copper alone should show one coin, got " .. core:FormatMoney(45, ""))
+assert(core:FormatMoney(45, "") == "45|r|A:coin-copper:12:12:2:0|a", "copper alone should show one coin, got " .. core:FormatMoney(45, ""))
 
 print("money icons fixtures: passed")
