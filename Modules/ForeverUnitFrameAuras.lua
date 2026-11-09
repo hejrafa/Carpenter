@@ -30,6 +30,11 @@ local FALLBACK_PORTRAIT_SIZE = 60
 local PORTRAIT_INSET = 2
 local DURATION_TEXT_SIZE = 24
 local DURATION_TEXT_SIZE_PARTY = 14
+-- Draw order is only certain between different frame levels, and the level badge's
+-- frame is just one level above the portrait's frame on the player, target, and
+-- focus frames. Moving the portrait's frame down makes room for the icon and the
+-- swipe between them: portrait, icon, swipe, badge.
+local PORTRAIT_LEVEL_DROP = 2
 
 local ICON_MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 local SWIPE_TEXTURE = "Interface\\CHARACTERFRAME\\TempPortraitAlphaMaskSmall"
@@ -64,6 +69,15 @@ local function GetPortrait(unit)
     return member, member and member.Portrait
 end
 
+-- Party frames have no level badge, so they stay where they are.
+local function MovePortraitFrame(unit, levels)
+    if unit:match("^party") then return end
+    local frame = GetPortrait(unit)
+    if frame then
+        frame:SetFrameLevel(frame:GetFrameLevel() + levels)
+    end
+end
+
 local function GetUnits()
     local units = { "player", "target", "focus" }
     for i = 1, PARTY_MEMBER_COUNT do
@@ -83,7 +97,6 @@ end
 -- =========================
 local function CreateIconInitializer(size, textSize)
     return function(button)
-        button:SetUsingParentLevel(true)
         button:SetSize(size, size)
         button:ClearAllPoints()
         button:SetPoint("CENTER")
@@ -99,7 +112,6 @@ local function CreateIconInitializer(size, textSize)
 
         -- Round swipe, like the Classic portrait icon.
         local cooldown = CreateFrame("Cooldown", nil, button)
-        cooldown:SetUsingParentLevel(true)
         cooldown:SetAllPoints(button)
         cooldown:SetReverse(true)
         cooldown:SetDrawEdge(false)
@@ -126,14 +138,11 @@ local function CreateContainer(unit)
     local parent, portrait = GetPortrait(unit)
     if not parent or not portrait then return nil end
 
-    -- The level badge's frame (TargetFrameContentMain on the target and focus
-    -- frames) is one level above the portrait's frame, and a new child frame starts
-    -- one level above its parent. So the container, the icon button, and the swipe
-    -- all use the portrait frame's level, which keeps the badge on top. At the same
-    -- level a child still draws over its parent, as action button cooldowns do.
-    -- The inset keeps the portrait ring visible.
+    -- Same level as the portrait's frame. A new child frame starts one level above
+    -- its parent, so the icon button is one level up and the swipe one more
+    -- (see PORTRAIT_LEVEL_DROP). The inset keeps the portrait ring visible.
     local container = CreateFrame("AuraContainer", nil, parent, "CustomAuraContainerTemplate")
-    container:SetUsingParentLevel(true)
+    container:SetFrameLevel(parent:GetFrameLevel())
     container:SetPoint("CENTER", portrait, "CENTER")
 
     local size = GetPortraitSize(portrait) - PORTRAIT_INSET * 2
@@ -189,6 +198,7 @@ local feature = {}
 function feature:Enable()
     if not IsSupported() then return end
     for _, unit in ipairs(GetUnits()) do
+        MovePortraitFrame(unit, -PORTRAIT_LEVEL_DROP)
         local container = GetContainer(unit)
         if container then
             container:SetUnit(unit)
@@ -201,12 +211,15 @@ function feature:Enable()
 end
 
 function feature:Disable()
+    if not IsSupported() then return end
     eventFrame:UnregisterAllEvents()
-    for _, container in pairs(containersByUnit) do
+    for _, unit in ipairs(GetUnits()) do
+        local container = containersByUnit[unit]
         if container then
             container:SetUnit("none")
             container:Hide()
         end
+        MovePortraitFrame(unit, PORTRAIT_LEVEL_DROP)
     end
 end
 

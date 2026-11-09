@@ -23,12 +23,8 @@ local function NewRegion()
     function region:SetTexCoord() end
     function region:SetTexture(texture) self.texture = texture end
     function region:AddMaskTexture(mask) self.mask = mask end
-    function region:SetFrameLevel(level) self.level, self.usesParentLevel = level, false end
-    function region:SetUsingParentLevel(using) self.usesParentLevel = using end
-    function region:GetFrameLevel()
-        if self.usesParentLevel then return self.parent:GetFrameLevel() end
-        return self.level
-    end
+    function region:SetFrameLevel(level) self.level = level end
+    function region:GetFrameLevel() return self.level end
     function region:Show() self.shown = true end
     function region:Hide() self.shown = false end
     function region:CreateTexture() return NewRegion() end
@@ -138,7 +134,7 @@ assert(#containers == 7, "each unit frame should get exactly one container")
 local player = byUnit.player
 local portrait = PlayerFrame.PlayerFrameContainer.PlayerPortrait
 assert(player.parent == PlayerFrame.PlayerFrameContainer, "the player container should sit with the portrait")
-assert(player:GetFrameLevel() == 4, "the container should share the portrait frame's level")
+assert(player:GetFrameLevel() == PlayerFrame.PlayerFrameContainer:GetFrameLevel(), "the container should share the portrait frame's level")
 assert(player.points[1][1] == "CENTER" and player.points[1][2] == portrait, "the container should be centered on the portrait")
 assert(#player.slots == 1, "the player frame should have one slot")
 local slot = player.slots[1]
@@ -189,15 +185,26 @@ assert(button.durationText and button.durationText.fontSize == 24, "the timer sh
 assert(button.durationOptions and button.durationOptions.textFormatter, "the timer should use the shared formatter")
 assert(byUnit.party1.slots[1].button.durationText.fontSize == 14, "party portraits should use a smaller timer")
 
--- The level badge's frame is one level above the portrait's frame, so the icon and
--- the swipe have to stay at the portrait frame's level on every unit frame.
-for unit, container in pairs(byUnit) do
-    local portraitLevel = container.parent:GetFrameLevel()
+-- Draw order is only certain between different levels, so each piece needs its own:
+-- portrait's frame, icon, swipe, level badge. The badge's frame doesn't move, and
+-- starts one level above where the portrait's frame started.
+local PORTRAIT_FRAME_START = 4
+local BADGE_LEVEL = PORTRAIT_FRAME_START + 1
+for _, unit in ipairs({ "player", "target", "focus" }) do
+    local container = byUnit[unit]
     local unitButton = container.slots[1].button
-    assert(unitButton:GetFrameLevel() == portraitLevel, unit .. "'s icon should stay under the level badge")
-    assert(unitButton.cooldown:GetFrameLevel() == portraitLevel, unit .. "'s swipe should stay under the level badge")
-    assert(unitButton.durationText.owner:GetFrameLevel() > portraitLevel, unit .. "'s timer should draw over the swipe")
+    local iconLevel, swipeLevel = unitButton:GetFrameLevel(), unitButton.cooldown:GetFrameLevel()
+    assert(container.parent:GetFrameLevel() < iconLevel, unit .. "'s icon should draw over the portrait")
+    assert(iconLevel < swipeLevel, unit .. "'s swipe should draw over the icon")
+    assert(swipeLevel < BADGE_LEVEL, unit .. "'s swipe should stay under the level badge")
+    assert(unitButton.durationText.owner:GetFrameLevel() > swipeLevel, unit .. "'s timer should draw over the swipe")
 end
+
+-- Party frames have no level badge, so their frames stay where they are.
+local partyButton = byUnit.party1.slots[1].button
+assert(PartyFrame.MemberFrame1:GetFrameLevel() == PORTRAIT_FRAME_START, "party frames should not move")
+assert(PORTRAIT_FRAME_START < partyButton:GetFrameLevel(), "the party icon should draw over the portrait")
+assert(partyButton:GetFrameLevel() < partyButton.cooldown:GetFrameLevel(), "the party swipe should draw over the icon")
 
 -- A new unit behind the same token is refreshed.
 local targetRefreshes, focusRefreshes, partyRefreshes = byUnit.target.refreshes, byUnit.focus.refreshes, byUnit.party2.refreshes
@@ -214,8 +221,10 @@ for _, container in ipairs(containers) do
     assert(container.unit == "none" and not container.shown, "disabling should release and hide every container")
 end
 assert(next(registeredEvents) == nil, "disabling should stop listening for unit changes")
+assert(TargetFrame.TargetFrameContainer:GetFrameLevel() == PORTRAIT_FRAME_START, "disabling should put the portrait frames back")
 
 feature:Enable()
+assert(TargetFrame.TargetFrameContainer:GetFrameLevel() == PORTRAIT_FRAME_START - 2, "enabling again should move the portrait frames down")
 assert(#containers == 7, "enabling again should reuse the containers")
 assert(byUnit.target.unit == "target" and byUnit.target.shown, "enabling again should restore the units")
 
