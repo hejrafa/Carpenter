@@ -31,7 +31,7 @@ local lastMounted = nil   -- last mount state we actually acted on (so we only a
 local preMountZoom = nil
 local zoomSequence = 0
 local zoomInProgress = false  -- prevent overlapping zoom sequences
-local zoomCheckScheduled = false
+local zoomTarget = nil  -- where a running zoom sequence is heading
 local spellOverlayHooked = false
 local spellOverlayApplying = false
 local uiParentVisibilityHooked = false
@@ -109,6 +109,27 @@ local function GetCurrentZoom()
     end
 end
 
+-- TEMPORARY: records what the camera does around a flight in the saved variables,
+-- to read back after a /reload. Remove once flights are confirmed in game.
+local function TraceZoom(label)
+    pcall(function()
+        local log = CarpenterDB.actionCamZoomTrace or {}
+        CarpenterDB.actionCamZoomTrace = log
+        if #log >= 80 then table.remove(log, 1) end
+        log[#log + 1] = string.format("%.2f %s zoom=%.2f mounted=%s taxi=%s pre=%s target=%s", GetTime(), label,
+            GetCurrentZoom(), tostring(IsMounted()), tostring(UnitOnTaxi("player")), tostring(preMountZoom), tostring(zoomTarget))
+    end)
+end
+
+-- Mid-sequence, the camera is only part of the way to where it's heading, so that
+-- reading isn't a distance worth coming back to.
+local function GetIntendedZoom()
+    if zoomInProgress then
+        return zoomTarget
+    end
+    return GetCurrentZoom()
+end
+
 local function CancelZoomTransition()
     zoomSequence = zoomSequence + 1
     zoomInProgress = false
@@ -131,6 +152,7 @@ local function SmoothZoomTo(targetZoom, duration)
     end
 
     zoomInProgress = true
+    zoomTarget = targetZoom
     for i = 1, steps do
         C_Timer.After(ZOOM_TICK_INTERVAL * i, function()
             if sequence ~= zoomSequence then return end
@@ -146,6 +168,8 @@ local function SmoothZoomTo(targetZoom, duration)
 
             if i == steps then
                 zoomInProgress = false
+                TraceZoom("arrived")
+                C_Timer.After(3, function() TraceZoom("3s later") end)
             end
         end)
     end
@@ -194,38 +218,33 @@ HookSpellOverlay = function()
 end
 
 local function UpdateCameraZoom()
-    zoomCheckScheduled = false
     if not IsEnabled() then
         return
     end
     local isMounted = (IsMounted and IsMounted()) and true or false
-    
-    if lastMounted == nil then
-        lastMounted = isMounted
-        if isMounted then
-            preMountZoom = GetCurrentZoom()
-            SmoothZoomTo(MOUNT_ZOOM_VALUE, MOUNT_ZOOM_TRANSITION_TIME)
-        end
-        return
-    end
+
     if lastMounted == isMounted then
         return
     end
     lastMounted = isMounted
-    
+
     if isMounted then
-        preMountZoom = GetCurrentZoom()
+        -- Restoring the view after hiding the UI re-checks while still mounted, and
+        -- by then the camera is at the mounted distance, so keep the saved one.
+        preMountZoom = preMountZoom or GetIntendedZoom()
+        TraceZoom("mounted")
         SmoothZoomTo(MOUNT_ZOOM_VALUE, MOUNT_ZOOM_TRANSITION_TIME)
     elseif preMountZoom then
+        TraceZoom("dismounted")
         SmoothZoomTo(preMountZoom, MOUNT_ZOOM_TRANSITION_TIME)
         preMountZoom = nil
     end
 end
 
+-- Each new event restarts the wait, so the check never runs just after an event
+-- whose mount state isn't up to date yet.
 local function ScheduleCameraZoomCheck(delay)
-    if zoomCheckScheduled then return end
-    zoomCheckScheduled = true
-    C_Timer.After(delay or 0.25, UpdateCameraZoom)
+    Carpenter:Defer("ActionCam:zoomCheck", delay or 0.25, UpdateCameraZoom)
 end
 
 local function ResetCameraCVarsToDefaults()
@@ -389,10 +408,14 @@ frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+-- Flight paths take and return control, so landing is noticed even if the mount
+-- events don't come through.
+frame:RegisterEvent("PLAYER_CONTROL_LOST")
+frame:RegisterEvent("PLAYER_CONTROL_GAINED")
 frame:RegisterUnitEvent("UNIT_MODEL_CHANGED", "player")
 frame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_SHOW")
 
-local function HandleActionCamEvent(self, event, addon, unit)
+local function HandleActionCamEvent(self, event, addon)
     if event == "ADDON_LOADED" and addon == "Carpenter" then
         C_Timer.After(0.1, UpdateCameraSettings)
     elseif event == "ADDON_LOADED" and addon == "Narcissus" then
@@ -419,9 +442,11 @@ local function HandleActionCamEvent(self, event, addon, unit)
         ScheduleSpellOverlayOffset(0)
         ScheduleSpellOverlayOffset(0.05)
     elseif (event == "PLAYER_MOUNT_DISPLAY_CHANGED" or
-            (event == "UNIT_MODEL_CHANGED" and unit == "player")) then
+            event == "PLAYER_CONTROL_LOST" or event == "PLAYER_CONTROL_GAINED" or
+            event == "UNIT_MODEL_CHANGED") then
         -- Mount/aura changed; delay so IsMounted() is up to date
         if IsEnabled() then
+            TraceZoom(event)
             ScheduleCameraZoomCheck(0.25)
         end
     end

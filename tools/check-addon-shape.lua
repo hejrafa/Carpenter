@@ -19,6 +19,7 @@ local tocByClient = {
 -- Saved state tables that intentionally live inside CarpenterDB but are not
 -- settings toggles.
 local stateKeys = {
+    actionCamZoomTrace = true, -- temporary, goes with TraceZoom in Modules/ActionCam.lua
     autoTrackQuestWatches = true,
     blankLuaErrorTraceLog = true,
     blockedActionLog = true,
