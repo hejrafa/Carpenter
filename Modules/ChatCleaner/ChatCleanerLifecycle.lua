@@ -168,7 +168,25 @@ function Lifecycle.Create(options)
                 results[i] = ""
             end
         end
+        -- Where lines are only restyled after they are added, the ones that
+        -- should go are dropped here instead.
+        if results[1] ~= true and options.ShouldDropBeforeAdd then
+            local checked, drop = pcall(options.ShouldDropBeforeAdd, self, event, results[2])
+            if checked and drop then
+                return true
+            end
+        end
         return unpack(results)
+    end
+
+    local function ChannelNoticeFilter(self, event, notice)
+        if options.ShouldDropChannelNotice then
+            local checked, drop = pcall(options.ShouldDropChannelNotice, self, notice)
+            if checked and drop then
+                return true
+            end
+        end
+        return false
     end
 
     local function RegisterChatFilters()
@@ -177,6 +195,7 @@ function Lifecycle.Create(options)
         for _, event in ipairs(chatEvents) do
             ChatFrame_AddMessageEventFilter(event, ChatFilter)
         end
+        ChatFrame_AddMessageEventFilter("CHAT_MSG_CHANNEL_NOTICE", ChannelNoticeFilter)
     end
 
     local function UnregisterChatFilters()
@@ -185,6 +204,7 @@ function Lifecycle.Create(options)
         for _, event in ipairs(chatEvents) do
             ChatFrame_RemoveMessageEventFilter(event, ChatFilter)
         end
+        ChatFrame_RemoveMessageEventFilter("CHAT_MSG_CHANNEL_NOTICE", ChannelNoticeFilter)
     end
 
     local function InitializeHooks()

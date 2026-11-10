@@ -397,7 +397,9 @@ function PostProcess.Create(config)
         return text
     end
 
-    function api.ProcessMessage(frame, originalAddMessage, message, args)
+    -- keepLine: the line is already in the chat frame and can only be restyled,
+    -- so lines that would be dropped are kept as they are.
+    function api.ProcessMessage(frame, originalAddMessage, message, args, keepLine)
         message = applyChannelStyling(tostring(message))
         message = removeLinkBrackets(message)
 
@@ -432,11 +434,13 @@ function PostProcess.Create(config)
             end
         end
 
-        if parseRetailMoneyGain(plain) then
-            return
-        end
-        if plain:find("^Changed Channel:") or plain:find("^Left Channel:") or plain:find("^Auctionator:") then
-            return
+        if not keepLine then
+            if parseRetailMoneyGain(plain) then
+                return
+            end
+            if plain:find("^Changed Channel:") or plain:find("^Left Channel:") or plain:find("^Auctionator:") then
+                return
+            end
         end
 
         local isLongForm = plain:match("^%s*(.-)%s+has joined the battle%.?%s*$")
@@ -450,7 +454,7 @@ function PostProcess.Create(config)
         elseif isShortForm and isShortForm:gsub("^%s+", ""):gsub("%s+$", "") ~= "" then
             joinKey = (isShortForm:gsub("^%s+", ""):gsub("%s+$", "")):lower()
         end
-        if joinKey and lastJoinKey == joinKey and (GetTime() - lastJoinTime) < joinDedupDelay then
+        if not keepLine and joinKey and lastJoinKey == joinKey and (GetTime() - lastJoinTime) < joinDedupDelay then
             return
         end
         if joinKey and (isShortForm or joinPlayers) then
@@ -473,7 +477,7 @@ function PostProcess.Create(config)
             -- gain. Two lines of one kind are two gains, and each chat frame gets
             -- its own copy of the lines.
             local last = lastHonorByFrame[frame]
-            if last and last.kind ~= honorKind and last.amount == honor and (GetTime() - last.time) < honorDelay then
+            if not keepLine and last and last.kind ~= honorKind and last.amount == honor and (GetTime() - last.time) < honorDelay then
                 lastHonorByFrame[frame] = nil
                 return
             end
@@ -491,26 +495,69 @@ function PostProcess.Create(config)
 
     -- What the post-processor would print for a line: the new text, or
     -- nothing when the line should go.
-    local function ResolveMessage(frame, message, args)
+    local function ResolveMessage(frame, message, args, keepLine)
         local added, result = false, nil
         api.ProcessMessage(frame, function(_, text)
             added, result = true, text
-        end, message, args)
+        end, message, args, keepLine)
         return added, result
     end
 
     -- Blizzard's own code calls AddMessage and keeps running afterwards; the
     -- battleground join batching clears its list of hidden player names right
-    -- after printing. A replaced AddMessage taints that code, it errors every
-    -- frame, and the same line prints again and again. Where the chat frame
-    -- offers Blizzard's secure line edits, change the line after it is added
-    -- instead.
+    -- after printing. If that code is tainted it errors every frame, and the
+    -- same line prints again and again.
+    --
+    -- A replaced AddMessage taints it directly. Removing a line taints it too:
+    -- RemoveMessagesByPredicate rebuilds the chat history after reading the
+    -- addon's answer, so the history's index ends up tainted, and every later
+    -- AddMessage reads it. Restyling a line only touches the line itself.
+    --
+    -- So where the chat frame offers Blizzard's secure line edits, lines are
+    -- restyled after they are added, and lines that should go are dropped by
+    -- the chat filter before they are added.
     local function CanEditAfterAdd(frame)
         return issecretvalue ~= nil
             and hooksecurefunc ~= nil
             and type(frame.AddMessage) == "function"
             and type(frame.TransformMessages) == "function"
-            and type(frame.RemoveMessagesByPredicate) == "function"
+    end
+
+    local function EditsAfterAdd(frame)
+        return frame ~= nil and frame._CP_AddMessagePostHooked == true and frame._CP_AddMessageHooked == true
+            and Carpenter ~= nil and Carpenter:IsEnabled("chatCleanerEnabled")
+    end
+
+    -- Lines without a sender, which the chat frame prints as they are.
+    local DROP_BEFORE_ADD_EVENTS = {
+        CHAT_MSG_SYSTEM = true,
+        CHAT_MSG_BG_SYSTEM_ALLIANCE = true,
+        CHAT_MSG_BG_SYSTEM_HORDE = true,
+        CHAT_MSG_BG_SYSTEM_NEUTRAL = true,
+        CHAT_MSG_COMBAT_HONOR_GAIN = true,
+        CHAT_MSG_COMBAT_XP_GAIN = true,
+        CHAT_MSG_COMBAT_MISC_INFO = true,
+        CHAT_MSG_CURRENCY = true,
+        CHAT_MSG_MONEY = true,
+        CHAT_MSG_LOOT = true,
+    }
+
+    -- Called by the chat filter with the line it is about to let through:
+    -- true when the post-processor would drop it (a repeated honor gain or
+    -- join, for example).
+    function api.ShouldDropBeforeAdd(frame, event, text)
+        if not DROP_BEFORE_ADD_EVENTS[event] or not EditsAfterAdd(frame) then return false end
+        if type(text) ~= "string" or IsSecret(text) then return false end
+        local added = ResolveMessage(frame, text, {}, false)
+        return not added
+    end
+
+    -- "Changed Channel" and "Left Channel" lines. Blizzard updates the chat
+    -- frame's channel list for a departure only when it prints the line, but
+    -- leaving a stale name in that list is harmless.
+    function api.ShouldDropChannelNotice(frame, notice)
+        if not EditsAfterAdd(frame) or IsSecret(notice) then return false end
+        return notice == "YOU_CHANGED" or notice == "YOU_LEFT"
     end
 
     local function IsSameLine(text, original)
@@ -525,31 +572,9 @@ function PostProcess.Create(config)
         end)
     end
 
-    -- Removal walks the history oldest first, so the last match is the line
-    -- that was just added. Older copies stay, which keeps join dedup intact.
-    local function RemoveNewestLine(frame, original)
-        local matches = 0
-        frame:RemoveMessagesByPredicate(function(text)
-            if IsSameLine(text, original) then
-                matches = matches + 1
-            end
-            return false
-        end)
-        if matches == 0 then return end
-
-        local seen = 0
-        frame:RemoveMessagesByPredicate(function(text)
-            if not IsSameLine(text, original) then return false end
-            seen = seen + 1
-            return seen == matches
-        end)
-    end
-
     local function EditAddedLine(frame, message, ...)
-        local added, result = ResolveMessage(frame, message, { ... })
-        if not added then
-            RemoveNewestLine(frame, message)
-        elseif result ~= message then
+        local added, result = ResolveMessage(frame, message, { ... }, true)
+        if added and result ~= message then
             ReplaceLine(frame, message, result)
         end
     end

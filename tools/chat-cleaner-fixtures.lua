@@ -1547,14 +1547,11 @@ do
             end
         end
     end
-    function frame:RemoveMessagesByPredicate(predicate)
-        local kept = {}
-        for _, line in ipairs(self.lines) do
-            if not predicate(line[1], line[2], line[3], line[4]) then
-                kept[#kept + 1] = line
-            end
-        end
-        self.lines = kept
+    -- Removing a line rebuilds Blizzard's chat history from the addon's
+    -- answer, which taints it for every later AddMessage.
+    local removals = 0
+    function frame:RemoveMessagesByPredicate()
+        removals = removals + 1
     end
 
     postProcessor.HookChatFrameAddMessage(frame)
@@ -1570,24 +1567,71 @@ do
         failures[#failures + 1] = "post-hook: expected the added line restyled with its color kept, got [" .. tostring(last and last[1]) .. "]"
     end
 
-    -- Hidden lines are left alone, and lines the post-processor drops go.
+    -- Hidden lines are left alone. A line already added stays even when the
+    -- post-processor would drop it.
     frame:AddMessage(HIDDEN, 1, 1, 0)
-    frame:AddMessage("Changed Channel: |Hchannel:channel:1|h[1. General - Durotar]|h", 1, 1, 1)
+    frame:AddMessage("Auctionator: scan complete", 1, 1, 1)
     additionalChecks = additionalChecks + 1
-    if #frame.lines ~= 2 or frame.lines[2][1] ~= HIDDEN then
-        failures[#failures + 1] = "post-hook: expected the hidden line kept and the dropped line removed, got " .. #frame.lines .. " lines"
+    if #frame.lines ~= 3 or frame.lines[2][1] ~= HIDDEN or removals ~= 0 then
+        failures[#failures + 1] = "post-hook: expected the hidden and added lines kept, got " .. #frame.lines .. " lines, "
+            .. removals .. " removals"
     end
 
-    -- A Forever honor gain prints twice: the first line is restyled, the second goes.
+    -- The chat filter drops those lines before they are added: the in-game
+    -- path through the real filters.
+    local registered = {}
+    local realAddFilter, realRemoveFilter = ChatFrame_AddMessageEventFilter, ChatFrame_RemoveMessageEventFilter
+    ChatFrame_AddMessageEventFilter = function(event, callback) registered[event] = callback end
+    ChatFrame_RemoveMessageEventFilter = function(event) registered[event] = nil end
+    local lifecycle = ns.Private.ChatCleanerLifecycle.Create({
+        FilterImpl = filter,
+        ShouldDropBeforeAdd = postProcessor.ShouldDropBeforeAdd,
+        ShouldDropChannelNotice = postProcessor.ShouldDropChannelNotice,
+    })
+    lifecycle.Enable()
+
+    local function Deliver(event, message)
+        local results = { registered[event](frame, event, message, "") }
+        if results[1] then return end
+        frame:AddMessage(results[2], 1, 1, 0)
+    end
+
+    additionalChecks = additionalChecks + 1
+    if registered.CHAT_MSG_CHANNEL_NOTICE(frame, "CHAT_MSG_CHANNEL_NOTICE", "YOU_CHANGED") ~= true
+        or registered.CHAT_MSG_CHANNEL_NOTICE(frame, "CHAT_MSG_CHANNEL_NOTICE", "YOU_LEFT") ~= true
+        or registered.CHAT_MSG_CHANNEL_NOTICE(frame, "CHAT_MSG_CHANNEL_NOTICE", "YOU_JOINED") ~= false then
+        failures[#failures + 1] = "post-hook: expected changed and left channel notices dropped before they are added"
+    end
+
+    -- A Forever honor gain prints twice: the first line is restyled, the second never added.
     local linesBefore = #frame.lines
-    local _, currencyLine = filter(nil, "CHAT_MSG_CURRENCY", "You receive currency: |cnIQ1:|Hcurrency:1901:0|h[Honor Points]|h|rx4", "")
-    frame:AddMessage(currencyLine, 1, 1, 0)
-    frame:AddMessage("You have been awarded 4 Honor.", 1, 1, 0)
+    Deliver("CHAT_MSG_CURRENCY", "You receive currency: |cnIQ1:|Hcurrency:1901:0|h[Honor Points]|h|rx4")
+    Deliver("CHAT_MSG_COMBAT_HONOR_GAIN", "You have been awarded 4 Honor.")
     additionalChecks = additionalChecks + 1
     if #frame.lines ~= linesBefore + 1 or plain(frame.lines[#frame.lines][1]) ~= "+ 4 Honor Points" then
         failures[#failures + 1] = "post-hook: expected one honor line, got " .. (#frame.lines - linesBefore)
             .. " ending in [" .. tostring(plain(frame.lines[#frame.lines][1])) .. "]"
     end
+
+    -- Two gains of one kind are two lines.
+    linesBefore = #frame.lines
+    Deliver("CHAT_MSG_COMBAT_HONOR_GAIN", "You have been awarded 5 Honor.")
+    Deliver("CHAT_MSG_COMBAT_HONOR_GAIN", "You have been awarded 5 Honor.")
+    additionalChecks = additionalChecks + 1
+    if #frame.lines ~= linesBefore + 2 then
+        failures[#failures + 1] = "post-hook: expected two honor lines for two gains, got " .. (#frame.lines - linesBefore)
+    end
+
+    -- A player's words are never dropped, even when they read like a dropped line.
+    linesBefore = #frame.lines
+    Deliver("CHAT_MSG_GUILD", "+ Honor Points x5")
+    additionalChecks = additionalChecks + 1
+    if #frame.lines ~= linesBefore + 1 or removals ~= 0 then
+        failures[#failures + 1] = "post-hook: expected guild chat kept and nothing removed"
+    end
+
+    lifecycle.Disable()
+    ChatFrame_AddMessageEventFilter, ChatFrame_RemoveMessageEventFilter = realAddFilter, realRemoveFilter
 
     -- Turning Chat Cleaner off leaves later lines untouched.
     postProcessor.RestoreChatFrameAddMessage(frame)
