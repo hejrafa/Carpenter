@@ -406,6 +406,42 @@ function Social.Create(config)
         return lineColor .. shortName .. " " .. T(actionKey, actionFallback) .. "|r"
     end
 
+    -- The battleground announcer's countdown and start, each battleground in its
+    -- own words: "The battle for Warsong Gulch begins in 30 seconds. Prepare
+    -- yourselves!" becomes "Warsong Gulch begins in 30 seconds".
+    local BATTLE_COUNTDOWN_PATTERNS = {
+        "^[Tt]he [Bb]attle for (.-) begins in (%d+ %a+)",
+        "^[Tt]he [Bb]attle for (.-) will begin in (%d+ %a+)",
+    }
+    local BATTLE_START_PATTERNS = {
+        "^[Ll]et the [Bb]attle for (.-) begin",
+        "^[Tt]he [Bb]attle for (.-) has begun",
+    }
+
+    local function FormatBattleAnnouncement(plainSys)
+        local name, wait
+        for _, pattern in ipairs(BATTLE_COUNTDOWN_PATTERNS) do
+            name, wait = plainSys:match(pattern)
+            if name then break end
+        end
+        if not name then
+            wait, name = plainSys:match("^(%d+ %a+) until the [Bb]attle for (.-) begins")
+        end
+        if name and name ~= "" then
+            local battle = colorQueue .. name .. "|r" .. colorWhite
+            return colorWhite .. T("CHAT_BATTLE_BEGINS_IN", "%s begins in %s", battle, wait) .. "|r"
+        end
+
+        for _, pattern in ipairs(BATTLE_START_PATTERNS) do
+            name = plainSys:match(pattern)
+            if name and name ~= "" then
+                local battle = colorQueue .. name .. "|r" .. colorWhite
+                return colorWhite .. T("CHAT_BATTLE_BEGUN", "%s has begun", battle) .. "|r"
+            end
+        end
+        return nil
+    end
+
     function api.FormatBattlegroundAndGroupNotice(event, plainSys)
         if not plainSys or type(plainSys) ~= "string" then return nil end
 
@@ -430,6 +466,9 @@ function Social.Create(config)
                     return colorRed .. T("CHAT_PLAYER_LEFT", "%s left", bgLeave) .. "|r"
                 end
             end
+
+            local announcement = FormatBattleAnnouncement(plainSys)
+            if announcement then return announcement end
         end
 
         local plainLower = plainSys:lower()
