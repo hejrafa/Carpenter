@@ -1591,14 +1591,22 @@ do
         failures[#failures + 1] = "post-hook: expected the added line restyled with its color kept, got [" .. tostring(last and last[1]) .. "]"
     end
 
-    -- Hidden lines are left alone. A line already added stays even when the
-    -- post-processor would drop it.
+    -- Hidden lines are left alone. A line the post-processor always hides is
+    -- emptied, never removed.
     frame:AddMessage(HIDDEN, 1, 1, 0)
     frame:AddMessage("Auctionator: scan complete", 1, 1, 1)
     additionalChecks = additionalChecks + 1
-    if #frame.lines ~= 3 or frame.lines[2][1] ~= HIDDEN or removals ~= 0 then
-        failures[#failures + 1] = "post-hook: expected the hidden and added lines kept, got " .. #frame.lines .. " lines, "
-            .. removals .. " removals"
+    if #frame.lines ~= 3 or frame.lines[2][1] ~= HIDDEN or frame.lines[3][1] ~= "" or removals ~= 0 then
+        failures[#failures + 1] = "post-hook: expected the hidden line kept and the Auctionator line emptied, got "
+            .. #frame.lines .. " lines, " .. removals .. " removals"
+    end
+
+    -- Blizzard's money receipt after a merchant or mailbox repeats Chat
+    -- Cleaner's own money line, so it is emptied too.
+    frame:AddMessage("You gained: |cffffffff28|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t 68|TInterface\\MoneyFrame\\UI-CopperIcon:0:0:2:0|t|r", 1, 1, 0)
+    additionalChecks = additionalChecks + 1
+    if #frame.lines ~= 4 or frame.lines[4][1] ~= "" or frame.lines[4][2] ~= 1 then
+        failures[#failures + 1] = "post-hook: expected the money receipt emptied, got [" .. tostring(frame.lines[#frame.lines][1]) .. "]"
     end
 
     -- The chat filter drops those lines before they are added: the in-game

@@ -434,13 +434,15 @@ function PostProcess.Create(config)
             end
         end
 
-        if not keepLine then
-            if parseRetailMoneyGain(plain) then
-                return
+        -- Blizzard's money receipt after a merchant or mailbox ("You gained:"),
+        -- which repeats Chat Cleaner's own money lines, and other lines that are
+        -- always hidden. A line already in the chat frame can't be removed
+        -- without tainting it, so it is emptied instead.
+        if parseRetailMoneyGain(plain) or plain:find("^Changed Channel:") or plain:find("^Left Channel:") or plain:find("^Auctionator:") then
+            if keepLine then
+                return originalAddMessage(frame, "", unpack(args))
             end
-            if plain:find("^Changed Channel:") or plain:find("^Left Channel:") or plain:find("^Auctionator:") then
-                return
-            end
+            return
         end
 
         local isLongForm = plain:match("^%s*(.-)%s+has joined the battle%.?%s*$")
