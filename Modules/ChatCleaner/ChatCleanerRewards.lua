@@ -13,6 +13,8 @@ local GENERIC_REWARD_EVENTS = {
     CHAT_MSG_LOOT = true,
     CHAT_MSG_COMBAT_HONOR_GAIN = true,
     CHAT_MSG_COMBAT_MISC_INFO = true,
+    -- WoW Forever reports "You gain 100 Rank Points." as an experience line.
+    CHAT_MSG_COMBAT_XP_GAIN = true,
 }
 
 local GENERIC_REWARD_PATTERNS = {
@@ -378,8 +380,10 @@ function Rewards.Create(config)
 
         local lowerClean = clean:lower()
         local isHonor = lowerClean == "honor" or lowerClean:find("^honor points?$")
-        local color = isHonor and colorHonor or colorCyan
-        local display = isHonor and T("CHAT_HONOR_POINTS", "Honor Points") or clean
+        local isRankPoints = lowerClean:find("^rank points?$")
+        local color = isHonor and colorHonor or isRankPoints and colorWhite or colorCyan
+        local display = isHonor and T("CHAT_HONOR_POINTS", "Honor Points") or
+            isRankPoints and T("CHAT_RANK_POINTS", "Rank Points") or clean
         return spaceBeforeX(prefixPlus .. colorWhite .. rewardAmount .. " |r" .. color .. display .. "|r")
     end
 

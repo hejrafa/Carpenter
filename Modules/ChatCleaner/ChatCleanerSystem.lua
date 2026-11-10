@@ -376,6 +376,10 @@ function System.Create(config)
             return spaceBeforeX(colorPlus .. "+|r " .. colorWhite .. T("CHAT_JOINED_QUEUE_LABEL", "Joined the queue:") .. " |r" .. colorQueue .. bgType .. "|r")
         end
 
+        if message:match("^You are no longer queued%.?$") then
+            return spaceBeforeX(colorMinus .. Carpenter.MinusSign .. "|r " .. colorWhite .. T("CHAT_LEFT_QUEUE", "Left the queue") .. "|r")
+        end
+
         if message:match("^You are now saved to this instance%.?$") then
             return spaceBeforeX(colorPlus .. "+|r " .. colorWhite .. T("CHAT_SAVED_TO_INSTANCE", "Saved to instance") .. "|r")
         end

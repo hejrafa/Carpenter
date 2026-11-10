@@ -740,6 +740,30 @@ local fixtures = {
         expectHidden = true,
     },
     {
+        name = "notify system notice hidden",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Notify system has been enabled.",
+        expectHidden = true,
+    },
+    {
+        name = "left the queue uses the minus sign",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You are no longer queued.",
+        expectPlain = "\226\136\146 Left the queue",
+    },
+    {
+        name = "generic reward: Forever's rank points arrive as an experience line",
+        event = "CHAT_MSG_COMBAT_XP_GAIN",
+        message = "You gain 100 Rank Points.",
+        expectPlain = "+ 100 Rank Points",
+    },
+    {
+        name = "experience lines keep their own styling",
+        event = "CHAT_MSG_COMBAT_XP_GAIN",
+        message = "You gain 250 experience.",
+        expectPlain = "+ 250 EXP",
+    },
+    {
         name = "generic reward: arena points",
         event = "CHAT_MSG_COMBAT_HONOR_GAIN",
         message = "You have been awarded 5 arena points.",
