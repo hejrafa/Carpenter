@@ -146,6 +146,24 @@ local function CanAccessValue(value)
     return true
 end
 
+local function IsSecret(value)
+    return type(issecretvalue) == "function" and issecretvalue(value) == true
+end
+
+-- A string this addon may read and compare, or nil.
+local function ReadableString(value)
+    if IsSecret(value) or type(value) ~= "string" or value == "" then return nil end
+    return value
+end
+
+-- A yes/no answer from the game, or nil when it failed or is hidden.
+local function ReadableBool(func, ...)
+    if type(func) ~= "function" then return nil end
+    local ok, value = pcall(func, ...)
+    if not ok or IsSecret(value) then return nil end
+    return value == true
+end
+
 local function IsAccessibleString(value)
     if Unit.IsToken then return Unit.IsToken(value) end
     local ok, accessible = pcall(function()
@@ -199,11 +217,133 @@ local function IsTapDenied(unit)
     return false
 end
 
+local function ColorHex(c)
+    return string.format("|cff%02x%02x%02x", c.r * 255, c.g * 255, c.b * 255)
+end
+
 local function GetClassColorHex(unit)
     if not RAID_CLASS_COLORS then return nil end
     local c = Unit.ClassColor and Unit.ClassColor(unit)
     if not c then return nil end
-    return string.format("|cff%02x%02x%02x", c.r * 255, c.g * 255, c.b * 255)
+    return ColorHex(c)
+end
+
+-- Any player, including one whose GUID Forever hides; Unit.IsPlayer needs the GUID.
+local function IsPlayerToken(unit)
+    return CanUseUnit(unit) and ReadableBool(UnitIsPlayer, unit) == true
+end
+
+local function IsHiddenPlayer(unit)
+    return UnitGUID ~= nil and IsPlayerToken(unit) and Unit.GUID(unit) == nil
+end
+
+local SURNAME_SEPARATOR = (Constants and Constants.CharacterNameSeparatorConsts
+    and Constants.CharacterNameSeparatorConsts.CHARACTERNAME_SURNAME_SEPARATOR) or " "
+
+-- The name to show and the first name. Forever's UnitName returns the first
+-- name and the surname, and only the two together are unique; elsewhere the
+-- second return is the realm of a player from another realm.
+local function GetUnitNames(unit)
+    if not CanUseUnit(unit) then return nil end
+    local ok, name, second = pcall(UnitName, unit)
+    if not ok then return nil end
+    name = ReadableString(name)
+    if not name then return nil end
+    second = ReadableString(second)
+    if not second then return name, name end
+    if Carpenter and Carpenter.Client and Carpenter.Client.isForever then
+        return name .. SURNAME_SEPARATOR .. second, name
+    end
+    return name .. "-" .. second, name
+end
+
+-- Forever hides an enemy player's class and race from addons in battlegrounds,
+-- but the scoreboard keeps every player's name, race and class readable.
+local SCORE_REQUEST_INTERVAL = 5
+local scoreboard = { byName = nil, dirty = true, requestedAt = nil }
+
+local function InBattleground()
+    if C_PvP and C_PvP.IsBattleground and ReadableBool(C_PvP.IsBattleground) then
+        return true
+    end
+    if not IsInInstance then return false end
+    local ok, _, instanceType = pcall(IsInInstance)
+    return ok and ReadableString(instanceType) == "pvp"
+end
+
+local function RequestScores()
+    if not RequestBattlefieldScoreData or not InBattleground() then return end
+    local now = GetTime and GetTime() or 0
+    if scoreboard.requestedAt and now - scoreboard.requestedAt < SCORE_REQUEST_INTERVAL then return end
+    scoreboard.requestedAt = now
+    pcall(RequestBattlefieldScoreData)
+end
+
+-- Two players behind one name (first names repeat on Forever) leave it unusable.
+local function AddScoreEntry(byName, key, entry)
+    if not key or key == "" then return end
+    local known = byName[key]
+    if known == nil then
+        byName[key] = entry
+    elseif known and (known.classToken ~= entry.classToken or known.raceName ~= entry.raceName) then
+        byName[key] = false
+    end
+end
+
+local function ReadScoreboard()
+    if not scoreboard.dirty then return scoreboard.byName end
+    scoreboard.dirty = false
+    local byName = {}
+    scoreboard.byName = byName
+    if not (C_PvP and C_PvP.GetScoreInfo and GetNumBattlefieldScores) then return byName end
+
+    local okCount, count = pcall(GetNumBattlefieldScores)
+    if not okCount or IsSecret(count) or type(count) ~= "number" then return byName end
+    for index = 1, count do
+        local ok, info = pcall(C_PvP.GetScoreInfo, index)
+        if ok and not IsSecret(info) and type(info) == "table" then
+            local name = ReadableString(info.name)
+            local classToken = ReadableString(info.classToken)
+            if name and classToken then
+                local entry = {
+                    classToken = classToken,
+                    className = ReadableString(info.className),
+                    raceName = ReadableString(info.raceName),
+                }
+                local fullName = name:match("^([^%-]+)") or name
+                AddScoreEntry(byName, fullName, entry)
+                local cut = fullName:find(SURNAME_SEPARATOR, 1, true)
+                if cut and cut > 1 then
+                    AddScoreEntry(byName, fullName:sub(1, cut - 1), entry)
+                end
+            end
+        end
+    end
+    return byName
+end
+
+local function FindScore(displayName, firstName)
+    local byName = ReadScoreboard()
+    local entry = byName and (byName[(displayName:match("^([^%-]+)"))] or byName[firstName])
+    if entry then return entry end
+    RequestScores()
+    return nil
+end
+
+-- Class and race of a player: from the unit when the game shows them, from the
+-- battleground scoreboard when Forever hides them.
+local function GetPlayerIdentity(unit, displayName, firstName)
+    local className, classToken = Unit.Class(unit)
+    if classToken then
+        local ok, race = pcall(UnitRace, unit)
+        return { classToken = classToken, className = className, raceName = ok and ReadableString(race) or nil }
+    end
+    if not displayName or not IsPlayerToken(unit) then return nil end
+    return FindScore(displayName, firstName)
+end
+
+local function IdentityClassColor(identity)
+    return identity and RAID_CLASS_COLORS and RAID_CLASS_COLORS[identity.classToken] or nil
 end
 
 -- Name line (line 1): players/friendly in class or PvP color; dead in grey; hostile mobs red/tap-denied blue
@@ -259,14 +399,31 @@ end
 -- for the next pass over the same line.
 local function FormatLevel(unit, levelLine)
     local unitLevel = UnitLevel(unit)
-    local lineText = levelLine:GetText()
-    if unitLevel == -1 or (lineText and lineText:find("??", 1, true)) then
+    local lineText = levelLine and ReadableString(levelLine:GetText())
+    if IsSecret(unitLevel) or type(unitLevel) ~= "number" or unitLevel == -1
+        or (lineText and lineText:find("??", 1, true)) then
         return "|cffff3333" .. LEVEL_STR .. " ??|r"
     end
 
     local levelColor = GetCreatureDifficultyColor(unitLevel)
     local levelHex = levelColor and string.format("%02x%02x%02x", levelColor.r * 255, levelColor.g * 255, levelColor.b * 255) or "ffffffff"
     return "|cff" .. levelHex .. LEVEL_STR .. " " .. unitLevel .. "|r"
+end
+
+-- "Level 60 Orc Priest"; Russian puts the level last.
+local function JoinPlayerInfo(levelPart, race, classPart)
+    local infoText
+    if isRuRU then
+        infoText = ""
+        if race then infoText = infoText .. race end
+        if classPart ~= "" then infoText = infoText .. (race and ", " or "") .. classPart end
+        if infoText ~= "" then infoText = infoText .. " " end
+        return infoText .. levelPart
+    end
+    infoText = levelPart
+    if race then infoText = infoText .. " " .. race end
+    if classPart ~= "" then infoText = infoText .. " " .. classPart end
+    return infoText
 end
 
 -- Player info line (level, race, class) - find line 2/3 that looks like the info line and replace
@@ -304,20 +461,7 @@ local function ApplyPlayerInfoLine(tooltip, unit)
         classPart = classColor .. (className or "") .. "|r"
     end
 
-    local infoText
-    if isRuRU then
-        infoText = ""
-        if race then infoText = infoText .. race end
-        if classPart ~= "" then infoText = infoText .. (race and ", " or "") .. classPart end
-        if infoText ~= "" then infoText = infoText .. " " end
-        infoText = infoText .. levelPart
-    else
-        infoText = levelPart
-        if race then infoText = infoText .. " " .. race end
-        if classPart ~= "" then infoText = infoText .. " " .. classPart end
-    end
-
-    levelLine:SetText(infoText)
+    levelLine:SetText(JoinPlayerInfo(levelPart, race, classPart))
 end
 
 -- Mob level line (level + creature type + classification)
@@ -370,9 +514,9 @@ end
 local function TooltipAlreadyHasTargetLine()
     for i = 1, GameTooltip:NumLines() do
         local line = _G["GameTooltipTextLeft" .. i]
-        if line then
-            local text = line:GetText() or ""
-            if text:find("^" .. TARGET_PREFIX:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")) then return true end
+        local text = line and ReadableString(line:GetText())
+        if text and text:find("^" .. TARGET_PREFIX:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")) then
+            return true
         end
     end
     return false
@@ -404,44 +548,122 @@ local function GetTooltipUnit(tooltip)
     return nil
 end
 
+local function BuildTargetLine(unit)
+    local targetUnit = unit .. "target"
+    local displayName, name = GetUnitNames(targetUnit)
+    if not name then return nil end
+
+    -- Forever hides comparisons of chained units like "mouseovertarget" in
+    -- battlegrounds, but player names stay readable there.
+    local isYou = ReadableBool(UnitIsUnit, targetUnit, "player")
+    if isYou == nil then
+        isYou = displayName == GetUnitNames("player")
+    end
+    if isYou then
+        return TARGET_PREFIX .. "|cffff4400" .. TARGET_YOU .. "|r"
+    end
+
+    local color = Unit.IsPlayer and Unit.IsPlayer(targetUnit) and Unit.ClassColor and Unit.ClassColor(targetUnit)
+    if not color and IsHiddenPlayer(targetUnit) then
+        color = IdentityClassColor(GetPlayerIdentity(targetUnit, displayName, name))
+    end
+    if color then
+        return TARGET_PREFIX .. ColorHex(color) .. name .. "|r"
+    end
+    return TARGET_PREFIX .. name
+end
+
 local function ShowUnitTargetInTooltip(tooltip, unit)
     if not unit then return end
-    local targetUnit = unit .. "target"
-
     if TooltipAlreadyHasTargetLine() then return end
 
-    local ok, line = pcall(function()
-        local name = UnitName(targetUnit)
-        if not CanAccessValue(name) then return nil end
-        if not name or name == "" then return nil end
-
-        local displayText
-        if UnitIsUnit(targetUnit, "player") then
-            displayText = "|cffff4400" .. TARGET_YOU .. "|r"
-        elseif Unit.IsPlayer and Unit.IsPlayer(targetUnit) and RAID_CLASS_COLORS then
-            local color = Unit.ClassColor and Unit.ClassColor(targetUnit)
-            if color then
-                local hex = string.format("|cff%02x%02x%02x", color.r * 255, color.g * 255, color.b * 255)
-                displayText = hex .. name .. "|r"
-            else
-                displayText = name
-            end
-        else
-            displayText = name
-        end
-
-        return TARGET_PREFIX .. displayText
-    end)
-
+    local ok, line = pcall(BuildTargetLine, unit)
     if ok and line then
         tooltip:AddLine(line)
         RefreshTooltipLayout(tooltip)
     end
 end
 
+-- Forever hides an enemy player's class, race and GUID in battlegrounds, and
+-- the tooltip text with them, so Blizzard's lines can't be read or restyled.
+-- The tooltip is rebuilt instead from what stays readable: name, level, guild
+-- and faction from the unit, class and race from the scoreboard.
+local DEAD_COLOR = { r = 0.53, g = 0.53, b = 0.53 }
+local WHITE = { r = 1, g = 1, b = 1 }
+
+local function BuildHiddenEnemyLines(unit)
+    if not IsPlayerToken(unit) or ReadableBool(UnitCanAttack, "player", unit) ~= true then return nil end
+    local _, classToken = Unit.Class(unit)
+    if classToken and CanAccessTooltipText() then return nil end
+
+    local displayName, firstName = GetUnitNames(unit)
+    if not displayName then return nil end
+    local identity = GetPlayerIdentity(unit, displayName, firstName)
+    local classColor = IdentityClassColor(identity)
+    if not classColor then return nil end
+
+    local nameColor = ReadableBool(UnitIsDeadOrGhost, unit) and DEAD_COLOR or classColor
+    local lines = { { text = displayName, color = nameColor } }
+
+    if GetGuildInfo then
+        local ok, guild = pcall(GetGuildInfo, unit)
+        guild = ok and ReadableString(guild)
+        if guild then lines[#lines + 1] = { text = guild, color = WHITE } end
+    end
+
+    local className = identity.className
+        or (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[identity.classToken]) or ""
+    local classPart = className ~= "" and (ColorHex(classColor) .. className .. "|r") or ""
+    lines[#lines + 1] = { text = JoinPlayerInfo(FormatLevel(unit), identity.raceName, classPart), color = WHITE }
+
+    if UnitFactionGroup then
+        local ok, _, factionName = pcall(UnitFactionGroup, unit)
+        factionName = ok and ReadableString(factionName)
+        if factionName then lines[#lines + 1] = { text = factionName, color = WHITE } end
+    end
+
+    local okTarget, targetLine = pcall(BuildTargetLine, unit)
+    -- No color, like the target line Carpenter adds to other tooltips.
+    if okTarget and targetLine then lines[#lines + 1] = { text = targetLine } end
+    return lines
+end
+
+local function RebuildHiddenEnemyTooltip(tooltip, unit)
+    local lines = BuildHiddenEnemyLines(unit)
+    if not lines then return false end
+
+    local parts = {}
+    for i, line in ipairs(lines) do
+        local color = line.color
+        parts[i] = color and string.format("%s:%.2f:%.2f:%.2f", line.text, color.r, color.g, color.b) or line.text
+    end
+    local signature = table.concat(parts, "\n")
+    if tooltip._CP_HiddenEnemySignature == signature then return true end
+
+    tooltip:ClearLines()
+    for _, line in ipairs(lines) do
+        local color = line.color
+        if color then
+            tooltip:AddLine(line.text, color.r, color.g, color.b)
+        else
+            tooltip:AddLine(line.text)
+        end
+    end
+    tooltip._CP_HiddenEnemySignature = signature
+    RefreshTooltipLayout(tooltip)
+    return true
+end
+
 local function EnhanceUnitTooltip(tooltip, unit)
     if not CanUseUnit(unit) then return end
     ScheduleHideTooltipHealthBar(tooltip)
+    if RebuildHiddenEnemyTooltip(tooltip, unit) then return end
+    if not CanAccessTooltipText() then return end
+    if IsHiddenPlayer(unit) then
+        -- Without the class its lines can't be told apart, so Blizzard's stay.
+        ShowUnitTargetInTooltip(tooltip, unit)
+        return
+    end
     ApplyNameLine(tooltip, unit)
     if Unit.IsPlayer and Unit.IsPlayer(unit) then
         ApplyPlayerInfoLine(tooltip, unit)
@@ -459,7 +681,7 @@ local function ScheduleEnhanceUnitTooltip(tooltip, unit)
     if not (C_Timer and C_Timer.After) then return end
 
     local function Reapply()
-        if IsEnabled() and tooltip and tooltip:IsShown() and GetTooltipUnit(tooltip) == unit and CanAccessTooltipText() then
+        if IsEnabled() and tooltip and tooltip:IsShown() and GetTooltipUnit(tooltip) == unit then
             EnhanceUnitTooltip(tooltip, unit)
         end
     end
@@ -483,7 +705,7 @@ local function MaintainEnhancedTooltip(self, elapsed)
     end
 
     local unit = GetTooltipUnit(self)
-    if CanUseUnit(unit) and CanAccessTooltipText() then
+    if CanUseUnit(unit) then
         EnhanceUnitTooltip(self, unit)
     end
 end
@@ -491,9 +713,11 @@ end
 -- Match Leatrix Plus: world hover uses "mouseover", else GetUnit.
 -- WorldFrame:EnableMouseMotion(true) so world hover triggers unit tooltips.
 local function ShowTip(self)
-    if not IsEnabled() then return end
     -- Only enhance the main GameTooltip (avoid affecting LibDBIcon and other tooltips)
     if self ~= GameTooltip then return end
+    -- Blizzard just wrote its own lines, so a rebuilt enemy tooltip is gone.
+    self._CP_HiddenEnemySignature = nil
+    if not IsEnabled() then return end
     -- Do not modify tooltip when it is showing an item (e.g. merchant); avoids comparison tooltip flicker
     if self.GetItem then
         local _, itemLink = self:GetItem()
@@ -506,10 +730,8 @@ local function ShowTip(self)
 
     -- Hide the bar before touching protected tooltip strings. Retail can block
     -- text access for some world-hover enemy tooltips, but the status bar still
-    -- needs to be suppressed.
+    -- needs to be suppressed. EnhanceUnitTooltip checks the text itself.
     ScheduleHideTooltipHealthBar(self)
-
-    if not CanAccessTooltipText() then return end
     ScheduleEnhanceUnitTooltip(self, unit)
 end
 
@@ -548,6 +770,9 @@ local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+if Carpenter and Carpenter.SafeRegisterEvent then
+    Carpenter:SafeRegisterEvent(frame, "UPDATE_BATTLEFIELD_SCORE")
+end
 -- Blizzard re-shows the bar on the next unit tooltip; only its alpha needs restoring.
 if Carpenter and Carpenter.RegisterFeature then
     Carpenter:RegisterFeature("enhanceTooltipEnabled", {
@@ -559,6 +784,14 @@ if Carpenter and Carpenter.RegisterFeature then
 end
 
 frame:SetScript("OnEvent", function(_, event, addonName)
+    if event == "UPDATE_BATTLEFIELD_SCORE" then
+        scoreboard.dirty = true
+        return
+    end
+    if event == "PLAYER_ENTERING_WORLD" then
+        scoreboard.dirty = true
+        scoreboard.requestedAt = nil
+    end
     if event == "ADDON_LOADED" then
         if addonName == "Carpenter" then
             InstallHooks()

@@ -2,7 +2,8 @@
 -- Offline fixture checks for Enhance Tooltip's level lines: the class is appended
 -- when the game shows "Level 60 Orc Priest" alone, and left off when the game
 -- already lists the class on its own spec line ("Shadow Priest"). A level the game
--- hides as "??" stays hidden, for players and mobs alike.
+-- hides as "??" stays hidden, for players and mobs alike. An enemy player whose
+-- class Forever hides in a battleground gets a tooltip rebuilt from the scoreboard.
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then
@@ -51,26 +52,32 @@ end
 local scripts = {}
 GameTooltip = {
     lines = {},
-    HasScript = function(_, name) return name == "OnTooltipSetUnit" end,
+    HasScript = function(_, name) return name == "OnTooltipSetUnit" or name == "OnUpdate" end,
     HookScript = function(_, name, handler) scripts[name] = handler end,
     GetUnit = function() return target.name, "target" end,
     GetChildren = function() return end,
     NumLines = function(self) return #self.lines end,
     IsShown = function() return true end,
     Show = function() end,
-    AddLine = function(self, text)
+    AddLine = function(self, text, r, g, b)
         local line = NewFontString()
         line:SetText(text)
+        line.color = r and { r = r, g = g, b = b } or nil
         self.lines[#self.lines + 1] = line
         _G["GameTooltipTextLeft" .. #self.lines] = line
+    end,
+    clears = 0,
+    ClearLines = function(self)
+        for i = 1, #self.lines do
+            _G["GameTooltipTextLeft" .. i] = nil
+        end
+        self.lines = {}
+        self.clears = self.clears + 1
     end,
 }
 
 local function SetTooltipLines(...)
-    for i = 1, #GameTooltip.lines do
-        _G["GameTooltipTextLeft" .. i] = nil
-    end
-    GameTooltip.lines = {}
+    GameTooltip:ClearLines()
     for _, text in ipairs({ ... }) do
         GameTooltip:AddLine(text)
     end
@@ -210,5 +217,127 @@ assertEqual(text[2], "Level ?? Undead ", "a mob level of -1 still reads as ??")
 target.level = 20
 text = Hover("Ravenclaw Guardian", "Undead")
 assertEqual(text[2], "Undead", "a tooltip without a level line is left alone")
+
+-- Forever battlegrounds hide an enemy player's GUID, class and race from
+-- addons, and the tooltip text along with them. The name, level and faction
+-- stay readable, and the scoreboard keeps everyone's class and race.
+local SECRET = setmetatable({}, { __tostring = function() return "<secret>" end })
+function issecretvalue(value) return value == SECRET end
+function canaccessvalue(value) return value ~= SECRET end
+Carpenter.Client.isMainline = true
+Carpenter.Client.isForever = true
+RAID_CLASS_COLORS.PALADIN = { r = 1, g = 0, b = 1 }
+RAID_CLASS_COLORS.WARRIOR = { r = 0, g = 1, b = 1 }
+
+local now = 100
+function GetTime() return now end
+local scoreRequests = 0
+function RequestBattlefieldScoreData() scoreRequests = scoreRequests + 1 end
+local scores = {}
+function GetNumBattlefieldScores() return #scores end
+C_PvP = {
+    IsBattleground = function() return true end,
+    GetScoreInfo = function(index) return scores[index] end,
+}
+local function SetScores(list)
+    scores = list
+    eventHandler(nil, "UPDATE_BATTLEFIELD_SCORE")
+end
+local guild = SECRET
+function GetGuildInfo() return guild end
+function UnitFactionGroup() return "Alliance", "Alliance" end
+
+local names = {
+    target = { "Consecrated", "Malibu" },
+    player = { "Koji", "Kurosawa" },
+    leaf = { "Leaf", "Beef" },
+}
+local enemyTarget = "player"
+local function Resolve(unit)
+    if unit == "targettarget" then return enemyTarget end
+    return unit
+end
+function UnitName(unit)
+    local n = names[Resolve(unit)]
+    if n then return n[1], n[2] end
+end
+function UnitExists(unit) return names[Resolve(unit)] ~= nil end
+function UnitIsPlayer(unit) return names[Resolve(unit)] ~= nil end
+function UnitGUID(unit) return Resolve(unit) == "player" and "Player-1-00000001" or SECRET end
+function UnitClass() return SECRET, SECRET end
+function UnitRace() return SECRET end
+function UnitIsUnit() return SECRET end
+function UnitCanAttack() return true end
+function UnitReaction() return 2 end
+function UnitPlayerControlled() return true end
+target.level = 28
+
+local function HoverEnemy()
+    SetTooltipLines(SECRET, SECRET, "Level 28 Human (Player)", "Paladin", "Alliance", "PvP")
+    scripts.OnTooltipSetUnit(GameTooltip)
+end
+
+-- Not on the scoreboard yet: Blizzard's lines stay, and the scores are asked
+-- for at most every few seconds.
+HoverEnemy()
+assertEqual(GameTooltip.lines[1]:GetText(), SECRET, "an enemy missing from the scoreboard keeps Blizzard's lines")
+assertEqual(#GameTooltip.lines, 6, "an enemy missing from the scoreboard keeps every line")
+assertEqual(scoreRequests, 1, "a missing enemy asks for the scoreboard")
+HoverEnemy()
+assertEqual(scoreRequests, 1, "the scoreboard isn't asked for again right away")
+now = now + 6
+HoverEnemy()
+assertEqual(scoreRequests, 2, "the scoreboard is asked for again after a few seconds")
+
+SetScores({
+    { name = "Consecrated Malibu", classToken = "PALADIN", className = "Paladin", raceName = "Human" },
+    { name = "Koji Kurosawa", classToken = "ROGUE", className = "Rogue", raceName = "Undead" },
+})
+HoverEnemy()
+local enemy = TooltipText()
+assertEqual(#enemy, 4, "the rebuilt enemy tooltip has name, info, faction and target")
+assertEqual(enemy[1], "Consecrated Malibu", "the enemy name keeps the surname")
+assertEqual(enemy[2], "Level 28 Human Paladin", "level, race and class share one line")
+assertEqual(enemy[3], "Alliance", "the faction line stays")
+assertEqual(enemy[4], "Target: YOU", "an enemy targeting you says so by name")
+local nameColor = GameTooltip.lines[1].color
+assert(nameColor and nameColor.r == 1 and nameColor.g == 0 and nameColor.b == 1, "the enemy name takes the class color")
+assert(RawLine(2):find("|cffff00ffPaladin|r", 1, true), "the class takes the class color")
+
+-- Holding the mouse still rebuilds nothing; a new target rebuilds once.
+local clears = GameTooltip.clears
+scripts.OnUpdate(GameTooltip, 1)
+assertEqual(GameTooltip.clears, clears, "an unchanged enemy tooltip isn't rebuilt every frame")
+
+-- A scoreboard with first names and realms still matches, by first name.
+SetScores({
+    { name = "Consecrated Malibu", classToken = "PALADIN", className = "Paladin", raceName = "Human" },
+    { name = "Leaf-Ironforge", classToken = "WARRIOR", className = "Warrior", raceName = "Dwarf" },
+})
+enemyTarget = "leaf"
+scripts.OnUpdate(GameTooltip, 1)
+assertEqual(GameTooltip.clears, clears + 1, "a new target rebuilds the tooltip once")
+assertEqual(TooltipText()[4], "Target: Leaf", "the target line follows the enemy's new target")
+assert(RawLine(4):find("|cff00ffffLeaf|r", 1, true), "a target from the scoreboard takes its class color")
+scripts.OnUpdate(GameTooltip, 1)
+assertEqual(GameTooltip.clears, clears + 1, "the new target doesn't rebuild again")
+
+enemyTarget = "player"
+guild = "INNOMINATE"
+HoverEnemy()
+enemy = TooltipText()
+assertEqual(enemy[2], "INNOMINATE", "a readable guild follows the name")
+assertEqual(enemy[3], "Level 28 Human Paladin", "the info line follows the guild")
+guild = SECRET
+
+-- Two scoreboard players share the first name and neither full name matches:
+-- the class can't be known, so Blizzard's lines stay.
+names.target = { "Consecrated", "Other" }
+SetScores({
+    { name = "Consecrated Malibu", classToken = "PALADIN", className = "Paladin", raceName = "Human" },
+    { name = "Consecrated Brave", classToken = "WARRIOR", className = "Warrior", raceName = "Dwarf" },
+})
+HoverEnemy()
+assertEqual(GameTooltip.lines[1]:GetText(), SECRET, "an ambiguous first name leaves Blizzard's lines alone")
 
 print("enhance-tooltip fixtures passed")
