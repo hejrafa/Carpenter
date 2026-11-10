@@ -27,6 +27,7 @@ local stateKeys = {
     noObjectiveQuestWatches = true,
     settingsPresetBackup = true,
     smartMacroLastItems = true,
+    bgStartProbeLog = true, -- TEMP battleground start probe
 }
 
 -- Kept in defaults/settings definitions for history, but currently hidden by

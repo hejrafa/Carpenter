@@ -591,3 +591,143 @@ if Carpenter and Carpenter.RegisterFeature then
         end,
     })
 end
+
+-- TEMP battleground start probe: logs the order of system lines (hidden or
+-- not), Blizzard's batched join lines, and the group, loot and queue events
+-- around a battleground start to CarpenterDB.bgStartProbeLog, so hidden lines
+-- can be matched to their causes. Remove once Chat Cleaner handles them.
+local bgProbe = { pre = {}, active = false, startedAt = 0, roster = {} }
+local BG_PROBE_SECONDS, BG_PROBE_MAX, BG_PROBE_PRE = 300, 600, 40
+
+local function ProbeSecret(value)
+    return issecretvalue ~= nil and issecretvalue(value) == true
+end
+
+local function ProbeText(value)
+    if ProbeSecret(value) then return "<secret>" end
+    if type(value) ~= "string" then return tostring(value) end
+    return (value:gsub("|", "||"):sub(1, 100))
+end
+
+local function ProbeLockdown()
+    if not (C_ChatInfo and C_ChatInfo.InChatMessagingLockdown) then return false end
+    local ok, locked = pcall(C_ChatInfo.InChatMessagingLockdown)
+    return ok and not ProbeSecret(locked) and locked == true
+end
+
+local function ProbeFormat(time, locked, line)
+    return string.format("%.2f%s %s", time - bgProbe.startedAt, locked and " L" or "", line)
+end
+
+local function ProbeLog(line)
+    local now = GetTime and GetTime() or 0
+    local locked = ProbeLockdown()
+    if bgProbe.active and now - bgProbe.startedAt > BG_PROBE_SECONDS then
+        bgProbe.active = false
+    end
+    if bgProbe.active then
+        local log = type(CarpenterDB) == "table" and CarpenterDB.bgStartProbeLog
+        if type(log) == "table" and #log < BG_PROBE_MAX then
+            log[#log + 1] = ProbeFormat(now, locked, line)
+        end
+        return
+    end
+    local pre = bgProbe.pre
+    pre[#pre + 1] = { now, locked, line }
+    if #pre > BG_PROBE_PRE then table.remove(pre, 1) end
+end
+
+local function ProbeStart()
+    if type(CarpenterDB) ~= "table" then return end
+    bgProbe.startedAt = GetTime and GetTime() or 0
+    local log = {}
+    for _, entry in ipairs(bgProbe.pre) do
+        log[#log + 1] = ProbeFormat(entry[1], entry[2], entry[3])
+    end
+    bgProbe.pre = {}
+    CarpenterDB.bgStartProbeLog = log
+    bgProbe.active = true
+end
+
+local function ProbeRoster()
+    local inRaid = IsInRaid and IsInRaid()
+    local count = GetNumGroupMembers and GetNumGroupMembers() or 0
+    local prefix = inRaid and "raid" or "party"
+    local current, added, removed = {}, {}, {}
+    for i = 1, inRaid and count or math.max(count - 1, 0) do
+        local ok, name, surname = pcall(UnitName, prefix .. i)
+        if ok and type(name) == "string" and not ProbeSecret(name) then
+            if type(surname) == "string" and not ProbeSecret(surname) and surname ~= "" then
+                name = name .. " " .. surname
+            end
+            current[name] = true
+            if not bgProbe.roster[name] then added[#added + 1] = name end
+        elseif ok and ProbeSecret(name) then
+            added[#added + 1] = "<secret>"
+        end
+    end
+    for name in pairs(bgProbe.roster) do
+        if not current[name] then removed[#removed + 1] = name end
+    end
+    bgProbe.roster = current
+    return string.format("ROSTER raid=%s n=%d +[%s] -[%s]", tostring(inRaid), count,
+        table.concat(added, ","), table.concat(removed, ","))
+end
+
+local function ProbeEvent(event, ...)
+    if event == "PLAYER_ENTERING_WORLD" then
+        local _, instanceType = IsInInstance()
+        if instanceType == "pvp" then ProbeStart() end
+        ProbeLog("PEW type=" .. tostring(instanceType) .. " " .. ProbeRoster())
+    elseif event == "CHAT_MSG_SYSTEM" then
+        local message = ...
+        ProbeLog("SYS line=" .. tostring(select(11, ...)) .. " " .. ProbeText(message))
+    elseif event:find("^CHAT_MSG_BG_SYSTEM") then
+        ProbeLog("BG " .. event:sub(20) .. " " .. ProbeText((...)))
+    elseif event == "GROUP_ROSTER_UPDATE" then
+        ProbeLog(ProbeRoster())
+    elseif event == "UPDATE_BATTLEFIELD_STATUS" then
+        local index = ...
+        local ok, status, mapName = pcall(GetBattlefieldStatus, index)
+        ProbeLog("BFSTATUS " .. tostring(index) .. " " .. (ok and (ProbeText(status) .. " " .. ProbeText(mapName)) or "?"))
+    else
+        ProbeLog(event)
+    end
+end
+
+local function ProbeAddMessage(_, message, _, _, _, chatTypeID)
+    local secret = ProbeSecret(message)
+    local info = ChatTypeInfo or {}
+    local systemIDs = {
+        [info.SYSTEM and info.SYSTEM.id or -1] = true,
+        [info.BG_SYSTEM_NEUTRAL and info.BG_SYSTEM_NEUTRAL.id or -1] = true,
+        [info.BG_SYSTEM_ALLIANCE and info.BG_SYSTEM_ALLIANCE.id or -1] = true,
+        [info.BG_SYSTEM_HORDE and info.BG_SYSTEM_HORDE.id or -1] = true,
+    }
+    if not secret and chatTypeID ~= nil and not systemIDs[chatTypeID] then return end
+    local stack = debugstack and debugstack(2, 12, 0) or ""
+    local origin = (stack:find("BattlegroundChatFilters", 1, true) and "bgfilter")
+        or (stack:find("AddOns/Carpenter", 1, true) and "carpenter")
+        or (stack:find("ChatFrame", 1, true) and "chatframe") or "other"
+    ProbeLog("ADD " .. origin .. " type=" .. tostring(chatTypeID) .. " " .. ProbeText(message))
+end
+
+local bgProbeFrame = CreateFrame("Frame")
+for _, probeEvent in ipairs({
+    "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "PLAYER_ENTERING_BATTLEGROUND", "ZONE_CHANGED_NEW_AREA",
+    "CHAT_MSG_SYSTEM", "CHAT_MSG_BG_SYSTEM_NEUTRAL", "CHAT_MSG_BG_SYSTEM_ALLIANCE", "CHAT_MSG_BG_SYSTEM_HORDE",
+    "GROUP_ROSTER_UPDATE", "PARTY_LOOT_METHOD_CHANGED", "UPDATE_BATTLEFIELD_STATUS", "PLAYER_DEAD",
+}) do
+    pcall(bgProbeFrame.RegisterEvent, bgProbeFrame, probeEvent)
+end
+bgProbeFrame:SetScript("OnEvent", function(_, event, ...)
+    if event == "PLAYER_LOGIN" then
+        if DEFAULT_CHAT_FRAME and hooksecurefunc then
+            pcall(hooksecurefunc, DEFAULT_CHAT_FRAME, "AddMessage", function(...)
+                pcall(ProbeAddMessage, ...)
+            end)
+        end
+        return
+    end
+    pcall(ProbeEvent, event, ...)
+end)
