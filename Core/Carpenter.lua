@@ -445,10 +445,6 @@ function Carpenter_InitializeSettings()
     CarpenterDB.classicSettingsPresetEnabled = nil
     CarpenterDB.hideGroupIndicatorEnabled = nil
     CarpenterDB.nameplateClassHealthEnabled = nil
-    -- A camera log from testing a fix, never released.
-    CarpenterDB.actionCamZoomTrace = nil
-    -- A battleground chat log from testing hidden lines, never released.
-    CarpenterDB.bgStartProbeLog = nil
 
     -- Older Forever builds could not restore SavedVariables, so Carpenter
     -- temporarily forced every usable boolean feature on after each load. Now

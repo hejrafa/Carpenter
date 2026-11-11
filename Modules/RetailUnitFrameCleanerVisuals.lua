@@ -88,40 +88,6 @@ function Visuals.RestoreFrame(frame)
     return true
 end
 
-function Visuals.HookHide(frame, predicate)
-    if not frame or frame._CarpenterRetailCleanerHooked then return end
-    frame._CarpenterRetailCleanerHooked = true
-
-    if frame.HookScript then
-        frame:HookScript("OnShow", function(self)
-            if predicate() then
-                Visuals.HideFrame(self)
-            end
-        end)
-    end
-    if frame.Show then
-        Carpenter:SafeHook(frame, "Show", function(self)
-            if predicate() then
-                Visuals.HideFrame(self)
-            end
-        end)
-    end
-    if frame.SetAlpha then
-        Carpenter:SafeHook(frame, "SetAlpha", function(self)
-            if predicate() then
-                Visuals.HideFrame(self)
-            end
-        end)
-    end
-    if frame.SetVertexColor then
-        Carpenter:SafeHook(frame, "SetVertexColor", function(self)
-            if predicate() then
-                Visuals.HideFrame(self)
-            end
-        end)
-    end
-end
-
 function Visuals.HideFrameAlpha(frame)
     if not frame or frame._CarpenterAlphaHiding then return end
     if IsCompactPartyMemberVisual(frame) then return end
@@ -166,24 +132,4 @@ function Visuals.RestoreFrameAlpha(frame)
     frame._CarpenterOriginalAlpha = nil
     frame._CarpenterAlphaHiddenByCleaner = nil
     return true
-end
-
-function Visuals.HookAlphaHide(frame, predicate)
-    if not frame or frame._CarpenterRetailAlphaHooked then return end
-    frame._CarpenterRetailAlphaHooked = true
-
-    if frame.HookScript then
-        frame:HookScript("OnShow", function(self)
-            if predicate() then
-                Visuals.HideFrameAlpha(self)
-            end
-        end)
-    end
-    if frame.SetAlpha then
-        Carpenter:SafeHook(frame, "SetAlpha", function(self)
-            if predicate() then
-                Visuals.HideFrameAlpha(self)
-            end
-        end)
-    end
 end

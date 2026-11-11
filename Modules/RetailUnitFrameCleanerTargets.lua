@@ -121,19 +121,6 @@ function Targets.GetLegacyPartyHealthLossFxFrames()
     return frames
 end
 
-function Targets.GetGroupIndicatorFrames()
-    local frames = {}
-    local contextual = GetContextualFrame()
-    if contextual then
-        AddFrame(frames, contextual.GroupIndicator)
-    end
-    AddFrame(frames, PlayerFrameGroupIndicatorLeft)
-    AddFrame(frames, PlayerFrameGroupIndicatorRight)
-    AddFrame(frames, PlayerFrameGroupIndicatorMiddle)
-    AddFrame(frames, PlayerFrameGroupIndicatorText)
-    return frames
-end
-
 function Targets.GetPlayerCornerIconFrames()
     local frames = {}
     local contextual = GetContextualFrame()
@@ -232,8 +219,4 @@ function Targets.GetRealmIndicatorNameStrings()
     end
 
     return strings
-end
-
-function Targets.CanQueryNamePlateForUnit(unit)
-    return Nameplates.CanQueryUnit and Nameplates.CanQueryUnit(unit) or false
 end

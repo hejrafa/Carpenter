@@ -39,10 +39,8 @@ end
 function Shared.ClearBarState(bar)
     if not bar then return false end
 
-    local wasClassColored = bar._Carpenter_IsUnitClassColored or bar._Carpenter_IsClassColored
+    local wasClassColored = bar._Carpenter_IsUnitClassColored
     bar._Carpenter_IsUnitClassColored = false
-    bar._Carpenter_IsClassColored = false
-    bar._Carpenter_ClassColor = nil
 
     if wasClassColored and bar.SetStatusBarDesaturated then
         bar:SetStatusBarDesaturated(false)
@@ -60,20 +58,6 @@ function Shared.ApplyUnitFrameClassColor(bar, unit)
         bar:SetStatusBarDesaturated(true)
     end
     bar._Carpenter_IsUnitClassColored = true
-    bar:SetStatusBarColor(color.r, color.g, color.b)
-    return true
-end
-
-function Shared.ApplyNameplateClassColor(bar, unit)
-    if not bar then return false end
-    local color = Shared.GetClassColor(unit)
-    if not color then return false end
-
-    if bar.SetStatusBarDesaturated then
-        bar:SetStatusBarDesaturated(true)
-    end
-    bar._Carpenter_IsClassColored = true
-    bar._Carpenter_ClassColor = color
     bar:SetStatusBarColor(color.r, color.g, color.b)
     return true
 end

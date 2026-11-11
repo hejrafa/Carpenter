@@ -302,13 +302,6 @@ local function RefreshSubscriptions()
     end
 end
 
-function Carpenter_ApplyRetailUnitFrameCleaner()
-    if Carpenter and Carpenter.Profile then
-        return Carpenter:Profile("RetailUnitFrameCleaner:Apply", Apply)
-    end
-    return Apply()
-end
-
 local function CreateFeature()
     return {
         Enable = RefreshSubscriptions,

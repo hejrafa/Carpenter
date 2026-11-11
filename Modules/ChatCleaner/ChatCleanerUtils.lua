@@ -73,11 +73,6 @@ function Utils.SpaceBeforeX(s)
     return s:gsub("(|r)x(%d+)", "%1 x%2"):gsub("([^%s])x(%d+)", "%1 x%2")
 end
 
-function Utils.GetFirstPlayerLink(text)
-    if not text or type(text) ~= "string" then return nil end
-    return text:match("(|Hplayer:[^|]+|h%[[^%]]*%]|h)") or text:match("(|Hplayer:[^|]+|h[^|]*|h)")
-end
-
 function Utils.RemoveLinkBrackets(text)
     if not text or type(text) ~= "string" then return text end
     return text:gsub("(|H.-|h)%[(.-)%]|h", "%1%2|h")

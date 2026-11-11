@@ -60,12 +60,6 @@ local function IsDungeonPOI(kind)
     return kind == "Dungeon" or kind == "Raid" or kind == "Dunraid"
 end
 
-local function IsTravelPOI(kind)
-    if Data.IsTravelKind then return Data.IsTravelKind(kind) end
-    return kind == "FlightA" or kind == "FlightH" or kind == "FlightN" or
-        kind == "TravelA" or kind == "TravelH" or kind == "TravelN"
-end
-
 local function ShouldShowPOI(kind)
     local faction = UnitFactionGroup and UnitFactionGroup("player")
     if Data.ShouldShowKind then return Data.ShouldShowKind(kind, faction) end

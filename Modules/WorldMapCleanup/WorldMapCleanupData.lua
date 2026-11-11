@@ -331,11 +331,6 @@ function Data.IsDungeonKind(kind)
     return kind == "Dungeon" or kind == "Raid" or kind == "Dunraid"
 end
 
-function Data.IsTravelKind(kind)
-    return kind == "FlightA" or kind == "FlightH" or kind == "FlightN" or
-        kind == "TravelA" or kind == "TravelH" or kind == "TravelN"
-end
-
 function Data.ShouldShowKind(kind, faction)
     if Data.IsDungeonKind(kind) then return true end
     if kind == "FlightN" or kind == "TravelN" then return true end

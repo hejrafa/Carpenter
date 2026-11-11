@@ -36,8 +36,6 @@ local dormantOptionKeys = {}
 -- Removed settings that survive only in the upgrade migration, which clears
 -- them from saved variables. They intentionally have no defaults entry.
 local removedOptionKeys = {
-    actionCamZoomTrace = true, -- a debug log, not a setting, but cleared the same way
-    bgStartProbeLog = true, -- a debug log, not a setting, but cleared the same way
     backSheathOneHandWeaponsEnabled = true,
     chatGlossaryEnabled = true,
     classicSettingsPresetEnabled = true,

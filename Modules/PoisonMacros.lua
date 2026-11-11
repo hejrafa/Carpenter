@@ -291,10 +291,6 @@ frame:SetScript("OnEvent", function(self, event)
     end
 end)
 
-ns.UpdatePoisonMacros = function()
-    MarkDirty(0.25, true)
-end
-
 local feature = {}
 
 local function GetThistleTeaMacro()
