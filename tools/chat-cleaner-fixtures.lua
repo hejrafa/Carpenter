@@ -163,6 +163,7 @@ loadAddonFile("Modules/ChatCleaner/ChatCleanerRewards.lua")
 loadAddonFile("Modules/ChatCleaner/ChatCleanerSocial.lua")
 loadAddonFile("Modules/ChatCleaner/ChatCleanerPostProcess.lua")
 loadAddonFile("Modules/ChatCleaner/ChatCleanerLifecycle.lua")
+loadAddonFile("Modules/ChatCleaner/ChatCleanerHiddenLines.lua")
 loadAddonFile("Modules/ChatCleaner/ChatCleaner.lua")
 
 local filter = ns.Private.ChatCleaner and ns.Private.ChatCleaner.FilterImpl
@@ -1476,20 +1477,70 @@ do
     issecretvalue = nil
 end
 
--- Group deaths, joins, and leaves are hidden the same way; they are rebuilt
--- from the group, which stays readable.
+-- Group lines hidden during chat lockdown never reach addon filters on
+-- Forever; they are found in the chat history and rewritten from the roster,
+-- deaths, and battleground timing. Times follow two real battleground logs.
 do
     local HIDDEN = {}
     issecretvalue = function(value) return value == HIDDEN end
-    local inLockdown = false
+    local inLockdown = true
     C_ChatInfo = { InChatMessagingLockdown = function() return inLockdown end }
     Carpenter.Client.isForever = true
-    local members = {
-        raid1 = { "Tester", "" },
-        raid2 = { "Tahlya", "Dawnsorrow" },
-        raid3 = { "Fufel", "Shmerz" },
-        raid4 = { "Gorb", "Garnsson" },
-    }
+    local realSystemInfo = ChatTypeInfo.SYSTEM
+    ChatTypeInfo.SYSTEM = { r = 1, g = 1, b = 0, id = 1 }
+
+    local function NewChatFrame()
+        local frame = { _CP_AddMessagePostHooked = true, _CP_AddMessageHooked = true, historyBuffer = { elements = {} } }
+        function frame:Add(message, typeID)
+            local entry = { message = message, r = 1, g = 1, b = 0, extraData = { typeID or 1, n = 1 }, timestamp = now }
+            table.insert(self.historyBuffer.elements, entry)
+            return entry
+        end
+        function frame:Text(entry)
+            for _, current in ipairs(self.historyBuffer.elements) do
+                if current == entry then return current.message end
+            end
+            -- A rewritten line is a new entry in the same place.
+            for index, current in ipairs(self.historyBuffer.elements) do
+                if current.replaced == entry then return current.message end
+            end
+        end
+        function frame:TransformMessages(predicate, transform)
+            for index, entry in ipairs(self.historyBuffer.elements) do
+                local extra = entry.extraData
+                if predicate(entry.message, entry.r, entry.g, entry.b, unpack(extra, 1, extra.n)) then
+                    local message, r, g, b, typeID = transform(entry.message, entry.r, entry.g, entry.b, unpack(extra, 1, extra.n))
+                    self.historyBuffer.elements[index] = {
+                        message = message, r = r, g = g, b = b, extraData = { typeID, n = 1 },
+                        timestamp = now, replaced = entry,
+                    }
+                end
+            end
+        end
+        return frame
+    end
+    local frame1, frame2 = NewChatFrame(), NewChatFrame()
+    local realChatFrame1, realChatFrame2, realWindows = ChatFrame1, ChatFrame2, NUM_CHAT_WINDOWS
+    ChatFrame1, ChatFrame2, NUM_CHAT_WINDOWS = frame1, frame2, 2
+
+    -- A hidden system line reaches both windows, which show system messages.
+    local function Hidden()
+        return { frame1:Add(HIDDEN), frame2:Add(HIDDEN) }
+    end
+    local function Shown(line, frame)
+        local text = (frame or frame1):Text(line[frame == frame2 and 2 or 1])
+        if text == HIDDEN then return "<hidden>" end
+        return plain(text)
+    end
+    local function Expect(line, expected, label)
+        additionalChecks = additionalChecks + 1
+        local got = Shown(line)
+        if got ~= expected then
+            failures[#failures + 1] = "hidden lines: " .. label .. ": expected [" .. expected .. "] got [" .. tostring(got) .. "]"
+        end
+    end
+
+    local members = {}
     local dead = {}
     local realUnitName = UnitName
     UnitName = function(unit)
@@ -1499,89 +1550,139 @@ do
     end
     UnitIsUnit = function(a, b) return a == b or (a == "raid1" and b == "player") end
     UnitIsDeadOrGhost = function(unit) return dead[unit] == true end
-    inRaid, groupMembers = true, 4
 
-    local socialFeature = registeredChatFeatures[#registeredChatFeatures].feature
-    socialFeature.Enable()
+    local feature = registeredChatFeatures[#registeredChatFeatures].feature
+    feature.Enable()
     local social = ns.Private.ChatCleaner.SocialFormatter
-
-    local lineID = 2000
-    local function HiddenSystemLine()
-        lineID = lineID + 1
-        local results = { filter(nil, "CHAT_MSG_SYSTEM", HIDDEN, "", "", "", "", "", 0, 0, "", 0, lineID) }
-        return results[2], lineID
-    end
-
-    -- Out of lockdown nothing is noted; the readable line is styled as usual.
-    dead.raid2 = true
-    social.NoteGroupMemberHealth("raid2")
-    dead.raid2 = nil
-    social.NoteGroupMemberHealth("raid2")
-
-    inLockdown = true
-    now = 2000
-    dead.raid2 = true
-    social.NoteGroupMemberHealth("raid2")
-    local died, diedID = HiddenSystemLine()
-    additionalChecks = additionalChecks + 1
-    if plain(died) ~= "Tahlya died" or not tostring(died):find("|cffff4040", 1, true) then
-        failures[#failures + 1] = "hidden group notice: expected red [Tahlya died] got [" .. tostring(died) .. "]"
+    local hiddenLines = ns.Private.ChatCleaner.HiddenLines
+    local eventFrame
+    for _, created in ipairs(createdFrames) do
+        if created._events.PLAYER_ENTERING_BATTLEGROUND and created._events.UNIT_HEALTH then
+            eventFrame = created
+        end
     end
     additionalChecks = additionalChecks + 1
-    if select(2, filter(nil, "CHAT_MSG_SYSTEM", HIDDEN, "", "", "", "", "", 0, 0, "", 0, diedID)) ~= died then
-        failures[#failures + 1] = "hidden group notice: other chat frames should get the same line"
+    if not (hiddenLines and eventFrame) then
+        failures[#failures + 1] = "hidden lines: the matcher and its events should be set up"
+    else
+        local function Fire(event, ...) eventFrame._scripts.OnEvent(eventFrame, event, ...) end
+        local base = 5000
+        local function At(seconds) now = base + seconds end
+
+        -- Zoning in with a party: the first hidden line is "Notify system has
+        -- been disabled".
+        At(0)
+        members.party1 = { "Fufel", "Shmerz" }
+        inRaid, groupMembers = false, 2
+        Fire("PLAYER_ENTERING_WORLD")
+        Fire("PLAYER_ENTERING_BATTLEGROUND")
+        local notifyOff = Hidden()
+        -- The battleground raid replaces the party at once, with its own lines;
+        -- that's no one joining.
+        At(0.27)
+        members.party1 = nil
+        members.raid1, members.raid2, members.raid3, members.raid4 =
+            { "Tester", "" }, { "Tahlya", "Dawnsorrow" }, { "Fufel", "Shmerz" }, { "Gorb", "Garnsson" }
+        inRaid, groupMembers = true, 4
+        local formed = Hidden()
+        Fire("GROUP_ROSTER_UPDATE")
+        hiddenLines.Update()
+        Expect(notifyOff, "", "the notify line on zoning in is emptied")
+        Expect(formed, "<hidden>", "lines that come with the raid forming stay")
+
+        -- A join: the line comes a moment before the roster has the player.
+        At(2.69)
+        local joined = Hidden()
+        hiddenLines.Update()
+        Expect(joined, "<hidden>", "a line waits for its roster change")
+        At(2.79)
+        members.raid5 = { "Peti", "Lucko" }
+        groupMembers = 5
+        Fire("GROUP_ROSTER_UPDATE")
+        hiddenLines.Update()
+        Expect(joined, "Peti Lucko joined", "a join is named from the roster")
+        additionalChecks = additionalChecks + 1
+        if Shown(joined, frame2) ~= "Peti Lucko joined" then
+            failures[#failures + 1] = "hidden lines: every window showing the line gets it rewritten"
+        end
+
+        -- Blizzard's batched repeat of the join, 30 s in.
+        At(30.01)
+        local batch = Hidden()
+        hiddenLines.Update()
+        Expect(batch, "<hidden>", "a batched line waits for a join to claim it")
+        At(30.7)
+        hiddenLines.Update()
+        Expect(batch, "", "a batched join line is emptied")
+
+        -- "Notify system has been enabled" follows the start by a few seconds,
+        -- but only once no roster change claims it.
+        At(112.70)
+        Fire("CHAT_MSG_BG_SYSTEM_NEUTRAL", "Let the battle for Warsong Gulch begin!")
+        At(115.34)
+        local notifyOn = Hidden()
+        hiddenLines.Update()
+        Expect(notifyOn, "<hidden>", "the start notice waits a moment")
+        At(116.0)
+        hiddenLines.Update()
+        Expect(notifyOn, "", "the notify line after the start is emptied")
+
+        -- After the first minute a departure sends two lines: one says who.
+        At(134.73)
+        local left = Hidden()
+        At(134.98)
+        local leftAgain = Hidden()
+        members.raid4, members.raid5 = members.raid5, nil
+        groupMembers = 4
+        Fire("GROUP_ROSTER_UPDATE")
+        hiddenLines.Update()
+        Expect(left, "Gorb Garnsson left", "a departure is named from the roster")
+        Expect(leftAgain, "", "the second line of a departure is emptied")
+
+        -- A death, by first name.
+        At(150.0)
+        dead.raid2 = true
+        Fire("UNIT_HEALTH", "raid2")
+        At(150.1)
+        local died = Hidden()
+        hiddenLines.Update()
+        Expect(died, "Tahlya died", "a death is named")
+
+        -- Two deaths and two lines at once: no telling which is which.
+        At(170.0)
+        dead.raid3, dead.raid4 = true, true
+        Fire("UNIT_HEALTH", "raid3")
+        Fire("UNIT_HEALTH", "raid4")
+        At(170.05)
+        local deathA, deathB = Hidden(), Hidden()
+        hiddenLines.Update()
+        Expect(deathA, "<hidden>", "two deaths at once leave the first line alone")
+        Expect(deathB, "<hidden>", "two deaths at once leave the second line alone")
+
+        -- A line with no known cause stays as the game wrote it.
+        At(200)
+        local unknown = Hidden()
+        hiddenLines.Update()
+        At(204)
+        hiddenLines.Update()
+        Expect(unknown, "<hidden>", "an unexplained line stays")
+
+        -- Out of lockdown, nothing is touched.
+        inLockdown = false
+        At(220)
+        local outside = Hidden()
+        members.raid5 = { "Peti", "Lucko" }
+        groupMembers = 5
+        Fire("GROUP_ROSTER_UPDATE")
+        hiddenLines.Update()
+        Expect(outside, "<hidden>", "nothing changes outside lockdown")
     end
 
-    -- The line can arrive before the death shows: the poll at the line finds it.
-    dead.raid3 = true
-    additionalChecks = additionalChecks + 1
-    if plain((HiddenSystemLine())) ~= "Fufel died" then
-        failures[#failures + 1] = "hidden group notice: a death seen only at its line should still be rebuilt"
-    end
-
-    -- Your own death has its own line.
-    dead.raid1 = true
-    social.NoteGroupMemberHealth("raid1")
-    additionalChecks = additionalChecks + 1
-    if HiddenSystemLine() ~= HIDDEN then
-        failures[#failures + 1] = "hidden group notice: your own death should not be rebuilt"
-    end
-
-    -- A member leaving the instance group uses the full name.
-    now = 2005
-    members.raid4 = nil
-    groupMembers = 3
-    social.NoteGroupRoster()
-    now = 2006
-    additionalChecks = additionalChecks + 1
-    if plain((HiddenSystemLine())) ~= "Gorb Garnsson left" then
-        failures[#failures + 1] = "hidden group notice: expected [Gorb Garnsson left]"
-    end
-
-    -- Old changes expire, and an unmatched line passes through untouched.
-    members.raid4 = { "Peti", "Lucko" }
-    groupMembers = 4
-    social.NoteGroupRoster()
-    now = 2010
-    additionalChecks = additionalChecks + 1
-    if HiddenSystemLine() ~= HIDDEN then
-        failures[#failures + 1] = "hidden group notice: a stale change should not be matched"
-    end
-
-    -- A line that comes first and matches nothing claims the change that
-    -- follows, so later lines don't take the wrong name.
-    now = 2020
-    HiddenSystemLine()
-    dead.raid4 = true
-    social.NoteGroupMemberHealth("raid4")
-    additionalChecks = additionalChecks + 1
-    if HiddenSystemLine() ~= HIDDEN then
-        failures[#failures + 1] = "hidden group notice: a change claimed by an earlier line should not be reused"
-    end
-
-    socialFeature.Disable()
+    feature.Disable()
     inRaid, groupMembers = false, 0
     UnitName, UnitIsUnit, UnitIsDeadOrGhost = realUnitName, nil, nil
+    ChatFrame1, ChatFrame2, NUM_CHAT_WINDOWS = realChatFrame1, realChatFrame2, realWindows
+    ChatTypeInfo.SYSTEM = realSystemInfo
     C_ChatInfo = nil
     Carpenter.Client.isForever = nil
     issecretvalue = nil

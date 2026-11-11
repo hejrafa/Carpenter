@@ -154,19 +154,16 @@ function Social.Create(config)
     end
 
     -- WoW Forever hides system lines from addons during chat messaging
-    -- lockdown (combat in instances), group deaths and departures included.
-    -- Deaths and the roster stay readable, so each change is noted as it
-    -- happens and the hidden line that arrives with it is rebuilt from it.
-    -- A change and its line can come in either order: a line with nothing to
-    -- match waits briefly for the change, which then counts as shown.
-    local NOTICE_WINDOW = 3
-    local UNCLAIMED_LINE_WINDOW = 1.5
-    local pendingNotices = {}
-    local unclaimedLineTimes = {}
-    local hiddenNoticeLines = {}
-    local hiddenNoticeLineCount = 0
+    -- lockdown (instances and battlegrounds), group joins, departures and
+    -- deaths included. The roster and deaths stay readable, so each change is
+    -- noted with its time, for ChatCleanerHiddenLines to match the hidden line
+    -- that came with it.
+    local CHANGE_WINDOW = 10
+    local groupChanges = {}
     local deadMembers = {}
     local rosterNames = {}
+    local rosterInRaid = false
+    local MAX_JOINS_AT_ONCE = 3
 
     local function Now()
         return GetTime and GetTime() or 0
@@ -227,12 +224,8 @@ function Social.Create(config)
     end
 
     local function AddNotice(kind, name, now)
-        PruneTimes(unclaimedLineTimes, UNCLAIMED_LINE_WINDOW, now)
-        if unclaimedLineTimes[1] then
-            table.remove(unclaimedLineTimes, 1)
-            return
-        end
-        pendingNotices[#pendingNotices + 1] = { kind = kind, name = name, time = now }
+        PruneTimes(groupChanges, CHANGE_WINDOW, now)
+        groupChanges[#groupChanges + 1] = { kind = kind, name = name, time = now, lines = 0 }
     end
 
     local function NoteMemberDeath(unit, fullName, firstName, announce, now)
@@ -268,34 +261,40 @@ function Social.Create(config)
     end
 
     -- Pass reset to take a fresh snapshot without noting any change, such as
-    -- after a loading screen.
+    -- after a loading screen. A group that forms or turns into another, like a
+    -- battleground raid filling in at once from your party, is a snapshot too.
     function api.NoteGroupRoster(reset)
         local now = Now()
-        local announce = not reset and InChatLockdown()
-        local current = {}
+        local inRaid = (IsInRaid and IsInRaid()) and true or false
+        local current, added = {}, {}
         ForEachGroupMember(function(_, fullName)
             current[fullName] = true
-            if announce and not rosterNames[fullName] then
-                AddNotice("joined", fullName, now)
+            if not rosterNames[fullName] then
+                added[#added + 1] = fullName
             end
         end)
+        local announce = not reset and next(rosterNames) ~= nil and inRaid == rosterInRaid
+            and #added <= MAX_JOINS_AT_ONCE and InChatLockdown()
         if announce then
+            for _, fullName in ipairs(added) do
+                AddNotice("joined", fullName, now)
+            end
             for fullName in pairs(rosterNames) do
                 if not current[fullName] then
                     AddNotice("left", fullName, now)
                 end
             end
         end
-        rosterNames = current
+        rosterNames, rosterInRaid = current, inRaid
         for fullName in pairs(deadMembers) do
             if not current[fullName] then
                 deadMembers[fullName] = nil
             end
         end
         if reset then
-            pendingNotices, unclaimedLineTimes = {}, {}
+            groupChanges = {}
         end
-        NoteDeaths(now, announce)
+        NoteDeaths(now, not reset and InChatLockdown())
     end
 
     local function FormatNotice(notice)
@@ -307,28 +306,15 @@ function Social.Create(config)
         return colorGreen .. T("CHAT_PLAYER_JOINED", "%s joined", notice.name) .. "|r"
     end
 
-    -- Every chat frame filters the same line, so results are kept per line ID.
-    function api.FormatHiddenGroupNotice(lineID)
-        if lineID == nil then return nil end
-        if hiddenNoticeLines[lineID] ~= nil then
-            return hiddenNoticeLines[lineID] or nil
-        end
+    -- Recent joins, departures and deaths, oldest first. The hidden line
+    -- matcher counts the lines it gives each one in change.lines.
+    function api.GetGroupChanges()
+        PruneTimes(groupChanges, CHANGE_WINDOW, Now())
+        return groupChanges
+    end
 
-        local now = Now()
-        NoteDeaths(now, true)
-        PruneTimes(pendingNotices, NOTICE_WINDOW, now)
-        local notice = table.remove(pendingNotices, 1)
-        local text = notice and FormatNotice(notice) or nil
-        if not notice then
-            unclaimedLineTimes[#unclaimedLineTimes + 1] = now
-        end
-
-        if hiddenNoticeLineCount >= 50 then
-            hiddenNoticeLines, hiddenNoticeLineCount = {}, 0
-        end
-        hiddenNoticeLines[lineID] = text or false
-        hiddenNoticeLineCount = hiddenNoticeLineCount + 1
-        return text
+    function api.FormatGroupChange(change)
+        return FormatNotice(change)
     end
 
     local function GetFriendCount()
@@ -440,6 +426,14 @@ function Social.Create(config)
             end
         end
         return nil
+    end
+
+    function api.IsBattleStartAnnouncement(text)
+        if not IsReadable(text) or type(text) ~= "string" then return false end
+        for _, pattern in ipairs(BATTLE_START_PATTERNS) do
+            if text:match(pattern) then return true end
+        end
+        return false
     end
 
     function api.FormatBattlegroundAndGroupNotice(event, plainSys)

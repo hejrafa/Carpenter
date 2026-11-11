@@ -241,7 +241,6 @@ local socialFormatter = ChatCleanerSocial.Create and ChatCleanerSocial.Create({
 }) or {}
 local FormatBattlegroundAndGroupNotice = socialFormatter.FormatBattlegroundAndGroupNotice
 local FormatSystemSocialMessage = socialFormatter.FormatSystemSocialMessage
-local FormatHiddenGroupNotice = socialFormatter.FormatHiddenGroupNotice
 local RememberSenderClass = socialFormatter.RememberSenderClass
 GetPlayerClassColor = socialFormatter.GetPlayerClassColor
 
@@ -291,17 +290,13 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     end
 
     -- WoW Forever hides some chat text in combat inside instances. Skill-ups
-    -- are rebuilt from skill ranks and group deaths, joins and leaves from
-    -- the group itself (the line ID stays readable); anything else passes
+    -- are rebuilt from skill ranks (the line ID stays readable); hidden group
+    -- lines are rewritten in the chat history by ChatCleanerHiddenLines,
+    -- since the game doesn't pass them to addon filters. Anything else passes
     -- through untouched.
     if issecretvalue and issecretvalue(msg) then
         if event == "CHAT_MSG_SKILL" and FormatHiddenSkillMessage then
             local styled = FormatHiddenSkillMessage(select(9, ...), ColorPlus .. "+|r ")
-            if styled then
-                return false, styled, author, ...
-            end
-        elseif event == "CHAT_MSG_SYSTEM" and FormatHiddenGroupNotice then
-            local styled = FormatHiddenGroupNotice(select(9, ...))
             if styled then
                 return false, styled, author, ...
             end
@@ -557,16 +552,87 @@ skillRankFrame:SetScript("OnEvent", function()
 end)
 
 -- Keeps group deaths and the roster current, so hidden death, join, and
--- leave lines can be rebuilt from them.
+-- leave lines can be rewritten from them in the chat history.
+local HiddenLines = ns.Private.ChatCleanerHiddenLines
+local hiddenLineLog
+
+local function InChatMessagingLockdown()
+    if not (C_ChatInfo and C_ChatInfo.InChatMessagingLockdown) then return false end
+    local ok, locked = pcall(C_ChatInfo.InChatMessagingLockdown)
+    return ok and not (issecretvalue and issecretvalue(locked)) and locked == true
+end
+
+local hiddenLines = HiddenLines and HiddenLines.Create({
+    GetFrames = function()
+        local frames = {}
+        for i = 1, NUM_CHAT_WINDOWS or 0 do
+            local frame = _G["ChatFrame" .. i]
+            if frame and frame._CP_AddMessagePostHooked and frame._CP_AddMessageHooked then
+                frames[#frames + 1] = frame
+            end
+        end
+        return frames
+    end,
+    GetChanges = socialFormatter.GetGroupChanges,
+    FormatChange = socialFormatter.FormatGroupChange,
+    IsActive = function()
+        return Carpenter ~= nil and Carpenter:IsEnabled("chatCleanerEnabled") and InChatMessagingLockdown()
+    end,
+    IsForever = function()
+        return Carpenter ~= nil and Carpenter.Client ~= nil and Carpenter.Client.isForever == true
+    end,
+    Log = function(text)
+        if hiddenLineLog then hiddenLineLog(text) end
+    end,
+})
+ns.Private.ChatCleaner.HiddenLines = hiddenLines
+
+local function UpdateHiddenLines(delay)
+    if not hiddenLines or not (C_Timer and C_Timer.After) then return end
+    C_Timer.After(delay or 0, function()
+        pcall(hiddenLines.Update)
+    end)
+end
+
 local groupNoticeFrame = CreateFrame("Frame")
-groupNoticeFrame:SetScript("OnEvent", function(_, event, unit)
+groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
     if event == "UNIT_HEALTH" or event == "UNIT_FLAGS" then
         if socialFormatter.NoteGroupMemberHealth then
-            socialFormatter.NoteGroupMemberHealth(unit)
+            socialFormatter.NoteGroupMemberHealth(arg1)
         end
-    elseif socialFormatter.NoteGroupRoster then
+        if hiddenLines and hiddenLines.HasPending() then
+            UpdateHiddenLines(0)
+        end
+        return
+    elseif event == "CHAT_MSG_SYSTEM" then
+        if issecretvalue and issecretvalue(arg1) then
+            UpdateHiddenLines(0)
+            UpdateHiddenLines(HiddenLines.START_NOTICE_GRACE + 0.05)
+        end
+        return
+    elseif event == "PLAYER_ENTERING_BATTLEGROUND" then
+        if hiddenLines then
+            hiddenLines.EnteredBattleground()
+            for _, batchTime in ipairs(HiddenLines.BATCH_TIMES) do
+                UpdateHiddenLines(batchTime + HiddenLines.BATCH_GRACE + 0.2)
+            end
+        end
+        UpdateHiddenLines(0)
+        return
+    elseif event == "CHAT_MSG_BG_SYSTEM_NEUTRAL" then
+        if hiddenLines and socialFormatter.IsBattleStartAnnouncement
+            and socialFormatter.IsBattleStartAnnouncement(arg1) then
+            hiddenLines.BattleBegan()
+        end
+        return
+    end
+    if event == "PLAYER_ENTERING_WORLD" and hiddenLines then
+        hiddenLines.LeftBattleground()
+    end
+    if socialFormatter.NoteGroupRoster then
         socialFormatter.NoteGroupRoster(event == "PLAYER_ENTERING_WORLD")
     end
+    UpdateHiddenLines(0)
 end)
 
 if Carpenter and Carpenter.RegisterFeature then
@@ -582,6 +648,9 @@ if Carpenter and Carpenter.RegisterFeature then
                 groupNoticeFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
                 groupNoticeFrame:RegisterEvent("UNIT_HEALTH")
                 groupNoticeFrame:RegisterEvent("UNIT_FLAGS")
+                groupNoticeFrame:RegisterEvent("CHAT_MSG_SYSTEM")
+                groupNoticeFrame:RegisterEvent("CHAT_MSG_BG_SYSTEM_NEUTRAL")
+                groupNoticeFrame:RegisterEvent("PLAYER_ENTERING_BATTLEGROUND")
                 socialFormatter.NoteGroupRoster(true)
             end
         end,
@@ -636,6 +705,8 @@ local function ProbeLog(line)
     pre[#pre + 1] = { now, locked, line }
     if #pre > BG_PROBE_PRE then table.remove(pre, 1) end
 end
+
+hiddenLineLog = function(text) pcall(ProbeLog, text) end -- TEMP battleground start probe
 
 local function ProbeStart()
     if type(CarpenterDB) ~= "table" then return end
