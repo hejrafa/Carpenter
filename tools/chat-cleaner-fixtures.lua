@@ -1579,7 +1579,7 @@ do
         local notifyOff = Hidden()
         -- The battleground raid replaces the party at once, with its own lines;
         -- that's no one joining.
-        At(0.27)
+        At(0.37)
         members.party1 = nil
         members.raid1, members.raid2, members.raid3, members.raid4 =
             { "Tester", "" }, { "Tahlya", "Dawnsorrow" }, { "Fufel", "Shmerz" }, { "Gorb", "Garnsson" }
@@ -1590,14 +1590,25 @@ do
         Expect(notifyOff, "", "the notify line on zoning in is emptied")
         Expect(formed, "<hidden>", "lines that come with the raid forming stay")
 
+        -- A join under a second later takes its own line, not the burst's
+        -- (seen in game: the name landed on a burst line).
+        At(1.28)
+        local firstJoin = Hidden()
+        members.raid5 = { "Damoz", "Lifesong" }
+        groupMembers = 5
+        Fire("GROUP_ROSTER_UPDATE")
+        hiddenLines.Update()
+        Expect(firstJoin, "Damoz Lifesong joined", "a join right after zoning in gets its own line")
+        Expect(formed, "<hidden>", "a join right after zoning in leaves the burst alone")
+
         -- A join: the line comes a moment before the roster has the player.
         At(2.69)
         local joined = Hidden()
         hiddenLines.Update()
         Expect(joined, "<hidden>", "a line waits for its roster change")
         At(2.79)
-        members.raid5 = { "Peti", "Lucko" }
-        groupMembers = 5
+        members.raid6 = { "Peti", "Lucko" }
+        groupMembers = 6
         Fire("GROUP_ROSTER_UPDATE")
         hiddenLines.Update()
         Expect(joined, "Peti Lucko joined", "a join is named from the roster")
@@ -1611,6 +1622,15 @@ do
         local batch = Hidden()
         hiddenLines.Update()
         Expect(batch, "<hidden>", "a batched line waits for a join to claim it")
+        -- A join right after the batch line takes its own line, the nearest
+        -- (seen in game: the name landed on the batch line).
+        At(30.16)
+        local batchJoin = Hidden()
+        members.raid7 = { "Rathica", "Cryptmender" }
+        groupMembers = 7
+        Fire("GROUP_ROSTER_UPDATE")
+        hiddenLines.Update()
+        Expect(batchJoin, "Rathica Cryptmender joined", "a join beside a batch line gets its own line")
         At(30.7)
         hiddenLines.Update()
         Expect(batch, "", "a batched join line is emptied")
@@ -1632,12 +1652,12 @@ do
         local left = Hidden()
         At(134.98)
         local leftAgain = Hidden()
-        members.raid4, members.raid5 = members.raid5, nil
-        groupMembers = 4
+        members.raid4, members.raid5, members.raid6, members.raid7 = members.raid5, members.raid6, members.raid7, nil
+        groupMembers = 6
         Fire("GROUP_ROSTER_UPDATE")
         hiddenLines.Update()
-        Expect(left, "Gorb Garnsson left", "a departure is named from the roster")
-        Expect(leftAgain, "", "the second line of a departure is emptied")
+        Expect(leftAgain, "Gorb Garnsson left", "a departure is named on the line nearest the change")
+        Expect(left, "", "the other line of a departure is emptied")
 
         -- A death, by first name.
         At(150.0)
@@ -1671,8 +1691,8 @@ do
         inLockdown = false
         At(220)
         local outside = Hidden()
-        members.raid5 = { "Peti", "Lucko" }
-        groupMembers = 5
+        members.raid7 = { "Ward", "Ender" }
+        groupMembers = 7
         Fire("GROUP_ROSTER_UPDATE")
         hiddenLines.Update()
         Expect(outside, "<hidden>", "nothing changes outside lockdown")

@@ -5,9 +5,10 @@
 -- they are added. They still land in each chat window's history with the time
 -- they were added, so they are found there and rewritten when their cause is
 -- known:
---   * a join or departure, from the roster change it comes with (up to a
---     second before it). Battlegrounds send two lines per change; the second
---     is emptied.
+--   * a join or departure, from the roster change it comes with (at most a
+--     quarter second before it in three battleground logs). The nearest line
+--     gets the name; battlegrounds send two lines per change, and the other,
+--     or Blizzard's batched line landing beside it, is emptied.
 --   * a group member's death, when exactly one death and one line meet.
 --   * "Notify system has been disabled/enabled": the first hidden line right
 --     after entering a battleground, and right after it begins.
@@ -28,7 +29,7 @@ HiddenLines.BATCH_GRACE = 0.6
 HiddenLines.BATCH_TIMES = { 30, 35, 40, 45, 50, 55, 60 }
 
 local LINE_MAX_AGE = HiddenLines.LINE_MAX_AGE
-local LINE_BEFORE_CHANGE = 1.0
+local LINE_BEFORE_CHANGE = 0.5
 local LINE_AFTER_CHANGE = 0.3
 local DEATH_WINDOW = 1.0
 local ENTER_NOTICE_WINDOW = 1.5
@@ -47,7 +48,6 @@ end
 --   FormatChange(change)
 --   IsActive()          true while lines can be hidden
 --   IsForever()         battleground rules only apply on WoW Forever
---   Log(text)           optional
 function HiddenLines.Create(config)
     config = config or {}
     local api = {}
@@ -59,10 +59,6 @@ function HiddenLines.Create(config)
 
     local function Now()
         return GetTime and GetTime() or 0
-    end
-
-    local function Log(text)
-        if config.Log then pcall(config.Log, text) end
     end
 
     local function SystemTypeID()
@@ -137,16 +133,28 @@ function HiddenLines.Create(config)
         return change.claims[frame] or 0
     end
 
-    local function ClaimRosterChange(line, changes)
+    -- Each change takes the lines nearest to it: the first gets the name, a
+    -- second is emptied.
+    local function ResolveRosterChanges(frame, lines, changes, Apply)
         for _, change in ipairs(changes) do
             if change.kind == "joined" or change.kind == "left" then
-                local delta = change.time - line.time
-                if delta >= -LINE_AFTER_CHANGE and delta <= LINE_BEFORE_CHANGE then
-                    local claimed = Claims(change, line.frame)
-                    if claimed < 2 then
-                        change.claims[line.frame] = claimed + 1
-                        return claimed == 0 and config.FormatChange(change) or "", change.kind
+                local claimed = Claims(change, frame)
+                local candidates = {}
+                for _, line in ipairs(lines) do
+                    local delta = change.time - line.time
+                    if not line.resolved and delta >= -LINE_AFTER_CHANGE and delta <= LINE_BEFORE_CHANGE then
+                        candidates[#candidates + 1] = { line = line, distance = math.abs(delta) }
                     end
+                end
+                table.sort(candidates, function(a, b)
+                    if a.distance ~= b.distance then return a.distance < b.distance end
+                    return a.line.order < b.line.order
+                end)
+                for _, candidate in ipairs(candidates) do
+                    if claimed >= 2 then break end
+                    Apply(candidate.line, claimed == 0 and config.FormatChange(change) or "")
+                    claimed = claimed + 1
+                    change.claims[frame] = claimed
                 end
             end
         end
@@ -169,7 +177,7 @@ function HiddenLines.Create(config)
             end
         end
         match.claims[line.frame] = 1
-        return config.FormatChange(match), "died"
+        return config.FormatChange(match)
     end
 
     local function IsBatchTime(line)
@@ -189,18 +197,18 @@ function HiddenLines.Create(config)
             local since = line.time - entered
             if since >= -0.2 and since <= ENTER_NOTICE_WINDOW then
                 done.enter = true
-                return "", "notify"
+                return ""
             end
         end
         -- A join landing on a batch tick gets the moment to claim its line first.
         if now - line.time >= BATCH_GRACE and IsBatchTime(line) then
-            return "", "batch"
+            return ""
         end
         if started and not done.start and now - line.time >= START_NOTICE_GRACE then
             local since = line.time - started
             if since >= 0 and since <= START_NOTICE_WINDOW then
                 done.start = true
-                return "", "notify"
+                return ""
             end
         end
     end
@@ -213,17 +221,13 @@ function HiddenLines.Create(config)
         local done = doneByFrame[frame] or {}
         doneByFrame[frame] = done
 
-        local function Apply(line, text, kind)
+        local function Apply(line, text)
             if text == nil then return end
             line.resolved = true
-            local ok, rewritten = pcall(Rewrite, line, text)
-            Log(string.format("HL %s %.2f -> %s%s", kind, line.time, kind == "notify" and "" or text,
-                (ok and rewritten) and "" or " (not rewritten)"))
+            pcall(Rewrite, line, text)
         end
 
-        for _, line in ipairs(lines) do
-            if not line.resolved then Apply(line, ClaimRosterChange(line, changes)) end
-        end
+        ResolveRosterChanges(frame, lines, changes, Apply)
         for _, line in ipairs(lines) do
             if not line.resolved then Apply(line, ClaimBattleNotice(line, done, now)) end
         end
