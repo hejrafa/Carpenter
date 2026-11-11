@@ -13,8 +13,8 @@ local GENERIC_REWARD_EVENTS = {
     CHAT_MSG_LOOT = true,
     CHAT_MSG_COMBAT_HONOR_GAIN = true,
     CHAT_MSG_COMBAT_MISC_INFO = true,
-    -- WoW Forever reports "You gain 100 Rank Points." as an experience line.
-    CHAT_MSG_COMBAT_XP_GAIN = true,
+    -- WoW Forever reports "You gain 100 Rank Points." as a reputation line.
+    CHAT_MSG_COMBAT_FACTION_CHANGE = true,
 }
 
 local GENERIC_REWARD_PATTERNS = {

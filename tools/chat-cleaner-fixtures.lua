@@ -796,8 +796,8 @@ local fixtures = {
         expectPlain = "Let the battle for Warsong Gulch begin!",
     },
     {
-        name = "generic reward: Forever's rank points arrive as an experience line",
-        event = "CHAT_MSG_COMBAT_XP_GAIN",
+        name = "generic reward: Forever's rank points arrive as a reputation line",
+        event = "CHAT_MSG_COMBAT_FACTION_CHANGE",
         message = "You gain 100 Rank Points.",
         expectPlain = "+ 100 Rank Points",
     },
