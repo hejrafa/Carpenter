@@ -27,7 +27,6 @@ local stateKeys = {
     noObjectiveQuestWatches = true,
     settingsPresetBackup = true,
     smartMacroLastItems = true,
-    bgStartProbeLog = true, -- TEMP battleground start probe
 }
 
 -- Kept in defaults/settings definitions for history, but currently hidden by
@@ -38,6 +37,7 @@ local dormantOptionKeys = {}
 -- them from saved variables. They intentionally have no defaults entry.
 local removedOptionKeys = {
     actionCamZoomTrace = true, -- a debug log, not a setting, but cleared the same way
+    bgStartProbeLog = true, -- a debug log, not a setting, but cleared the same way
     backSheathOneHandWeaponsEnabled = true,
     chatGlossaryEnabled = true,
     classicSettingsPresetEnabled = true,
