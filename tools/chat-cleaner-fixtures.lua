@@ -1618,8 +1618,14 @@ do
         end
 
         -- Blizzard's batched repeat of the join, 30 s in.
+        -- Blizzard's batches print to the main window only. With the call
+        -- stack hidden, a batch line falls back to the timing rule.
+        local realDebugstack = debugstack
+        debugstack = function() return HIDDEN end
         At(30.01)
-        local batch = Hidden()
+        local batch = { frame1:Add(HIDDEN) }
+        hiddenLines.OnHiddenLineAdded(frame1)
+        Expect(batch, "<hidden>", "a batch line with a hidden stack isn't emptied as it's added")
         hiddenLines.Update()
         Expect(batch, "<hidden>", "a batched line waits for a join to claim it")
         -- A join right after the batch line takes its own line, the nearest
@@ -1634,6 +1640,17 @@ do
         At(30.7)
         hiddenLines.Update()
         Expect(batch, "", "a batched join line is emptied")
+
+        -- A batch line from Blizzard's battleground chat filter is emptied as
+        -- it's added, before the window redraws.
+        debugstack = function()
+            return "[string \"@Interface/AddOns/Blizzard_ChatFrame/Mainline/BattlegroundChatFilters.lua\"]:120: in function <...>"
+        end
+        At(35.02)
+        local quickBatch = { frame1:Add(HIDDEN) }
+        hiddenLines.OnHiddenLineAdded(frame1)
+        Expect(quickBatch, "", "a batch line is emptied as it's added")
+        debugstack = realDebugstack
 
         -- "Notify system has been enabled" follows the start by a few seconds,
         -- but only once no roster change claims it.
@@ -1757,7 +1774,14 @@ do
 
     -- Hidden lines are left alone. A line the post-processor always hides is
     -- emptied, never removed.
+    local handledFrame
+    postProcessor.SetHiddenLineHandler(function(hiddenFrame) handledFrame = hiddenFrame end)
     frame:AddMessage(HIDDEN, 1, 1, 0)
+    additionalChecks = additionalChecks + 1
+    if handledFrame ~= frame then
+        failures[#failures + 1] = "post-hook: a hidden line should go to the hidden line handler"
+    end
+    postProcessor.SetHiddenLineHandler(ns.Private.ChatCleaner.HiddenLines.OnHiddenLineAdded)
     frame:AddMessage("Auctionator: scan complete", 1, 1, 1)
     additionalChecks = additionalChecks + 1
     if #frame.lines ~= 3 or frame.lines[2][1] ~= HIDDEN or frame.lines[3][1] ~= "" or removals ~= 0 then

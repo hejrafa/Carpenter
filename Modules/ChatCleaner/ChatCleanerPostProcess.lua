@@ -581,10 +581,20 @@ function PostProcess.Create(config)
         end
     end
 
+    -- Lines whose text the game hides go to ChatCleanerHiddenLines.
+    local hiddenLineHandler
+    function api.SetHiddenLineHandler(handler)
+        hiddenLineHandler = handler
+    end
+
     local function OnLineAdded(frame, message, ...)
         if not frame._CP_AddMessageHooked then return end
         if not (Carpenter and Carpenter:IsEnabled("chatCleanerEnabled")) then return end
-        if IsSecret(message) or type(message) ~= "string" then return end
+        if IsSecret(message) then
+            if hiddenLineHandler then pcall(hiddenLineHandler, frame) end
+            return
+        end
+        if type(message) ~= "string" then return end
 
         if Carpenter.Profile then
             pcall(Carpenter.Profile, Carpenter, "ChatCleaner:AddMessage", EditAddedLine, frame, message, ...)

@@ -13,8 +13,11 @@
 --   * "Notify system has been disabled/enabled": the first hidden line right
 --     after entering a battleground, and right after it begins.
 --   * Blizzard's batched "has joined the battle" lines in a battleground's
---     first minute, which repeat joins already shown. They print every 5 s
---     from 30 s after entering, and are checked just after each tick.
+--     first minute, which repeat joins already shown. They come from its
+--     battleground chat filter, whose call stack stays readable (the chat
+--     frame's own hidden lines have a hidden stack), so they are emptied as
+--     they are added, before the window redraws. Failing that, they print
+--     every 5 s from 30 s after entering and are checked after each tick.
 -- Anything else stays as the game wrote it. Lines are edited with
 -- TransformMessages only: removing them would taint the chat history.
 local _, ns = ...
@@ -24,7 +27,7 @@ local HiddenLines = {}
 ns.Private.ChatCleanerHiddenLines = HiddenLines
 
 HiddenLines.LINE_MAX_AGE = 3
-HiddenLines.START_NOTICE_GRACE = 0.6
+HiddenLines.START_NOTICE_GRACE = 0.35
 HiddenLines.BATCH_GRACE = 0.6
 HiddenLines.BATCH_TIMES = { 30, 35, 40, 45, 50, 55, 60 }
 
@@ -254,6 +257,34 @@ function HiddenLines.Create(config)
         local changes = config.GetChanges and config.GetChanges() or {}
         for frame, lines in pairs(pendingByFrame) do
             if lines[1] then Resolve(frame, lines, changes, now) end
+        end
+    end
+
+    local function IsFromBattlegroundChatFilter()
+        if type(debugstack) ~= "function" then return false end
+        local ok, stack = pcall(debugstack, 1, 30, 0)
+        if not ok or IsSecret(stack) or type(stack) ~= "string" then return false end
+        return stack:find("BattlegroundChatFilters", 1, true) ~= nil
+    end
+
+    -- Called from the chat window's AddMessage hook with a hidden line just added.
+    function api.OnHiddenLineAdded(frame)
+        if not (config.IsForever and config.IsForever()) or not battle.enteredAt then return end
+        if not (config.IsActive and config.IsActive()) then return end
+        if not IsFromBattlegroundChatFilter() then return end
+        local before = order
+        Collect(Now())
+        local added
+        for _, line in ipairs(pendingByFrame[frame] or {}) do
+            if line.order > before then
+                -- More than one new line: leave them to the timing rules.
+                if added then return end
+                added = line
+            end
+        end
+        if added then
+            added.resolved = true
+            pcall(Rewrite, added, "")
         end
     end
 

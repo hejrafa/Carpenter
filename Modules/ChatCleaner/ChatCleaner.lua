@@ -583,9 +583,21 @@ local hiddenLines = HiddenLines and HiddenLines.Create({
 })
 ns.Private.ChatCleaner.HiddenLines = hiddenLines
 
+if hiddenLines and postProcessor and postProcessor.SetHiddenLineHandler then
+    postProcessor.SetHiddenLineHandler(hiddenLines.OnHiddenLineAdded)
+end
+
+-- The chat windows handle an event before Carpenter does, so a hidden line is
+-- already in their history here and is rewritten before they redraw. A later
+-- pass catches what has to wait.
 local function UpdateHiddenLines(delay)
-    if not hiddenLines or not (C_Timer and C_Timer.After) then return end
-    C_Timer.After(delay or 0, function()
+    if not hiddenLines then return end
+    if not delay then
+        pcall(hiddenLines.Update)
+        return
+    end
+    if not (C_Timer and C_Timer.After) then return end
+    C_Timer.After(delay, function()
         pcall(hiddenLines.Update)
     end)
 end
@@ -597,11 +609,12 @@ groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
             socialFormatter.NoteGroupMemberHealth(arg1)
         end
         if hiddenLines and hiddenLines.HasPending() then
-            UpdateHiddenLines(0)
+            UpdateHiddenLines()
         end
         return
     elseif event == "CHAT_MSG_SYSTEM" then
         if issecretvalue and issecretvalue(arg1) then
+            UpdateHiddenLines()
             UpdateHiddenLines(0)
             UpdateHiddenLines(HiddenLines.START_NOTICE_GRACE + 0.05)
         end
@@ -613,7 +626,7 @@ groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
                 UpdateHiddenLines(batchTime + HiddenLines.BATCH_GRACE + 0.2)
             end
         end
-        UpdateHiddenLines(0)
+        UpdateHiddenLines()
         return
     elseif event == "CHAT_MSG_BG_SYSTEM_NEUTRAL" then
         if hiddenLines and socialFormatter.IsBattleStartAnnouncement
@@ -628,7 +641,7 @@ groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
     if socialFormatter.NoteGroupRoster then
         socialFormatter.NoteGroupRoster(event == "PLAYER_ENTERING_WORLD")
     end
-    UpdateHiddenLines(0)
+    UpdateHiddenLines()
 end)
 
 if Carpenter and Carpenter.RegisterFeature then
