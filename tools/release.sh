@@ -90,12 +90,12 @@ check() {
   while IFS= read -r file; do
     files+=("$file")
   done < <(lua_files)
-  # Every tools/*-fixtures.lua file runs, so new fixtures can't be forgotten.
+  # Every tools/fixtures/*-fixtures.lua file runs, so new fixtures can't be forgotten.
   local fixtures=()
   while IFS= read -r fixture; do
     fixtures+=("$fixture")
-  done < <(find "$ROOT/tools" -maxdepth 1 -type f -name '*-fixtures.lua' | sort)
-  [[ ${#fixtures[@]} -gt 0 ]] || fail "no fixtures found in tools/"
+  done < <(find "$ROOT/tools/fixtures" -maxdepth 1 -type f -name '*-fixtures.lua' | sort)
+  [[ ${#fixtures[@]} -gt 0 ]] || fail "no fixtures found in tools/fixtures/"
 
   local checks=("$ROOT/tools/check-localization.lua" "$ROOT/tools/check-assets.lua" "$ROOT/tools/check-addon-shape.lua")
 

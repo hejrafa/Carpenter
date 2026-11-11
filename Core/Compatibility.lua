@@ -76,24 +76,24 @@ local featureManifest = {
     scaleExtraAbilityEnabled = { { clients = "retail", files = { "Modules/ExtraAbilityScale.lua" } } },
 
     -- Unit frames
-    classHealthColorsEnabled = { { clients = ALL, files = { "Modules/ClassHealthColorsUnitFrames.lua" } } },
+    classHealthColorsEnabled = { { clients = ALL, files = { "Modules/ClassHealthColors/ClassHealthColorsUnitFrames.lua" } } },
     threatIndicatorEnabled = { { clients = CLASSIC, files = { "Modules/ThreatIndicator.lua" } } },
     unitFrameDebuffsEnabled = {
         { clients = CLASSIC, files = { "Modules/DebuffTracker/DebuffTracker.lua" } },
         { clients = "forever", files = { "Modules/ForeverUnitFrameAuras.lua" } },
     },
     unitFrameBuffsEnabled = { { clients = CLASSIC, files = { "Modules/DebuffTracker/DebuffTracker.lua" } } },
-    unitFrameClassIconEnabled = { { clients = CLASSIC, files = { "Modules/UnitFrameClassIcon.lua" } } },
+    unitFrameClassIconEnabled = { { clients = CLASSIC, files = { "Modules/UnitFrameClassIcon/UnitFrameClassIcon.lua" } } },
     hideUnitFrameCombatTextEnabled = {
         { clients = CLASSIC, files = { "Modules/HideUnitFrameCombatText.lua" } },
         notOn = { retail = "folded into Unit Frame Cleanup", forever = "folded into Unit Frame Cleanup" },
     },
-    cleanUpUnitFramesEnabled = { { clients = MODERN, files = { "Modules/RetailUnitFrameCleaner.lua" } } },
+    cleanUpUnitFramesEnabled = { { clients = MODERN, files = { "Modules/RetailUnitFrameCleaner/RetailUnitFrameCleaner.lua" } } },
     hideUnitFramePowerBarEnabled = {
-        { clients = "retail", files = { "Modules/RetailUnitFrameCleaner.lua" } },
+        { clients = "retail", files = { "Modules/RetailUnitFrameCleaner/RetailUnitFrameCleaner.lua" } },
         notOn = { forever = "Forever's class power bars can't be hidden safely" },
     },
-    hideBossFramesEnabled = { { clients = MODERN, files = { "Modules/RetailUnitFrameCleaner.lua" } } },
+    hideBossFramesEnabled = { { clients = MODERN, files = { "Modules/RetailUnitFrameCleaner/RetailUnitFrameCleaner.lua" } } },
     -- Only Forever characters have surnames.
     hideSurnamesEnabled = { { clients = "forever", files = { "Modules/HideSurnames.lua" } } },
 

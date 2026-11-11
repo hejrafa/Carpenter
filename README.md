@@ -22,11 +22,13 @@ Get it from CurseForge, Wago, or GitHub Releases, or drop the `Carpenter` folder
 
 ## Development
 
-- `Core/` - bootstrap, client detection, and the feature manifest
-- `Modules/` - features, loaded per client by the TOCs
+- `Core/` - bootstrap, client detection, the feature manifest, and spell data
+- `Settings/` - the settings window, its options and sidebar, and the addon compartment entry
+- `Modules/` - features, loaded per client by the TOCs. A feature split over several files gets its own folder.
 - `Localization/` - English, plus German, Spanish (Spain and Latin America), French, Italian, Korean, Brazilian Portuguese, Russian, and Simplified and Traditional Chinese
 - `Art/` - icons and settings previews for Classic, Retail, and Forever
-- `tools/` - checks, fixtures, and the release script. New fixtures start from `tools/fixture-harness.lua`, which provides the assertions, a frame mock, the game globals, and a Carpenter mock with the core helpers.
+- `tools/` - checks and the release script
+- `tools/fixtures/` - one fixture file per feature; `release.sh check` runs every `*-fixtures.lua` here. New fixtures start from `fixture-harness.lua`, which provides the assertions, a frame mock, the game globals, and a Carpenter mock with the core helpers.
 
 Run every check (TOCs, changelog, Lua syntax, fixtures, localization, art, addon shape) before tagging:
 

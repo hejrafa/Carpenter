@@ -7,7 +7,7 @@
 // <name> is the option's image name (e.g. unitdebuff); the result is written
 // to Art/Settings/Forever/<name>.png. <x> <y> is the crop's top-left corner and
 // <size> its side, in screenshot pixels. List the name in
-// FOREVER_SETTINGS_IMAGES in config.lua so Forever uses it.
+// FOREVER_SETTINGS_IMAGES in Settings/Config.lua so Forever uses it.
 
 import CoreGraphics
 import Foundation

@@ -65,7 +65,7 @@ end
 
 local function collectSettingsImageCalls()
     local used = {}
-    local text = readFile(repo .. "/Modules/ConfigOptions.lua")
+    local text = readFile(repo .. "/Settings/ConfigOptions.lua")
     for filename in text:gmatch("GetSettingsImage%(%s*\"([^\"]+)\"") do
         used[filename] = true
     end
@@ -75,7 +75,7 @@ end
 -- Forever-only names passed as GetSettingsImage's second argument.
 local function collectForeverImageNames()
     local used = {}
-    for _, path in ipairs({ repo .. "/Modules/ConfigOptions.lua", repo .. "/config.lua" }) do
+    for _, path in ipairs({ repo .. "/Settings/ConfigOptions.lua", repo .. "/Settings/Config.lua" }) do
         local text = readFile(path)
         for filename in text:gmatch("GetSettingsImage%([^,%)]*,%s*\"([^\"]+)\"%s*%)") do
             used[filename] = true
@@ -84,10 +84,10 @@ local function collectForeverImageNames()
     return used
 end
 
--- Files a per-client override table in config.lua points at.
+-- Files a per-client override table in Settings/Config.lua points at.
 local function collectOverrideTargets(tableName)
     local targets = {}
-    local text = readFile(repo .. "/config.lua")
+    local text = readFile(repo .. "/Settings/Config.lua")
     local block = text:match("local " .. tableName .. " = %b{}") or ""
     for _, target in block:gmatch("%[\"([^\"]+)\"%]%s*=%s*\"([^\"]+)\"") do
         targets[target] = true

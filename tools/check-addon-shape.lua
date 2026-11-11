@@ -118,15 +118,11 @@ local function collectRuntimeFiles()
         files[normalize(relative(path))] = true
     end
 
-    for _, dir in ipairs({ "Core", "Modules", "Localization" }) do
+    for _, dir in ipairs({ "Core", "Settings", "Modules", "Localization" }) do
         local command = "find " .. shellQuote(repo .. "/" .. dir) .. " -type f \\( -name '*.lua' -o -name '*.xml' \\) -print"
         for _, path in ipairs(collectFiles(command)) do
             add(path)
         end
-    end
-
-    for _, path in ipairs({ "config.lua", "SpellData.lua" }) do
-        add(repo .. "/" .. path)
     end
 
     return files
@@ -213,12 +209,12 @@ local function collectDefaults()
 end
 
 local function collectConfigOptionKeys()
-    local text = readFile(repo .. "/Modules/ConfigOptions.lua")
+    local text = readFile(repo .. "/Settings/ConfigOptions.lua")
     local keys = {}
     local duplicates = {}
 
     for key in text:gmatch("key%s*=%s*[\"']([%a_][%w_]*)[\"']") do
-        addKey(keys, key, "Modules/ConfigOptions.lua", duplicates)
+        addKey(keys, key, "Settings/ConfigOptions.lua", duplicates)
     end
 
     for _, message in ipairs(duplicates) do
@@ -363,6 +359,11 @@ end
 
 local tocReferences, tocReferencesByToc = collectTocReferences()
 local runtimeFiles = collectRuntimeFiles()
+
+-- Addon code lives in those folders only, so none of it escapes these checks.
+for _, path in ipairs(collectFiles("find " .. shellQuote(repo) .. " -maxdepth 1 -type f -name '*.lua' -print")) do
+    fail("Lua file outside Core, Settings, Modules or Localization: " .. normalize(relative(path)))
+end
 local defaults = collectDefaults()
 local optionKeys = collectConfigOptionKeys()
 local featureManifest = loadFeatureManifest()
@@ -447,8 +448,8 @@ if #unregisteredOptions > 0 then
     fail("config options have no Carpenter:RegisterFeature module: " .. table.concat(unregisteredOptions, ", "))
 end
 
-if readFile(repo .. "/Modules/ConfigOptions.lua"):find("onToggle", 1, true) then
-    fail("Modules/ConfigOptions.lua uses onToggle; register a feature in the module instead")
+if readFile(repo .. "/Settings/ConfigOptions.lua"):find("onToggle", 1, true) then
+    fail("Settings/ConfigOptions.lua uses onToggle; register a feature in the module instead")
 end
 
 local unsupportedRegistrations = {}

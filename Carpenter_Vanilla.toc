@@ -38,10 +38,10 @@ Core\ErrorTrace.lua
 
 # Settings & Data
 Modules\RPMacros.lua
-Modules\ConfigSidebar.lua
-Modules\ConfigOptions.lua
-config.lua
-SpellData.lua
+Settings\ConfigSidebar.lua
+Settings\ConfigOptions.lua
+Settings\Config.lua
+Core\SpellData.lua
 
 # Action Bars
 Modules\HideUIElements.lua
@@ -66,15 +66,15 @@ Modules\HideBuffCollapseArrow.lua
 Modules\ReadyCheckCompat.lua
 
 # Unit Frames
-Modules\ClassHealthColorsShared.lua
-Modules\ClassHealthColorsUnitFrames.lua
+Modules\ClassHealthColors\ClassHealthColorsShared.lua
+Modules\ClassHealthColors\ClassHealthColorsUnitFrames.lua
 Modules\DebuffTracker\DebuffTrackerIcons.lua
 Modules\DebuffTracker\DebuffTrackerAuraLayers.lua
 Modules\DebuffTracker\DebuffTracker.lua
 Modules\UnitFrameClassIcon\UnitFrameClassIconPortraits.lua
 Modules\UnitFrameClassIcon\UnitFrameClassIconApply.lua
 Modules\UnitFrameClassIcon\UnitFrameClassIconHooks.lua
-Modules\UnitFrameClassIcon.lua
+Modules\UnitFrameClassIcon\UnitFrameClassIcon.lua
 Modules\ThreatIndicator.lua
 Modules\HideUnitFrameCombatText.lua
 

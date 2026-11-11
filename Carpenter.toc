@@ -32,7 +32,7 @@ Localization\zhCN.lua
 Localization\zhTW.lua
 Core\Carpenter.lua
 Core\HoverFade.lua
-Modules\AddonCompartment.lua
+Settings\AddonCompartment.lua
 Core\Unit.lua
 Core\Nameplates.lua
 Core\ErrorTrace.lua
@@ -40,10 +40,10 @@ Core\ErrorTrace.lua
 # Settings
 Modules\EditModeLayout.lua
 Modules\RPMacros.lua
-Modules\ConfigSidebar.lua
-Modules\ConfigOptions.lua
-config.lua
-SpellData.lua
+Settings\ConfigSidebar.lua
+Settings\ConfigOptions.lua
+Settings\Config.lua
+Core\SpellData.lua
 
 # Action Bars
 Modules\HideUIElements.lua
@@ -59,13 +59,13 @@ Modules\ExtraAbilityScale.lua
 Modules\HideQuestTrackerTitles.lua
 
 # Unit Frames
-Modules\ClassHealthColorsShared.lua
-Modules\ClassHealthColorsUnitFrames.lua
+Modules\ClassHealthColors\ClassHealthColorsShared.lua
+Modules\ClassHealthColors\ClassHealthColorsUnitFrames.lua
 Modules\HideUnitFrameCombatText.lua
-Modules\RetailUnitFrameCleanerVisuals.lua
-Modules\RetailUnitFrameCleanerTargets.lua
-Modules\RetailUnitFrameCleanerRealm.lua
-Modules\RetailUnitFrameCleaner.lua
+Modules\RetailUnitFrameCleaner\RetailUnitFrameCleanerVisuals.lua
+Modules\RetailUnitFrameCleaner\RetailUnitFrameCleanerTargets.lua
+Modules\RetailUnitFrameCleaner\RetailUnitFrameCleanerRealm.lua
+Modules\RetailUnitFrameCleaner\RetailUnitFrameCleaner.lua
 
 # Nameplates
 
