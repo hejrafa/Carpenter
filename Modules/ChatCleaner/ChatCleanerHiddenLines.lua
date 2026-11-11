@@ -1,10 +1,12 @@
 --[[ Carpenter - ChatCleaner hidden lines ]]
--- WoW Forever hides system lines from addons during chat messaging lockdown,
--- which covers whole battlegrounds and fights in instances. Its chat filters
--- only call an addon that can read the line, so these can't be styled before
--- they are added. They still land in each chat window's history with the time
--- they were added, so they are found there and rewritten when their cause is
--- known:
+-- WoW Forever hides system and skill-up lines from addons during chat
+-- messaging lockdown, which covers whole battlegrounds and fights in
+-- instances. Its chat filters only call an addon that can read the line, so
+-- these can't be styled before they are added. They still land in each chat
+-- window's history with their chat type and the time they were added, so they
+-- are found there and rewritten when their cause is known:
+--   * a skill-up, from the skill rank that rose within a moment of it (skill
+--     ranks stay readable). Two skills rising together each take a line.
 --   * a join or departure, from the roster change it comes with (at most a
 --     quarter second before it in three battleground logs). The nearest line
 --     gets the name; battlegrounds send two lines per change, and the other,
@@ -35,6 +37,7 @@ local LINE_MAX_AGE = HiddenLines.LINE_MAX_AGE
 local LINE_BEFORE_CHANGE = 0.5
 local LINE_AFTER_CHANGE = 0.3
 local DEATH_WINDOW = 1.0
+local SKILL_WINDOW = 1.5
 local ENTER_NOTICE_WINDOW = 1.5
 local START_NOTICE_WINDOW = 5
 local START_NOTICE_GRACE = HiddenLines.START_NOTICE_GRACE
@@ -49,6 +52,8 @@ end
 --   GetFrames()         chat windows whose lines may be edited
 --   GetChanges()        recent group changes { kind, name, time }, oldest first
 --   FormatChange(change)
+--   GetSkillRises()     recent skill rank rises { name, rank, time }, oldest first
+--   FormatSkillRise(rise)
 --   IsActive()          true while lines can be hidden
 --   IsForever()         battleground rules only apply on WoW Forever
 function HiddenLines.Create(config)
@@ -64,9 +69,11 @@ function HiddenLines.Create(config)
         return GetTime and GetTime() or 0
     end
 
-    local function SystemTypeID()
-        local info = ChatTypeInfo and ChatTypeInfo.SYSTEM
-        return info and info.id
+    -- Chat type ids of the lines looked at, by kind.
+    local function TypeIDs()
+        local system = ChatTypeInfo and ChatTypeInfo.SYSTEM
+        local skill = ChatTypeInfo and ChatTypeInfo.SKILL
+        return { system = system and system.id, skill = skill and skill.id }
     end
 
     local function GetElements(frame)
@@ -75,29 +82,36 @@ function HiddenLines.Create(config)
         if type(elements) == "table" then return elements end
     end
 
-    local function IsHiddenSystemLine(entry, systemID, now)
+    -- "system" or "skill" for a recent hidden line of either kind.
+    local function HiddenLineKind(entry, typeIDs, now)
         local time, extra = entry.timestamp, entry.extraData
-        if type(time) ~= "number" or IsSecret(time) or now - time > LINE_MAX_AGE then return false end
-        if not IsSecret(entry.message) or type(extra) ~= "table" then return false end
+        if type(time) ~= "number" or IsSecret(time) or now - time > LINE_MAX_AGE then return nil end
+        if not IsSecret(entry.message) or type(extra) ~= "table" then return nil end
         local typeID = extra[1]
-        return not IsSecret(typeID) and typeID == systemID
+        if typeID == nil or IsSecret(typeID) then return nil end
+        for kind, id in pairs(typeIDs) do
+            if typeID == id then return kind end
+        end
     end
 
-    -- Hidden system lines added since the last look.
+    -- Hidden lines added since the last look.
     local function Collect(now)
-        local systemID = SystemTypeID()
-        if not systemID or not config.GetFrames then return end
+        local typeIDs = TypeIDs()
+        if not typeIDs.system or not config.GetFrames then return end
         for _, frame in ipairs(config.GetFrames()) do
             local elements = GetElements(frame)
             if elements then
                 for _, entry in ipairs(elements) do
                     if type(entry) == "table" and not seen[entry] then
                         seen[entry] = true
-                        if IsHiddenSystemLine(entry, systemID, now) then
+                        local kind = HiddenLineKind(entry, typeIDs, now)
+                        if kind then
                             order = order + 1
                             local lines = pendingByFrame[frame] or {}
                             pendingByFrame[frame] = lines
-                            lines[#lines + 1] = { frame = frame, entry = entry, time = entry.timestamp, order = order }
+                            lines[#lines + 1] = {
+                                frame = frame, entry = entry, kind = kind, time = entry.timestamp, order = order,
+                            }
                         end
                     end
                 end
@@ -131,9 +145,26 @@ function HiddenLines.Create(config)
         return rewritten
     end
 
-    local function Claims(change, frame)
-        change.claims = change.claims or setmetatable({}, { __mode = "k" })
-        return change.claims[frame] or 0
+    -- How many of a frame's lines a change or skill rise has taken.
+    local function Claims(cause, frame)
+        cause.claims = cause.claims or setmetatable({}, { __mode = "k" })
+        return cause.claims[frame] or 0
+    end
+
+    -- Each hidden skill-up takes the oldest rise near it that this window's
+    -- lines haven't taken yet.
+    local function ResolveSkillLines(frame, lines, Apply)
+        if not lines[1] or not (config.GetSkillRises and config.FormatSkillRise) then return end
+        local rises = config.GetSkillRises() or {}
+        for _, line in ipairs(lines) do
+            for _, rise in ipairs(rises) do
+                if Claims(rise, frame) == 0 and math.abs(rise.time - line.time) <= SKILL_WINDOW then
+                    rise.claims[frame] = 1
+                    Apply(line, config.FormatSkillRise(rise))
+                    break
+                end
+            end
+        end
     end
 
     -- Each change takes the lines nearest to it: the first gets the name, a
@@ -230,12 +261,19 @@ function HiddenLines.Create(config)
             pcall(Rewrite, line, text)
         end
 
-        ResolveRosterChanges(frame, lines, changes, Apply)
+        local systemLines, skillLines = {}, {}
         for _, line in ipairs(lines) do
+            local kindLines = line.kind == "skill" and skillLines or systemLines
+            kindLines[#kindLines + 1] = line
+        end
+
+        ResolveSkillLines(frame, skillLines, Apply)
+        ResolveRosterChanges(frame, systemLines, changes, Apply)
+        for _, line in ipairs(systemLines) do
             if not line.resolved then Apply(line, ClaimBattleNotice(line, done, now)) end
         end
-        for _, line in ipairs(lines) do
-            if not line.resolved then Apply(line, ClaimDeath(line, lines, changes)) end
+        for _, line in ipairs(systemLines) do
+            if not line.resolved then Apply(line, ClaimDeath(line, systemLines, changes)) end
         end
 
         local kept = {}
@@ -276,7 +314,7 @@ function HiddenLines.Create(config)
         Collect(Now())
         local added
         for _, line in ipairs(pendingByFrame[frame] or {}) do
-            if line.order > before then
+            if line.order > before and line.kind == "system" then
                 -- More than one new line: leave them to the timing rules.
                 if added then return end
                 added = line

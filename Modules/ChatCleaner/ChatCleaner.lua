@@ -188,7 +188,6 @@ local FormatLevelUpRewardMessage = systemFormatter.FormatLevelUpRewardMessage
 local FormatReputationMessage = systemFormatter.FormatReputationMessage
 local FormatQueueNotice = systemFormatter.FormatQueueNotice
 local FormatSkillMessage = systemFormatter.FormatSkillMessage
-local FormatHiddenSkillMessage = systemFormatter.FormatHiddenSkillMessage
 local ClaimVisibleSkillRise = systemFormatter.ClaimVisibleSkillRise
 local FormatAppearanceCollectionMessage = systemFormatter.FormatAppearanceCollectionMessage
 local ApplyLevelUpGlobalStringStyling = systemFormatter.ApplyLevelUpGlobalStringStyling
@@ -289,18 +288,11 @@ local function ChatFilterImpl(self, event, msg, author, ...)
         return false, msg, author, ...
     end
 
-    -- WoW Forever hides some chat text in combat inside instances. Skill-ups
-    -- are rebuilt from skill ranks (the line ID stays readable); hidden group
-    -- lines are rewritten in the chat history by ChatCleanerHiddenLines,
-    -- since the game doesn't pass them to addon filters. Anything else passes
-    -- through untouched.
+    -- Retail and WoW Forever hide some chat text in battlegrounds and in combat
+    -- inside instances, and don't pass those lines to addon filters at all;
+    -- ChatCleanerHiddenLines rewrites them in the chat history instead. Should
+    -- one get here anyway, it passes through untouched.
     if issecretvalue and issecretvalue(msg) then
-        if event == "CHAT_MSG_SKILL" and FormatHiddenSkillMessage then
-            local styled = FormatHiddenSkillMessage(select(9, ...), ColorPlus .. "+|r ")
-            if styled then
-                return false, styled, author, ...
-            end
-        end
         return false, msg, author, ...
     end
 
@@ -542,17 +534,9 @@ function Carpenter_ApplyChatEditBoxTexture()
     end
 end
 
--- Keeps the skill rank snapshot current, so hidden skill-ups can be rebuilt
--- from what rose.
-local skillRankFrame = CreateFrame("Frame")
-skillRankFrame:SetScript("OnEvent", function()
-    if systemFormatter.RefreshSkillRanks then
-        systemFormatter.RefreshSkillRanks()
-    end
-end)
-
--- Keeps group deaths and the roster current, so hidden death, join, and
--- leave lines can be rewritten from them in the chat history.
+-- Keeps group deaths, the roster and skill ranks current, so hidden death,
+-- join, leave and skill-up lines can be rewritten from them in the chat
+-- history.
 local HiddenLines = ns.Private.ChatCleanerHiddenLines
 
 local function InChatMessagingLockdown()
@@ -574,6 +558,10 @@ local hiddenLines = HiddenLines and HiddenLines.Create({
     end,
     GetChanges = socialFormatter.GetGroupChanges,
     FormatChange = socialFormatter.FormatGroupChange,
+    GetSkillRises = systemFormatter.GetSkillRises,
+    FormatSkillRise = systemFormatter.FormatSkillRise and function(rise)
+        return systemFormatter.FormatSkillRise(rise, ColorPlus .. "+|r ")
+    end,
     IsActive = function()
         return Carpenter ~= nil and Carpenter:IsEnabled("chatCleanerEnabled") and InChatMessagingLockdown()
     end,
@@ -601,6 +589,25 @@ local function UpdateHiddenLines(delay)
         pcall(hiddenLines.Update)
     end)
 end
+
+-- Keeps the skill rank snapshot current. The game reports a new rank just
+-- before or just after it adds the hidden skill-up, so both look for a match;
+-- a late pass catches a rank that changed without SKILL_LINES_CHANGED.
+local SKILL_LATE_PASS = 0.5
+local skillRankFrame = CreateFrame("Frame")
+skillRankFrame:SetScript("OnEvent", function(_, event, arg1)
+    if systemFormatter.RefreshSkillRanks then
+        systemFormatter.RefreshSkillRanks()
+    end
+    if event == "CHAT_MSG_SKILL" then
+        if issecretvalue and issecretvalue(arg1) then
+            UpdateHiddenLines()
+            UpdateHiddenLines(SKILL_LATE_PASS)
+        end
+    elseif hiddenLines and hiddenLines.HasPending() then
+        UpdateHiddenLines()
+    end
+end)
 
 local groupNoticeFrame = CreateFrame("Frame")
 groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
@@ -649,6 +656,7 @@ if Carpenter and Carpenter.RegisterFeature then
         Enable = function()
             skillRankFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
             skillRankFrame:RegisterEvent("SKILL_LINES_CHANGED")
+            skillRankFrame:RegisterEvent("CHAT_MSG_SKILL")
             if systemFormatter.RefreshSkillRanks then
                 systemFormatter.RefreshSkillRanks()
             end

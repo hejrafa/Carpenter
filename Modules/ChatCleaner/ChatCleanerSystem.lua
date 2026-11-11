@@ -438,23 +438,26 @@ function System.Create(config)
 
         local skill, skillRank = message:match("Your skill in (.-) has increased to (%d+)")
         if skill and skillRank then
-            return spaceBeforeX(prefixPlus .. colorWhite .. skillRank .. " " .. T("CHAT_SKILL_LABEL", "Skill:") .. " |r" .. colorPurple .. skill .. "|r")
+            return api.FormatSkillRise({ name = skill, rank = skillRank }, prefixPlus)
         end
 
         return nil
     end
 
+    function api.FormatSkillRise(rise, prefixPlus)
+        return spaceBeforeX(prefixPlus .. colorWhite .. rise.rank .. " " .. T("CHAT_SKILL_LABEL", "Skill:") .. " |r" ..
+            colorPurple .. rise.name .. "|r")
+    end
+
     -- WoW Forever hides skill-up text from addons during chat messaging
-    -- lockdown (combat in instances). Skill ranks stay readable, so remember
-    -- them and rebuild the usual line from whichever rank went up. The game
-    -- can report the new rank just before it hands over the line, so a rise
-    -- waits here until a line claims it. One that nothing claims soon is
+    -- lockdown (combat in instances), but skill ranks stay readable. Each rank
+    -- that goes up is kept a few seconds, so ChatCleanerHiddenLines can
+    -- rewrite the hidden line with it; the game reports the new rank just
+    -- before or just after it adds the line. One that no line claims soon is
     -- dropped, so it can't land on a later line.
     local SKILL_RISE_WINDOW_SECONDS = 3
     local skillRanks = {}
     local skillRises = {}
-    local hiddenSkillLines = {}
-    local hiddenSkillLineCount = 0
 
     local function ForEachSkillLine(callback)
         local skillInfo = C_SkillInfo
@@ -502,26 +505,10 @@ function System.Create(config)
         end
     end
 
-    -- Every chat frame filters the same message, so results are kept per
-    -- line ID. When two skills rise at once, each message takes one of them.
-    function api.FormatHiddenSkillMessage(lineID, prefixPlus)
-        if lineID ~= nil and hiddenSkillLines[lineID] ~= nil then
-            return hiddenSkillLines[lineID] or nil
-        end
-
+    -- Recent rises, oldest first: { name, rank, time }.
+    function api.GetSkillRises()
         api.RefreshSkillRanks()
-
-        local rise = table.remove(skillRises, 1)
-        local text = rise and spaceBeforeX(prefixPlus .. colorWhite .. rise.rank .. " " ..
-            T("CHAT_SKILL_LABEL", "Skill:") .. " |r" .. colorPurple .. rise.name .. "|r")
-        if lineID ~= nil then
-            if hiddenSkillLineCount >= 50 then
-                hiddenSkillLines, hiddenSkillLineCount = {}, 0
-            end
-            hiddenSkillLines[lineID] = text or false
-            hiddenSkillLineCount = hiddenSkillLineCount + 1
-        end
-        return text
+        return skillRises
     end
 
     function api.FormatAppearanceCollectionMessage(event, message, plainText, prefixPlus)

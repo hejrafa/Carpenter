@@ -1358,123 +1358,38 @@ do
     _G.ChatFrame1EditBox = originalEditBox
 end
 
--- WoW Forever hides skill-up text during chat messaging lockdown; the line is
--- rebuilt from skill ranks, once per message across every chat frame.
-do
-    local HIDDEN = {}
-    issecretvalue = function(value) return value == HIDDEN end
-    local skills = {
-        { skillID = 162, name = "Unarmed", rank = 34 },
-        { skillID = 95, name = "Defense", rank = 110 },
-    }
-    C_SkillInfo = {
-        GetNumSkillLines = function() return #skills end,
-        GetSkillLineInfo = function(index) return skills[index] end,
-    }
-
-    -- The second chatCleanerEnabled registration keeps the rank snapshot.
-    local skillFeature = registeredChatFeatures[#registeredChatFeatures].feature
-    skillFeature.Enable()
-
-    local function HiddenSkillUp(lineID)
-        -- Filter args after msg and author: lineID is the 9th.
-        local results = { filter(nil, "CHAT_MSG_SKILL", HIDDEN, "", "", "", "", "", 0, 0, "", 0, lineID) }
-        return results[2]
+-- A chat window's history as ScrollingMessageFrame keeps it: entries with the
+-- message, color, chat type id and time, rewritten in place by
+-- TransformMessages.
+local function NewHistoryChatFrame()
+    local frame = { _CP_AddMessagePostHooked = true, _CP_AddMessageHooked = true, historyBuffer = { elements = {} } }
+    function frame:Add(message, typeID)
+        local entry = { message = message, r = 1, g = 1, b = 0, extraData = { typeID or 1, n = 1 }, timestamp = now }
+        table.insert(self.historyBuffer.elements, entry)
+        return entry
     end
-
-    skills[1].rank = 35
-    local first = HiddenSkillUp(1001)
-    additionalChecks = additionalChecks + 1
-    if plain(first) ~= "+ 35 Skill: Unarmed" then
-        failures[#failures + 1] = "hidden skill-up: expected [+ 35 Skill: Unarmed] got [" .. tostring(plain(first)) .. "]"
+    function frame:Text(entry)
+        for _, current in ipairs(self.historyBuffer.elements) do
+            if current == entry then return current.message end
+        end
+        -- A rewritten line is a new entry in the same place.
+        for index, current in ipairs(self.historyBuffer.elements) do
+            if current.replaced == entry then return current.message end
+        end
     end
-    additionalChecks = additionalChecks + 1
-    if HiddenSkillUp(1001) ~= first then
-        failures[#failures + 1] = "hidden skill-up: other chat frames should get the same line"
-    end
-
-    -- Two skills rising at once: each message gets one of them.
-    skills[1].rank, skills[2].rank = 36, 111
-    local a, b = plain(HiddenSkillUp(1002)), plain(HiddenSkillUp(1003))
-    additionalChecks = additionalChecks + 1
-    if not ((a == "+ 36 Skill: Unarmed" and b == "+ 111 Skill: Defense") or (a == "+ 111 Skill: Defense" and b == "+ 36 Skill: Unarmed")) then
-        failures[#failures + 1] = "hidden skill-up: expected one line per skill, got [" .. tostring(a) .. "] and [" .. tostring(b) .. "]"
-    end
-
-    -- Nothing rose: the hidden message passes through untouched.
-    additionalChecks = additionalChecks + 1
-    if HiddenSkillUp(1004) ~= HIDDEN then
-        failures[#failures + 1] = "hidden skill-up: without a rank change the message should pass through"
-    end
-
-    local function FireSkillLinesChanged()
-        for _, candidate in ipairs(createdFrames) do
-            if candidate._events.SKILL_LINES_CHANGED and candidate._scripts.OnEvent then
-                candidate._scripts.OnEvent(candidate, "SKILL_LINES_CHANGED")
+    function frame:TransformMessages(predicate, transform)
+        for index, entry in ipairs(self.historyBuffer.elements) do
+            local extra = entry.extraData
+            if predicate(entry.message, entry.r, entry.g, entry.b, unpack(extra, 1, extra.n)) then
+                local message, r, g, b, typeID = transform(entry.message, entry.r, entry.g, entry.b, unpack(extra, 1, extra.n))
+                self.historyBuffer.elements[index] = {
+                    message = message, r = r, g = g, b = b, extraData = { typeID, n = 1 },
+                    timestamp = now, replaced = entry,
+                }
             end
         end
     end
-
-    local function ExpectSkillUp(lineID, expected, label)
-        local line = HiddenSkillUp(lineID)
-        additionalChecks = additionalChecks + 1
-        if line == HIDDEN or plain(line) ~= expected then
-            failures[#failures + 1] = "hidden skill-up: " .. label .. ", expected [" .. expected .. "] got [" ..
-                (line == HIDDEN and "the hidden line" or tostring(plain(line))) .. "]"
-        end
-    end
-    local function ExpectPassThrough(lineID, label)
-        additionalChecks = additionalChecks + 1
-        if HiddenSkillUp(lineID) ~= HIDDEN then
-            failures[#failures + 1] = "hidden skill-up: " .. label
-        end
-    end
-
-    -- Right as combat starts or ends, the game can report the new rank just
-    -- before it hands over the hidden line. The line still gets styled.
-    skills[1].rank = 37
-    FireSkillLinesChanged()
-    ExpectSkillUp(1005, "+ 37 Skill: Unarmed", "a rank reported just before the line should style it")
-
-    -- The same inside lockdown, where the snapshot used to stay put.
-    C_ChatInfo = { InChatMessagingLockdown = function() return true end }
-    skills[2].rank = 112
-    FireSkillLinesChanged()
-    ExpectSkillUp(1006, "+ 112 Skill: Defense", "a rank reported during lockdown should style the line")
-    C_ChatInfo = nil
-
-    -- Two ranks reported before either line: each line takes one.
-    skills[1].rank, skills[2].rank = 38, 113
-    FireSkillLinesChanged()
-    local firstOfTwo, secondOfTwo = plain(HiddenSkillUp(1007)), plain(HiddenSkillUp(1008))
-    additionalChecks = additionalChecks + 1
-    if not ((firstOfTwo == "+ 38 Skill: Unarmed" and secondOfTwo == "+ 113 Skill: Defense")
-        or (firstOfTwo == "+ 113 Skill: Defense" and secondOfTwo == "+ 38 Skill: Unarmed")) then
-        failures[#failures + 1] = "hidden skill-up: expected one line per reported rank, got [" .. tostring(firstOfTwo) .. "] and [" .. tostring(secondOfTwo) .. "]"
-    end
-
-    -- A readable line claims its rise, before or after the rank is reported,
-    -- so the next hidden line doesn't repeat it.
-    skills[1].rank = 39
-    FireSkillLinesChanged()
-    filter(nil, "CHAT_MSG_SKILL", "Your skill in Unarmed has increased to 39.", "", "", "", "", "", 0, 0, "", 0, 1009)
-    ExpectPassThrough(1010, "a skill-up shown readably should not style a later hidden line")
-    skills[1].rank = 40
-    filter(nil, "CHAT_MSG_SKILL", "Your skill in Unarmed has increased to 40.", "", "", "", "", "", 0, 0, "", 0, 1011)
-    FireSkillLinesChanged()
-    ExpectPassThrough(1012, "a readable line arriving before the rank report should claim it too")
-
-    -- A rise no line claimed doesn't land on a line much later.
-    skills[2].rank = 114
-    FireSkillLinesChanged()
-    now = now + 10
-    ExpectPassThrough(1013, "an old unclaimed rise should not style a later line")
-    skills[2].rank = 115
-    FireSkillLinesChanged()
-    now = now + 10
-    skills[1].rank = 41
-    ExpectSkillUp(1014, "+ 41 Skill: Unarmed", "a new rise should not wait behind an old unclaimed one")
-    issecretvalue = nil
+    return frame
 end
 
 -- Group lines hidden during chat lockdown never reach addon filters on
@@ -1489,37 +1404,7 @@ do
     local realSystemInfo = ChatTypeInfo.SYSTEM
     ChatTypeInfo.SYSTEM = { r = 1, g = 1, b = 0, id = 1 }
 
-    local function NewChatFrame()
-        local frame = { _CP_AddMessagePostHooked = true, _CP_AddMessageHooked = true, historyBuffer = { elements = {} } }
-        function frame:Add(message, typeID)
-            local entry = { message = message, r = 1, g = 1, b = 0, extraData = { typeID or 1, n = 1 }, timestamp = now }
-            table.insert(self.historyBuffer.elements, entry)
-            return entry
-        end
-        function frame:Text(entry)
-            for _, current in ipairs(self.historyBuffer.elements) do
-                if current == entry then return current.message end
-            end
-            -- A rewritten line is a new entry in the same place.
-            for index, current in ipairs(self.historyBuffer.elements) do
-                if current.replaced == entry then return current.message end
-            end
-        end
-        function frame:TransformMessages(predicate, transform)
-            for index, entry in ipairs(self.historyBuffer.elements) do
-                local extra = entry.extraData
-                if predicate(entry.message, entry.r, entry.g, entry.b, unpack(extra, 1, extra.n)) then
-                    local message, r, g, b, typeID = transform(entry.message, entry.r, entry.g, entry.b, unpack(extra, 1, extra.n))
-                    self.historyBuffer.elements[index] = {
-                        message = message, r = r, g = g, b = b, extraData = { typeID, n = 1 },
-                        timestamp = now, replaced = entry,
-                    }
-                end
-            end
-        end
-        return frame
-    end
-    local frame1, frame2 = NewChatFrame(), NewChatFrame()
+    local frame1, frame2 = NewHistoryChatFrame(), NewHistoryChatFrame()
     local realChatFrame1, realChatFrame2, realWindows = ChatFrame1, ChatFrame2, NUM_CHAT_WINDOWS
     ChatFrame1, ChatFrame2, NUM_CHAT_WINDOWS = frame1, frame2, 2
 
@@ -1722,6 +1607,180 @@ do
     ChatTypeInfo.SYSTEM = realSystemInfo
     C_ChatInfo = nil
     Carpenter.Client.isForever = nil
+    issecretvalue = nil
+end
+
+-- WoW Forever hides skill-ups during chat lockdown too, and they never reach
+-- addon filters either. Each is rewritten in the chat history from the skill
+-- rank that rose within a moment of it.
+do
+    local HIDDEN = {}
+    issecretvalue = function(value) return value == HIDDEN end
+    local inLockdown = true
+    C_ChatInfo = { InChatMessagingLockdown = function() return inLockdown end }
+    local realSystemInfo, realSkillInfo = ChatTypeInfo.SYSTEM, ChatTypeInfo.SKILL
+    local SKILL_ID = 2
+    ChatTypeInfo.SYSTEM = { r = 1, g = 1, b = 0, id = 1 }
+    ChatTypeInfo.SKILL = { r = 0.33, g = 0.33, b = 1, id = SKILL_ID }
+    local skills = {
+        { skillID = 162, name = "Unarmed", rank = 34 },
+        { skillID = 95, name = "Defense", rank = 110 },
+    }
+    C_SkillInfo = {
+        GetNumSkillLines = function() return #skills end,
+        GetSkillLineInfo = function(index) return skills[index] end,
+    }
+    -- Timers wait here until a check runs them.
+    local realTimer = C_Timer
+    local timers = {}
+    C_Timer = { After = function(_, callback) timers[#timers + 1] = callback end }
+    local function RunTimers()
+        local due = timers
+        timers = {}
+        for _, callback in ipairs(due) do callback() end
+    end
+
+    local frame1, frame2 = NewHistoryChatFrame(), NewHistoryChatFrame()
+    local realChatFrame1, realChatFrame2, realWindows = ChatFrame1, ChatFrame2, NUM_CHAT_WINDOWS
+    ChatFrame1, ChatFrame2, NUM_CHAT_WINDOWS = frame1, frame2, 2
+
+    local feature = registeredChatFeatures[#registeredChatFeatures].feature
+    feature.Enable()
+    local hiddenLines = ns.Private.ChatCleaner.HiddenLines
+    local skillFrame
+    for _, created in ipairs(createdFrames) do
+        if created._events.SKILL_LINES_CHANGED and created._events.CHAT_MSG_SKILL then
+            skillFrame = created
+        end
+    end
+    additionalChecks = additionalChecks + 1
+    if not (hiddenLines and skillFrame) then
+        failures[#failures + 1] = "hidden skill-up: the matcher and its events should be set up"
+    else
+        local function Fire(event, ...) skillFrame._scripts.OnEvent(skillFrame, event, ...) end
+        local function RanksChanged() Fire("SKILL_LINES_CHANGED") end
+        -- The game adds the hidden line to both windows, then tells addons.
+        local function SkillUp()
+            local line = { frame1:Add(HIDDEN, SKILL_ID), frame2:Add(HIDDEN, SKILL_ID) }
+            Fire("CHAT_MSG_SKILL", HIDDEN)
+            return line
+        end
+        local function Shown(line, index)
+            local frame = index == 2 and frame2 or frame1
+            local text = frame:Text(line[index or 1])
+            if text == HIDDEN then return "<hidden>" end
+            return plain(text)
+        end
+        local function Expect(line, expected, label)
+            for index = 1, 2 do
+                additionalChecks = additionalChecks + 1
+                local got = Shown(line, index)
+                if got ~= expected then
+                    failures[#failures + 1] = "hidden skill-up: " .. label .. " (window " .. index .. "): expected [" ..
+                        expected .. "] got [" .. tostring(got) .. "]"
+                end
+            end
+        end
+        local base = 8000
+        local function At(seconds) now = base + seconds end
+
+        -- The rank goes up a moment before the line.
+        At(0)
+        skills[1].rank = 35
+        RanksChanged()
+        At(0.02)
+        Expect(SkillUp(), "+ 35 Skill: Unarmed", "a rank reported just before the line styles it")
+
+        -- The line comes first and waits for its rank.
+        At(5)
+        local early = SkillUp()
+        Expect(early, "<hidden>", "a line waits for its rank")
+        At(5.03)
+        skills[2].rank = 111
+        RanksChanged()
+        Expect(early, "+ 111 Skill: Defense", "a rank reported just after the line styles it")
+
+        -- Two skills rising together: each line takes one.
+        At(10)
+        skills[1].rank, skills[2].rank = 36, 112
+        RanksChanged()
+        local a, b = SkillUp(), SkillUp()
+        for index = 1, 2 do
+            local shownA, shownB = Shown(a, index), Shown(b, index)
+            additionalChecks = additionalChecks + 1
+            if not ((shownA == "+ 36 Skill: Unarmed" and shownB == "+ 112 Skill: Defense")
+                or (shownA == "+ 112 Skill: Defense" and shownB == "+ 36 Skill: Unarmed")) then
+                failures[#failures + 1] = "hidden skill-up: two at once (window " .. index ..
+                    "), expected one line per skill, got [" .. tostring(shownA) .. "] and [" .. tostring(shownB) .. "]"
+            end
+        end
+
+        -- A rank that changes without SKILL_LINES_CHANGED is found by the
+        -- late pass.
+        At(15)
+        local quiet = SkillUp()
+        skills[1].rank = 37
+        Expect(quiet, "<hidden>", "a line waits while the rank hasn't changed")
+        At(15.5)
+        RunTimers()
+        Expect(quiet, "+ 37 Skill: Unarmed", "the late pass finds a rank that changed quietly")
+
+        -- A skill-up shown readably (just before lockdown) claims its rise, so
+        -- a hidden line right after doesn't repeat it.
+        At(20)
+        skills[1].rank = 38
+        RanksChanged()
+        filter(nil, "CHAT_MSG_SKILL", "Your skill in Unarmed has increased to 38.", "", "", "", "", "", 0, 0, "", 0, 2001)
+        At(20.5)
+        local afterShown = SkillUp()
+        At(24)
+        hiddenLines.Update()
+        Expect(afterShown, "<hidden>", "a skill-up shown readably isn't repeated on a hidden line")
+
+        -- A rise no line claimed doesn't land on a line much later, and a new
+        -- rise isn't held up behind it.
+        At(30)
+        skills[2].rank = 113
+        RanksChanged()
+        At(40)
+        local late = SkillUp()
+        At(44)
+        hiddenLines.Update()
+        Expect(late, "<hidden>", "an old rise doesn't style a later line")
+        At(50)
+        skills[1].rank = 39
+        RanksChanged()
+        Expect(SkillUp(), "+ 39 Skill: Unarmed", "a new rise isn't held up by an old one")
+
+        -- Right after entering a battleground, a skill-up isn't taken for the
+        -- "Notify system" line, and a skill rank never names a join.
+        Carpenter.Client.isForever = true
+        At(60)
+        hiddenLines.EnteredBattleground()
+        At(60.1)
+        local inBattle = SkillUp()
+        hiddenLines.Update()
+        Expect(inBattle, "<hidden>", "a skill-up isn't emptied as a battleground notice")
+        At(60.2)
+        skills[2].rank = 114
+        RanksChanged()
+        Expect(inBattle, "+ 114 Skill: Defense", "a skill-up in a battleground still gets its rank")
+        hiddenLines.LeftBattleground()
+        Carpenter.Client.isForever = nil
+
+        -- Out of lockdown, nothing is touched.
+        inLockdown = false
+        At(70)
+        skills[1].rank = 40
+        RanksChanged()
+        Expect(SkillUp(), "<hidden>", "nothing changes outside lockdown")
+    end
+
+    feature.Disable()
+    C_Timer = realTimer
+    ChatFrame1, ChatFrame2, NUM_CHAT_WINDOWS = realChatFrame1, realChatFrame2, realWindows
+    ChatTypeInfo.SYSTEM, ChatTypeInfo.SKILL = realSystemInfo, realSkillInfo
+    C_ChatInfo, C_SkillInfo = nil, nil
     issecretvalue = nil
 end
 
