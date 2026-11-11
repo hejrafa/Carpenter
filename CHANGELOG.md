@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.20
+
+- Battlegrounds on Retail and WoW Forever no longer flood you with Lua errors while "5 players joined" repeats in chat every frame. Chat Cleaner no longer interferes with Blizzard's batched join messages.
+- Enhanced Tooltip now covers enemy players in battlegrounds, where the game hides their class and race from addons: the name in class color, "Level 28 Human Paladin" on one line, their faction, and who they're targeting.
+- Chat Cleaner now tidies the battleground lines WoW Forever hides from addons. Players joining and leaving show once as "X joined" and "X left", group deaths as "X died", and the "Notify system" lines and Blizzard's repeated join lines no longer show.
+- Chat Cleaner shortens the battleground countdown to "Warsong Gulch begins in 30 seconds" and "Warsong Gulch has begun".
+- Chat Cleaner now styles rank points on WoW Forever as "+ 100 Rank Points", and leaving a battleground queue as "− Left the queue".
+
 ## 1.8.19
 
 - Carpenter now has its own section in the game's Keybindings, with a key that turns Explorer Mode on and off. The key fades the HUD right away, and the settings checkbox follows along.
