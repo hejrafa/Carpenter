@@ -382,7 +382,6 @@ addon.Spells = {
     [5211] = { type = CROWD_CONTROL}, -- Bash
         [6798] = { parent = 5211 },
         [8983] = { parent = 5211 },
-    -- [16979] = { type = ROOT }, -- Feral Charge TODO: invalid spellId, root effect must be different than the interrupt
     [1850] = { type = BUFF_OFFENSIVE }, -- Dash
         [9821] = { parent = 1850 },
     [16689] = { type = BUFF_OFFENSIVE }, -- Nature's Grasp Buff
