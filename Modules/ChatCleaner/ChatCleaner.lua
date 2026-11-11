@@ -674,6 +674,32 @@ local function ProbeRoster()
         table.concat(added, ","), table.concat(removed, ","))
 end
 
+-- Where the newest lines of the main chat window stand: how many there are,
+-- the history's head index, whether the newest is hidden, and how many hidden
+-- lines a TransformMessages pass sees (it never changes a line).
+local function ProbeHistory()
+    local frame = DEFAULT_CHAT_FRAME
+    if not frame then return "nohistory" end
+    local count = frame.GetNumMessages and frame:GetNumMessages() or -1
+    local head = "?"
+    pcall(function()
+        local value = frame.historyBuffer.headIndex:GetValue()
+        head = ProbeSecret(value) and "secret" or tostring(value)
+    end)
+    local newest = "?"
+    pcall(function()
+        local message, r, g, b = frame:GetMessageInfo(1)
+        newest = (ProbeSecret(message) and "secret" or "readable") .. string.format(" rgb=%.2f,%.2f,%.2f", r or -1, g or -1, b or -1)
+    end)
+    local seen, hidden = 0, 0
+    pcall(frame.TransformMessages, frame, function(message)
+        seen = seen + 1
+        if ProbeSecret(message) then hidden = hidden + 1 end
+        return false
+    end, function(...) return ... end)
+    return string.format("n=%d head=%s newest=%s transform=%d/%d", count, head, newest, hidden, seen)
+end
+
 local function ProbeEvent(event, ...)
     if event == "PLAYER_ENTERING_WORLD" then
         local _, instanceType = IsInInstance()
@@ -681,7 +707,13 @@ local function ProbeEvent(event, ...)
         ProbeLog("PEW type=" .. tostring(instanceType) .. " " .. ProbeRoster())
     elseif event == "CHAT_MSG_SYSTEM" then
         local message = ...
-        ProbeLog("SYS line=" .. tostring(select(11, ...)) .. " " .. ProbeText(message))
+        local lineID = tostring(select(11, ...))
+        ProbeLog("SYS line=" .. lineID .. " " .. ProbeText(message) .. " | " .. ProbeHistory())
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0, function()
+                pcall(function() ProbeLog("SYS+0 line=" .. lineID .. " | " .. ProbeHistory()) end)
+            end)
+        end
     elseif event:find("^CHAT_MSG_BG_SYSTEM") then
         ProbeLog("BG " .. event:sub(20) .. " " .. ProbeText((...)))
     elseif event == "GROUP_ROSTER_UPDATE" then
@@ -705,12 +737,17 @@ local function ProbeAddMessage(_, message, _, _, _, chatTypeID)
         [info.BG_SYSTEM_HORDE and info.BG_SYSTEM_HORDE.id or -1] = true,
     }
     if not secret and chatTypeID ~= nil and not systemIDs[chatTypeID] then return end
-    local stack = debugstack and debugstack(2, 12, 0) or ""
-    local origin = (stack:find("BattlegroundChatFilters", 1, true) and "bgfilter")
-        or (stack:find("AddOns/Carpenter", 1, true) and "carpenter")
-        or (stack:find("ChatFrame", 1, true) and "chatframe") or "other"
+    local origin = "?"
+    pcall(function()
+        local stack = debugstack and debugstack(2, 12, 0) or ""
+        if ProbeSecret(stack) then origin = "secretstack" return end
+        origin = (stack:find("BattlegroundChatFilters", 1, true) and "bgfilter")
+            or (stack:find("MessageEventHandler", 1, true) and "event")
+            or (stack:find("AddOns/Carpenter", 1, true) and "carpenter") or "other"
+    end)
     ProbeLog("ADD " .. origin .. " type=" .. tostring(chatTypeID) .. " " .. ProbeText(message))
 end
+
 
 local bgProbeFrame = CreateFrame("Frame")
 for _, probeEvent in ipairs({
@@ -725,6 +762,12 @@ bgProbeFrame:SetScript("OnEvent", function(_, event, ...)
         if DEFAULT_CHAT_FRAME and hooksecurefunc then
             pcall(hooksecurefunc, DEFAULT_CHAT_FRAME, "AddMessage", function(...)
                 pcall(ProbeAddMessage, ...)
+            end)
+            pcall(hooksecurefunc, DEFAULT_CHAT_FRAME, "MessageEventHandler", function(_, chatEvent, message)
+                if chatEvent ~= "CHAT_MSG_SYSTEM" then return end
+                pcall(function()
+                    ProbeLog("MEH " .. ProbeText(message) .. " | " .. ProbeHistory())
+                end)
             end)
         end
         return
