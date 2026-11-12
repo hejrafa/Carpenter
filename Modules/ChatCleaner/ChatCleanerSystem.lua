@@ -208,39 +208,22 @@ function System.Create(config)
         return nil
     end
 
-    -- A whole-line pattern from one of the client's own strings, so every
-    -- locale matches: each %s captures, and the closing period is optional.
-    -- The fallback stands in when the client lacks the string or its string
-    -- takes other arguments.
-    local function PatternFromTemplate(name, fallback)
-        local template = _G[name]
-        local _, wanted = fallback:gsub("%%s", "")
-        if type(template) ~= "string" or select(2, template:gsub("%%s", "")) ~= wanted then
-            template = fallback
+    -- "You've completed the set %s." (ERR_COMPLETED_TRANSMOG_SET_S) as a
+    -- pattern that captures the set's name, built from the client's own
+    -- string so every locale matches.
+    local completedSetPattern
+    local function GetCompletedSetPattern()
+        if completedSetPattern then return completedSetPattern end
+        local template = _G.ERR_COMPLETED_TRANSMOG_SET_S
+        if type(template) ~= "string" or not template:find("%s", 1, true) then
+            template = "You've completed the set %s."
         end
         local pattern = template:gsub("%%s", "\1")
         pattern = pattern:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0")
         pattern = pattern:gsub("%%%.%s*$", "%%.?")
         pattern = pattern:gsub("\1", "(.-)")
-        return "^%s*" .. pattern .. "%s*$"
-    end
-
-    -- "You've completed the set %s." captures the set's name.
-    local completedSetPattern
-    local function GetCompletedSetPattern()
-        completedSetPattern = completedSetPattern or PatternFromTemplate(
-            "ERR_COMPLETED_TRANSMOG_SET_S", "You've completed the set %s.")
+        completedSetPattern = "^%s*" .. pattern .. "%s*$"
         return completedSetPattern
-    end
-
-    -- "You have completed that quest." alone shows as "+ Completed". Lines that
-    -- only contain it, like a failed quest share, or read alike, like the
-    -- daily limit, aren't completions and stay as written.
-    local alreadyDonePattern
-    local function IsQuestAlreadyDone(text)
-        alreadyDonePattern = alreadyDonePattern or PatternFromTemplate(
-            "ERR_QUEST_ALREADY_DONE", "You have completed that quest.")
-        return text:match(alreadyDonePattern) ~= nil
     end
 
     -- The set's name alone, in the appearance color: its link keeps working
@@ -301,8 +284,6 @@ function System.Create(config)
             end
             local cleanQuest = CleanQuestTitle(questAccepted)
             return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_ACCEPTED_LABEL", "Accepted:") .. " |r" .. colorYellow .. (cleanQuest or cleanPunctuation(stripBrackets(questAccepted))) .. "|r")
-        elseif IsQuestAlreadyDone(plainText) then
-            return spaceBeforeX(prefixPlus .. colorWhite .. CompletedLabel() .. "|r")
         elseif questCompleted then
             if IsGenericCompletionTitle(questCompleted) then
                 return spaceBeforeX(prefixPlus .. colorWhite .. CompletedLabel() .. "|r")

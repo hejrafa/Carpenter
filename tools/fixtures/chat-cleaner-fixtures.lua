@@ -652,11 +652,10 @@ local fixtures = {
         expectPlain = "+ Completed: The Missing Diplomat",
     },
     {
-        name = "generic quest completion hides placeholder title",
+        name = "already completed quest stays as written",
         event = "CHAT_MSG_SYSTEM",
         message = "You have completed that quest.",
-        expectPlain = "+ Completed",
-        rejectPlain = "that quest",
+        expectPlain = "You have completed that quest.",
     },
     {
         name = "quest share of a completed quest stays as written",
