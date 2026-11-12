@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.22
+
+- The target frame on WoW Forever no longer shows a level next to the skull. The game itself showed the level of your previous target there, with or without Carpenter; Carpenter now hides it on the target, focus and boss frames.
+
 ## 1.8.21
 
 - Poison Warning no longer says your poison has worn off every time you hearth or enter a battleground, dungeon or raid.
