@@ -228,6 +228,7 @@ local function CheckEnchantments()
     end
 
     local mainHand, offHand = GetWeaponEnchants()
+    if ns.Private.BuffTimerProbe then ns.Private.BuffTimerProbe("poison warning read", mainHand, offHand) end -- TEMP probe
     if not mainHand or IsSecretEnchant(mainHand) or IsSecretEnchant(offHand) then
         return
     end
@@ -284,4 +285,150 @@ end
 
 if Carpenter and Carpenter.RegisterFeature then
     Carpenter:RegisterFeature("enchantWarningEnabled", feature)
+end
+
+-- TEMP buff timer probe: remove once the weapon buff timers that read 0 sec
+-- after a load are explained. On WoW Forever it logs to
+-- CarpenterDB.buffTimerProbeLog, from leaving the world until 30 s after
+-- entering it: load events, what the game reports for the weapon enchants
+-- (read only when Blizzard's buff frame reads them too), the timers that frame
+-- set and shows, and Poison Warning's own reads. Logs whether Poison Warning
+-- is on or off.
+do
+    local client = Carpenter and Carpenter.Client
+    if client and client.isForever then
+        local WINDOW = 30
+        local MAX_LINES = 1200
+        local startedAt, windowEnd, enteredAt
+        local probeTicker
+        local hooked = false
+
+        local function Text(value)
+            if IsSecret(value) then return "secret" end
+            if type(value) == "number" then return string.format("%.1f", value) end
+            return tostring(value)
+        end
+
+        local function Left(expirationTime)
+            if type(expirationTime) ~= "number" or IsSecret(expirationTime) then return Text(expirationTime) end
+            return string.format("%.1f", expirationTime - GetTime())
+        end
+
+        local function ReadSlot(slot)
+            if not (C_Item and C_Item.GetWeaponEnchantInfo and slot) then return "-" end
+            local ok, enchants = pcall(C_Item.GetWeaponEnchantInfo, slot)
+            if not ok then return "error" end
+            if type(enchants) ~= "table" then return Text(enchants) end
+            local parts = {}
+            for _, enchant in pairs(enchants) do
+                parts[#parts + 1] = Text(enchant.hasEnchant) .. "/" .. Text(enchant.timeLeft) .. "ms/" .. Text(enchant.charges)
+            end
+            return #parts > 0 and table.concat(parts, ",") or "none"
+        end
+
+        local function ReadGame()
+            local slots = Enum and Enum.WeaponSlot or {}
+            return "game MH " .. ReadSlot(slots.MainHand) .. " OH " .. ReadSlot(slots.OffHand)
+        end
+
+        -- The temp enchant buttons Blizzard's buff frame shows right now.
+        local function ReadButtons()
+            local frame = _G.BuffFrame
+            local parts = {}
+            for _, button in ipairs(frame and frame.auraFrames or {}) do
+                if button.auraType == "TempEnchant" and button:IsShown() then
+                    local info = button.buttonInfo
+                    parts[#parts + 1] = string.format("[left %s, ends in %s, text %s, alpha %s]",
+                        Text(button.timeLeft), Left(info and info.expirationTime),
+                        Text(button.Duration and button.Duration:GetText()), Text(button:GetAlpha()))
+                end
+            end
+            return "shown " .. (#parts > 0 and table.concat(parts, " ") or "none")
+        end
+
+        local function Log(text)
+            if not (CarpenterDB and startedAt and windowEnd) then return end
+            local now = GetTime()
+            if now > windowEnd then return end
+            local log = CarpenterDB.buffTimerProbeLog
+            if type(log) ~= "table" then
+                log = {}
+                CarpenterDB.buffTimerProbeLog = log
+            end
+            log[#log + 1] = string.format("%7.2f %s", now - startedAt, text)
+            while #log > MAX_LINES do table.remove(log, 1) end
+        end
+
+        local function OpenWindow(seconds)
+            local now = GetTime()
+            startedAt = startedAt or now
+            windowEnd = math.max(windowEnd or 0, now + seconds)
+            if not probeTicker then
+                probeTicker = C_Timer.NewTicker(1, function()
+                    if not windowEnd or GetTime() > windowEnd then
+                        probeTicker:Cancel()
+                        probeTicker = nil
+                        return
+                    end
+                    Log("tick " .. ReadButtons())
+                end)
+            end
+        end
+
+        function ns.Private.BuffTimerProbe(what, mainHand, offHand)
+            local function Hand(enchant)
+                if not enchant then return "nil" end
+                return Text(enchant.has) .. "/" .. Text(enchant.msLeft) .. "ms/" .. Text(enchant.charges)
+            end
+            Log(what .. " MH " .. Hand(mainHand) .. " OH " .. Hand(offHand) .. " | " .. ReadButtons())
+        end
+
+        local function HookBuffFrame()
+            local frame = _G.BuffFrame
+            if hooked or not (frame and type(frame.UpdateTemporaryEnchantmentBuffs) == "function") then return end
+            hooked = true
+            hooksecurefunc(frame, "UpdateTemporaryEnchantmentBuffs", function(self)
+                pcall(function()
+                    local parts = {}
+                    for _, aura in ipairs(self.auraInfo or {}) do
+                        if aura.auraType == "TempEnchant" then
+                            parts[#parts + 1] = "ends in " .. Left(aura.expirationTime)
+                        end
+                    end
+                    Log("buff frame read enchants: " .. (#parts > 0 and table.concat(parts, ", ") or "none")
+                        .. " | " .. ReadGame())
+                end)
+            end)
+        end
+
+        local probeFrame = CreateFrame("Frame")
+        for _, event in ipairs({
+            "ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_LEAVING_WORLD", "PLAYER_ENTERING_WORLD",
+            "LOADING_SCREEN_ENABLED", "LOADING_SCREEN_DISABLED", "WEAPON_ENCHANT_CHANGED",
+            "WEAPON_SLOT_CHANGED", "PLAYER_EQUIPMENT_CHANGED", "UNIT_INVENTORY_CHANGED",
+        }) do
+            pcall(probeFrame.RegisterEvent, probeFrame, event)
+        end
+        probeFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
+            if event == "ADDON_LOADED" then
+                if arg1 == "Blizzard_BuffFrame" then HookBuffFrame() end
+                return
+            end
+            if event == "PLAYER_LOGIN" then
+                HookBuffFrame()
+                OpenWindow(WINDOW * 2)
+                Log(string.format("=== UI loaded %s, Poison Warning %s, collapse arrow hidden %s",
+                    date("%H:%M:%S"), Text(Carpenter:IsEnabled("enchantWarningEnabled")),
+                    Text(Carpenter:IsEnabled("hideBuffCollapseArrowEnabled"))))
+            elseif event == "PLAYER_LEAVING_WORLD" then
+                OpenWindow(WINDOW * 4)
+            elseif event == "PLAYER_ENTERING_WORLD" then
+                enteredAt = GetTime()
+                windowEnd = enteredAt + WINDOW
+                OpenWindow(WINDOW)
+            end
+            local args = arg1 ~= nil and (" " .. Text(arg1) .. (arg2 ~= nil and (" " .. Text(arg2)) or "")) or ""
+            Log(event .. args .. " | " .. ReadGame() .. " | " .. ReadButtons())
+        end)
+    end
 end

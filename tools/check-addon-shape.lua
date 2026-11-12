@@ -27,6 +27,7 @@ local stateKeys = {
     noObjectiveQuestWatches = true,
     settingsPresetBackup = true,
     smartMacroLastItems = true,
+    buffTimerProbeLog = true, -- TEMP buff timer probe
 }
 
 -- Kept in defaults/settings definitions for history, but currently hidden by

@@ -48,9 +48,11 @@ local function Run(clientName, setupClient)
         GetText = function() return enchant.reported and "Instant Poison VI (2 min)" or nil end,
         GetTextColor = function() return 0, 1, 0 end,
     }
+    -- The first ticker is Poison Warning's check; later ones are left alone.
     C_Timer = { NewTicker = function(_, callback)
-        ticker = { callback = callback, Cancel = function(self) self.cancelled = true end }
-        return ticker
+        local created = { callback = callback, Cancel = function(self) self.cancelled = true end }
+        ticker = ticker or created
+        return created
     end }
 
     setupClient(enchant)
