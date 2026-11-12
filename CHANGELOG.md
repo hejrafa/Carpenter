@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.21
+
+- Poison Warning no longer says your poison has worn off every time you hearth or enter a battleground, dungeon or raid.
+- Weapon buff timers on WoW Forever no longer show "0 sec" and blink after a loading screen. The game itself causes this, with or without Carpenter; Carpenter now shows the right time while Poison Warning is on.
+- Chat Cleaner now styles skill-ups during dungeon fights on WoW Forever as "+ 152 Skill: Swords". The fix in 1.8.18 didn't reach them.
+- Chat Cleaner no longer turns quest notices into "+ Completed". When someone shares a quest you've already done, or the game says "You have completed that quest.", the line now reads as the game wrote it, and so do the daily and required-quest lines.
+
 ## 1.8.20
 
 - Battlegrounds on Retail and WoW Forever no longer flood you with Lua errors while "5 players joined" repeats in chat every frame. Chat Cleaner no longer interferes with Blizzard's batched join messages.
