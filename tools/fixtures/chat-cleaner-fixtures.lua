@@ -659,6 +659,24 @@ local fixtures = {
         rejectPlain = "that quest",
     },
     {
+        name = "quest share of a completed quest stays as written",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Daddy Zugzug's attempt to share quest \"Amongst the Ruins\" failed. You have completed that quest.",
+        expectPlain = "Daddy Zugzug's attempt to share quest \"Amongst the Ruins\" failed. You have completed that quest.",
+    },
+    {
+        name = "completed daily quest stays as written",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You have completed that daily quest today.",
+        expectPlain = "You have completed that daily quest today.",
+    },
+    {
+        name = "missing required quest stays as written",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You have not completed the required quest.",
+        expectPlain = "You have not completed the required quest.",
+    },
+    {
         name = "retail completed transmog set drops the set",
         event = "CHAT_MSG_SYSTEM",
         isMainline = true,
