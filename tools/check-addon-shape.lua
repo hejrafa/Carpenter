@@ -27,7 +27,6 @@ local stateKeys = {
     noObjectiveQuestWatches = true,
     settingsPresetBackup = true,
     smartMacroLastItems = true,
-    buffTimerProbeLog = true, -- TEMP buff timer probe
 }
 
 -- Kept in defaults/settings definitions for history, but currently hidden by
@@ -38,6 +37,7 @@ local dormantOptionKeys = {}
 -- them from saved variables. They intentionally have no defaults entry.
 local removedOptionKeys = {
     backSheathOneHandWeaponsEnabled = true,
+    buffTimerProbeLog = true, -- a debug log, not a setting, but cleared the same way
     chatGlossaryEnabled = true,
     classicSettingsPresetEnabled = true,
     hideGroupIndicatorEnabled = true,

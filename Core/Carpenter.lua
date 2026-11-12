@@ -406,6 +406,8 @@ function Carpenter_InitializeSettings()
 
     CarpenterDB.hideShouldersEnabled = nil
     CarpenterDB.backSheathOneHandWeaponsEnabled = nil
+    -- A weapon buff timer log from testing a fix, never released.
+    CarpenterDB.buffTimerProbeLog = nil
 
     if CarpenterDB and Carpenter.Client and Carpenter.Client.isMainline and
         CarpenterDB.hideUnitFrameCombatTextEnabled == true and

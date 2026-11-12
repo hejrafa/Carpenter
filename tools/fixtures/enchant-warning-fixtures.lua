@@ -3,7 +3,9 @@
 -- when it wears off, both on WoW Forever (C_Item.GetWeaponEnchantInfo per
 -- slot) and on Classic (the old GetWeaponEnchantInfo global). An enchant the
 -- client stops reporting with time and charges left (around a loading screen,
--- or a swapped weapon) didn't wear off and must stay quiet.
+-- or a swapped weapon) didn't wear off and must stay quiet. On Forever it also
+-- corrects a weapon buff timer Blizzard's buff frame left stuck at 0 after a
+-- load, from the time the game reports.
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then
@@ -48,12 +50,37 @@ local function Run(clientName, setupClient)
         GetText = function() return enchant.reported and "Instant Poison VI (2 min)" or nil end,
         GetTextColor = function() return 0, 1, 0 end,
     }
-    -- The first ticker is Poison Warning's check; later ones are left alone.
     C_Timer = { NewTicker = function(_, callback)
-        local created = { callback = callback, Cancel = function(self) self.cancelled = true end }
-        ticker = ticker or created
-        return created
+        ticker = { callback = callback, Cancel = function(self) self.cancelled = true end }
+        return ticker
     end }
+    hooksecurefunc = function(target, method, hook)
+        local original = target[method]
+        target[method] = function(...)
+            original(...)
+            hook(...)
+        end
+    end
+    -- Blizzard's formatter, for times under a day.
+    SecondsToTimeAbbrev = function(seconds)
+        if seconds >= 90 then return "%d m", math.ceil(seconds / 60) end
+        return "%d s", math.floor(seconds)
+    end
+    BUFF_WARNING_TIME, BUFF_DURATION_WARNING_TIME = 31, 90
+    HIGHLIGHT_FONT_COLOR, NORMAL_FONT_COLOR = { r = 1, g = 1, b = 1 }, { r = 1, g = 0.82, b = 0 }
+
+    -- One of Blizzard's buff buttons; its UpdateDuration shows the time it holds.
+    local function NewBuffButton()
+        local button = { auraType = "TempEnchant", alpha = 1, Duration = { shown = true } }
+        function button.Duration:IsShown() return self.shown end
+        function button.Duration:SetFormattedText(format, ...) self.text = string.format(format, ...) end
+        function button.Duration:SetVertexColor() end
+        function button:SetAlpha(alpha) self.alpha = alpha end
+        function button:GetParent() return { auraWarningMaxAlpha = 1 } end
+        function button:UpdateDuration(timeLeft) self.Duration:SetFormattedText(SecondsToTimeAbbrev(timeLeft)) end
+        return button
+    end
+    BuffFrame = clientName == "forever" and { auraFrames = { NewBuffButton() } } or nil
 
     setupClient(enchant)
 
@@ -148,8 +175,66 @@ local function Run(clientName, setupClient)
     check(#messages == 4 and messages[4]:find("worn off", 1, true),
         clientName .. ": an enchant that ran out while loading should be announced, got " .. Got())
 
+    if clientName == "forever" then
+        local button = BuffFrame.auraFrames[1]
+        -- A frame of Blizzard's OnUpdate: the blink alpha, then the duration.
+        local function Draw()
+            local timeLeft = math.max(button.buttonInfo.expirationTime - now, 0)
+            button:SetAlpha(timeLeft < BUFF_WARNING_TIME and 0.3 or 1)
+            button:UpdateDuration(timeLeft)
+        end
+        local function Shown()
+            return tostring(button.Duration.text) .. " at alpha " .. tostring(button.alpha)
+        end
+
+        -- Blizzard read the weapon buff right after a load, while the game
+        -- reported no time left; so does the game, for now.
+        Apply(0, 60)
+        button.buttonInfo = { ID = 16, expirationTime = now }
+        Draw()
+        check(button.Duration.text == "0 s", "forever: a timer the game agrees with should stay, got " .. Shown())
+
+        -- The game reports the real time: the timer shows it and stops blinking.
+        enchant.msLeft = 1110000
+        now = now + 1
+        Draw()
+        check(button.Duration.text == "19 m" and button.alpha == 1,
+            "forever: a weapon buff timer stuck at 0 should show the game's time, got " .. Shown())
+        now = now + 60
+        Draw()
+        check(button.Duration.text == "18 m", "forever: the corrected timer should count down, got " .. Shown())
+
+        -- Blizzard's own next update is left alone.
+        button.buttonInfo = { ID = 16, expirationTime = now + 300 }
+        Draw()
+        check(button.Duration.text == "5 m", "forever: a timer Blizzard updated should be left alone, got " .. Shown())
+
+        -- A weapon buff really running out: both at zero.
+        enchant.msLeft = 1000
+        button.buttonInfo = { ID = 16, expirationTime = now }
+        Draw()
+        check(button.Duration.text == "0 s" and button.alpha == 0.3,
+            "forever: a weapon buff running out should keep Blizzard's timer, got " .. Shown())
+
+        -- Other buffs are left alone.
+        enchant.msLeft = 1110000
+        button.auraType = "Buff"
+        button.buttonInfo = { ID = 16, expirationTime = now }
+        Draw()
+        check(button.Duration.text == "0 s", "forever: other buffs should be left alone, got " .. Shown())
+        button.auraType = "TempEnchant"
+    end
+
     feature:Disable()
     check(ticker.cancelled, clientName .. ": disabling should stop the check")
+
+    if clientName == "forever" then
+        local button = BuffFrame.auraFrames[1]
+        button.buttonInfo = { ID = 16, expirationTime = now }
+        button:UpdateDuration(0)
+        check(button.Duration.text == "0 s", "forever: with Poison Warning off the timer should be left alone, got "
+            .. tostring(button.Duration.text))
+    end
 end
 
 -- WoW Forever: per-slot enchant lists, no old global.
