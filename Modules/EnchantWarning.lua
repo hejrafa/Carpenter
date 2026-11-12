@@ -5,14 +5,24 @@ ns.Private = ns.Private or {}
 local L = (Carpenter and Carpenter.L) or {}
 -- Warns before weapon enchantments expire.
 
-local hasWarnedMH = false
-local hasWarnedOH = false
-local lastEnchantNameMH = nil
-local lastEnchantNameOH = nil
+-- One entry per weapon hand. name, expiresAt and charges describe the enchant
+-- last seen on it; warned is set once its two-minute warning has shown.
+local hands = {
+    { slot = 16, fallbackKey = "MAIN_HAND_POISON", fallback = "Main Hand Poison" },
+    { slot = 17, fallbackKey = "OFF_HAND_POISON", fallback = "Off Hand Poison" },
+}
+
+-- An enchant that disappears counts as worn off only if, when last seen, it
+-- was this close to its end (checks run every second) or down to this few
+-- charges. With more left, the client just isn't reporting it (around loading
+-- screens), or the weapon was swapped and took its enchant along.
+local EXPIRY_SLACK = 3
+local LOW_CHARGES = 3
 
 -- Delay logic for zone transitions
 local INITIAL_DELAY = 5 -- Seconds to wait after loading screen
 local delayTimer = 0
+local loading = false
 
 -- Create a hidden tooltip to scan enchant names
 local scanTooltip = CreateFrame("GameTooltip", "CarpenterScanTooltip", nil, "GameTooltipTemplate")
@@ -116,8 +126,8 @@ local function GetEnchantName(slot)
 end
 
 -- WoW Forever reads weapon enchants per slot through C_Item, like its own buff
--- frame; Classic clients still have the old global. Returns the same values as
--- the global: has main hand, ms left, -, -, has off hand, ms left.
+-- frame; Classic clients still have the old global. Returns { has, msLeft,
+-- charges } for the main hand and the off hand.
 local function GetWeaponEnchants()
     if C_Item and C_Item.GetWeaponEnchantInfo and Enum and Enum.WeaponSlot then
         local function ReadSlot(slot)
@@ -125,21 +135,66 @@ local function GetWeaponEnchants()
             if ok and type(enchants) == "table" then
                 for _, enchant in pairs(enchants) do
                     if enchant.hasEnchant then
-                        return true, enchant.timeLeft
+                        return { has = true, msLeft = enchant.timeLeft, charges = enchant.charges }
                     end
                 end
             end
-            return false, nil
+            return { has = false }
         end
 
-        local hasMainEnchant, mainTimeLeft = ReadSlot(Enum.WeaponSlot.MainHand)
-        local hasOffEnchant, offTimeLeft = ReadSlot(Enum.WeaponSlot.OffHand)
-        return hasMainEnchant, mainTimeLeft, nil, nil, hasOffEnchant, offTimeLeft
+        return ReadSlot(Enum.WeaponSlot.MainHand), ReadSlot(Enum.WeaponSlot.OffHand)
     end
 
     if GetWeaponEnchantInfo then
-        return GetWeaponEnchantInfo()
+        local hasMain, mainLeft, mainCharges, _, hasOff, offLeft, offCharges = GetWeaponEnchantInfo()
+        return { has = hasMain, msLeft = mainLeft, charges = mainCharges },
+            { has = hasOff, msLeft = offLeft, charges = offCharges }
     end
+end
+
+local function IsSecretEnchant(enchant)
+    return IsSecret(enchant.has) or IsSecret(enchant.msLeft) or IsSecret(enchant.charges)
+end
+
+local function Forget(hand)
+    hand.seen, hand.name, hand.expiresAt, hand.charges, hand.warned = nil, nil, nil, nil, false
+end
+
+local function DisplayName(hand)
+    return hand.name or L[hand.fallbackKey] or hand.fallback
+end
+
+local function RanOut(hand, now)
+    if hand.expiresAt and now >= hand.expiresAt - EXPIRY_SLACK then return true end
+    local charges = hand.charges
+    return type(charges) == "number" and charges > 0 and charges <= LOW_CHARGES
+end
+
+local function CheckHand(hand, enchant, now)
+    if enchant.has then
+        local secondsLeft = (tonumber(enchant.msLeft) or 0) / 1000
+        local currentName = GetEnchantName(hand.slot)
+        if currentName then hand.name = currentName end
+        hand.seen = true
+        -- A reading of no time left says nothing new: the one before it,
+        -- a second earlier, already put the end that close.
+        if secondsLeft > 0 then hand.expiresAt = now + secondsLeft end
+        hand.charges = enchant.charges
+
+        if secondsLeft <= 120 and secondsLeft > 110 and not hand.warned then
+            UIErrorsFrame:AddMessage(string.format(L.ENCHANT_FALLING_OFF_SOON or "%s wears off in 2 min!", DisplayName(hand)), 1.0, 0.5, 0.0, 1.0, 5)
+            hand.warned = true
+        end
+        if secondsLeft > 120 then
+            hand.warned = false
+        end
+        return
+    end
+
+    if hand.seen and RanOut(hand, now) then
+        UIErrorsFrame:AddMessage(string.format(L.ENCHANT_NO_LONGER_ON_WEAPON or "%s has worn off your weapon!", DisplayName(hand)), 1.0, 0.1, 0.0, 1.0, 5)
+    end
+    Forget(hand)
 end
 
 local function CheckEnchantments()
@@ -148,8 +203,8 @@ local function CheckEnchantments()
         return
     end
 
-    -- Skip check if we are in the initial loading delay
-    if delayTimer > 0 then
+    -- Skip check while loading and during the delay after it
+    if loading or delayTimer > 0 then
         return
     end
 
@@ -172,68 +227,31 @@ local function CheckEnchantments()
         return
     end
 
-    -- Check hand enchants
-    local hasMainEnchant, mainTimeLeft, _, _, hasOffEnchant, offTimeLeft = GetWeaponEnchants()
-    if IsSecret(hasMainEnchant) or IsSecret(mainTimeLeft) or IsSecret(hasOffEnchant) or IsSecret(offTimeLeft) then
+    local mainHand, offHand = GetWeaponEnchants()
+    if not mainHand or IsSecretEnchant(mainHand) or IsSecretEnchant(offHand) then
         return
     end
 
-    -- Main hand logic
-    if hasMainEnchant then
-        local secondsLeft = mainTimeLeft / 1000
-        local currentName = GetEnchantName(16)
-
-        if currentName then lastEnchantNameMH = currentName end
-        local displayName = lastEnchantNameMH or (L.MAIN_HAND_POISON or "Main Hand Poison")
-
-        if secondsLeft <= 120 and secondsLeft > 110 and not hasWarnedMH then
-            UIErrorsFrame:AddMessage(string.format(L.ENCHANT_FALLING_OFF_SOON or "%s wears off in 2 min!", displayName), 1.0, 0.5, 0.0, 1.0, 5)
-            hasWarnedMH = true
-        end
-
-        if secondsLeft > 120 then
-            hasWarnedMH = false
-        end
-    else
-        if lastEnchantNameMH then
-            UIErrorsFrame:AddMessage(string.format(L.ENCHANT_NO_LONGER_ON_WEAPON or "%s has worn off your weapon!", lastEnchantNameMH), 1.0, 0.1, 0.0, 1.0, 5)
-            lastEnchantNameMH = nil
-        end
-        hasWarnedMH = false
-    end
-
-    -- Off hand logic
-    if hasOffEnchant then
-        local secondsLeft = offTimeLeft / 1000
-        local currentName = GetEnchantName(17)
-
-        if currentName then lastEnchantNameOH = currentName end
-        local displayName = lastEnchantNameOH or (L.OFF_HAND_POISON or "Off Hand Poison")
-
-        if secondsLeft <= 120 and secondsLeft > 110 and not hasWarnedOH then
-            UIErrorsFrame:AddMessage(string.format(L.ENCHANT_FALLING_OFF_SOON or "%s wears off in 2 min!", displayName), 1.0, 0.5, 0.0, 1.0, 5)
-            hasWarnedOH = true
-        end
-
-        if secondsLeft > 120 then
-            hasWarnedOH = false
-        end
-    else
-        if lastEnchantNameOH then
-            UIErrorsFrame:AddMessage(string.format(L.ENCHANT_NO_LONGER_ON_WEAPON or "%s has worn off your weapon!", lastEnchantNameOH), 1.0, 0.1, 0.0, 1.0, 5)
-            lastEnchantNameOH = nil
-        end
-        hasWarnedOH = false
-    end
+    local now = GetTime()
+    CheckHand(hands[1], mainHand, now)
+    CheckHand(hands[2], offHand, now)
 end
 
--- Fix for zone transitions (Battlegrounds, Dungeons, etc.)
+-- Zone transitions (hearthstone, battlegrounds, dungeons): the client can
+-- report no weapon enchant around a loading screen, so checks pause from
+-- leaving the world until a moment after entering it.
 local transitionFrame = CreateFrame("Frame")
+transitionFrame:RegisterEvent("PLAYER_LEAVING_WORLD")
 transitionFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-transitionFrame:SetScript("OnEvent", function()
-    hasWarnedMH = false
-    hasWarnedOH = false
-    -- Start delay timer to prevent false "dropped" messages during loading
+transitionFrame:SetScript("OnEvent", function(_, event)
+    if event == "PLAYER_LEAVING_WORLD" then
+        loading = true
+        return
+    end
+    loading = false
+    for _, hand in ipairs(hands) do
+        hand.warned = false
+    end
     delayTimer = INITIAL_DELAY
 end)
 
@@ -259,8 +277,9 @@ function feature:Disable()
         ticker = nil
     end
     -- Forget the last enchant so turning it back on doesn't announce a stale one.
-    hasWarnedMH, hasWarnedOH = false, false
-    lastEnchantNameMH, lastEnchantNameOH = nil, nil
+    for _, hand in ipairs(hands) do
+        Forget(hand)
+    end
 end
 
 if Carpenter and Carpenter.RegisterFeature then

@@ -1,7 +1,9 @@
 #!/usr/bin/env lua
 -- Verifies Poison Warning warns two minutes before a weapon enchant ends and
 -- when it wears off, both on WoW Forever (C_Item.GetWeaponEnchantInfo per
--- slot) and on Classic (the old GetWeaponEnchantInfo global).
+-- slot) and on Classic (the old GetWeaponEnchantInfo global). An enchant the
+-- client stops reporting with time and charges left (around a loading screen,
+-- or a swapped weapon) didn't wear off and must stay quiet.
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then
@@ -16,10 +18,14 @@ end
 local function Run(clientName, setupClient)
     local messages = {}
     local ticker
-    local enchant = { has = true, msLeft = 115000 }
+    local eventHandlers = {}
+    local now = 1000
+    -- reported: whether the client reports the enchant right now.
+    local enchant = { reported = true, msLeft = 115000, charges = 0 }
 
     ITEM_ENCHANT_TIME_LEFT_MIN = "%s (%d min)"
     ITEM_ENCHANT_TIME_LEFT_SEC = "%s (%d sec)"
+    GetTime = function() return now end
     UIErrorsFrame = { AddMessage = function(_, text) messages[#messages + 1] = text end }
     UIParent, WorldFrame = {}, {}
     MerchantFrame, GameTooltip = nil, nil
@@ -32,12 +38,14 @@ local function Run(clientName, setupClient)
         function frameObject:NumLines() return 1 end
         function frameObject:Hide() end
         function frameObject:RegisterEvent() end
-        function frameObject:SetScript() end
+        function frameObject:SetScript(script, handler)
+            if script == "OnEvent" then eventHandlers[#eventHandlers + 1] = handler end
+        end
         if name then _G[name] = frameObject end
         return frameObject
     end
     _G.CarpenterScanTooltipTextLeft1 = {
-        GetText = function() return enchant.has and "Instant Poison VI (2 min)" or nil end,
+        GetText = function() return enchant.reported and "Instant Poison VI (2 min)" or nil end,
         GetTextColor = function() return 0, 1, 0 end,
     }
     C_Timer = { NewTicker = function(_, callback)
@@ -61,17 +69,82 @@ local function Run(clientName, setupClient)
     feature:Enable()
     assert(ticker, clientName .. ": enabling should start the check")
 
-    -- Two minutes left: warn once.
-    ticker.callback()
-    ticker.callback()
-    check(#messages == 1 and messages[1]:find("Instant Poison VI", 1, true) and messages[1]:find("2 min", 1, true),
-        clientName .. ": expected one two-minute warning, got [" .. table.concat(messages, " | ") .. "]")
+    -- One second passes, the enchant's time with it, then the check runs.
+    local function Tick(count)
+        for _ = 1, count or 1 do
+            now = now + 1
+            enchant.msLeft = math.max(0, enchant.msLeft - 1000)
+            ticker.callback()
+        end
+    end
+    local function Fire(event)
+        for _, handler in ipairs(eventHandlers) do handler(nil, event) end
+    end
+    local function Apply(msLeft, charges)
+        enchant.reported, enchant.msLeft, enchant.charges = true, msLeft, charges or 0
+    end
+    local function Got()
+        return "[" .. table.concat(messages, " | ") .. "]"
+    end
 
-    -- The enchant wears off.
-    enchant.has = false
-    ticker.callback()
-    check(#messages == 2 and messages[2]:find("worn off", 1, true),
-        clientName .. ": expected a worn off message, got [" .. tostring(messages[2]) .. "]")
+    -- Two minutes left: warn once.
+    Tick(2)
+    check(#messages == 1 and messages[1]:find("Instant Poison VI", 1, true) and messages[1]:find("2 min", 1, true),
+        clientName .. ": expected one two-minute warning, got " .. Got())
+
+    -- A loading screen: no enchant reported from leaving the world until a
+    -- couple of checks after entering it, then it's back.
+    Fire("PLAYER_LEAVING_WORLD")
+    enchant.reported = false
+    Tick(3)
+    Fire("PLAYER_ENTERING_WORLD")
+    Tick(7)
+    enchant.reported = true
+    Tick(2)
+    check(#messages == 1, clientName .. ": a loading screen should not say the enchant wore off, got " .. Got())
+
+    -- Missing for a moment with no loading screen (or a swapped weapon).
+    enchant.reported = false
+    Tick()
+    enchant.reported = true
+    Tick()
+    check(#messages == 1, clientName .. ": an enchant missing with time left should stay quiet, got " .. Got())
+
+    -- Its time runs out.
+    Apply(3500)
+    Tick(3)
+    enchant.reported = false
+    Tick()
+    check(#messages == 2 and messages[2]:find("Instant Poison VI", 1, true) and messages[2]:find("worn off", 1, true),
+        clientName .. ": expected a worn off message, got " .. Got())
+    Tick(2)
+    check(#messages == 2, clientName .. ": a worn off enchant should be announced once, got " .. Got())
+
+    -- Its charges run out with half an hour left.
+    Apply(1800000, 2)
+    Tick()
+    enchant.reported = false
+    Tick()
+    check(#messages == 3 and messages[3]:find("worn off", 1, true),
+        clientName .. ": expected a worn off message when the charges ran out, got " .. Got())
+
+    -- Plenty of charges and time left: not worn off.
+    Apply(1800000, 40)
+    Tick()
+    enchant.reported = false
+    Tick()
+    check(#messages == 3, clientName .. ": an enchant with charges left should stay quiet, got " .. Got())
+
+    -- It runs out during a loading screen: announced once the checks resume.
+    Apply(5000)
+    Tick()
+    Fire("PLAYER_LEAVING_WORLD")
+    Tick(3)
+    enchant.reported = false
+    Fire("PLAYER_ENTERING_WORLD")
+    Tick(6)
+    check(#messages == 4 and messages[4]:find("worn off", 1, true),
+        clientName .. ": an enchant that ran out while loading should be announced, got " .. Got())
 
     feature:Disable()
     check(ticker.cancelled, clientName .. ": disabling should stop the check")
@@ -83,15 +156,18 @@ Run("forever", function(enchant)
     Enum = { WeaponSlot = { MainHand = 0, OffHand = 1, Ranged = 2 } }
     C_Item = {
         GetWeaponEnchantInfo = function(slot)
-            if slot == Enum.WeaponSlot.MainHand and enchant.has then
-                return { { hasEnchant = true, timeLeft = enchant.msLeft, charges = 0, enchantID = 1, enchantType = 0 } }
+            if slot == Enum.WeaponSlot.MainHand and enchant.reported then
+                return { {
+                    hasEnchant = true, timeLeft = enchant.msLeft, charges = enchant.charges,
+                    enchantID = 1, enchantType = 0,
+                } }
             end
             return {}
         end,
     }
     C_TooltipInfo = {
         GetInventoryItem = function()
-            if not enchant.has then return { lines = {} } end
+            if not enchant.reported then return { lines = {} } end
             return { lines = { { leftText = "Instant Poison VI (2 min)", leftColor = { r = 0, g = 1, b = 0 } } } }
         end,
     }
@@ -101,7 +177,8 @@ end)
 Run("classic", function(enchant)
     C_Item, C_TooltipInfo, Enum = nil, nil, nil
     GetWeaponEnchantInfo = function()
-        return enchant.has, enchant.has and enchant.msLeft or nil, nil, nil, false, nil
+        if not enchant.reported then return false, nil, nil, nil, false, nil, nil, nil end
+        return true, enchant.msLeft, enchant.charges, 1, false, nil, nil, nil
     end
 end)
 
