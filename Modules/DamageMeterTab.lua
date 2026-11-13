@@ -71,6 +71,36 @@ local function Text(key, fallback)
     return L[key] or fallback
 end
 
+-- TEMP probe: why the tab can stay empty after a reload. Logs the tab's
+-- steps for one session into CarpenterDB.damageMeterTabProbe. Remove once
+-- the cause is known.
+local PROBE_MAX = 80
+local probeStarted = false
+local function Probe(what, ...)
+    if not CarpenterDB then return end
+    if not probeStarted then
+        probeStarted = true
+        CarpenterDB.damageMeterTabProbe = {}
+    end
+    local log = CarpenterDB.damageMeterTabProbe
+    if type(log) ~= "table" or #log >= PROBE_MAX then return end
+    local parts = { string.format("%.2f", GetTime and GetTime() or 0), what }
+    for index = 1, select("#", ...) do
+        local value = select(index, ...)
+        if issecretvalue and issecretvalue(value) then value = "<secret>" end
+        parts[#parts + 1] = tostring(value)
+    end
+    log[#log + 1] = table.concat(parts, " ")
+end
+
+-- Runs one step of the tab's upkeep; a failure is logged and the other
+-- steps still run.
+local function Try(what, callback, ...)
+    local ok, message = pcall(callback, ...)
+    if not ok then Probe("error", what, message) end
+    return ok
+end
+
 local function TabName()
     return _G.DAMAGE_METER_LABEL or "Damage Meter"
 end
@@ -433,6 +463,10 @@ function DamageMeterTab.Refresh()
     -- Right after a reload the chat window can still be without a size;
     -- stay dirty and try again on the next pass.
     if (display:GetWidth() or 0) <= 0 or (display:GetHeight() or 0) <= 0 then
+        if not state.probedNoSize then
+            state.probedNoSize = true
+            Probe("nosize", display:GetWidth(), display:GetHeight())
+        end
         state.dirty = true
         return
     end
@@ -451,7 +485,13 @@ function DamageMeterTab.Refresh()
     headerRight:SetTextColor(TITLE_R, TITLE_G, TITLE_B)
 
     -- A failure keeps the lines already shown rather than blanking the tab.
-    pcall(FillRows, window, lineHeight, capacity)
+    local ok, message = pcall(FillRows, window, lineHeight, capacity)
+    if not ok then
+        Probe("fillerror", message)
+    elseif not state.probedDrawn then
+        state.probedDrawn = true
+        Probe("drawn", "capacity", capacity, "total", state.total, "header", header:GetText())
+    end
 end
 
 local function InCombat()
@@ -460,18 +500,24 @@ end
 
 local MirrorChannelButton, PlaceMenuButton, IsPulledOut
 
+local probeBeats = 0
+
 local function OnDisplayUpdate(self, elapsed)
     -- The tab was pulled out of the dock or put back.
     if IsPulledOut(self:GetParent()) ~= state.pulledOut then
-        PlaceMenuButton()
+        Try("place", PlaceMenuButton)
     end
-    MirrorChannelButton()
+    Try("mirror", MirrorChannelButton)
     self.elapsed = (self.elapsed or 0) + elapsed
     if self.elapsed < REFRESH_SECONDS then return end
     self.elapsed = 0
+    if probeBeats < 12 then
+        probeBeats = probeBeats + 1
+        Probe("beat", "dirty", state.dirty, "w", self:GetWidth(), "h", self:GetHeight())
+    end
     -- The segment timer runs in combat.
     if state.dirty or InCombat() then
-        DamageMeterTab.Refresh()
+        Try("refresh", DamageMeterTab.Refresh)
     end
 end
 
@@ -578,6 +624,8 @@ function MirrorChannelButton()
             end
         end
     end
+    -- A fade the game hides from addons can't be copied; stay up instead.
+    if issecretvalue and issecretvalue(alpha) then alpha = 1 end
     if menuButton:GetAlpha() ~= alpha then
         menuButton:SetAlpha(alpha)
     end
@@ -703,12 +751,14 @@ local function CreateDisplay()
     display:SetScript("OnShow", function(self)
         self.elapsed = 0
         state.dirty = true
-        PlaceMenuButton()
+        Probe("onshow", self:GetWidth(), self:GetHeight())
+        Try("place", PlaceMenuButton)
         if menuButton then menuButton:Show() end
-        DamageMeterTab.Refresh()
-        MirrorChannelButton()
+        Try("refresh", DamageMeterTab.Refresh)
+        Try("mirror", MirrorChannelButton)
     end)
     display:SetScript("OnHide", function()
+        Probe("onhide")
         if menuButton then menuButton:Hide() end
     end)
     -- The chat window got its size, or was resized: lay the lines out again.
@@ -717,7 +767,12 @@ local function CreateDisplay()
 end
 
 local function Attach(window)
-    if not window then return false end
+    if not window then
+        Probe("attach", "no window", "chatReady", state.chatReady)
+        return false
+    end
+    Probe("attach", window:GetName(), "shown", window:IsShown(), "visible", window:IsVisible(),
+        "docked", window.isDocked, "w", window:GetWidth(), "h", window:GetHeight())
     CreateDisplay()
     if display:GetParent() ~= window then
         display:SetParent(window)
@@ -727,7 +782,9 @@ local function Attach(window)
     end
     display:Show()
     MarkDirty()
-    DamageMeterTab.Refresh()
+    Try("refresh", DamageMeterTab.Refresh)
+    Probe("attached", "displayShown", display:IsShown(), "visible", display:IsVisible(),
+        "w", display:GetWidth(), "h", display:GetHeight(), "dirty", state.dirty)
     return true
 end
 
@@ -800,6 +857,9 @@ local function TryAttach()
 end
 
 eventFrame:SetScript("OnEvent", function(_, event, addonName)
+    if event ~= "ADDON_LOADED" and (event == "PLAYER_ENTERING_WORLD" or event == "UPDATE_CHAT_WINDOWS") then
+        Probe("event", event)
+    end
     if event == "ADDON_LOADED" then
         if addonName == "Blizzard_DamageMeter" and HookFloatingMeter() then
             eventFrame:UnregisterEvent("ADDON_LOADED")
@@ -833,6 +893,7 @@ local feature = {}
 
 function feature:Enable()
     state.active = true
+    Probe("enable", "chatReady", state.chatReady)
     if HookFloatingMeter() then
         DamageMeterTab.ApplyFloatingMeter()
     else

@@ -22,6 +22,7 @@ local stateKeys = {
     autoTrackQuestWatches = true,
     blankLuaErrorTraceLog = true,
     blockedActionLog = true,
+    damageMeterTabProbe = true, -- TEMP: debug log of the tab's reload, remove with the probe
     damageMeterTabSession = true,
     damageMeterTabType = true,
     explorerModeChatWindowRepairVersion = true,
