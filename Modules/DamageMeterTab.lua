@@ -2,9 +2,12 @@
 -- Shows the game's damage meter as plain text in a chat tab of its own, on
 -- Retail and WoW Forever: a yellow title line with the meter type and
 -- segment, then one line per player, "1. Name" in class color on the left
--- and "total (per second)" on the right, in the chat window's own font. An
--- arrow in the tab's top-right corner, shown while the mouse is over the
--- window, picks the meter type and segment and resets the data.
+-- and "total (per second)" on the right, in the chat window's own font. The
+-- mouse wheel scrolls the lines (Shift jumps to the top or bottom). While the
+-- tab is open, a button with an arrow takes the chat channels button's place
+-- in the chat button column and fades with it; it picks the meter type and
+-- segment and resets the data. It sits over the channels button rather than
+-- moving it, so Hide Chat Buttons and the game keep control of that button.
 --
 -- The tab is a real chat window named after the game's "Damage Meter" label
 -- and set to receive no chat, so docking, resizing, fading and the
@@ -24,11 +27,13 @@ local RELOAD_POPUP = "CARPENTER_DAMAGE_METER_TAB_RELOAD"
 local REFRESH_SECONDS = 0.5
 local LOGIN_SETTLE_SECONDS = 1
 local VALUE_GAP = 8
-local MENU_BUTTON_INSET_X, MENU_BUTTON_INSET_Y = 4, 6
 local FALLBACK_FONT_SIZE = 14
+-- The chat button column's art, as on the channels button.
+local MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT, MENU_ICON_SIZE = 27, 26, 15
+local MENU_ARROW_ATLAS = "friendslist-categorybutton-arrow-down"
+local MENU_ARROW_FALLBACK_ATLAS = "common-dropdown-a-button-shadowless"
 
 local L = (Carpenter and Carpenter.L) or {}
-local HoverFade = Carpenter.HoverFade
 
 local DamageMeterTab = {}
 local state = {
@@ -37,6 +42,11 @@ local state = {
     -- missing.
     chatReady = false,
     dirty = true,
+    -- Scrolling: the first line's place in the list, and what the last
+    -- refresh found, which the mouse wheel stays within.
+    offset = 0,
+    total = 0,
+    capacity = 0,
 }
 
 local function Text(key, fallback)
@@ -140,14 +150,20 @@ local function MarkDirty()
     state.dirty = true
 end
 
+-- A new list starts at its top.
+local function StartOver()
+    state.offset = 0
+    MarkDirty()
+end
+
 local function SelectType(meterType)
     if CarpenterDB then CarpenterDB.damageMeterTabType = meterType end
-    MarkDirty()
+    StartOver()
 end
 
 local function SelectSession(sessionType)
     if CarpenterDB then CarpenterDB.damageMeterTabSession = sessionType end
-    MarkDirty()
+    StartOver()
 end
 
 -- =========================
@@ -209,7 +225,7 @@ end
 -- =========================
 -- The text
 -- =========================
-local display, header, menuButton, fader
+local display, header, menuButton
 local rows = {}
 
 local function ChatFont(window)
@@ -325,18 +341,23 @@ local function HeaderText(meterType, sessionType)
     return text .. "|r"
 end
 
--- Which sources fill the lines: the top ones, with the local player kept on
--- the last line when they rank lower, as the game's meter does.
-local function PickSources(sources, capacity)
+-- Which sources fill the lines: those from the scroll position on, with the
+-- local player kept on the first or last line when they are scrolled out of
+-- view, as the game's meter does.
+local function PickSources(sources, capacity, offset)
     local picked = {}
-    local count = math.min(#sources, capacity)
-    for index = 1, count do picked[index] = index end
-    if count > 0 and count < #sources then
-        for index = count + 1, #sources do
-            if sources[index].isLocalPlayer == true then
-                picked[count] = index
-                break
+    local first = offset + 1
+    local last = math.min(#sources, offset + capacity)
+    for index = first, last do picked[#picked + 1] = index end
+    if picked[1] == nil then return picked end
+    for index = 1, #sources do
+        if sources[index].isLocalPlayer == true then
+            if index < first then
+                picked[1] = index
+            elseif index > last then
+                picked[#picked] = index
             end
+            break
         end
     end
     return picked
@@ -359,7 +380,9 @@ local function FillRows(window, lineHeight, capacity)
 
     local session = C_DamageMeter.GetCombatSessionFromType(sessionType, meterType)
     local sources = type(session) == "table" and session.combatSources or {}
-    local picked = PickSources(sources, capacity)
+    state.total = #sources
+    state.offset = math.max(0, math.min(state.offset, state.total - capacity))
+    local picked = PickSources(sources, capacity, state.offset)
     for slot, index in ipairs(picked) do
         local row = GetRow(slot)
         PlaceRow(row, slot, window, lineHeight)
@@ -375,6 +398,7 @@ function DamageMeterTab.Refresh()
 
     local lineHeight = LineHeight(window)
     local capacity = math.max(0, math.floor((display:GetHeight() or 0) / lineHeight) - 1)
+    state.capacity = capacity
     local meterType, sessionType = SelectedType(), SelectedSession()
 
     StyleFontString(header, window)
@@ -388,7 +412,10 @@ local function InCombat()
     return (UnitAffectingCombat and UnitAffectingCombat("player")) and true or false
 end
 
+local MirrorChannelButton
+
 local function OnDisplayUpdate(self, elapsed)
+    MirrorChannelButton()
     self.elapsed = (self.elapsed or 0) + elapsed
     if self.elapsed < REFRESH_SECONDS then return end
     self.elapsed = 0
@@ -399,7 +426,7 @@ local function OnDisplayUpdate(self, elapsed)
 end
 
 -- =========================
--- The menu arrow
+-- The menu button
 -- =========================
 local function SetupMenu(_, rootDescription)
     if rootDescription.SetTag then rootDescription:SetTag("MENU_CARPENTER_DAMAGE_METER_TAB") end
@@ -425,7 +452,7 @@ local function SetupMenu(_, rootDescription)
         rootDescription:CreateDivider()
         rootDescription:CreateButton(_G.DAMAGE_METER_RESET_ALL_SESSIONS or "Reset Data", function()
             C_DamageMeter.ResetAllCombatSessions()
-            MarkDirty()
+            StartOver()
         end)
     end
 end
@@ -434,11 +461,96 @@ local function IsMenuOpen()
     return menuButton and menuButton.IsMenuOpen and menuButton:IsMenuOpen() == true
 end
 
-local function ShouldShowMenuButton()
-    if not display or not display:IsVisible() then return false end
-    if IsMenuOpen() then return true end
-    local window = display:GetParent()
-    return HoverFade.IsMouseOverFrame(window) or HoverFade.IsMouseOverFrame(menuButton)
+local function ChannelButton()
+    return _G.ChatFrameChannelButton
+end
+
+-- The button shows exactly as much as the channels button it covers, so it
+-- fades with Hide Chat Buttons and the chat window, and stays up while its
+-- menu is open.
+function MirrorChannelButton()
+    if not menuButton then return end
+    local channel = ChannelButton()
+    local alpha
+    if IsMenuOpen() then
+        alpha = 1
+    elseif channel then
+        alpha = channel:IsVisible() and (channel:GetEffectiveAlpha() or 1) or 0
+    else
+        alpha = display:GetEffectiveAlpha() or 1
+    end
+    if menuButton:GetAlpha() ~= alpha then
+        menuButton:SetAlpha(alpha)
+    end
+end
+
+-- Over the channels button, a level above it; at the tab's top-right corner
+-- on a client without one.
+local function PlaceMenuButton()
+    if not menuButton then return end
+    local channel = ChannelButton()
+    menuButton:ClearAllPoints()
+    if channel then
+        menuButton:SetPoint("CENTER", channel, "CENTER", 0, 0)
+        menuButton:SetFrameStrata(channel:GetFrameStrata() or "MEDIUM")
+        menuButton:SetFrameLevel((channel:GetFrameLevel() or 0) + 10)
+    else
+        menuButton:SetPoint("TOPRIGHT", display, "TOPRIGHT", 0, MENU_BUTTON_HEIGHT)
+    end
+end
+
+local function HasAtlas(atlas)
+    if not (C_Texture and C_Texture.GetAtlasInfo) then return true end
+    return C_Texture.GetAtlasInfo(atlas) ~= nil
+end
+
+local function CreateMenuButton()
+    local ok, button = pcall(CreateFrame, "DropdownButton", nil, display)
+    if not ok or not button or not button.SetupMenu then return nil end
+    button:SetSize(MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT)
+    button:SetNormalAtlas("chatframe-button-up")
+    button:SetPushedAtlas("chatframe-button-down")
+    button:SetHighlightAtlas("chatframe-button-highlight", "ADD")
+    -- Its own fade, not the chat window's on top of it.
+    button:SetIgnoreParentAlpha(true)
+
+    local icon = button:CreateTexture(nil, "ARTWORK")
+    icon:SetPoint("CENTER", button, "CENTER", 0, 0)
+    if HasAtlas(MENU_ARROW_ATLAS) then
+        icon:SetAtlas(MENU_ARROW_ATLAS)
+        icon:SetSize(MENU_ICON_SIZE, MENU_ICON_SIZE)
+    else
+        icon:SetAtlas(MENU_ARROW_FALLBACK_ATLAS)
+        icon:SetSize(MENU_BUTTON_WIDTH - 4, MENU_BUTTON_HEIGHT - 4)
+    end
+    button.Icon = icon
+
+    if AnchorUtil and AnchorUtil.CreateAnchor and button.SetMenuAnchor then
+        button:SetMenuAnchor(AnchorUtil.CreateAnchor("BOTTOMLEFT", button, "TOPRIGHT", 0, 0))
+    end
+    button:SetupMenu(SetupMenu)
+    button:HookScript("OnEnter", function(self)
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(TabName())
+        GameTooltip:Show()
+    end)
+    button:HookScript("OnLeave", function()
+        if GameTooltip then GameTooltip:Hide() end
+    end)
+    button:SetAlpha(0)
+    return button
+end
+
+-- The wheel moves a line at a time; with Shift it jumps to an end.
+local function OnMouseWheel(_, delta)
+    local maxOffset = math.max(0, state.total - state.capacity)
+    if IsShiftKeyDown and IsShiftKeyDown() then
+        state.offset = delta > 0 and 0 or maxOffset
+    else
+        state.offset = math.max(0, math.min(maxOffset, state.offset - delta))
+    end
+    DamageMeterTab.Refresh()
 end
 
 -- =========================
@@ -448,35 +560,25 @@ local function CreateDisplay()
     if display then return end
     display = CreateFrame("Frame", nil, UIParent)
     display:Hide()
+    -- Clicks pass through to the chat window; the wheel scrolls the lines.
     display:EnableMouse(false)
+    display:EnableMouseWheel(true)
+    display:SetScript("OnMouseWheel", OnMouseWheel)
 
     header = display:CreateFontString(nil, "OVERLAY")
     header:SetJustifyH("LEFT")
     header:SetWordWrap(false)
     header:SetPoint("TOPLEFT", display, "TOPLEFT", 0, 0)
-    header:SetPoint("TOPRIGHT", display, "TOPRIGHT", -24, 0)
+    header:SetPoint("TOPRIGHT", display, "TOPRIGHT", 0, 0)
 
-    local ok, button = pcall(CreateFrame, "DropdownButton", nil, display, "WowStyle1ArrowDropdownTemplate")
-    if ok and button and button.SetupMenu then
-        menuButton = button
-        menuButton:SetPoint("TOPRIGHT", display, "TOPRIGHT", MENU_BUTTON_INSET_X, MENU_BUTTON_INSET_Y)
-        menuButton:SetupMenu(SetupMenu)
-        menuButton:SetAlpha(0)
-        fader = HoverFade.Create({
-            isEnabled = function() return state.active end,
-            shouldShow = ShouldShowMenuButton,
-            apply = function(alpha) menuButton:SetAlpha(alpha) end,
-        })
-    end
+    menuButton = CreateMenuButton()
 
     display:SetScript("OnShow", function(self)
         self.elapsed = 0
         state.dirty = true
+        PlaceMenuButton()
         DamageMeterTab.Refresh()
-        if fader then fader:Start(0) end
-    end)
-    display:SetScript("OnHide", function()
-        if fader then fader:Stop(0) end
+        MirrorChannelButton()
     end)
     display:SetScript("OnUpdate", OnDisplayUpdate)
 end

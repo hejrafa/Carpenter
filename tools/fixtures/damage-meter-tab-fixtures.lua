@@ -65,6 +65,12 @@ local function AddFrameMethods(frame)
     end
     function frame:GetFont() return "Fonts\\ARIALN.TTF", 14, "" end
     function frame:GetSpacing() return 3 end
+    function frame:EnableMouseWheel(enabled) self.wheelEnabled = enabled end
+    function frame:GetEffectiveAlpha()
+        local parent = self.parent
+        if self.ignoreParentAlpha or not (parent and parent.GetEffectiveAlpha) then return self.alpha end
+        return self.alpha * parent:GetEffectiveAlpha()
+    end
     local show, hide = frame.Show, frame.Hide
     function frame:Show()
         local wasVisible = self:IsVisible()
@@ -84,9 +90,18 @@ CreateFrame = function(frameType, frameName, parent, template)
     local frame = AddFrameMethods(H.Frame({ name = frameName, parent = parent, objectType = frameType }))
     H.createdFrames[#H.createdFrames + 1] = frame
     if frameType == "DropdownButton" then
-        if template ~= "WowStyle1ArrowDropdownTemplate" then error("unexpected template " .. tostring(template)) end
+        if template ~= nil then error("unexpected template " .. tostring(template)) end
         function frame:SetupMenu(generator) self.generator = generator end
         function frame:IsMenuOpen() return self.menuOpen == true end
+        function frame:SetMenuAnchor(anchor) self.menuAnchor = anchor end
+        function frame:SetNormalAtlas(atlas) self.normalAtlas = atlas end
+        function frame:SetPushedAtlas(atlas) self.pushedAtlas = atlas end
+        function frame:SetHighlightAtlas(atlas) self.highlightAtlas = atlas end
+        function frame:CreateTexture()
+            local texture = H.Frame({ parent = self })
+            function texture:SetAtlas(atlas) self.atlas = atlas end
+            return texture
+        end
         menuButtons[#menuButtons + 1] = frame
     end
     return frame
@@ -94,6 +109,15 @@ end
 H.installHooks()
 H.installTimers("immediate")
 UIParent = AddFrameMethods(H.Frame({ name = "UIParent" }))
+AnchorUtil = { CreateAnchor = function(...) return { ... } end }
+local knownAtlases = { ["friendslist-categorybutton-arrow-down"] = true }
+C_Texture = { GetAtlasInfo = function(atlas) if knownAtlases[atlas] then return {} end end }
+local shiftDown = false
+IsShiftKeyDown = function() return shiftDown end
+
+-- The chat button column's channels button, faded by Hide Chat Buttons.
+local channelColumn = AddFrameMethods(H.Frame({ name = "ChatFrame1ButtonFrame" }))
+ChatFrameChannelButton = AddFrameMethods(H.Frame({ name = "ChatFrameChannelButton", parent = channelColumn, strata = "MEDIUM", level = 6 }))
 
 -- =========================
 -- Chat windows
@@ -332,30 +356,40 @@ assertTrue(names[3] == nil, "nothing should show past the window's height")
 ChatFrame3.height = 120
 
 -- =========================
--- The menu arrow shows on hover.
+-- The menu button covers the channels button and fades with it.
 -- =========================
 local button = menuButtons[1]
-if not button then fail("the tab should have a menu arrow") end
-local faderFrame
-for _, frame in ipairs(H.createdFrames) do
-    if frame.scripts.OnUpdate and frame ~= display and frame.shown then faderFrame = frame end
-end
-if not faderFrame then fail("the menu arrow should fade with the mouse") end
-local function Settle()
-    for _ = 1, 20 do faderFrame.scripts.OnUpdate(faderFrame, 0.1) end
-end
-Settle()
-assertEqual(button.alpha, 0, "the arrow should stay hidden without the mouse")
-ChatFrame3.mouseOver = true
-Settle()
-assertEqual(button.alpha, 1, "the arrow should show while the mouse is over the tab")
-ChatFrame3.mouseOver = false
+if not button then fail("the tab should have a menu button") end
+local function Tick() display.scripts.OnUpdate(display, 0.01) end
+local point = button.points[1]
+assertEqual(point and point[2], ChatFrameChannelButton, "the menu button should sit on the channels button")
+assertEqual(button.strata, "MEDIUM", "the menu button should share the channels button's strata")
+assertEqual(button.level, 16, "the menu button should sit above the channels button")
+assertEqual(button.normalAtlas, "chatframe-button-up", "the menu button should use the chat button art")
+assertEqual(button.ignoreParentAlpha, true, "the menu button should fade on its own")
+
+ChatFrameChannelButton.alpha = 0
+Tick()
+assertEqual(button.alpha, 0, "a faded channels button should hide the menu button")
+ChatFrameChannelButton.alpha = 0.4
+Tick()
+assertEqual(button.alpha, 0.4, "the menu button should fade with the channels button")
+channelColumn.alpha = 0.5
+ChatFrameChannelButton.alpha = 1
+Tick()
+assertEqual(button.alpha, 0.5, "the menu button should follow the whole column's fade")
+channelColumn.alpha = 1
+ChatFrameChannelButton.alpha = 0
 button.menuOpen = true
-Settle()
-assertEqual(button.alpha, 1, "the arrow should stay while its menu is open")
+Tick()
+assertEqual(button.alpha, 1, "the menu button should stay while its menu is open")
 button.menuOpen = false
-Settle()
-assertEqual(button.alpha, 0, "the arrow should fade once the mouse leaves")
+ChatFrameChannelButton.shown = false
+Tick()
+assertEqual(button.alpha, 0, "a hidden channels button should hide the menu button")
+ChatFrameChannelButton.shown, ChatFrameChannelButton.alpha = true, 1
+Tick()
+assertEqual(button.alpha, 1, "a shown channels button should show the menu button")
 
 -- The menu picks the type and segment and resets the data.
 local root = { items = {} }
@@ -396,6 +430,59 @@ assertEqual(request.meterType, Types.Dps, "the tab should follow the picked type
 assertEqual(request.sessionType, Sessions.Overall, "the tab should follow the picked segment")
 resetButton.callback()
 assertEqual(meter.resets, 1, "the reset should clear the meter")
+
+-- =========================
+-- The wheel scrolls the lines.
+-- =========================
+assertEqual(display.wheelEnabled, true, "the tab should take the mouse wheel")
+assertTrue(display.mouseEnabled ~= true, "clicks should pass through to the chat window")
+CarpenterDB.damageMeterTabType, CarpenterDB.damageMeterTabSession = nil, nil
+meter.sources = {}
+for index = 1, 9 do
+    meter.sources[index] = { name = "P" .. index, classFilename = "PRIEST", total = 1000 - index, perSecond = 1,
+        isLocalPlayer = index == 2 }
+end
+ChatFrame3.height = 17 * 4 + 5
+Tab.Refresh()
+local Wheel = display.scripts.OnMouseWheel
+header, names = Read(display)
+assertEqual(names[1] and names[1].text, "1. P1", "the list should start at the top")
+assertEqual(names[3] and names[3].text, "3. P3", "three lines should fit")
+Wheel(display, -1)
+header, names = Read(display)
+assertEqual(names[1] and names[1].text, "2. P2", "the wheel down should move one line")
+assertEqual(names[3] and names[3].text, "4. P4", "the wheel down should bring the next line in")
+Wheel(display, -1)
+header, names = Read(display)
+assertEqual(names[1] and names[1].text, "2. P2", "the local player should keep the first line once scrolled past")
+assertEqual(names[2] and names[2].text, "4. P4", "the lines after it should follow the scroll")
+shiftDown = true
+Wheel(display, -1)
+header, names = Read(display)
+assertEqual(names[3] and names[3].text, "9. P9", "Shift and the wheel down should jump to the bottom")
+Wheel(display, -1)
+header, names = Read(display)
+assertEqual(names[3] and names[3].text, "9. P9", "the wheel should stop at the bottom")
+Wheel(display, 1)
+header, names = Read(display)
+assertEqual(names[1] and names[1].text, "1. P1", "Shift and the wheel up should jump to the top")
+shiftDown = false
+Wheel(display, 1)
+header, names = Read(display)
+assertEqual(names[1] and names[1].text, "1. P1", "the wheel should stop at the top")
+Wheel(display, -1)
+Wheel(display, -1)
+dpsRadio.setSelected(dpsRadio.data)
+display.scripts.OnUpdate(display, 0.6)
+header, names = Read(display)
+assertEqual(names[1] and names[1].text, "1. P1", "a new type should start at the top")
+Wheel(display, -1)
+meter.sources = { meter.sources[1], meter.sources[2] }
+Tab.Refresh()
+header, names = Read(display)
+assertEqual(names[1] and names[1].text, "1. P1", "a shorter list should scroll back into view")
+ChatFrame3.height = 120
+CarpenterDB.damageMeterTabType = nil
 
 -- =========================
 -- A meter that is off says so.
