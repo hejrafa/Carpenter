@@ -43,7 +43,7 @@ local TITLE_R, TITLE_G, TITLE_B = 1, 0.82, 0
 local MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT, MENU_ICON_SIZE = 27, 26, 15
 -- The arrow sits high and left in its art; this centers it on the button's
 -- face. Pressed, it moves with the face as the chat buttons' icons do.
-local MENU_ICON_OFFSET_X, MENU_ICON_OFFSET_Y = 1.5, -2
+local MENU_ICON_OFFSET_X, MENU_ICON_OFFSET_Y = 1.5, -4
 local MENU_ICON_PUSHED_X, MENU_ICON_PUSHED_Y = -1, -2
 local MENU_ARROW_ATLAS = "friendslist-categorybutton-arrow-down"
 local MENU_ARROW_FALLBACK_ATLAS = "common-dropdown-a-button-shadowless"
