@@ -208,6 +208,9 @@ C_DamageMeter = {
 }
 UnitAffectingCombat = function() return meter.inCombat end
 
+-- The game's floating meter window; it shows itself as its settings say.
+DamageMeter = AddFrameMethods(H.Frame({ name = "DamageMeter", shown = true }))
+
 -- =========================
 -- Carpenter
 -- =========================
@@ -236,15 +239,19 @@ local function Display()
     end
 end
 
--- The text on the display, by line: header, then "name | value".
+-- The text on the display, by line: header, then "name | value". The
+-- header's right side lands in headerRightText.
+local headerRightText
 local function Read(display)
     local header, names, values = nil, {}, {}
     for _, region in ipairs(display.children or {}) do
         if region.shown and region.points[1] then
             local point, _, _, _, y = unpack(region.points[1])
             local line = math.floor(-(y or 0) / 17 + 0.5)
-            if line == 0 and point == "TOPLEFT" and region.points[2] and region.points[2][1] == "TOPRIGHT" then
+            if line == 0 and point == "TOPLEFT" then
                 header = region.text
+            elseif line == 0 and point == "TOPRIGHT" then
+                headerRightText = region.text
             elseif point == "TOPLEFT" then
                 names[line] = region
             elseif point == "TOPRIGHT" and region.objectType ~= "DropdownButton" then
@@ -265,6 +272,17 @@ end
 feature.enabled = true
 feature:Enable()
 assertEqual(#opened, 0, "enabling before login should not open a chat window")
+assertEqual(DamageMeter.shown, false, "the game's floating meter should hide")
+DamageMeter:SetShown(true)
+assertEqual(DamageMeter.shown, false, "the floating meter should stay hidden when the game shows it")
+DamageMeter:Show()
+assertEqual(DamageMeter.shown, false, "the floating meter should stay hidden after Show")
+DamageMeter.isEditing = true
+DamageMeter:SetShown(true)
+assertEqual(DamageMeter.shown, true, "the floating meter should show in Edit Mode")
+DamageMeter.isEditing = false
+DamageMeter:SetShown(true)
+assertEqual(DamageMeter.shown, false, "the floating meter should hide again after Edit Mode")
 Fire("PLAYER_ENTERING_WORLD")
 assertEqual(#opened, 0, "login should not open a chat window on its own")
 assertEqual(#popups, 0, "login should not ask for a reload")
@@ -294,7 +312,8 @@ assertEqual(display.allPoints, ChatFrame3, "the display should cover the chat wi
 assertTrue(display:IsVisible(), "the display should show with its tab")
 
 local header, names, values = Read(display)
-assertEqual(StripColors(header), "Damage Done  Current Segment [1:23]", "the header should name the type, segment and time")
+assertEqual(header, "Damage Done", "the header should name the type on the left")
+assertEqual(headerRightText, "Current Segment [1:23]", "the header should show the segment and time on the right")
 assertEqual(names[1] and names[1].text, "1. Koji Hakamori", "the first line should be the top source")
 assertEqual(values[1] and values[1].text, "1491 (124.3)", "the first value should be total and per second")
 assertEqual(names[2] and names[2].text, "2. Suggo Battsuggovic", "the second line should be the next source")
@@ -315,7 +334,7 @@ display.scripts.OnUpdate(display, 0.6)
 header, names, values = Read(display)
 assertEqual(values[1] and values[1].text, "2500 (124.3)", "hidden amounts should still show")
 assertEqual(names[1] and names[1].text, "1. Koji Hakamori", "hidden names should still show")
-assertEqual(StripColors(header), "Damage Done  Current Segment", "a hidden segment time should be left out")
+assertEqual(headerRightText, "Current Segment", "a hidden segment time should be left out")
 meter.inCombat = false
 
 -- =========================
@@ -367,6 +386,8 @@ assertEqual(button.strata, "MEDIUM", "the menu button should share the channels 
 assertEqual(button.level, 16, "the menu button should sit above the channels button")
 assertEqual(button.normalAtlas, "chatframe-button-up", "the menu button should use the chat button art")
 assertEqual(button.ignoreParentAlpha, true, "the menu button should fade on its own")
+assertEqual(button.parent, UIParent, "the menu button should not be drawn inside the chat window")
+assertEqual(button.shown, true, "the menu button should show with the tab")
 
 ChatFrameChannelButton.alpha = 0
 Tick()
@@ -497,10 +518,21 @@ meter.enabled = true
 -- Turning the option off closes the tab.
 -- =========================
 popups = {}
+-- Out of combat the game hides its meter (shown only in combat), then the
+-- option goes off: the meter stays as the game left it.
+DamageMeter:SetShown(false)
 feature:Disable()
+assertEqual(DamageMeter.shown, false, "turning off should leave a meter the game hid hidden")
+DamageMeter:SetShown(true)
 assertEqual(closed[1], 3, "turning the option off should close the tab")
 assertEqual(popups[1], "CARPENTER_DAMAGE_METER_TAB_RELOAD", "closing the tab should ask for a reload")
 assertTrue(not display:IsVisible(), "the display should hide")
+assertEqual(button.shown, false, "the menu button should hide with the tab")
+assertEqual(DamageMeter.shown, true, "with the option off the game should show its meter again")
+DamageMeter:SetShown(false)
+assertEqual(DamageMeter.shown, false, "with the option off the game should hide its meter as it likes")
+DamageMeter:SetShown(true)
+assertEqual(DamageMeter.shown, true, "with the option off the game should show its meter as it likes")
 
 -- =========================
 -- After the reload the game restores the tab, and it is only drawn on.
@@ -512,6 +544,9 @@ feature:Enable()
 assertEqual(#opened, 0, "an existing tab should not be opened again")
 assertEqual(#popups, 0, "drawing on an existing tab should not ask for a reload")
 assertEqual(display.parent, ChatFrame4, "the display should move to the existing tab")
+assertEqual(DamageMeter.shown, false, "turning on again should hide the floating meter")
+feature:Disable()
+assertEqual(DamageMeter.shown, true, "turning off should bring back a floating meter the game wants shown")
 
 -- The General and Combat Log windows are never taken, whatever their names.
 windows[1].name, windows[4].shown = "Damage Meter", false

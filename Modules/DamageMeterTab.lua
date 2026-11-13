@@ -1,13 +1,15 @@
 --[[ Carpenter - Damage Meter Tab ]]
 -- Shows the game's damage meter as plain text in a chat tab of its own, on
--- Retail and WoW Forever: a yellow title line with the meter type and
--- segment, then one line per player, "1. Name" in class color on the left
+-- Retail and WoW Forever: a title line with the meter type in yellow on the
+-- left and the segment and its time on the right, then one line per player, "1. Name" in class color on the left
 -- and "total (per second)" on the right, in the chat window's own font. The
 -- mouse wheel scrolls the lines (Shift jumps to the top or bottom). While the
 -- tab is open, a button with an arrow takes the chat channels button's place
 -- in the chat button column and fades with it; it picks the meter type and
 -- segment and resets the data. It sits over the channels button rather than
 -- moving it, so Hide Chat Buttons and the game keep control of that button.
+-- The game's own floating meter window stays hidden while the option is on,
+-- except in Edit Mode, where it can still be placed and set up.
 --
 -- The tab is a real chat window named after the game's "Damage Meter" label
 -- and set to receive no chat, so docking, resizing, fading and the
@@ -225,7 +227,7 @@ end
 -- =========================
 -- The text
 -- =========================
-local display, header, menuButton
+local display, header, headerRight, menuButton
 local rows = {}
 
 local function ChatFont(window)
@@ -329,8 +331,9 @@ local function UnavailableReason()
     return nil
 end
 
-local function HeaderText(meterType, sessionType)
-    local text = "|cffffd200" .. TypeName(meterType) .. "|r  |cff999999" .. SessionName(sessionType)
+-- The segment, with its time once it has one.
+local function SegmentText(sessionType)
+    local text = SessionName(sessionType)
     if C_DamageMeter and C_DamageMeter.GetSessionDurationSeconds and SecondsToClock then
         local ok, seconds = pcall(C_DamageMeter.GetSessionDurationSeconds, sessionType)
         local hidden = issecretvalue and issecretvalue(seconds)
@@ -338,7 +341,7 @@ local function HeaderText(meterType, sessionType)
             text = text .. " [" .. SecondsToClock(seconds) .. "]"
         end
     end
-    return text .. "|r"
+    return text
 end
 
 -- Which sources fill the lines: those from the scroll position on, with the
@@ -402,7 +405,11 @@ function DamageMeterTab.Refresh()
     local meterType, sessionType = SelectedType(), SelectedSession()
 
     StyleFontString(header, window)
-    header:SetText(HeaderText(meterType, sessionType))
+    StyleFontString(headerRight, window)
+    header:SetText(TypeName(meterType))
+    header:SetTextColor(1, 0.82, 0)
+    headerRight:SetText(SegmentText(sessionType))
+    headerRight:SetTextColor(0.6, 0.6, 0.6)
 
     -- A failure keeps the lines already shown rather than blanking the tab.
     pcall(FillRows, window, lineHeight, capacity)
@@ -505,7 +512,9 @@ local function HasAtlas(atlas)
 end
 
 local function CreateMenuButton()
-    local ok, button = pcall(CreateFrame, "DropdownButton", nil, display)
+    -- Not a child of the chat window, which wouldn't draw it out in the
+    -- button column; it shows and hides with the tab instead.
+    local ok, button = pcall(CreateFrame, "DropdownButton", nil, UIParent)
     if not ok or not button or not button.SetupMenu then return nil end
     button:SetSize(MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT)
     button:SetNormalAtlas("chatframe-button-up")
@@ -539,6 +548,7 @@ local function CreateMenuButton()
         if GameTooltip then GameTooltip:Hide() end
     end)
     button:SetAlpha(0)
+    button:Hide()
     return button
 end
 
@@ -565,11 +575,16 @@ local function CreateDisplay()
     display:EnableMouseWheel(true)
     display:SetScript("OnMouseWheel", OnMouseWheel)
 
+    headerRight = display:CreateFontString(nil, "OVERLAY")
+    headerRight:SetJustifyH("RIGHT")
+    headerRight:SetWordWrap(false)
+    headerRight:SetPoint("TOPRIGHT", display, "TOPRIGHT", 0, 0)
+
     header = display:CreateFontString(nil, "OVERLAY")
     header:SetJustifyH("LEFT")
     header:SetWordWrap(false)
     header:SetPoint("TOPLEFT", display, "TOPLEFT", 0, 0)
-    header:SetPoint("TOPRIGHT", display, "TOPRIGHT", 0, 0)
+    header:SetPoint("RIGHT", headerRight, "LEFT", -VALUE_GAP, 0)
 
     menuButton = CreateMenuButton()
 
@@ -577,8 +592,12 @@ local function CreateDisplay()
         self.elapsed = 0
         state.dirty = true
         PlaceMenuButton()
+        if menuButton then menuButton:Show() end
         DamageMeterTab.Refresh()
         MirrorChannelButton()
+    end)
+    display:SetScript("OnHide", function()
+        if menuButton then menuButton:Hide() end
     end)
     display:SetScript("OnUpdate", OnDisplayUpdate)
 end
@@ -606,6 +625,55 @@ local function Detach()
 end
 
 -- =========================
+-- The game's own meter window
+-- =========================
+-- What the game last asked for, so turning the option off shows the window
+-- only when the game wants it shown.
+local floatingMeter = { hooked = false, wanted = false, hiding = false }
+
+local function FloatingMeterFrame()
+    return _G.DamageMeter
+end
+
+-- The meter sets this before it shows or hides itself for Edit Mode.
+local function IsEditingFloatingMeter(frame)
+    return frame.isEditing == true
+end
+
+function DamageMeterTab.ApplyFloatingMeter()
+    local frame = FloatingMeterFrame()
+    if not frame or not floatingMeter.hooked then return end
+    floatingMeter.hiding = true
+    if state.active and not IsEditingFloatingMeter(frame) then
+        if frame:IsShown() then frame:Hide() end
+    elseif floatingMeter.wanted and not frame:IsShown() then
+        frame:Show()
+    end
+    floatingMeter.hiding = false
+end
+
+local function OnFloatingMeterShownRequested(shown)
+    if floatingMeter.hiding then return end
+    floatingMeter.wanted = shown and true or false
+    DamageMeterTab.ApplyFloatingMeter()
+end
+
+-- Post-hooks on the window's own Show, Hide and SetShown: the game decides
+-- when it shows (combat, group, Edit Mode), and it is hidden again right
+-- after, without running the meter's code.
+local function HookFloatingMeter()
+    if floatingMeter.hooked then return true end
+    local frame = FloatingMeterFrame()
+    if not frame or type(frame.SetShown) ~= "function" then return false end
+    floatingMeter.hooked = true
+    floatingMeter.wanted = frame:IsShown() and true or false
+    Carpenter:SafeHook(frame, "Show", function() OnFloatingMeterShownRequested(true) end)
+    Carpenter:SafeHook(frame, "Hide", function() OnFloatingMeterShownRequested(false) end)
+    Carpenter:SafeHook(frame, "SetShown", function(_, shown) OnFloatingMeterShownRequested(shown) end)
+    return true
+end
+
+-- =========================
 -- Events
 -- =========================
 local eventFrame = CreateFrame("Frame")
@@ -615,8 +683,13 @@ local function TryAttach()
     Attach(DamageMeterTab.FindWindow())
 end
 
-eventFrame:SetScript("OnEvent", function(_, event)
-    if event == "PLAYER_ENTERING_WORLD" then
+eventFrame:SetScript("OnEvent", function(_, event, addonName)
+    if event == "ADDON_LOADED" then
+        if addonName == "Blizzard_DamageMeter" and HookFloatingMeter() then
+            eventFrame:UnregisterEvent("ADDON_LOADED")
+            DamageMeterTab.ApplyFloatingMeter()
+        end
+    elseif event == "PLAYER_ENTERING_WORLD" then
         Carpenter:After(LOGIN_SETTLE_SECONDS, function()
             state.chatReady = true
             TryAttach()
@@ -644,6 +717,11 @@ local feature = {}
 
 function feature:Enable()
     state.active = true
+    if HookFloatingMeter() then
+        DamageMeterTab.ApplyFloatingMeter()
+    else
+        Carpenter:SafeRegisterEvent(eventFrame, "ADDON_LOADED")
+    end
     Carpenter:SafeRegisterEvent(eventFrame, "UPDATE_CHAT_WINDOWS")
     for _, event in ipairs(METER_EVENTS) do
         Carpenter:SafeRegisterEvent(eventFrame, event)
@@ -658,6 +736,8 @@ end
 
 function feature:Disable()
     state.active = false
+    eventFrame:UnregisterEvent("ADDON_LOADED")
+    DamageMeterTab.ApplyFloatingMeter()
     eventFrame:UnregisterEvent("UPDATE_CHAT_WINDOWS")
     for _, event in ipairs(METER_EVENTS) do
         eventFrame:UnregisterEvent(event)
