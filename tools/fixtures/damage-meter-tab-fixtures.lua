@@ -115,9 +115,12 @@ C_Texture = { GetAtlasInfo = function(atlas) if knownAtlases[atlas] then return 
 local shiftDown = false
 IsShiftKeyDown = function() return shiftDown end
 
--- The chat button column's channels button, faded by Hide Chat Buttons.
-local channelColumn = AddFrameMethods(H.Frame({ name = "ChatFrame1ButtonFrame" }))
+-- The chat button column. The channels button belongs to the General
+-- window's buttons and hides with it while another tab is open; the social
+-- button stays, faded by Hide Chat Buttons.
+local channelColumn = AddFrameMethods(H.Frame({ name = "ChatFrame1ButtonFrame", shown = false }))
 ChatFrameChannelButton = AddFrameMethods(H.Frame({ name = "ChatFrameChannelButton", parent = channelColumn, strata = "MEDIUM", level = 6 }))
+QuickJoinToastButton = AddFrameMethods(H.Frame({ name = "QuickJoinToastButton", parent = UIParent }))
 
 -- =========================
 -- Chat windows
@@ -314,9 +317,9 @@ assertTrue(display:IsVisible(), "the display should show with its tab")
 local header, names, values = Read(display)
 assertEqual(header, "Damage Done", "the header should name the type on the left")
 assertEqual(headerRightText, "Current Segment [1:23]", "the header should show the segment and time on the right")
-assertEqual(names[1] and names[1].text, "1. Koji Hakamori", "the first line should be the top source")
+assertEqual(names[1] and names[1].text, "Koji Hakamori", "the first line should be the top source, without a rank")
 assertEqual(values[1] and values[1].text, "1491 (124.3)", "the first value should be total and per second")
-assertEqual(names[2] and names[2].text, "2. Suggo Battsuggovic", "the second line should be the next source")
+assertEqual(names[2] and names[2].text, "Suggo Battsuggovic", "the second line should be the next source")
 assertEqual(names[1].color[1], 1.00, "names should be in class color")
 assertEqual(names[1].color[2], 0.96, "names should be in class color")
 assertEqual(names[1].font[2], 14, "lines should use the chat window's font size")
@@ -333,7 +336,7 @@ Fire("DAMAGE_METER_COMBAT_SESSION_UPDATED", Types.DamageDone, 1)
 display.scripts.OnUpdate(display, 0.6)
 header, names, values = Read(display)
 assertEqual(values[1] and values[1].text, "2500 (124.3)", "hidden amounts should still show")
-assertEqual(names[1] and names[1].text, "1. Koji Hakamori", "hidden names should still show")
+assertEqual(names[1] and names[1].text, "Koji Hakamori", "hidden names should still show")
 assertEqual(headerRightText, "Current Segment", "a hidden segment time should be left out")
 meter.inCombat = false
 
@@ -369,8 +372,8 @@ meter.sources = {
 ChatFrame3.height = 17 * 3 + 5
 Tab.Refresh()
 header, names, values = Read(display)
-assertEqual(names[1] and names[1].text, "1. A", "the top source should keep the first line")
-assertEqual(names[2] and names[2].text, "4. Koji Hakamori", "the local player should take the last line")
+assertEqual(names[1] and names[1].text, "A", "the top source should keep the first line")
+assertEqual(names[2] and names[2].text, "4. Koji Hakamori", "the local player should take the last line, with its rank")
 assertTrue(names[3] == nil, "nothing should show past the window's height")
 ChatFrame3.height = 120
 
@@ -389,28 +392,29 @@ assertEqual(button.ignoreParentAlpha, true, "the menu button should fade on its 
 assertEqual(button.parent, UIParent, "the menu button should not be drawn inside the chat window")
 assertEqual(button.shown, true, "the menu button should show with the tab")
 
-ChatFrameChannelButton.alpha = 0
+QuickJoinToastButton.alpha = 0
 Tick()
-assertEqual(button.alpha, 0, "a faded channels button should hide the menu button")
-ChatFrameChannelButton.alpha = 0.4
+assertEqual(button.alpha, 0, "a faded social button should hide the menu button")
+QuickJoinToastButton.alpha = 0.4
 Tick()
-assertEqual(button.alpha, 0.4, "the menu button should fade with the channels button")
-channelColumn.alpha = 0.5
-ChatFrameChannelButton.alpha = 1
+assertEqual(button.alpha, 0.4, "the menu button should fade with the chat buttons beside it")
+QuickJoinToastButton.alpha = 1
 Tick()
-assertEqual(button.alpha, 0.5, "the menu button should follow the whole column's fade")
-channelColumn.alpha = 1
-ChatFrameChannelButton.alpha = 0
+assertEqual(button.alpha, 1, "the menu button should show with the chat buttons")
+QuickJoinToastButton.alpha = 0
 button.menuOpen = true
 Tick()
 assertEqual(button.alpha, 1, "the menu button should stay while its menu is open")
 button.menuOpen = false
-ChatFrameChannelButton.shown = false
+-- Without the social button it follows whichever chat button still shows.
+QuickJoinToastButton.shown = false
+channelColumn.shown, channelColumn.alpha, ChatFrameChannelButton.alpha = true, 0.5, 1
 Tick()
-assertEqual(button.alpha, 0, "a hidden channels button should hide the menu button")
-ChatFrameChannelButton.shown, ChatFrameChannelButton.alpha = true, 1
+assertEqual(button.alpha, 0.5, "the menu button should follow another visible chat button")
+channelColumn.shown, channelColumn.alpha = false, 1
 Tick()
-assertEqual(button.alpha, 1, "a shown channels button should show the menu button")
+assertEqual(button.alpha, 1, "with no chat button showing the menu button should stay up")
+QuickJoinToastButton.shown, QuickJoinToastButton.alpha = true, 1
 
 -- The menu picks the type and segment and resets the data.
 local root = { items = {} }
@@ -467,41 +471,41 @@ ChatFrame3.height = 17 * 4 + 5
 Tab.Refresh()
 local Wheel = display.scripts.OnMouseWheel
 header, names = Read(display)
-assertEqual(names[1] and names[1].text, "1. P1", "the list should start at the top")
-assertEqual(names[3] and names[3].text, "3. P3", "three lines should fit")
+assertEqual(names[1] and names[1].text, "P1", "the list should start at the top")
+assertEqual(names[3] and names[3].text, "P3", "three lines should fit")
 Wheel(display, -1)
 header, names = Read(display)
-assertEqual(names[1] and names[1].text, "2. P2", "the wheel down should move one line")
-assertEqual(names[3] and names[3].text, "4. P4", "the wheel down should bring the next line in")
+assertEqual(names[1] and names[1].text, "P2", "the wheel down should move one line")
+assertEqual(names[3] and names[3].text, "P4", "the wheel down should bring the next line in")
 Wheel(display, -1)
 header, names = Read(display)
-assertEqual(names[1] and names[1].text, "2. P2", "the local player should keep the first line once scrolled past")
-assertEqual(names[2] and names[2].text, "4. P4", "the lines after it should follow the scroll")
+assertEqual(names[1] and names[1].text, "2. P2", "the local player should keep the first line once scrolled past, with its rank")
+assertEqual(names[2] and names[2].text, "P4", "the lines after it should follow the scroll")
 shiftDown = true
 Wheel(display, -1)
 header, names = Read(display)
-assertEqual(names[3] and names[3].text, "9. P9", "Shift and the wheel down should jump to the bottom")
+assertEqual(names[3] and names[3].text, "P9", "Shift and the wheel down should jump to the bottom")
 Wheel(display, -1)
 header, names = Read(display)
-assertEqual(names[3] and names[3].text, "9. P9", "the wheel should stop at the bottom")
+assertEqual(names[3] and names[3].text, "P9", "the wheel should stop at the bottom")
 Wheel(display, 1)
 header, names = Read(display)
-assertEqual(names[1] and names[1].text, "1. P1", "Shift and the wheel up should jump to the top")
+assertEqual(names[1] and names[1].text, "P1", "Shift and the wheel up should jump to the top")
 shiftDown = false
 Wheel(display, 1)
 header, names = Read(display)
-assertEqual(names[1] and names[1].text, "1. P1", "the wheel should stop at the top")
+assertEqual(names[1] and names[1].text, "P1", "the wheel should stop at the top")
 Wheel(display, -1)
 Wheel(display, -1)
 dpsRadio.setSelected(dpsRadio.data)
 display.scripts.OnUpdate(display, 0.6)
 header, names = Read(display)
-assertEqual(names[1] and names[1].text, "1. P1", "a new type should start at the top")
+assertEqual(names[1] and names[1].text, "P1", "a new type should start at the top")
 Wheel(display, -1)
 meter.sources = { meter.sources[1], meter.sources[2] }
 Tab.Refresh()
 header, names = Read(display)
-assertEqual(names[1] and names[1].text, "1. P1", "a shorter list should scroll back into view")
+assertEqual(names[1] and names[1].text, "P1", "a shorter list should scroll back into view")
 ChatFrame3.height = 120
 CarpenterDB.damageMeterTabType = nil
 

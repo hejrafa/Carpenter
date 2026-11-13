@@ -1,13 +1,18 @@
 --[[ Carpenter - Damage Meter Tab ]]
 -- Shows the game's damage meter as plain text in a chat tab of its own, on
 -- Retail and WoW Forever: a title line with the meter type in yellow on the
--- left and the segment and its time on the right, then one line per player, "1. Name" in class color on the left
--- and "total (per second)" on the right, in the chat window's own font. The
--- mouse wheel scrolls the lines (Shift jumps to the top or bottom). While the
--- tab is open, a button with an arrow takes the chat channels button's place
--- in the chat button column and fades with it; it picks the meter type and
--- segment and resets the data. It sits over the channels button rather than
--- moving it, so Hide Chat Buttons and the game keep control of that button.
+-- left and the segment and its time on the right, then one line per player,
+-- the name in class color on the left and "total (per second)" on the right,
+-- in the chat window's own font. The order shows the ranking, so a name only
+-- carries its rank when it is pinned out of order. The mouse wheel scrolls
+-- the lines (Shift jumps to the top or bottom).
+--
+-- While the tab is open, a chat button with an arrow sits where the chat
+-- channels button is. That button belongs to the General window's button
+-- column and hides with it on other tabs, so the arrow takes its place there
+-- and fades like the chat buttons still showing beside it. It picks the
+-- meter type and segment and resets the data.
+--
 -- The game's own floating meter window stays hidden while the option is on,
 -- except in Edit Mode, where it can still be placed and set up.
 --
@@ -32,6 +37,10 @@ local VALUE_GAP = 8
 local FALLBACK_FONT_SIZE = 14
 -- The chat button column's art, as on the channels button.
 local MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT, MENU_ICON_SIZE = 27, 26, 15
+-- The arrow sits high and left in its art; this centers it on the button's
+-- face. Pressed, it moves with the face as the chat buttons' icons do.
+local MENU_ICON_OFFSET_X, MENU_ICON_OFFSET_Y = 1.5, -2
+local MENU_ICON_PUSHED_X, MENU_ICON_PUSHED_Y = -1, -2
 local MENU_ARROW_ATLAS = "friendslist-categorybutton-arrow-down"
 local MENU_ARROW_FALLBACK_ATLAS = "common-dropdown-a-button-shadowless"
 
@@ -285,8 +294,12 @@ end
 
 -- Every field but the class and the local player flag may be hidden in
 -- combat, so each goes to the text as it is.
-local function FillRow(row, index, source, meterType)
-    row.name:SetFormattedText(_G.DAMAGE_METER_SOURCE_NAME or "%d. %s", index, source.name)
+local function FillRow(row, index, source, meterType, showRank)
+    if showRank then
+        row.name:SetFormattedText(_G.DAMAGE_METER_SOURCE_NAME or "%d. %s", index, source.name)
+    else
+        row.name:SetText(source.name)
+    end
     row.name:SetTextColor(ClassColor(source.classFilename))
 
     local main, extra = source.totalAmount, source.amountPerSecond
@@ -389,7 +402,9 @@ local function FillRows(window, lineHeight, capacity)
     for slot, index in ipairs(picked) do
         local row = GetRow(slot)
         PlaceRow(row, slot, window, lineHeight)
-        FillRow(row, index, sources[index], meterType)
+        -- A line shows its rank only when it is out of order: the local
+        -- player pinned to the first or last line.
+        FillRow(row, index, sources[index], meterType, index ~= state.offset + slot)
     end
     HideRows(#picked + 1)
 end
@@ -472,19 +487,24 @@ local function ChannelButton()
     return _G.ChatFrameChannelButton
 end
 
--- The button shows exactly as much as the channels button it covers, so it
--- fades with Hide Chat Buttons and the chat window, and stays up while its
--- menu is open.
+-- Chat buttons that stay in the column whichever tab is open, first to last.
+-- On this tab the channels and chat menu buttons are hidden with the General
+-- window, so it is usually the social button.
+local COLUMN_BUTTONS = { "QuickJoinToastButton", "ChatFrameMenuButton", "ChatFrameChannelButton" }
+
+-- The button shows as much as the chat buttons beside it, so it fades with
+-- Hide Chat Buttons and the chat window, and stays up while its menu is open.
 function MirrorChannelButton()
     if not menuButton then return end
-    local channel = ChannelButton()
-    local alpha
-    if IsMenuOpen() then
-        alpha = 1
-    elseif channel then
-        alpha = channel:IsVisible() and (channel:GetEffectiveAlpha() or 1) or 0
-    else
-        alpha = display:GetEffectiveAlpha() or 1
+    local alpha = 1
+    if not IsMenuOpen() then
+        for _, name in ipairs(COLUMN_BUTTONS) do
+            local button = _G[name]
+            if button and button.IsVisible and button:IsVisible() then
+                alpha = button:GetEffectiveAlpha() or 1
+                break
+            end
+        end
     end
     if menuButton:GetAlpha() ~= alpha then
         menuButton:SetAlpha(alpha)
@@ -524,7 +544,7 @@ local function CreateMenuButton()
     button:SetIgnoreParentAlpha(true)
 
     local icon = button:CreateTexture(nil, "ARTWORK")
-    icon:SetPoint("CENTER", button, "CENTER", 0, 0)
+    icon:SetPoint("CENTER", button, "CENTER", MENU_ICON_OFFSET_X, MENU_ICON_OFFSET_Y)
     if HasAtlas(MENU_ARROW_ATLAS) then
         icon:SetAtlas(MENU_ARROW_ATLAS)
         icon:SetSize(MENU_ICON_SIZE, MENU_ICON_SIZE)
@@ -546,6 +566,13 @@ local function CreateMenuButton()
     end)
     button:HookScript("OnLeave", function()
         if GameTooltip then GameTooltip:Hide() end
+    end)
+    button:HookScript("OnMouseDown", function()
+        icon:SetPoint("CENTER", button, "CENTER",
+            MENU_ICON_OFFSET_X + MENU_ICON_PUSHED_X, MENU_ICON_OFFSET_Y + MENU_ICON_PUSHED_Y)
+    end)
+    button:HookScript("OnMouseUp", function()
+        icon:SetPoint("CENTER", button, "CENTER", MENU_ICON_OFFSET_X, MENU_ICON_OFFSET_Y)
     end)
     button:SetAlpha(0)
     button:Hide()
