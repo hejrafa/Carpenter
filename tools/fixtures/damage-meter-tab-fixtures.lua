@@ -39,7 +39,7 @@ SecondsToClock = function(seconds) return string.format("%d:%02d", math.floor(se
 -- Frames with text
 -- =========================
 local function NewFontString(parent)
-    local fontString = H.Frame({ parent = parent, text = nil })
+    local fontString = H.Frame({ parent = parent, text = nil, objectType = "FontString" })
     function fontString:SetFont(file, size, flags) self.font = { file, size, flags } end
     function fontString:SetFontObject(object) self.fontObject = object end
     function fontString:SetShadowOffset() end
@@ -70,6 +70,15 @@ local function AddFrameMethods(frame)
     function frame:GetFont() return "Fonts\\ARIALN.TTF", 14, "" end
     function frame:GetSpacing() return 3 end
     function frame:EnableMouseWheel(enabled) self.wheelEnabled = enabled end
+    function frame:RegisterForClicks(...) self.clicks = { ... } end
+    function frame:CreateTexture()
+        local texture = H.Frame({ parent = self, objectType = "Texture" })
+        function texture:SetColorTexture(r, g, b, a) self.colorTexture = { r, g, b, a } end
+        function texture:SetAtlas(atlas) self.atlas = atlas end
+        function texture:SetDesaturated(desaturated) self.desaturated = desaturated end
+        function texture:SetVertexColor(r, g, b) self.vertexColor = { r, g, b } end
+        return texture
+    end
     function frame:GetEffectiveAlpha()
         local parent = self.parent
         if self.ignoreParentAlpha or not (parent and parent.GetEffectiveAlpha) then return self.alpha end
@@ -93,6 +102,7 @@ local menuButtons = {}
 CreateFrame = function(frameType, frameName, parent, template)
     local frame = AddFrameMethods(H.Frame({ name = frameName, parent = parent, objectType = frameType }))
     H.createdFrames[#H.createdFrames + 1] = frame
+    if frameType == "Button" or frameType == "DropdownButton" then frame.mouseEnabled = true end
     if frameType == "DropdownButton" then
         if template ~= nil then error("unexpected template " .. tostring(template)) end
         function frame:SetupMenu(generator) self.generator = generator end
@@ -101,13 +111,6 @@ CreateFrame = function(frameType, frameName, parent, template)
         function frame:SetNormalAtlas(atlas) self.normalAtlas = atlas end
         function frame:SetPushedAtlas(atlas) self.pushedAtlas = atlas end
         function frame:SetHighlightAtlas(atlas) self.highlightAtlas = atlas end
-        function frame:CreateTexture()
-            local texture = H.Frame({ parent = self })
-            function texture:SetAtlas(atlas) self.atlas = atlas end
-            function texture:SetDesaturated(desaturated) self.desaturated = desaturated end
-            function texture:SetVertexColor(r, g, b) self.vertexColor = { r, g, b } end
-            return texture
-        end
         menuButtons[#menuButtons + 1] = frame
     end
     return frame
@@ -237,6 +240,7 @@ C_DamageMeter = {
             local hide = meter.inCombat and Secret or function(value) return value end
             sources[index] = {
                 name = hide(source.name),
+                sourceGUID = hide(source.guid),
                 classFilename = source.classFilename,
                 isLocalPlayer = source.isLocalPlayer == true,
                 totalAmount = hide(source.total),
@@ -245,9 +249,41 @@ C_DamageMeter = {
         end
         return { combatSources = sources, maxAmount = 0, totalAmount = 0 }
     end,
+    -- Like the game, it refuses an ID hidden from the addon calling it.
+    GetCombatSessionSourceFromType = function(sessionType, meterType, guid, creatureID)
+        if IsSecret(guid) or IsSecret(creatureID) then error("hidden argument") end
+        meter.sourceRequests[#meter.sourceRequests + 1] = { sessionType = sessionType, meterType = meterType,
+            guid = guid, creatureID = creatureID }
+        local hide = meter.inCombat and Secret or function(value) return value end
+        local spells = {}
+        for index, spell in ipairs(meter.spells[guid or creatureID] or {}) do
+            spells[index] = {
+                spellID = hide(spell.id),
+                totalAmount = hide(spell.total),
+                amountPerSecond = hide(spell.perSecond),
+                creatureName = hide(spell.pet or ""),
+                combatSpellDetails = {
+                    unitName = hide(spell.unit or ""),
+                    unitClassFilename = spell.unitClass or "",
+                },
+            }
+        end
+        return { combatSpells = spells, maxAmount = 0, totalAmount = 0 }
+    end,
     ResetAllCombatSessions = function() meter.resets = meter.resets + 1 end,
 }
+meter.spells, meter.sourceRequests = {}, {}
 UnitAffectingCombat = function() return meter.inCombat end
+UnitGUID = function(unit) if unit == "player" then return "Player-1-0001" end end
+local spellNames = { [1752] = "Sinister Strike", [3110] = "Firebolt", [6603] = "Melee" }
+C_Spell = {
+    GetSpellName = function(spellID)
+        if spellID == nil then error("bad argument") end
+        local name = spellNames[Reveal(spellID)]
+        if IsSecret(spellID) then return Secret(name) end
+        return name
+    end,
+}
 
 -- The game's floating meter window; it shows itself as its settings say.
 DamageMeter = AddFrameMethods(H.Frame({ name = "DamageMeter", shown = true }))
@@ -286,7 +322,7 @@ local headerRightText
 local function Read(display)
     local header, names, values = nil, {}, {}
     for _, region in ipairs(display.children or {}) do
-        if region.shown and region.points[1] then
+        if region.shown and region.points[1] and region.objectType == "FontString" then
             local point, _, _, _, y = unpack(region.points[1])
             local line = math.floor(-(y or 0) / 17 + 0.5)
             if line == 0 and point == "TOPLEFT" then
@@ -295,7 +331,7 @@ local function Read(display)
                 headerRightText = region.text
             elseif point == "TOPLEFT" then
                 names[line] = region
-            elseif point == "TOPRIGHT" and region.objectType ~= "DropdownButton" then
+            elseif point == "TOPRIGHT" then
                 values[line] = region
             end
         end
@@ -305,6 +341,22 @@ end
 
 local function StripColors(text)
     return (tostring(text or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+end
+
+-- The click areas over the lines, by line, the title's as line 0.
+local function ClickAreas(display)
+    local areas = {}
+    for _, region in ipairs(display.children or {}) do
+        if region.objectType == "Button" and region.shown and region.points[1] then
+            local _, _, _, _, y = unpack(region.points[1])
+            areas[math.floor(-(y or 0) / 17 + 0.5)] = region
+        end
+    end
+    return areas
+end
+
+local function Click(area, mouseButton)
+    area.scripts.OnClick(area, mouseButton or "LeftButton")
 end
 
 -- =========================
@@ -336,8 +388,8 @@ assertEqual(#closed, 0, "turning off with no tab should close nothing")
 assertEqual(#popups, 0, "turning off with no tab should not ask for a reload")
 
 meter.sources = {
-    { name = "Koji Hakamori", classFilename = "ROGUE", isLocalPlayer = true, total = 1491, perSecond = 124.3 },
-    { name = "Suggo Battsuggovic", classFilename = "PRIEST", total = 900, perSecond = 70 },
+    { name = "Koji Hakamori", guid = "Player-1-0001", classFilename = "ROGUE", isLocalPlayer = true, total = 1491, perSecond = 124.3 },
+    { name = "Suggo Battsuggovic", guid = "Player-1-0002", classFilename = "PRIEST", total = 900, perSecond = 70 },
 }
 feature:Enable()
 assertEqual(#opened, 1, "turning the option on should open one chat window")
@@ -388,6 +440,110 @@ assertEqual(values[1] and values[1].text, "2500 (124.3)", "hidden amounts should
 assertEqual(names[1] and names[1].text, "Koji Hakamori", "hidden names should still show")
 assertEqual(headerRightText, "Current Segment", "a hidden segment time should be left out")
 meter.inCombat = false
+
+-- =========================
+-- A click on a name shows that player's spells.
+-- =========================
+meter.spells["Player-1-0001"] = {
+    { id = 1752, total = 2000, perSecond = 100 },
+    { id = 3110, total = 500, perSecond = 24.3, pet = "Spot" },
+}
+meter.spells["Player-1-0002"] = {
+    { id = 6603, total = 900, perSecond = 70, unit = "Hogger" },
+    { id = 1752, total = 40, perSecond = 2, unit = "Koji", unitClass = "ROGUE" },
+}
+Tab.Refresh()
+header, names, values = Read(display)
+local areas = ClickAreas(display)
+assertTrue(areas[1] and areas[1].mouseEnabled == true, "a name should take a click out of combat")
+assertTrue(areas[2] and areas[2].mouseEnabled == true, "every name should take a click out of combat")
+assertTrue(areas[0] and areas[0].mouseEnabled ~= true, "the list's title should not take a click")
+assertEqual(areas[1].points[2] and areas[1].points[2][2], values[1], "a name's click should stop before its value")
+assertEqual(areas[1].clicks and areas[1].clicks[1], "LeftButtonDown", "a name should take the click as the button goes down")
+assertEqual(areas[1].wheelEnabled, true, "the wheel should still scroll over a name")
+assertEqual(areas[1].highlight.shown, false, "a name should not be highlighted before the mouse is on it")
+areas[1].scripts.OnEnter(areas[1])
+assertEqual(areas[1].highlight.shown, true, "a name should be highlighted while the mouse is on it")
+areas[1].scripts.OnLeave(areas[1])
+assertEqual(areas[1].highlight.shown, false, "the highlight should go with the mouse")
+
+Click(areas[1])
+header, names, values = Read(display)
+assertEqual(StripColors(header), "Damage Done: Koji Hakamori", "the title should say whose breakdown it is")
+assertTrue(header:find("|cfffff569Koji Hakamori|r", 1, true) ~= nil, "the title's name should be in class color")
+assertEqual(names[1] and names[1].text, "Sinister Strike", "the breakdown should list the player's spells")
+assertEqual(values[1] and values[1].text, "2000 (100)", "a spell should show its total and per second")
+assertEqual(names[2] and names[2].text, "Firebolt (Spot)", "a pet's spell should name the pet")
+assertTrue(names[3] == nil, "the breakdown should show only the player's spells")
+assertEqual(names[1].color[2], 0.96, "spells should be in the player's class color")
+local sourceRequest = meter.sourceRequests[#meter.sourceRequests]
+assertEqual(sourceRequest.guid, "Player-1-0001", "the breakdown should ask for the clicked player")
+assertEqual(sourceRequest.sessionType, Sessions.Current, "the breakdown should use the tab's segment")
+assertEqual(sourceRequest.meterType, Types.DamageDone, "the breakdown should use the tab's type")
+areas = ClickAreas(display)
+assertTrue(areas[0].mouseEnabled == true, "the breakdown's title should take a click")
+assertTrue(areas[1].mouseEnabled == true and areas[2].mouseEnabled == true, "the breakdown's lines should take a click")
+
+Click(areas[2])
+header, names = Read(display)
+assertEqual(header, "Damage Done", "a click on the breakdown should go back to the list")
+assertEqual(names[1] and names[1].text, "Koji Hakamori", "the list should come back")
+Click(ClickAreas(display)[2], "RightButton")
+assertEqual((Read(display)), "Damage Done", "a right-click on a name should not open its breakdown")
+
+-- Another player's, with spells cast at them by others.
+Click(ClickAreas(display)[2])
+header, names = Read(display)
+assertEqual(StripColors(header), "Damage Done: Suggo Battsuggovic", "another player's name should open their breakdown")
+assertEqual(meter.sourceRequests[#meter.sourceRequests].guid, "Player-1-0002", "the breakdown should ask for that player")
+assertEqual(names[1] and names[1].text, "Melee - Hogger", "a spell cast at the player should name who cast it")
+assertEqual(names[2] and names[2].text, "Sinister Strike - |cfffff569Koji|r", "a player who cast it should be in class color")
+Click(ClickAreas(display)[0])
+assertEqual((Read(display)), "Damage Done", "a click on the breakdown's title should go back")
+
+-- In combat the game hides who each line is, except for the local player.
+meter.inCombat = true
+Tab.Refresh()
+areas = ClickAreas(display)
+assertTrue(areas[1].mouseEnabled == true, "in combat your own name should still take a click")
+assertTrue(areas[2].mouseEnabled ~= true, "in combat another player's name should not take a click")
+Click(areas[2])
+assertEqual((Read(display)), "Damage Done", "a click on a hidden player should do nothing")
+Click(areas[1])
+header, names, values = Read(display)
+assertEqual(StripColors(header), "Damage Done: Koji Hakamori", "in combat your own breakdown should open")
+assertEqual(meter.sourceRequests[#meter.sourceRequests].guid, "Player-1-0001", "in combat your ID should come from your unit")
+assertEqual(names[1] and names[1].text, "Sinister Strike", "hidden spell names should still show")
+assertEqual(values[1] and values[1].text, "2000 (100)", "hidden spell amounts should still show")
+assertEqual(names[2] and names[2].text, "Firebolt", "a hidden pet name should be left out in combat")
+Click(ClickAreas(display)[1])
+assertEqual((Read(display)), "Damage Done", "in combat a click should still go back")
+
+-- A breakdown opened before combat keeps filling during it.
+meter.inCombat = false
+Tab.Refresh()
+Click(ClickAreas(display)[2])
+meter.inCombat = true
+display.scripts.OnUpdate(display, 0.6)
+header, names = Read(display)
+assertEqual(StripColors(header), "Damage Done: Suggo Battsuggovic", "a breakdown opened before combat should stay open")
+assertEqual(names[1] and names[1].text, "Melee", "a breakdown opened before combat should keep filling")
+meter.inCombat = false
+
+-- It follows the segment, and a reset goes back to the list.
+CarpenterDB.damageMeterTabSession = Sessions.Overall
+Tab.Refresh()
+assertEqual(meter.sourceRequests[#meter.sourceRequests].sessionType, Sessions.Overall, "a breakdown should follow the segment")
+CarpenterDB.damageMeterTabSession = nil
+meter.spells["Player-1-0002"] = nil
+Tab.Refresh()
+header, names = Read(display)
+assertEqual(names[1] and names[1].text, "Nothing recorded in this segment yet.", "an empty breakdown should say so")
+assertTrue(ClickAreas(display)[1].mouseEnabled == true, "an empty breakdown should still go back when clicked")
+Fire("DAMAGE_METER_RESET")
+Tab.Refresh()
+assertEqual((Read(display)), "Damage Done", "a reset should go back to the list")
+assertTrue(Tab.state.breakdown == nil, "a reset should close the breakdown")
 
 -- =========================
 -- Types that read differently
@@ -497,7 +653,14 @@ local function Walk(items)
 end
 Walk(root.items)
 if not (dpsRadio and overallRadio and resetButton) then fail("the menu should offer types, segments and a reset") end
+-- A new type goes back from a breakdown to its list.
+Tab.Refresh()
+for _, area in pairs(ClickAreas(display)) do
+    if area.mouseEnabled then Click(area) break end
+end
+assertTrue(Tab.state.breakdown ~= nil, "your name should open a breakdown before the type changes")
 dpsRadio.setSelected(dpsRadio.data)
+assertTrue(Tab.state.breakdown == nil, "picking a type should go back to the list")
 overallRadio.setSelected(overallRadio.data)
 assertEqual(CarpenterDB.damageMeterTabType, Types.Dps, "picking DPS should save it")
 assertEqual(CarpenterDB.damageMeterTabSession, Sessions.Overall, "picking Overall should save it")
@@ -548,6 +711,18 @@ shiftDown = false
 Wheel(display, 1)
 header, names = Read(display)
 assertEqual(names[1] and names[1].text, "P1", "the wheel should stop at the top")
+local nameArea = ClickAreas(display)[1]
+nameArea.scripts.OnMouseWheel(nameArea, -1)
+header, names = Read(display)
+assertEqual(names[1] and names[1].text, "P2", "the wheel over a name should scroll the list")
+-- A breakdown starts at its top, and going back finds the list as it was.
+Click(ClickAreas(display)[1])
+header, names = Read(display)
+assertEqual(names[1] and names[1].text, "Sinister Strike", "a breakdown should start at its top")
+Click(ClickAreas(display)[1])
+header, names = Read(display)
+assertEqual(names[1] and names[1].text, "P2", "going back should keep the list's scroll")
+Wheel(display, 1)
 Wheel(display, -1)
 Wheel(display, -1)
 dpsRadio.setSelected(dpsRadio.data)

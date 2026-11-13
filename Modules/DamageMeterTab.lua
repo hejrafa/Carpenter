@@ -7,6 +7,13 @@
 -- carries its rank when it is pinned out of order. The mouse wheel scrolls
 -- the lines (Shift jumps to the top or bottom).
 --
+-- Clicking a name shows that player's breakdown in the tab, as the game's
+-- own meter does in a window beside it: their spells, best first, each with
+-- its total, under a title naming them. Clicking the breakdown goes back to
+-- the list. The game finds a player's spells by their ID, which it hides
+-- from addons in combat for everyone but you, so in combat only your own
+-- name opens a breakdown; after combat every name does again.
+--
 -- While the tab is open, a chat button with an arrow sits where the chat
 -- channels button is. That button belongs to the General window's button
 -- column and hides with it on other tabs, so the arrow takes its place there
@@ -37,6 +44,8 @@ local REFRESH_SECONDS = 0.5
 local LOGIN_SETTLE_SECONDS = { 1, 3, 6 }
 local VALUE_GAP = 8
 local FALLBACK_FONT_SIZE = 14
+-- A faint band behind a line that takes a click, while the mouse is on it.
+local CLICK_HIGHLIGHT_ALPHA = 0.1
 -- The title line's yellow, as on the quest tracker's quest titles.
 local TITLE_R, TITLE_G, TITLE_B = 1, 0.82, 0
 -- The chat button column's art, as on the channels button.
@@ -65,6 +74,10 @@ local state = {
     offset = 0,
     total = 0,
     capacity = 0,
+    -- The player whose breakdown shows, or nil for the list, and where the
+    -- list was scrolled to when it opened.
+    breakdown = nil,
+    listOffset = 0,
 }
 
 local function Text(key, fallback)
@@ -186,8 +199,20 @@ local function StartOver()
     MarkDirty()
 end
 
+-- Back from a breakdown to the list, where it was scrolled to.
+local function LeaveBreakdown()
+    if not state.breakdown then return false end
+    state.breakdown = nil
+    state.offset = state.listOffset or 0
+    MarkDirty()
+    return true
+end
+
+-- A new type has other players and spells, so it opens on its list, as the
+-- game's meter closes its breakdown then. A new segment keeps the breakdown.
 local function SelectType(meterType)
     if CarpenterDB then CarpenterDB.damageMeterTabType = meterType end
+    LeaveBreakdown()
     StartOver()
 end
 
@@ -275,8 +300,9 @@ end
 -- =========================
 -- The text
 -- =========================
-local display, header, headerRight, menuButton
+local display, header, headerRight, headerClick, menuButton
 local rows = {}
+local OnMouseWheel, OnClickArea
 
 -- Docked, the game gives every tab but General and Combat Log one width of
 -- 60 to 90, which cuts "Damage Meter" off. After each dock layout the tab is
@@ -341,13 +367,66 @@ local function LineHeight(window)
     return math.floor(size + math.max(spacing, 3) + 0.5)
 end
 
+-- =========================
+-- Lines that take a click
+-- =========================
+-- A button over a line's left side, from its start to just before its
+-- value, so the value column, and the chat window's resize corner under it,
+-- keep the mouse. It takes clicks only while its line does something; the
+-- wheel always scrolls through it.
+local function CreateClickArea()
+    local area = CreateFrame("Button", nil, display)
+    area:EnableMouse(false)
+    area:RegisterForClicks("LeftButtonDown", "RightButtonDown")
+    area:SetScript("OnClick", function(self, mouseButton) OnClickArea(self, mouseButton) end)
+    area:EnableMouseWheel(true)
+    area:SetScript("OnMouseWheel", function(_, delta) OnMouseWheel(display, delta) end)
+
+    local highlight = display:CreateTexture(nil, "BACKGROUND")
+    highlight:SetColorTexture(1, 1, 1, CLICK_HIGHLIGHT_ALPHA)
+    highlight:Hide()
+    area.highlight = highlight
+    area:SetScript("OnEnter", function(self) self.highlight:Show() end)
+    area:SetScript("OnLeave", function(self) self.highlight:Hide() end)
+    return area
+end
+
+-- Over the line at y, up to the region on its right (the value). The band
+-- spans the whole line.
+local function PlaceClickArea(area, y, lineHeight, rightRegion)
+    local top, bottom = y + 1, y - lineHeight + 1
+    area.highlight:ClearAllPoints()
+    area.highlight:SetPoint("TOPLEFT", display, "TOPLEFT", 0, top)
+    area.highlight:SetPoint("BOTTOMRIGHT", display, "TOPRIGHT", 0, bottom)
+    area:ClearAllPoints()
+    area:SetPoint("TOPLEFT", display, "TOPLEFT", 0, top)
+    area:SetPoint("BOTTOMRIGHT", rightRegion, "TOPLEFT", -VALUE_GAP, bottom - y)
+end
+
+local function SetClickable(area, clickable)
+    area:Show()
+    area:EnableMouse(clickable and true or false)
+    if not clickable then area.highlight:Hide() end
+end
+
+local function HideClickArea(area)
+    area:EnableMouse(false)
+    area:Hide()
+    area.highlight:Hide()
+end
+
 local function GetRow(slot)
     local row = rows[slot]
     if row then return row end
     row = {
         name = display:CreateFontString(nil, "OVERLAY"),
         value = display:CreateFontString(nil, "OVERLAY"),
+        click = CreateClickArea(),
+        -- Who the line is, for a click on it.
+        target = {},
+        hasTarget = false,
     }
+    row.click.row = row
     row.name:SetJustifyH("LEFT")
     row.name:SetWordWrap(false)
     row.value:SetJustifyH("RIGHT")
@@ -359,6 +438,8 @@ local function HideRows(fromSlot)
     for slot = fromSlot, #rows do
         rows[slot].name:Hide()
         rows[slot].value:Hide()
+        rows[slot].hasTarget = false
+        HideClickArea(rows[slot].click)
     end
 end
 
@@ -369,17 +450,42 @@ local function ClassColor(classFilename)
     return 0.8, 0.8, 0.8
 end
 
--- Every field but the class and the local player flag may be hidden in
--- combat, so each goes to the text as it is.
-local function FillRow(row, index, source, meterType, showRank)
-    if showRank then
-        row.name:SetFormattedText(_G.DAMAGE_METER_SOURCE_NAME or "%d. %s", index, source.name)
-    else
-        row.name:SetText(source.name)
-    end
-    row.name:SetTextColor(ClassColor(source.classFilename))
+-- The class color as a text color code, for a name inside a line of
+-- another color.
+local function ClassColorCode(classFilename)
+    local r, g, b = ClassColor(classFilename)
+    return string.format("ff%02x%02x%02x", math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5))
+end
 
-    local main, extra = source.totalAmount, source.amountPerSecond
+-- A value the game isn't hiding right now.
+local function Readable(value)
+    if issecretvalue and issecretvalue(value) then return false end
+    return value ~= nil
+end
+
+-- Readable text with something in it.
+local function KnownText(value)
+    return Readable(value) and type(value) == "string" and value ~= ""
+end
+
+-- Who a line is, as the game's breakdown looks a player up: their ID, or a
+-- creature's. The game hides both in combat, so the local player's ID comes
+-- from their own unit instead, which it doesn't hide.
+local function SourceKey(source)
+    if source.isLocalPlayer == true and UnitGUID then
+        local ok, guid = pcall(UnitGUID, "player")
+        if ok and Readable(guid) then return guid, nil end
+    end
+    local guid = Readable(source.sourceGUID) and source.sourceGUID or nil
+    local creatureID = Readable(source.sourceCreatureID) and source.sourceCreatureID or nil
+    return guid, creatureID
+end
+
+-- "total (per second)", per second first for DPS and HPS, a count alone for
+-- interrupts and dispels. Amounts may be hidden in combat, so they go to the
+-- text through the game's own formatting.
+local function FillValue(row, total, perSecond, meterType)
+    local main, extra = total, perSecond
     if ShowsPerSecondFirst(meterType) then main, extra = extra, main end
     if HasNoPerSecond(meterType) then
         row.value:SetText(AbbreviateLargeNumbers(main))
@@ -388,8 +494,84 @@ local function FillRow(row, index, source, meterType, showRank)
             AbbreviateLargeNumbers(main), AbbreviateLargeNumbers(extra))
     end
     row.value:SetTextColor(1, 1, 1)
+end
+
+-- Every field but the class and the local player flag may be hidden in
+-- combat, so each goes to the text as it is. A line takes a click when the
+-- game lets its player be looked up.
+local function FillRow(row, index, source, meterType, showRank)
+    if showRank then
+        row.name:SetFormattedText(_G.DAMAGE_METER_SOURCE_NAME or "%d. %s", index, source.name)
+    else
+        row.name:SetText(source.name)
+    end
+    row.name:SetTextColor(ClassColor(source.classFilename))
+    FillValue(row, source.totalAmount, source.amountPerSecond, meterType)
     row.name:Show()
     row.value:Show()
+
+    local guid, creatureID = SourceKey(source)
+    local target = row.target
+    target.guid, target.creatureID = guid, creatureID
+    target.name, target.classFilename = source.name, source.classFilename
+    row.hasTarget = guid ~= nil or creatureID ~= nil
+    SetClickable(row.click, row.hasTarget)
+end
+
+local function SpellName(spell)
+    if not (C_Spell and C_Spell.GetSpellName) then return nil end
+    -- The game's lookup takes an ID it hides in combat.
+    local ok, name = pcall(C_Spell.GetSpellName, spell.spellID)
+    if ok then return name end
+    return nil
+end
+
+-- Text that may be hidden counts as there; readable text only when it
+-- isn't empty.
+local function MayHaveText(value)
+    if issecretvalue and issecretvalue(value) then return true end
+    return type(value) == "string" and value ~= ""
+end
+
+-- A breakdown line, named as the game's own breakdown names it: the spell,
+-- with the pet that cast it, "Spell (Pet)", or with the unit that cast it at
+-- the player for damage taken, "Spell - Unit" in that unit's class color.
+-- The game hides the pet's and unit's names in combat, so until it ends a
+-- line shows the spell alone. Lines are in the player's class color, as
+-- their bars are in the game's breakdown.
+local function FillSpellRow(row, spell, meterType, classFilename)
+    local spellName = SpellName(spell)
+    local details = type(spell.combatSpellDetails) == "table" and spell.combatSpellDetails or nil
+    local creatureName = spell.creatureName
+    local unitName = details and details.unitName
+    local unitText
+    if KnownText(unitName) then
+        unitText = unitName
+        if KnownText(details.unitClassFilename) then
+            unitText = "|c" .. ClassColorCode(details.unitClassFilename) .. unitName .. "|r"
+        end
+    end
+
+    if MayHaveText(spellName) and KnownText(creatureName) then
+        row.name:SetFormattedText(_G.DAMAGE_METER_SPELL_ENTRY_CREATURE or "%s (%s)", spellName, creatureName)
+    elseif MayHaveText(spellName) and unitText then
+        row.name:SetFormattedText(_G.DAMAGE_METER_SPELL_ENTRY_UNIT or "%s - %s", spellName, unitText)
+    elseif MayHaveText(spellName) then
+        row.name:SetText(spellName)
+    elseif unitText then
+        row.name:SetText(unitText)
+    elseif KnownText(creatureName) then
+        row.name:SetText(creatureName)
+    else
+        row.name:SetText(_G.UNKNOWN or "Unknown")
+    end
+    row.name:SetTextColor(ClassColor(classFilename))
+    FillValue(row, spell.totalAmount, spell.amountPerSecond, meterType)
+    row.name:Show()
+    row.value:Show()
+    -- A click anywhere on the breakdown goes back to the list.
+    row.hasTarget = false
+    SetClickable(row.click, true)
 end
 
 local function PlaceRow(row, slot, window, lineHeight)
@@ -401,6 +583,7 @@ local function PlaceRow(row, slot, window, lineHeight)
     row.name:ClearAllPoints()
     row.name:SetPoint("TOPLEFT", display, "TOPLEFT", 0, y)
     row.name:SetPoint("RIGHT", row.value, "LEFT", -VALUE_GAP, 0)
+    PlaceClickArea(row.click, y, lineHeight, row.value)
 end
 
 -- Why the tab is empty, when the game says.
@@ -456,7 +639,8 @@ local function PickSources(sources, capacity, offset)
     return picked
 end
 
--- A gray line in place of the list, saying why it is empty.
+-- A gray line in place of the list, saying why it is empty. On a breakdown
+-- it still goes back to the list when clicked.
 local function ShowNotice(window, lineHeight, text)
     local row = GetRow(1)
     PlaceRow(row, 1, window, lineHeight)
@@ -465,6 +649,8 @@ local function ShowNotice(window, lineHeight, text)
     row.value:SetText("")
     row.name:Show()
     row.value:Show()
+    row.hasTarget = false
+    SetClickable(row.click, state.breakdown ~= nil)
     HideRows(2)
 end
 
@@ -497,6 +683,53 @@ local function FillRows(window, lineHeight, capacity)
     HideRows(#picked + 1)
 end
 
+-- One player's spells, best first, as the game lists them.
+local function FillBreakdown(window, lineHeight, capacity)
+    local meterType, sessionType = SelectedType(), SelectedSession()
+    local reason = UnavailableReason()
+    if reason then
+        ShowNotice(window, lineHeight, reason)
+        return
+    end
+
+    local target = state.breakdown
+    local source = C_DamageMeter.GetCombatSessionSourceFromType(sessionType, meterType, target.guid, target.creatureID)
+    local spells = type(source) == "table" and type(source.combatSpells) == "table" and source.combatSpells or {}
+    state.total = #spells
+    if state.total == 0 then
+        state.offset = 0
+        ShowNotice(window, lineHeight, Text("DAMAGE_METER_TAB_NO_DATA", "Nothing recorded in this segment yet."))
+        return
+    end
+    state.offset = math.max(0, math.min(state.offset, state.total - capacity))
+    local slot = 0
+    for index = state.offset + 1, math.min(state.total, state.offset + capacity) do
+        slot = slot + 1
+        local row = GetRow(slot)
+        PlaceRow(row, slot, window, lineHeight)
+        FillSpellRow(row, spells[index], meterType, target.classFilename)
+    end
+    HideRows(slot + 1)
+end
+
+-- The title: the type, or on a breakdown the type and whose it is, the name
+-- in class color. A name hidden in combat still goes into the text whole.
+local function FillHeader(window, lineHeight, meterType)
+    StyleFontString(header, window)
+    StyleFontString(headerRight, window)
+    local target = state.breakdown
+    if target then
+        header:SetFormattedText("%s: |c%s%s|r", TypeName(meterType), ClassColorCode(target.classFilename), target.name)
+    else
+        header:SetText(TypeName(meterType))
+    end
+    header:SetTextColor(TITLE_R, TITLE_G, TITLE_B)
+    if headerClick then
+        PlaceClickArea(headerClick, 0, lineHeight, headerRight)
+        SetClickable(headerClick, target ~= nil)
+    end
+end
+
 function DamageMeterTab.Refresh()
     if not display or not display:IsVisible() then return end
     local window = display:GetParent()
@@ -513,15 +746,34 @@ function DamageMeterTab.Refresh()
     state.capacity = capacity
     local meterType, sessionType = SelectedType(), SelectedSession()
 
-    StyleFontString(header, window)
-    StyleFontString(headerRight, window)
-    header:SetText(TypeName(meterType))
-    header:SetTextColor(TITLE_R, TITLE_G, TITLE_B)
     headerRight:SetText(SegmentText(sessionType))
     headerRight:SetTextColor(TITLE_R, TITLE_G, TITLE_B)
+    pcall(FillHeader, window, lineHeight, meterType)
 
     -- A failure keeps the lines already shown rather than blanking the tab.
-    pcall(FillRows, window, lineHeight, capacity)
+    pcall(state.breakdown and FillBreakdown or FillRows, window, lineHeight, capacity)
+end
+
+-- A click on a name opens its breakdown; a click on a breakdown, its title
+-- included, goes back to the list.
+function OnClickArea(area, mouseButton)
+    if state.breakdown then
+        LeaveBreakdown()
+    elseif mouseButton == "LeftButton" and area.row and area.row.hasTarget then
+        local target = area.row.target
+        state.breakdown = {
+            guid = target.guid,
+            creatureID = target.creatureID,
+            name = target.name,
+            classFilename = target.classFilename,
+        }
+        state.listOffset = state.offset
+        state.offset = 0
+        MarkDirty()
+    else
+        return
+    end
+    Try(DamageMeterTab.Refresh)
 end
 
 local function InCombat()
@@ -572,6 +824,7 @@ local function SetupMenu(_, rootDescription)
         rootDescription:CreateDivider()
         rootDescription:CreateButton(_G.DAMAGE_METER_RESET_ALL_SESSIONS or "Reset Data", function()
             C_DamageMeter.ResetAllCombatSessions()
+            LeaveBreakdown()
             StartOver()
         end)
     end
@@ -746,7 +999,7 @@ local function CreateMenuButton()
 end
 
 -- The wheel moves a line at a time; with Shift it jumps to an end.
-local function OnMouseWheel(_, delta)
+function OnMouseWheel(_, delta)
     local maxOffset = math.max(0, state.total - state.capacity)
     if IsShiftKeyDown and IsShiftKeyDown() then
         state.offset = delta > 0 and 0 or maxOffset
@@ -778,6 +1031,7 @@ local function CreateDisplay()
     header:SetWordWrap(false)
     header:SetPoint("TOPLEFT", display, "TOPLEFT", 0, 0)
     header:SetPoint("RIGHT", headerRight, "LEFT", -VALUE_GAP, 0)
+    headerClick = CreateClickArea()
 
     menuButton = CreateMenuButton()
 
@@ -896,6 +1150,10 @@ eventFrame:SetScript("OnEvent", function(_, event, addonName)
         end)
     elseif event == "UPDATE_CHAT_WINDOWS" then
         TryAttach()
+    elseif event == "DAMAGE_METER_RESET" then
+        -- The breakdown's player is gone with the data.
+        LeaveBreakdown()
+        StartOver()
     else
         MarkDirty()
     end
@@ -937,6 +1195,7 @@ end
 
 function feature:Disable()
     state.active = false
+    state.breakdown = nil
     eventFrame:UnregisterEvent("ADDON_LOADED")
     DamageMeterTab.ApplyFloatingMeter()
     eventFrame:UnregisterEvent("UPDATE_CHAT_WINDOWS")
