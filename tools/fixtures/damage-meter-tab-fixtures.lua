@@ -526,6 +526,21 @@ ChatFrame3.height = 120
 CarpenterDB.damageMeterTabType = nil
 
 -- =========================
+-- A segment with no fight yet says so.
+-- =========================
+local savedSources = meter.sources
+meter.sources = {}
+Tab.Refresh()
+header, names, values = Read(display)
+assertEqual(names[1] and names[1].text, "Nothing recorded in this segment yet.", "an empty segment should say so")
+assertEqual(names[1].color[1], 0.6, "the empty segment's line should be gray")
+assertTrue(names[2] == nil, "an empty segment should show nothing else")
+meter.sources = savedSources
+Tab.Refresh()
+header, names = Read(display)
+assertTrue(names[1] and names[1].text ~= "Nothing recorded in this segment yet.", "the list should come back with data")
+
+-- =========================
 -- A meter that is off says so.
 -- =========================
 meter.enabled = false

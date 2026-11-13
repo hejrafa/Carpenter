@@ -386,24 +386,35 @@ local function PickSources(sources, capacity, offset)
     return picked
 end
 
+-- A gray line in place of the list, saying why it is empty.
+local function ShowNotice(window, lineHeight, text)
+    local row = GetRow(1)
+    PlaceRow(row, 1, window, lineHeight)
+    row.name:SetText(text)
+    row.name:SetTextColor(0.6, 0.6, 0.6)
+    row.value:SetText("")
+    row.name:Show()
+    row.value:Show()
+    HideRows(2)
+end
+
 local function FillRows(window, lineHeight, capacity)
     local meterType, sessionType = SelectedType(), SelectedSession()
     local reason = UnavailableReason()
     if reason then
-        local row = GetRow(1)
-        PlaceRow(row, 1, window, lineHeight)
-        row.name:SetText(reason)
-        row.name:SetTextColor(0.6, 0.6, 0.6)
-        row.value:SetText("")
-        row.name:Show()
-        row.value:Show()
-        HideRows(2)
+        ShowNotice(window, lineHeight, reason)
         return
     end
 
     local session = C_DamageMeter.GetCombatSessionFromType(sessionType, meterType)
     local sources = type(session) == "table" and session.combatSources or {}
     state.total = #sources
+    -- A segment with no fight yet, as the current one after a reload.
+    if state.total == 0 then
+        state.offset = 0
+        ShowNotice(window, lineHeight, Text("DAMAGE_METER_TAB_NO_DATA", "Nothing recorded in this segment yet."))
+        return
+    end
     state.offset = math.max(0, math.min(state.offset, state.total - capacity))
     local picked = PickSources(sources, capacity, state.offset)
     for slot, index in ipairs(picked) do
