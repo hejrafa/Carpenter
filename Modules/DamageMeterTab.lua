@@ -705,6 +705,15 @@ local function CreateMenuButton()
     if HasAtlas(MENU_ARROW_ATLAS) then
         icon:SetAtlas(MENU_ARROW_ATLAS)
         icon:SetSize(MENU_ICON_SIZE, MENU_ICON_SIZE)
+        -- The friends list's arrow is a pale tan; drawn in the game's gold,
+        -- it matches the chat buttons' icons.
+        icon:SetDesaturated(true)
+        local gold = _G.NORMAL_FONT_COLOR
+        if gold and gold.GetRGB then
+            icon:SetVertexColor(gold:GetRGB())
+        else
+            icon:SetVertexColor(1, 0.82, 0)
+        end
     else
         icon:SetAtlas(MENU_ARROW_FALLBACK_ATLAS)
         icon:SetSize(MENU_BUTTON_WIDTH - 4, MENU_BUTTON_HEIGHT - 4)

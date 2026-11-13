@@ -104,6 +104,8 @@ CreateFrame = function(frameType, frameName, parent, template)
         function frame:CreateTexture()
             local texture = H.Frame({ parent = self })
             function texture:SetAtlas(atlas) self.atlas = atlas end
+            function texture:SetDesaturated(desaturated) self.desaturated = desaturated end
+            function texture:SetVertexColor(r, g, b) self.vertexColor = { r, g, b } end
             return texture
         end
         menuButtons[#menuButtons + 1] = frame
@@ -435,6 +437,10 @@ assertEqual(point and point[2], ChatFrameChannelButton, "the menu button should 
 assertEqual(button.strata, "MEDIUM", "the menu button should share the channels button's strata")
 assertEqual(button.level, 16, "the menu button should sit above the channels button")
 assertEqual(button.normalAtlas, "chatframe-button-up", "the menu button should use the chat button art")
+local arrow = button.children[1]
+assertEqual(arrow and arrow.atlas, "friendslist-categorybutton-arrow-down", "the menu button should show the arrow")
+assertEqual(arrow.desaturated, true, "the arrow should lose its own tan")
+assertEqual(arrow.vertexColor and arrow.vertexColor[2], 0.82, "the arrow should be drawn in the game's gold")
 assertEqual(button.ignoreParentAlpha, true, "the menu button should fade on its own")
 assertEqual(button.parent, UIParent, "the menu button should not be drawn inside the chat window")
 assertEqual(button.shown, true, "the menu button should show with the tab")
