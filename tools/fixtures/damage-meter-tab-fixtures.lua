@@ -131,9 +131,11 @@ QuickJoinToastButton = AddFrameMethods(H.Frame({ name = "QuickJoinToastButton", 
 -- =========================
 NUM_CHAT_WINDOWS = 10
 DAMAGE_METER_LABEL = "Damage Meter"
+DAMAGE_METER_CATEGORY_DAMAGE = "Damage"
+-- An open window is shown, docked (its place in the dock), or both.
 local windows = {
-    [1] = { name = "General", shown = true },
-    [2] = { name = "Combat Log", shown = true },
+    [1] = { name = "General", shown = true, docked = 1 },
+    [2] = { name = "Combat Log", shown = true, docked = 2 },
 }
 -- Docked windows; each has its own button column, topped by a collapse
 -- button the game hides while docked.
@@ -144,19 +146,27 @@ for index = 1, NUM_CHAT_WINDOWS do
     frame.buttonFrame.minimizeButton = AddFrameMethods(H.Frame({ parent = frame.buttonFrame, shown = false, strata = "LOW", level = 8 }))
     frame.buttonFrame.minimizeButton:SetPoint("TOP", frame.buttonFrame, "TOP", 0, 4)
     _G["ChatFrame" .. index] = frame
+    local tab = AddFrameMethods(H.Frame({ name = "ChatFrame" .. index .. "Tab" }))
+    function tab:SetText(text) self.text = text end
+    _G["ChatFrame" .. index .. "Tab"] = tab
+end
+local renames = {}
+SetChatWindowName = function(index, name)
+    renames[#renames + 1] = { index = index, name = name }
+    windows[index].name = name
 end
 DEFAULT_CHAT_FRAME = ChatFrame1
 GetChatWindowInfo = function(index)
     local window = windows[index]
-    if not window then return "", 14, 0, 0, 0, 0, false end
-    return window.name, 14, 0, 0, 0, 0, window.shown
+    if not window then return "", 14, 0, 0, 0, 0, false, false, 0 end
+    return window.name, 14, 0, 0, 0, 0, window.shown, false, window.docked or 0
 end
 
 local opened, closed, popups = {}, {}, {}
 FCF_OpenNewWindow = function(name, noDefaultChannels)
     for index = 3, NUM_CHAT_WINDOWS do
         if not (windows[index] and windows[index].shown) then
-            windows[index] = { name = name, shown = true }
+            windows[index] = { name = name, shown = true, docked = 3 }
             opened[#opened + 1] = { name = name, noDefaultChannels = noDefaultChannels }
             local frame = _G["ChatFrame" .. index]
             frame:Show()
@@ -166,7 +176,7 @@ FCF_OpenNewWindow = function(name, noDefaultChannels)
 end
 FCF_Close = function(frame)
     local index = tonumber(frame:GetName():match("%d+$"))
-    windows[index].shown = false
+    windows[index].shown, windows[index].docked = false, 0
     closed[#closed + 1] = index
     frame:Hide()
 end
@@ -314,7 +324,8 @@ meter.sources = {
 }
 feature:Enable()
 assertEqual(#opened, 1, "turning the option on should open one chat window")
-assertEqual(opened[1].name, "Damage Meter", "the tab should carry the game's Damage Meter label")
+assertEqual(opened[1].name, "Damage", "the tab should carry the game's short Damage label")
+assertEqual(#renames, 0, "a new tab should need no renaming")
 assertEqual(opened[1].noDefaultChannels, true, "the tab should receive no chat")
 assertEqual(popups[1], "CARPENTER_DAMAGE_METER_TAB_RELOAD", "opening the tab should ask for a reload")
 assertTrue(StaticPopupDialogs.CARPENTER_DAMAGE_METER_TAB_RELOAD ~= nil, "the reload popup should be defined")
@@ -573,7 +584,8 @@ assertEqual(DamageMeter.shown, true, "with the option off the game should show i
 -- After the reload the game restores the tab, and it is only drawn on.
 -- =========================
 opened, popups = {}, {}
-windows[4] = { name = "Damage Meter", shown = true }
+-- An earlier build's tab, docked but hidden for a moment as the game loads.
+windows[4] = { name = "Damage Meter", shown = false, docked = 3 }
 ChatFrame4:Show()
 -- Right after the reload the window has no size yet.
 ChatFrame4.width, ChatFrame4.height = 0, 0
@@ -591,6 +603,9 @@ assertTrue(names[1] ~= nil, "the lines should show once the window has a size")
 assertEqual(#opened, 0, "an existing tab should not be opened again")
 assertEqual(#popups, 0, "drawing on an existing tab should not ask for a reload")
 assertEqual(display.parent, ChatFrame4, "the display should move to the existing tab")
+assertEqual(renames[1] and renames[1].index, 4, "an earlier build's tab should be renamed")
+assertEqual(windows[4].name, "Damage", "the earlier build's tab should take the short name")
+assertEqual(ChatFrame4Tab.text, "Damage", "the renamed tab's label should follow at once")
 assertTrue(display.scripts.OnSizeChanged ~= nil, "a resized chat window should lay the lines out again")
 assertEqual(DamageMeter.shown, false, "turning on again should hide the floating meter")
 
@@ -632,8 +647,9 @@ assertEqual(collapse.points[1][2], ChatFrame4.buttonFrame, "turning off should g
 ChatFrame4.isDocked = true
 
 -- The General and Combat Log windows are never taken, whatever their names.
-windows[1].name, windows[4].shown = "Damage Meter", false
+windows[1].name, windows[4].shown, windows[4].docked = "Damage", false, 0
 ChatFrame4:Hide()
 assertTrue(Tab.FindWindow() == nil, "the General window should never count as the tab")
+assertEqual(closed[#closed], 4, "turning off should close the renamed tab")
 
 print("damage-meter-tab fixtures passed")

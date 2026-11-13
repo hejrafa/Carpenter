@@ -18,8 +18,8 @@
 -- The game's own floating meter window stays hidden while the option is on,
 -- except in Edit Mode, where it can still be placed and set up.
 --
--- The tab is a real chat window named after the game's "Damage Meter" label
--- and set to receive no chat, so docking, resizing, fading and the
+-- The tab is a real chat window named after the game's "Damage" label and
+-- set to receive no chat, so docking, resizing, fading and the
 -- background behave like any other tab. Carpenter opens it when the option
 -- is turned on and closes it when the option is turned off, never at login.
 -- Opening or closing a chat window from an addon taints the chat dock until
@@ -34,7 +34,7 @@
 local FEATURE_KEY = "damageMeterTabEnabled"
 local RELOAD_POPUP = "CARPENTER_DAMAGE_METER_TAB_RELOAD"
 local REFRESH_SECONDS = 0.5
-local LOGIN_SETTLE_SECONDS = 1
+local LOGIN_SETTLE_SECONDS = { 1, 3, 6 }
 local VALUE_GAP = 8
 local FALLBACK_FONT_SIZE = 14
 -- The title line's yellow, as on the quest tracker's quest titles.
@@ -43,7 +43,7 @@ local TITLE_R, TITLE_G, TITLE_B = 1, 0.82, 0
 local MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT, MENU_ICON_SIZE = 27, 26, 15
 -- The arrow sits high and left in its art; this centers it on the button's
 -- face. Pressed, it moves with the face as the chat buttons' icons do.
-local MENU_ICON_OFFSET_X, MENU_ICON_OFFSET_Y = 1.5, -4
+local MENU_ICON_OFFSET_X, MENU_ICON_OFFSET_Y = 1.5, -3
 local MENU_ICON_PUSHED_X, MENU_ICON_PUSHED_Y = -1, -2
 local MENU_ARROW_ATLAS = "friendslist-categorybutton-arrow-down"
 local MENU_ARROW_FALLBACK_ATLAS = "common-dropdown-a-button-shadowless"
@@ -71,37 +71,19 @@ local function Text(key, fallback)
     return L[key] or fallback
 end
 
--- TEMP probe: why the tab can stay empty after a reload. Logs the tab's
--- steps for one session into CarpenterDB.damageMeterTabProbe. Remove once
--- the cause is known.
-local PROBE_MAX = 80
-local probeStarted = false
-local function Probe(what, ...)
-    if not CarpenterDB then return end
-    if not probeStarted then
-        probeStarted = true
-        CarpenterDB.damageMeterTabProbe = {}
-    end
-    local log = CarpenterDB.damageMeterTabProbe
-    if type(log) ~= "table" or #log >= PROBE_MAX then return end
-    local parts = { string.format("%.2f", GetTime and GetTime() or 0), what }
-    for index = 1, select("#", ...) do
-        local value = select(index, ...)
-        if issecretvalue and issecretvalue(value) then value = "<secret>" end
-        parts[#parts + 1] = tostring(value)
-    end
-    log[#log + 1] = table.concat(parts, " ")
+-- Runs one step of the tab's upkeep, so a failure in one doesn't stop the
+-- others.
+local function Try(callback, ...)
+    return (pcall(callback, ...))
 end
 
--- Runs one step of the tab's upkeep; a failure is logged and the other
--- steps still run.
-local function Try(what, callback, ...)
-    local ok, message = pcall(callback, ...)
-    if not ok then Probe("error", what, message) end
-    return ok
-end
-
+-- "Damage", short enough for a chat tab. Earlier builds named it after the
+-- whole "Damage Meter" label, which got cut off; such a tab is renamed.
 local function TabName()
+    return _G.DAMAGE_METER_CATEGORY_DAMAGE or "Damage"
+end
+
+local function LegacyTabName()
     return _G.DAMAGE_METER_LABEL or "Damage Meter"
 end
 
@@ -221,19 +203,38 @@ local function ChatWindowCount()
     return _G.NUM_CHAT_WINDOWS or 10
 end
 
--- The open chat window carrying the tab's name. The General and Combat Log
--- windows are never taken, whatever they are called.
+-- The open chat window carrying the tab's name, or its old one. Open means
+-- shown or docked: while the game loads, a docked tab can be hidden for a
+-- moment. The General and Combat Log windows are never taken, whatever they
+-- are called.
 function DamageMeterTab.FindWindow()
     if type(GetChatWindowInfo) ~= "function" then return nil end
-    local name = TabName()
+    local name, legacyName = TabName(), LegacyTabName()
     for index = 3, ChatWindowCount() do
-        local ok, windowName, _, _, _, _, _, shown = pcall(GetChatWindowInfo, index)
+        local ok, windowName, _, _, _, _, _, shown, _, docked = pcall(GetChatWindowInfo, index)
         local frame = _G["ChatFrame" .. index]
-        if ok and windowName == name and shown and frame then
-            return frame, index
+        local open = shown == true or shown == 1 or (type(docked) == "number" and docked > 0) or docked == true
+        if ok and frame and open and (windowName == name or windowName == legacyName) then
+            return frame, index, windowName
         end
     end
     return nil
+end
+
+-- Renames a tab from an earlier build. The game's own call saves the name
+-- without touching the chat code's state; the tab's label follows at once,
+-- and the game sizes it to the name at the next reload.
+local function RenameLegacyWindow(frame, index, windowName)
+    if not frame or windowName == TabName() or type(SetChatWindowName) ~= "function" then return end
+    if not pcall(SetChatWindowName, index, TabName()) then return end
+    local tab = _G["ChatFrame" .. index .. "Tab"]
+    if tab and tab.SetText then tab:SetText(TabName()) end
+end
+
+local function FindAndRenameWindow()
+    local frame, index, windowName = DamageMeterTab.FindWindow()
+    RenameLegacyWindow(frame, index, windowName)
+    return frame
 end
 
 local function ShowReloadPopup()
@@ -463,10 +464,6 @@ function DamageMeterTab.Refresh()
     -- Right after a reload the chat window can still be without a size;
     -- stay dirty and try again on the next pass.
     if (display:GetWidth() or 0) <= 0 or (display:GetHeight() or 0) <= 0 then
-        if not state.probedNoSize then
-            state.probedNoSize = true
-            Probe("nosize", display:GetWidth(), display:GetHeight())
-        end
         state.dirty = true
         return
     end
@@ -485,13 +482,7 @@ function DamageMeterTab.Refresh()
     headerRight:SetTextColor(TITLE_R, TITLE_G, TITLE_B)
 
     -- A failure keeps the lines already shown rather than blanking the tab.
-    local ok, message = pcall(FillRows, window, lineHeight, capacity)
-    if not ok then
-        Probe("fillerror", message)
-    elseif not state.probedDrawn then
-        state.probedDrawn = true
-        Probe("drawn", "capacity", capacity, "total", state.total, "header", header:GetText())
-    end
+    pcall(FillRows, window, lineHeight, capacity)
 end
 
 local function InCombat()
@@ -500,24 +491,18 @@ end
 
 local MirrorChannelButton, PlaceMenuButton, IsPulledOut
 
-local probeBeats = 0
-
 local function OnDisplayUpdate(self, elapsed)
     -- The tab was pulled out of the dock or put back.
     if IsPulledOut(self:GetParent()) ~= state.pulledOut then
-        Try("place", PlaceMenuButton)
+        Try(PlaceMenuButton)
     end
-    Try("mirror", MirrorChannelButton)
+    Try(MirrorChannelButton)
     self.elapsed = (self.elapsed or 0) + elapsed
     if self.elapsed < REFRESH_SECONDS then return end
     self.elapsed = 0
-    if probeBeats < 12 then
-        probeBeats = probeBeats + 1
-        Probe("beat", "dirty", state.dirty, "w", self:GetWidth(), "h", self:GetHeight())
-    end
     -- The segment timer runs in combat.
     if state.dirty or InCombat() then
-        Try("refresh", DamageMeterTab.Refresh)
+        Try(DamageMeterTab.Refresh)
     end
 end
 
@@ -694,7 +679,7 @@ local function CreateMenuButton()
     button:HookScript("OnEnter", function(self)
         if not GameTooltip then return end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(TabName())
+        GameTooltip:SetText(LegacyTabName())
         GameTooltip:Show()
     end)
     button:HookScript("OnLeave", function()
@@ -751,14 +736,12 @@ local function CreateDisplay()
     display:SetScript("OnShow", function(self)
         self.elapsed = 0
         state.dirty = true
-        Probe("onshow", self:GetWidth(), self:GetHeight())
-        Try("place", PlaceMenuButton)
+        Try(PlaceMenuButton)
         if menuButton then menuButton:Show() end
-        Try("refresh", DamageMeterTab.Refresh)
-        Try("mirror", MirrorChannelButton)
+        Try(DamageMeterTab.Refresh)
+        Try(MirrorChannelButton)
     end)
     display:SetScript("OnHide", function()
-        Probe("onhide")
         if menuButton then menuButton:Hide() end
     end)
     -- The chat window got its size, or was resized: lay the lines out again.
@@ -767,12 +750,7 @@ local function CreateDisplay()
 end
 
 local function Attach(window)
-    if not window then
-        Probe("attach", "no window", "chatReady", state.chatReady)
-        return false
-    end
-    Probe("attach", window:GetName(), "shown", window:IsShown(), "visible", window:IsVisible(),
-        "docked", window.isDocked, "w", window:GetWidth(), "h", window:GetHeight())
+    if not window then return false end
     CreateDisplay()
     if display:GetParent() ~= window then
         display:SetParent(window)
@@ -782,9 +760,7 @@ local function Attach(window)
     end
     display:Show()
     MarkDirty()
-    Try("refresh", DamageMeterTab.Refresh)
-    Probe("attached", "displayShown", display:IsShown(), "visible", display:IsVisible(),
-        "w", display:GetWidth(), "h", display:GetHeight(), "dirty", state.dirty)
+    Try(DamageMeterTab.Refresh)
     return true
 end
 
@@ -853,20 +829,19 @@ local eventFrame = CreateFrame("Frame")
 
 local function TryAttach()
     if not state.active then return end
-    Attach(DamageMeterTab.FindWindow())
+    Attach(FindAndRenameWindow())
 end
 
 eventFrame:SetScript("OnEvent", function(_, event, addonName)
-    if event ~= "ADDON_LOADED" and (event == "PLAYER_ENTERING_WORLD" or event == "UPDATE_CHAT_WINDOWS") then
-        Probe("event", event)
-    end
     if event == "ADDON_LOADED" then
         if addonName == "Blizzard_DamageMeter" and HookFloatingMeter() then
             eventFrame:UnregisterEvent("ADDON_LOADED")
             DamageMeterTab.ApplyFloatingMeter()
         end
     elseif event == "PLAYER_ENTERING_WORLD" then
-        Carpenter:After(LOGIN_SETTLE_SECONDS, function()
+        -- The game restores its chat windows around now and can hide the tab
+        -- for a moment, so it is looked for a few times.
+        Carpenter:DeferMany("DamageMeterTab:login", LOGIN_SETTLE_SECONDS, function()
             state.chatReady = true
             TryAttach()
         end)
@@ -893,7 +868,6 @@ local feature = {}
 
 function feature:Enable()
     state.active = true
-    Probe("enable", "chatReady", state.chatReady)
     if HookFloatingMeter() then
         DamageMeterTab.ApplyFloatingMeter()
     else
@@ -903,7 +877,7 @@ function feature:Enable()
     for _, event in ipairs(METER_EVENTS) do
         Carpenter:SafeRegisterEvent(eventFrame, event)
     end
-    local window = DamageMeterTab.FindWindow()
+    local window = FindAndRenameWindow()
     -- Turned on in the settings: open the tab. At login the game restores it.
     if not window and state.chatReady then
         window = OpenWindow()

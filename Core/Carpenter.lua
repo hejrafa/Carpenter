@@ -409,6 +409,8 @@ function Carpenter_InitializeSettings()
     CarpenterDB.backSheathOneHandWeaponsEnabled = nil
     -- A weapon buff timer log from testing a fix, never released.
     CarpenterDB.buffTimerProbeLog = nil
+    -- A Damage Meter Tab log from testing a fix, never released.
+    CarpenterDB.damageMeterTabProbe = nil
 
     if CarpenterDB and Carpenter.Client and Carpenter.Client.isMainline and
         CarpenterDB.hideUnitFrameCombatTextEnabled == true and
