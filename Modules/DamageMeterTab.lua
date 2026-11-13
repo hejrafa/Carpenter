@@ -84,10 +84,34 @@ local function Text(key, fallback)
     return L[key] or fallback
 end
 
+-- TEMP probe: why the tab draws nothing after the breakdown change. Logs
+-- the tab's steps and any error for one session into
+-- CarpenterDB.damageMeterTabProbe. Remove once the cause is known.
+local PROBE_MAX = 150
+local probeStarted = false
+local function Probe(what, ...)
+    if not CarpenterDB then return end
+    if not probeStarted then
+        probeStarted = true
+        CarpenterDB.damageMeterTabProbe = {}
+    end
+    local log = CarpenterDB.damageMeterTabProbe
+    if type(log) ~= "table" or #log >= PROBE_MAX then return end
+    local parts = { string.format("%.2f", GetTime and GetTime() or 0), what }
+    for index = 1, select("#", ...) do
+        local value = select(index, ...)
+        if issecretvalue and issecretvalue(value) then value = "<secret>" end
+        parts[#parts + 1] = tostring(value)
+    end
+    log[#log + 1] = table.concat(parts, " ")
+end
+
 -- Runs one step of the tab's upkeep, so a failure in one doesn't stop the
 -- others.
 local function Try(callback, ...)
-    return (pcall(callback, ...))
+    local ok, message = pcall(callback, ...)
+    if not ok then Probe("error", message) end
+    return ok
 end
 
 -- The game's "Damage Meter" label; the docked tab is widened to fit it. A
@@ -736,6 +760,10 @@ function DamageMeterTab.Refresh()
     -- Right after a reload the chat window can still be without a size;
     -- stay dirty and try again on the next pass.
     if (display:GetWidth() or 0) <= 0 or (display:GetHeight() or 0) <= 0 then
+        if not state.probedNoSize then
+            state.probedNoSize = true
+            Probe("nosize", display:GetWidth(), display:GetHeight())
+        end
         state.dirty = true
         return
     end
@@ -748,10 +776,19 @@ function DamageMeterTab.Refresh()
 
     headerRight:SetText(SegmentText(sessionType))
     headerRight:SetTextColor(TITLE_R, TITLE_G, TITLE_B)
-    pcall(FillHeader, window, lineHeight, meterType)
+    local headerOk, headerError = pcall(FillHeader, window, lineHeight, meterType)
+    if not headerOk then Probe("headererror", headerError) end
 
     -- A failure keeps the lines already shown rather than blanking the tab.
-    pcall(state.breakdown and FillBreakdown or FillRows, window, lineHeight, capacity)
+    local fillOk, fillError = pcall(state.breakdown and FillBreakdown or FillRows, window, lineHeight, capacity)
+    if not fillOk then Probe("fillerror", fillError) end
+    if not state.probedDrawn then
+        state.probedDrawn = true
+        local row = rows[1]
+        Probe("drawn", "capacity", capacity, "total", state.total, "line", lineHeight, "header", header:GetText(),
+            "headerShown", header:IsShown(), "row1", row and row.name:GetText(), "row1Shown", row and row.name:IsShown(),
+            "rows", #rows, "w", display:GetWidth(), "h", display:GetHeight())
+    end
 end
 
 -- A click on a name opens its breakdown; a click on a breakdown, its title
@@ -782,7 +819,12 @@ end
 
 local MirrorChannelButton, PlaceMenuButton, IsPulledOut
 
+local probeBeats = 0
 local function OnDisplayUpdate(self, elapsed)
+    if probeBeats < 8 then
+        probeBeats = probeBeats + 1
+        Probe("beat", "dirty", state.dirty, "w", self:GetWidth(), "h", self:GetHeight(), "visible", self:IsVisible())
+    end
     -- The tab was pulled out of the dock or put back.
     if IsPulledOut(self:GetParent()) ~= state.pulledOut then
         Try(PlaceMenuButton)
@@ -1036,6 +1078,7 @@ local function CreateDisplay()
     menuButton = CreateMenuButton()
 
     display:SetScript("OnShow", function(self)
+        Probe("onshow", self:GetWidth(), self:GetHeight())
         self.elapsed = 0
         state.dirty = true
         Try(PlaceMenuButton)
@@ -1044,6 +1087,7 @@ local function CreateDisplay()
         Try(MirrorChannelButton)
     end)
     display:SetScript("OnHide", function()
+        Probe("onhide")
         if menuButton then menuButton:Hide() end
     end)
     -- The chat window got its size, or was resized: lay the lines out again.
@@ -1052,8 +1096,17 @@ local function CreateDisplay()
 end
 
 local function Attach(window)
-    if not window then return false end
-    CreateDisplay()
+    if not window then
+        Probe("attach", "no window", "chatReady", state.chatReady)
+        return false
+    end
+    Probe("attach", window:GetName(), "shown", window:IsShown(), "visible", window:IsVisible(),
+        "w", window:GetWidth(), "h", window:GetHeight())
+    local created, createError = pcall(CreateDisplay)
+    if not created then
+        Probe("createerror", createError)
+        error(createError)
+    end
     if display:GetParent() ~= window then
         display:SetParent(window)
         display:ClearAllPoints()
@@ -1146,7 +1199,20 @@ eventFrame:SetScript("OnEvent", function(_, event, addonName)
         -- for a moment, so it is looked for a few times.
         Carpenter:DeferMany("DamageMeterTab:login", LOGIN_SETTLE_SECONDS, function()
             state.chatReady = true
-            TryAttach()
+            local attached, attachError = pcall(TryAttach)
+            if not attached then Probe("attacherror", attachError) end
+            if display then
+                local row = rows[1]
+                Probe("settle", "parent", display:GetParent() and display:GetParent():GetName(),
+                    "shown", display:IsShown(), "visible", display:IsVisible(), "alpha", display:GetEffectiveAlpha(),
+                    "w", display:GetWidth(), "h", display:GetHeight(), "level", display:GetFrameLevel(),
+                    "dirty", state.dirty, "header", header and header:GetText(),
+                    "row1", row and row.name:GetText(), "row1Shown", row and row.name:IsShown(),
+                    "row1Visible", row and row.name:IsVisible(), "menu", menuButton ~= nil,
+                    "menuShown", menuButton and menuButton:IsShown(), "onUpdate", display:GetScript("OnUpdate") ~= nil)
+            else
+                Probe("settle", "no display")
+            end
         end)
     elseif event == "UPDATE_CHAT_WINDOWS" then
         TryAttach()
@@ -1174,6 +1240,7 @@ Carpenter:SafeRegisterEvent(eventFrame, "PLAYER_ENTERING_WORLD")
 local feature = {}
 
 function feature:Enable()
+    Probe("enable", "chatReady", state.chatReady)
     state.active = true
     HookTabLayout()
     if HookFloatingMeter() then
