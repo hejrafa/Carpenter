@@ -44,8 +44,9 @@ local REFRESH_SECONDS = 0.5
 local LOGIN_SETTLE_SECONDS = { 1, 3, 6 }
 local VALUE_GAP = 8
 local FALLBACK_FONT_SIZE = 14
--- A faint band behind a line that takes a click, while the mouse is on it.
-local CLICK_HIGHLIGHT_ALPHA = 0.1
+-- The glow behind a line that takes a click, while the mouse is on it: the
+-- game's own menus light an item the same way.
+local CLICK_HIGHLIGHT_TEXTURE = "Interface\\QuestFrame\\UI-QuestTitleHighlight"
 -- The title line's yellow, as on the quest tracker's quest titles.
 local TITLE_R, TITLE_G, TITLE_B = 1, 0.82, 0
 -- The chat button column's art, as on the channels button.
@@ -383,7 +384,8 @@ local function CreateClickArea()
     area:SetScript("OnMouseWheel", function(_, delta) OnMouseWheel(display, delta) end)
 
     local highlight = display:CreateTexture(nil, "BACKGROUND")
-    highlight:SetColorTexture(1, 1, 1, CLICK_HIGHLIGHT_ALPHA)
+    highlight:SetTexture(CLICK_HIGHLIGHT_TEXTURE)
+    highlight:SetBlendMode("ADD")
     highlight:Hide()
     area.highlight = highlight
     area:SetScript("OnEnter", function(self) self.highlight:Show() end)

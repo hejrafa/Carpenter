@@ -79,6 +79,8 @@ local function AddFrameMethods(frame)
     function frame:CreateTexture()
         local texture = H.Frame({ parent = self, objectType = "Texture" })
         function texture:SetColorTexture(r, g, b, a) self.colorTexture = { r, g, b, a } end
+        function texture:SetTexture(file) self.file = file end
+        function texture:SetBlendMode(mode) self.blendMode = mode end
         function texture:SetAtlas(atlas) self.atlas = atlas end
         function texture:SetDesaturated(desaturated) self.desaturated = desaturated end
         function texture:SetVertexColor(r, g, b) self.vertexColor = { r, g, b } end
@@ -468,6 +470,8 @@ assertEqual(areas[1].points[2] and areas[1].points[2][2], values[1], "a name's c
 assertEqual(areas[1].clicks and areas[1].clicks[1], "LeftButtonDown", "a name should take the click as the button goes down")
 assertEqual(areas[1].wheelEnabled, true, "the wheel should still scroll over a name")
 assertEqual(areas[1].highlight.shown, false, "a name should not be highlighted before the mouse is on it")
+assertEqual(areas[1].highlight.file, "Interface\\QuestFrame\\UI-QuestTitleHighlight", "the hover should use the game menus' glow")
+assertEqual(areas[1].highlight.blendMode, "ADD", "the hover glow should be drawn the way the menus draw it")
 areas[1].scripts.OnEnter(areas[1])
 assertEqual(areas[1].highlight.shown, true, "a name should be highlighted while the mouse is on it")
 areas[1].scripts.OnLeave(areas[1])
