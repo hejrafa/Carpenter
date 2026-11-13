@@ -46,8 +46,13 @@ local function NewFontString(parent)
     function fontString:SetShadowColor() end
     function fontString:SetJustifyH(justify) self.justifyH = justify end
     function fontString:SetWordWrap() end
-    function fontString:SetText(text) self.text = Reveal(text) end
+    -- The game refuses text on a font string without a font.
+    local function RequireFont(self)
+        if not (self.font or self.fontObject) then error("FontString:SetText(): Font not set") end
+    end
+    function fontString:SetText(text) RequireFont(self); self.text = Reveal(text) end
     function fontString:SetFormattedText(format, ...)
+        RequireFont(self)
         local args = { ... }
         for index = 1, select("#", ...) do args[index] = Reveal(args[index]) end
         self.text = string.format(format, unpack(args, 1, select("#", ...)))
@@ -153,6 +158,7 @@ for index = 1, NUM_CHAT_WINDOWS do
     _G["ChatFrame" .. index] = frame
     local tab = AddFrameMethods(H.Frame({ name = "ChatFrame" .. index .. "Tab", width = 90 }))
     tab.Text = NewFontString(tab)
+    tab.Text:SetFontObject("ChatFontNormal")
     -- Seven units a letter, unbounded by the label's width.
     function tab.Text:GetUnboundedStringWidth() return #(self.text or "") * 7 end
     function tab:SetText(text) self.Text:SetText(text) end
