@@ -63,6 +63,10 @@ local function AddFrameMethods(frame)
         if self.allPoints then return self.allPoints:GetHeight() end
         return self.height
     end
+    function frame:GetWidth()
+        if self.allPoints then return self.allPoints:GetWidth() end
+        return self.width
+    end
     function frame:GetFont() return "Fonts\\ARIALN.TTF", 14, "" end
     function frame:GetSpacing() return 3 end
     function frame:EnableMouseWheel(enabled) self.wheelEnabled = enabled end
@@ -132,7 +136,7 @@ local windows = {
     [2] = { name = "Combat Log", shown = true },
 }
 for index = 1, NUM_CHAT_WINDOWS do
-    _G["ChatFrame" .. index] = AddFrameMethods(H.Frame({ name = "ChatFrame" .. index, level = 3, height = 120, shown = false }))
+    _G["ChatFrame" .. index] = AddFrameMethods(H.Frame({ name = "ChatFrame" .. index, level = 3, width = 300, height = 120, shown = false }))
 end
 DEFAULT_CHAT_FRAME = ChatFrame1
 GetChatWindowInfo = function(index)
@@ -544,10 +548,23 @@ assertEqual(DamageMeter.shown, true, "with the option off the game should show i
 opened, popups = {}, {}
 windows[4] = { name = "Damage Meter", shown = true }
 ChatFrame4:Show()
+-- Right after the reload the window has no size yet.
+ChatFrame4.width, ChatFrame4.height = 0, 0
+local requestsBefore = #meter.requests
 feature:Enable()
+display.scripts.OnUpdate(display, 0.6)
+assertEqual(#meter.requests, requestsBefore, "a window without a size should not be filled yet")
+ChatFrame4.width, ChatFrame4.height = 300, 120
+display.scripts.OnSizeChanged(display)
+display.scripts.OnUpdate(display, 0.6)
+assertTrue(#meter.requests > requestsBefore, "the tab should fill once the window has a size")
+header, names = Read(display)
+assertEqual(header, "Damage Done", "the header should show once the window has a size")
+assertTrue(names[1] ~= nil, "the lines should show once the window has a size")
 assertEqual(#opened, 0, "an existing tab should not be opened again")
 assertEqual(#popups, 0, "drawing on an existing tab should not ask for a reload")
 assertEqual(display.parent, ChatFrame4, "the display should move to the existing tab")
+assertTrue(display.scripts.OnSizeChanged ~= nil, "a resized chat window should lay the lines out again")
 assertEqual(DamageMeter.shown, false, "turning on again should hide the floating meter")
 feature:Disable()
 assertEqual(DamageMeter.shown, true, "turning off should bring back a floating meter the game wants shown")

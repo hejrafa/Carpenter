@@ -412,6 +412,12 @@ end
 function DamageMeterTab.Refresh()
     if not display or not display:IsVisible() then return end
     local window = display:GetParent()
+    -- Right after a reload the chat window can still be without a size;
+    -- stay dirty and try again on the next pass.
+    if (display:GetWidth() or 0) <= 0 or (display:GetHeight() or 0) <= 0 then
+        state.dirty = true
+        return
+    end
     state.dirty = false
 
     local lineHeight = LineHeight(window)
@@ -626,6 +632,8 @@ local function CreateDisplay()
     display:SetScript("OnHide", function()
         if menuButton then menuButton:Hide() end
     end)
+    -- The chat window got its size, or was resized: lay the lines out again.
+    display:SetScript("OnSizeChanged", MarkDirty)
     display:SetScript("OnUpdate", OnDisplayUpdate)
 end
 
