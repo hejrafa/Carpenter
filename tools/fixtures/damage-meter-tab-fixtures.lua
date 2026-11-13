@@ -321,6 +321,11 @@ assertTrue(display:IsVisible(), "the display should show with its tab")
 local header, names, values = Read(display)
 assertEqual(header, "Damage Done", "the header should name the type on the left")
 assertEqual(headerRightText, "Current Segment [1:23]", "the header should show the segment and time on the right")
+for _, region in ipairs(display.children) do
+    if region.text == "Current Segment [1:23]" then
+        assertEqual(region.color and region.color[2], 0.82, "the segment should share the title's yellow")
+    end
+end
 assertEqual(names[1] and names[1].text, "Koji Hakamori", "the first line should be the top source, without a rank")
 assertEqual(values[1] and values[1].text, "1491 (124.3)", "the first value should be total and per second")
 assertEqual(names[2] and names[2].text, "Suggo Battsuggovic", "the second line should be the next source")

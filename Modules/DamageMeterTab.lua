@@ -1,6 +1,6 @@
 --[[ Carpenter - Damage Meter Tab ]]
 -- Shows the game's damage meter as plain text in a chat tab of its own, on
--- Retail and WoW Forever: a title line with the meter type in yellow on the
+-- Retail and WoW Forever: a yellow title line with the meter type on the
 -- left and the segment and its time on the right, then one line per player,
 -- the name in class color on the left and "total (per second)" on the right,
 -- in the chat window's own font. The order shows the ranking, so a name only
@@ -35,6 +35,8 @@ local REFRESH_SECONDS = 0.5
 local LOGIN_SETTLE_SECONDS = 1
 local VALUE_GAP = 8
 local FALLBACK_FONT_SIZE = 14
+-- The title line's yellow, as on the quest tracker's quest titles.
+local TITLE_R, TITLE_G, TITLE_B = 1, 0.82, 0
 -- The chat button column's art, as on the channels button.
 local MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT, MENU_ICON_SIZE = 27, 26, 15
 -- The arrow sits high and left in its art; this centers it on the button's
@@ -428,9 +430,9 @@ function DamageMeterTab.Refresh()
     StyleFontString(header, window)
     StyleFontString(headerRight, window)
     header:SetText(TypeName(meterType))
-    header:SetTextColor(1, 0.82, 0)
+    header:SetTextColor(TITLE_R, TITLE_G, TITLE_B)
     headerRight:SetText(SegmentText(sessionType))
-    headerRight:SetTextColor(0.6, 0.6, 0.6)
+    headerRight:SetTextColor(TITLE_R, TITLE_G, TITLE_B)
 
     -- A failure keeps the lines already shown rather than blanking the tab.
     pcall(FillRows, window, lineHeight, capacity)
