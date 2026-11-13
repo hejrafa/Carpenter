@@ -108,6 +108,7 @@ local featureManifest = {
     chatFilterEnabled = { { clients = CLASSIC, files = { "Modules/ChatFilter.lua" } } },
     chatCleanerEnabled = { { clients = ALL, files = { "Modules/ChatCleaner/ChatCleaner.lua" } } },
     hideChatButtonsEnabled = { { clients = ALL, files = { "Modules/HideChatButtons.lua" } } },
+    damageMeterTabEnabled = { { clients = MODERN, files = { "Modules/DamageMeterTab.lua" } } },
 
     -- Automations
     autoCarrotEnabled = { { clients = CLASSIC, files = { "Modules/AutoCarrot.lua" } } },

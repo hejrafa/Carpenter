@@ -56,6 +56,7 @@ local defaults = {
     chatCleanerEnabled = false,
     chatEditBoxTextureEnabled = false,
     hideChatButtonsEnabled = false,
+    damageMeterTabEnabled = false,
     -- Automations
     autoCarrotEnabled = false,
     autoCarrotSlot = 14,

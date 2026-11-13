@@ -268,6 +268,11 @@ function Options.Create(context)
                     description = Description("DESC_HIDE_CHAT_BUTTONS"),
                     image = GetSettingsImage("chatbuttons.png"),
                 },
+                {
+                    key = "damageMeterTabEnabled",
+                    label = L.OPTION_DAMAGE_METER_TAB or "Damage Meter Tab",
+                    description = Description("DESC_DAMAGE_METER_TAB"),
+                },
             },
         },
         {

@@ -90,6 +90,7 @@ Modules\ChatCleaner\ChatCleanerLifecycle.lua
 Modules\ChatCleaner\ChatCleanerHiddenLines.lua
 Modules\ChatCleaner\ChatCleaner.lua
 Modules\HideChatButtons.lua
+Modules\DamageMeterTab.lua
 
 # Automations
 Modules\SmartMacros\SmartMacroData.lua
