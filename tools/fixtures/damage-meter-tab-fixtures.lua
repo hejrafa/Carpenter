@@ -135,8 +135,15 @@ local windows = {
     [1] = { name = "General", shown = true },
     [2] = { name = "Combat Log", shown = true },
 }
+-- Docked windows; each has its own button column, topped by a collapse
+-- button the game hides while docked.
 for index = 1, NUM_CHAT_WINDOWS do
-    _G["ChatFrame" .. index] = AddFrameMethods(H.Frame({ name = "ChatFrame" .. index, level = 3, width = 300, height = 120, shown = false }))
+    local frame = AddFrameMethods(H.Frame({ name = "ChatFrame" .. index, level = 3, width = 300, height = 120, shown = false }))
+    frame.isDocked = true
+    frame.buttonFrame = AddFrameMethods(H.Frame({ name = "ChatFrame" .. index .. "ButtonFrame", parent = frame, alpha = 1 }))
+    frame.buttonFrame.minimizeButton = AddFrameMethods(H.Frame({ parent = frame.buttonFrame, shown = false, strata = "LOW", level = 8 }))
+    frame.buttonFrame.minimizeButton:SetPoint("TOP", frame.buttonFrame, "TOP", 0, 4)
+    _G["ChatFrame" .. index] = frame
 end
 DEFAULT_CHAT_FRAME = ChatFrame1
 GetChatWindowInfo = function(index)
@@ -571,8 +578,43 @@ assertEqual(#popups, 0, "drawing on an existing tab should not ask for a reload"
 assertEqual(display.parent, ChatFrame4, "the display should move to the existing tab")
 assertTrue(display.scripts.OnSizeChanged ~= nil, "a resized chat window should lay the lines out again")
 assertEqual(DamageMeter.shown, false, "turning on again should hide the floating meter")
+
+-- Pulling the tab out of the dock moves the menu button to its window.
+local collapse = ChatFrame4.buttonFrame.minimizeButton
+ChatFrame4.isDocked, collapse.shown = nil, true
+Tick()
+local menuPoint = button.points[1]
+assertEqual(menuPoint and menuPoint[2], ChatFrame4.buttonFrame, "a pulled-out tab should top its own button column with the menu button")
+assertEqual(menuPoint and menuPoint[1], "TOP", "the menu button should sit at the column's top")
+local collapsePoint = collapse.points[1]
+assertEqual(collapsePoint and collapsePoint[2], button, "the collapse button should move under the menu button")
+assertEqual(collapsePoint and collapsePoint[3], "BOTTOM", "the collapse button should hang from the menu button's bottom")
+assertEqual(button.strata, "LOW", "the menu button should share the column's strata")
+ChatFrame4.buttonFrame.alpha = 0.2
+Tick()
+assertEqual(button.alpha, 0.2, "the menu button should fade with its window's button column")
+ChatFrame4.buttonFrame.alpha = 1
+Tick()
+assertEqual(button.alpha, 1, "the menu button should show with its window's button column")
+
+-- Docking it again puts both back.
+ChatFrame4.isDocked, collapse.shown = true, false
+Tick()
+menuPoint = button.points[1]
+assertEqual(menuPoint and menuPoint[2], ChatFrameChannelButton, "a docked tab should put the menu button back on the channels button")
+collapsePoint = collapse.points[1]
+assertEqual(collapsePoint and collapsePoint[2], ChatFrame4.buttonFrame, "docking should give the collapse button its own anchor back")
+assertEqual(collapsePoint and collapsePoint[5], 4, "the collapse button should keep the game's offset")
+assertEqual(#collapse.points, 1, "the collapse button should have only its own anchor")
+
+-- Turning off while pulled out also gives the collapse button back.
+ChatFrame4.isDocked, collapse.shown = nil, true
+Tick()
+assertEqual(collapse.points[1][2], button, "the collapse button should move under the menu button again")
 feature:Disable()
 assertEqual(DamageMeter.shown, true, "turning off should bring back a floating meter the game wants shown")
+assertEqual(collapse.points[1][2], ChatFrame4.buttonFrame, "turning off should give the collapse button its own anchor back")
+ChatFrame4.isDocked = true
 
 -- The General and Combat Log windows are never taken, whatever their names.
 windows[1].name, windows[4].shown = "Damage Meter", false

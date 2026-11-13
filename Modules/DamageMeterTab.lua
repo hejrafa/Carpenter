@@ -10,8 +10,10 @@
 -- While the tab is open, a chat button with an arrow sits where the chat
 -- channels button is. That button belongs to the General window's button
 -- column and hides with it on other tabs, so the arrow takes its place there
--- and fades like the chat buttons still showing beside it. It picks the
--- meter type and segment and resets the data.
+-- and fades like the chat buttons still showing beside it. With the tab
+-- pulled out into a window of its own, the arrow tops that window's button
+-- column instead, with its collapse button moved down under it, and fades
+-- with that column. It picks the meter type and segment and resets the data.
 --
 -- The game's own floating meter window stays hidden while the option is on,
 -- except in Edit Mode, where it can still be placed and set up.
@@ -47,6 +49,7 @@ local MENU_ARROW_ATLAS = "friendslist-categorybutton-arrow-down"
 local MENU_ARROW_FALLBACK_ATLAS = "common-dropdown-a-button-shadowless"
 
 local L = (Carpenter and Carpenter.L) or {}
+local unpack = unpack or table.unpack
 
 local DamageMeterTab = {}
 local state = {
@@ -55,6 +58,8 @@ local state = {
     -- missing.
     chatReady = false,
     dirty = true,
+    -- Whether the menu button was last placed for a pulled-out window.
+    pulledOut = false,
     -- Scrolling: the first line's place in the list, and what the last
     -- refresh found, which the mouse wheel stays within.
     offset = 0,
@@ -442,9 +447,13 @@ local function InCombat()
     return (UnitAffectingCombat and UnitAffectingCombat("player")) and true or false
 end
 
-local MirrorChannelButton
+local MirrorChannelButton, PlaceMenuButton, IsPulledOut
 
 local function OnDisplayUpdate(self, elapsed)
+    -- The tab was pulled out of the dock or put back.
+    if IsPulledOut(self:GetParent()) ~= state.pulledOut then
+        PlaceMenuButton()
+    end
     MirrorChannelButton()
     self.elapsed = (self.elapsed or 0) + elapsed
     if self.elapsed < REFRESH_SECONDS then return end
@@ -500,17 +509,61 @@ end
 -- window, so it is usually the social button.
 local COLUMN_BUTTONS = { "QuickJoinToastButton", "ChatFrameMenuButton", "ChatFrameChannelButton" }
 
+-- A pulled-out window has its own button column, topped by its collapse
+-- button; a docked one hides that button.
+function IsPulledOut(window)
+    return window ~= nil and window ~= UIParent and not window.isDocked
+end
+
+local function CollapseButtonOf(window)
+    local buttonFrame = window and window.buttonFrame
+    return buttonFrame and buttonFrame.minimizeButton
+end
+
+-- Collapse buttons moved under the menu button, with their own anchors.
+local movedCollapseButtons = {}
+
+local function RestoreCollapseButtons()
+    for button, points in pairs(movedCollapseButtons) do
+        button:ClearAllPoints()
+        for _, point in ipairs(points) do
+            button:SetPoint(unpack(point))
+        end
+        movedCollapseButtons[button] = nil
+    end
+end
+
+local function MoveCollapseButtonUnder(button)
+    if not movedCollapseButtons[button] then
+        local points = {}
+        for index = 1, button:GetNumPoints() do
+            points[index] = { button:GetPoint(index) }
+        end
+        movedCollapseButtons[button] = points
+    end
+    button:ClearAllPoints()
+    -- Its art has room around the button; the game sets it 4 higher than
+    -- the column's top for the same reason.
+    button:SetPoint("TOP", menuButton, "BOTTOM", 0, 4)
+end
+
 -- The button shows as much as the chat buttons beside it, so it fades with
 -- Hide Chat Buttons and the chat window, and stays up while its menu is open.
+-- In a pulled-out window those are its own column's.
 function MirrorChannelButton()
     if not menuButton then return end
     local alpha = 1
     if not IsMenuOpen() then
-        for _, name in ipairs(COLUMN_BUTTONS) do
-            local button = _G[name]
-            if button and button.IsVisible and button:IsVisible() then
-                alpha = button:GetEffectiveAlpha() or 1
-                break
+        local collapse = state.pulledOut and CollapseButtonOf(display:GetParent())
+        if collapse and collapse:IsVisible() then
+            alpha = collapse:GetEffectiveAlpha() or 1
+        else
+            for _, name in ipairs(COLUMN_BUTTONS) do
+                local button = _G[name]
+                if button and button.IsVisible and button:IsVisible() then
+                    alpha = button:GetEffectiveAlpha() or 1
+                    break
+                end
             end
         end
     end
@@ -519,12 +572,25 @@ function MirrorChannelButton()
     end
 end
 
--- Over the channels button, a level above it; at the tab's top-right corner
--- on a client without one.
-local function PlaceMenuButton()
+-- Docked: over the channels button, a level above it. Pulled out: at the top
+-- of the window's own button column, its collapse button moved under it. At
+-- the tab's top-right corner on a client without either.
+function PlaceMenuButton()
     if not menuButton then return end
+    local window = display:GetParent()
+    local collapse = IsPulledOut(window) and CollapseButtonOf(window)
     local channel = ChannelButton()
+    state.pulledOut = IsPulledOut(window)
     menuButton:ClearAllPoints()
+    if collapse then
+        local column = window.buttonFrame
+        menuButton:SetPoint("TOP", column, "TOP", 0, 0)
+        menuButton:SetFrameStrata(collapse:GetFrameStrata() or "MEDIUM")
+        menuButton:SetFrameLevel((collapse:GetFrameLevel() or 0) + 1)
+        MoveCollapseButtonUnder(collapse)
+        return
+    end
+    RestoreCollapseButtons()
     if channel then
         menuButton:SetPoint("CENTER", channel, "CENTER", 0, 0)
         menuButton:SetFrameStrata(channel:GetFrameStrata() or "MEDIUM")
@@ -656,6 +722,8 @@ end
 
 local function Detach()
     if not display then return end
+    RestoreCollapseButtons()
+    state.pulledOut = false
     display:Hide()
     display:SetParent(UIParent)
     display:ClearAllPoints()
