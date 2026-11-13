@@ -27,6 +27,7 @@ local FOREVER_SETTINGS_IMAGES = {
     ["chatbuttons.png"] = true,
     ["chatcleaner.png"] = true,
     ["classhealthbar.png"] = true,
+    ["damagemeter.png"] = true,
     ["error.png"] = true,
     ["explorer.png"] = true,
     ["hidequesttrack.png"] = true,

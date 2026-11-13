@@ -272,6 +272,7 @@ function Options.Create(context)
                     key = "damageMeterTabEnabled",
                     label = L.OPTION_DAMAGE_METER_TAB or "Damage Meter Tab",
                     description = Description("DESC_DAMAGE_METER_TAB"),
+                    image = GetSettingsImage(nil, "damagemeter.png"),
                 },
             },
         },
