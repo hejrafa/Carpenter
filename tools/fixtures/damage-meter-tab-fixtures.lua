@@ -146,9 +146,23 @@ for index = 1, NUM_CHAT_WINDOWS do
     frame.buttonFrame.minimizeButton = AddFrameMethods(H.Frame({ parent = frame.buttonFrame, shown = false, strata = "LOW", level = 8 }))
     frame.buttonFrame.minimizeButton:SetPoint("TOP", frame.buttonFrame, "TOP", 0, 4)
     _G["ChatFrame" .. index] = frame
-    local tab = AddFrameMethods(H.Frame({ name = "ChatFrame" .. index .. "Tab" }))
-    function tab:SetText(text) self.text = text end
+    local tab = AddFrameMethods(H.Frame({ name = "ChatFrame" .. index .. "Tab", width = 90 }))
+    tab.Text = NewFontString(tab)
+    -- Seven units a letter, unbounded by the label's width.
+    function tab.Text:GetUnboundedStringWidth() return #(self.text or "") * 7 end
+    function tab:SetText(text) self.Text:SetText(text) end
     _G["ChatFrame" .. index .. "Tab"] = tab
+end
+-- The dock's layout gives every docked tab past Combat Log one width.
+FCFDock_UpdateTabs = function()
+    for index = 3, NUM_CHAT_WINDOWS do
+        local frame = _G["ChatFrame" .. index]
+        if frame.isDocked then
+            local tab = _G["ChatFrame" .. index .. "Tab"]
+            tab:SetWidth(90)
+            tab.Text:SetWidth(60)
+        end
+    end
 end
 local renames = {}
 SetChatWindowName = function(index, name)
@@ -169,6 +183,7 @@ FCF_OpenNewWindow = function(name, noDefaultChannels)
             windows[index] = { name = name, shown = true, docked = 3 }
             opened[#opened + 1] = { name = name, noDefaultChannels = noDefaultChannels }
             local frame = _G["ChatFrame" .. index]
+            _G["ChatFrame" .. index .. "Tab"]:SetText(name)
             frame:Show()
             return frame, index
         end
@@ -324,8 +339,13 @@ meter.sources = {
 }
 feature:Enable()
 assertEqual(#opened, 1, "turning the option on should open one chat window")
-assertEqual(opened[1].name, "Damage", "the tab should carry the game's short Damage label")
+assertEqual(opened[1].name, "Damage Meter", "the tab should carry the game's Damage Meter label")
 assertEqual(#renames, 0, "a new tab should need no renaming")
+-- "Damage Meter" is 12 letters: 84 for the label, 20 for the tab's sides.
+assertEqual(ChatFrame3Tab.width, 104, "the docked tab should be widened to fit its name")
+assertEqual(ChatFrame3Tab.Text.width, 84, "the tab's label should get the room for its name")
+FCFDock_UpdateTabs()
+assertEqual(ChatFrame3Tab.width, 104, "the tab should stay fitted after the dock lays its tabs out again")
 assertEqual(opened[1].noDefaultChannels, true, "the tab should receive no chat")
 assertEqual(popups[1], "CARPENTER_DAMAGE_METER_TAB_RELOAD", "opening the tab should ask for a reload")
 assertTrue(StaticPopupDialogs.CARPENTER_DAMAGE_METER_TAB_RELOAD ~= nil, "the reload popup should be defined")
@@ -585,7 +605,8 @@ assertEqual(DamageMeter.shown, true, "with the option off the game should show i
 -- =========================
 opened, popups = {}, {}
 -- An earlier build's tab, docked but hidden for a moment as the game loads.
-windows[4] = { name = "Damage Meter", shown = false, docked = 3 }
+windows[4] = { name = "Damage", shown = false, docked = 3 }
+ChatFrame4Tab:SetText("Damage")
 ChatFrame4:Show()
 -- Right after the reload the window has no size yet.
 ChatFrame4.width, ChatFrame4.height = 0, 0
@@ -604,14 +625,18 @@ assertEqual(#opened, 0, "an existing tab should not be opened again")
 assertEqual(#popups, 0, "drawing on an existing tab should not ask for a reload")
 assertEqual(display.parent, ChatFrame4, "the display should move to the existing tab")
 assertEqual(renames[1] and renames[1].index, 4, "an earlier build's tab should be renamed")
-assertEqual(windows[4].name, "Damage", "the earlier build's tab should take the short name")
-assertEqual(ChatFrame4Tab.text, "Damage", "the renamed tab's label should follow at once")
+assertEqual(windows[4].name, "Damage Meter", "the earlier build's tab should take the full name back")
+assertEqual(ChatFrame4Tab.Text.text, "Damage Meter", "the renamed tab's label should follow at once")
+assertEqual(ChatFrame4Tab.width, 104, "the renamed tab should be widened to fit its name")
 assertTrue(display.scripts.OnSizeChanged ~= nil, "a resized chat window should lay the lines out again")
 assertEqual(DamageMeter.shown, false, "turning on again should hide the floating meter")
 
 -- Pulling the tab out of the dock moves the menu button to its window.
 local collapse = ChatFrame4.buttonFrame.minimizeButton
 ChatFrame4.isDocked, collapse.shown = nil, true
+ChatFrame4Tab.width = 150
+FCFDock_UpdateTabs()
+assertEqual(ChatFrame4Tab.width, 150, "a pulled-out tab should keep the game's own width")
 Tick()
 local menuPoint = button.points[1]
 assertEqual(menuPoint and menuPoint[2], ChatFrame4.buttonFrame, "a pulled-out tab should top its own button column with the menu button")
@@ -647,7 +672,7 @@ assertEqual(collapse.points[1][2], ChatFrame4.buttonFrame, "turning off should g
 ChatFrame4.isDocked = true
 
 -- The General and Combat Log windows are never taken, whatever their names.
-windows[1].name, windows[4].shown, windows[4].docked = "Damage", false, 0
+windows[1].name, windows[4].shown, windows[4].docked = "Damage Meter", false, 0
 ChatFrame4:Hide()
 assertTrue(Tab.FindWindow() == nil, "the General window should never count as the tab")
 assertEqual(closed[#closed], 4, "turning off should close the renamed tab")

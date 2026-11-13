@@ -18,8 +18,8 @@
 -- The game's own floating meter window stays hidden while the option is on,
 -- except in Edit Mode, where it can still be placed and set up.
 --
--- The tab is a real chat window named after the game's "Damage" label and
--- set to receive no chat, so docking, resizing, fading and the
+-- The tab is a real chat window named after the game's "Damage Meter" label
+-- and set to receive no chat, so docking, resizing, fading and the
 -- background behave like any other tab. Carpenter opens it when the option
 -- is turned on and closes it when the option is turned off, never at login.
 -- Opening or closing a chat window from an addon taints the chat dock until
@@ -77,14 +77,14 @@ local function Try(callback, ...)
     return (pcall(callback, ...))
 end
 
--- "Damage", short enough for a chat tab. Earlier builds named it after the
--- whole "Damage Meter" label, which got cut off; such a tab is renamed.
+-- The game's "Damage Meter" label; the docked tab is widened to fit it. A
+-- tab an earlier build named "Damage" is found and renamed.
 local function TabName()
-    return _G.DAMAGE_METER_CATEGORY_DAMAGE or "Damage"
+    return _G.DAMAGE_METER_LABEL or "Damage Meter"
 end
 
 local function LegacyTabName()
-    return _G.DAMAGE_METER_LABEL or "Damage Meter"
+    return _G.DAMAGE_METER_CATEGORY_DAMAGE or "Damage"
 end
 
 -- =========================
@@ -222,13 +222,14 @@ function DamageMeterTab.FindWindow()
 end
 
 -- Renames a tab from an earlier build. The game's own call saves the name
--- without touching the chat code's state; the tab's label follows at once,
--- and the game sizes it to the name at the next reload.
+-- without touching the chat code's state, and the tab's label follows at
+-- once.
 local function RenameLegacyWindow(frame, index, windowName)
     if not frame or windowName == TabName() or type(SetChatWindowName) ~= "function" then return end
     if not pcall(SetChatWindowName, index, TabName()) then return end
     local tab = _G["ChatFrame" .. index .. "Tab"]
     if tab and tab.SetText then tab:SetText(TabName()) end
+    pcall(DamageMeterTab.FitTabToName, frame)
 end
 
 local function FindAndRenameWindow()
@@ -276,6 +277,44 @@ end
 -- =========================
 local display, header, headerRight, menuButton
 local rows = {}
+
+-- Docked, the game gives every tab but General and Combat Log one width of
+-- 60 to 90, which cuts "Damage Meter" off. After each dock layout the tab is
+-- widened to fit its name, as those two are, and the tabs after it follow.
+-- Only the tab's and its label's widths change, as the game's own fixed-width
+-- tabs do; a pulled-out tab is already sized to its name.
+local CHAT_TAB_SIDES_PADDING = 20
+
+local function TabOf(window)
+    local name = window and window.GetName and window:GetName()
+    return name and _G[name .. "Tab"]
+end
+
+function DamageMeterTab.FitTabToName(window)
+    if not state.active or not window or window == UIParent or not window.isDocked then return end
+    local tab = TabOf(window)
+    local label = tab and tab.Text
+    if not label then return end
+    local measure = label.GetUnboundedStringWidth or label.GetStringWidth
+    local textWidth = math.ceil(measure(label) or 0)
+    if textWidth <= 0 then return end
+    local width = textWidth + CHAT_TAB_SIDES_PADDING + (tab.sizePadding or 0)
+    if math.abs((tab:GetWidth() or 0) - width) < 0.5 then return end
+    label:SetWidth(textWidth)
+    tab:SetWidth(width)
+end
+
+local function FitAttachedTab()
+    if display and display:GetParent() ~= UIParent then
+        pcall(DamageMeterTab.FitTabToName, display:GetParent())
+    end
+end
+
+local tabLayoutHooked = false
+local function HookTabLayout()
+    if tabLayoutHooked then return end
+    tabLayoutHooked = Carpenter:SafeHook("FCFDock_UpdateTabs", FitAttachedTab)
+end
 
 local function ChatFont(window)
     local file, size, flags
@@ -679,7 +718,7 @@ local function CreateMenuButton()
     button:HookScript("OnEnter", function(self)
         if not GameTooltip then return end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(LegacyTabName())
+        GameTooltip:SetText(TabName())
         GameTooltip:Show()
     end)
     button:HookScript("OnLeave", function()
@@ -761,6 +800,7 @@ local function Attach(window)
     display:Show()
     MarkDirty()
     Try(DamageMeterTab.Refresh)
+    FitAttachedTab()
     return true
 end
 
@@ -868,6 +908,7 @@ local feature = {}
 
 function feature:Enable()
     state.active = true
+    HookTabLayout()
     if HookFloatingMeter() then
         DamageMeterTab.ApplyFloatingMeter()
     else
