@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.9.0
+
+- New in the Chat settings on Retail and WoW Forever: Damage Meter Tab. It shows the game's damage meter as plain text in a chat tab of its own, named "Damage Meter": the meter type and segment with its time on top, then each player in class color with their total and per second. It docks, resizes and fades like any other chat tab, and can be pulled out into a window of its own.
+- A menu button among the chat buttons picks the meter type (damage, healing, interrupts and more), the current or overall segment, and resets the data. The mouse wheel scrolls the list, and your own name stays in view.
+- Click a name to see that player's spells, and click again to go back. In combat the game only lets addons look up your own spells, so only your name opens then.
+- The game's own floating damage meter stays hidden while the tab is on, except in Edit Mode. Turning the option on or off asks for a reload.
+
 ## 1.8.22
 
 - The target frame on WoW Forever no longer shows a level next to the skull. The game itself showed the level of your previous target there, with or without Carpenter; Carpenter now hides it on the target, focus and boss frames.
