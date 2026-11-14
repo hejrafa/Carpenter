@@ -496,6 +496,48 @@ local function CloseWindow(frame)
 end
 
 -- =========================
+-- The tab's background opacity
+-- =========================
+-- The game saves each chat window's background opacity, but on WoW Forever
+-- the tab's comes back at the game's default after a reload, while
+-- General's keeps what was picked: the game loads it that way whatever the
+-- chat settings file says. So Carpenter remembers the opacity picked for
+-- the tab, and while the game loads its chat windows, hands it back to the
+-- game's saved settings; the game's next pass over them applies it itself.
+-- Only the game's own code touches the window.
+local ALPHA_EVENTS = { "ADDON_LOADED", "UPDATE_CHAT_WINDOWS", "UPDATE_FLOATING_CHAT_WINDOWS" }
+
+function DamageMeterTab.KeepTabAlpha()
+    local wanted = CarpenterDB and CarpenterDB.damageMeterTabAlpha
+    if type(wanted) ~= "number" or type(SetChatWindowAlpha) ~= "function" then return end
+    local _, index = DamageMeterTab.FindWindow()
+    if not index then return end
+    local ok, _, _, _, _, _, alpha = pcall(GetChatWindowInfo, index)
+    if not ok or not Readable(alpha) or type(alpha) ~= "number" then return end
+    if math.abs(alpha - wanted) > 0.002 then
+        Probe(string.format("KeepTabAlpha #%d %.3f -> %.3f", index, alpha, wanted))
+        pcall(SetChatWindowAlpha, index, wanted)
+    end
+end
+
+-- The opacity picked for the tab, from the tab's menu. The game's own
+-- loading passes doNotSave and isn't a pick.
+local function RememberTabAlpha(frame, alpha, doNotSave)
+    if doNotSave or not CarpenterDB or not Readable(alpha) or type(alpha) ~= "number" then return end
+    if frame and frame == DamageMeterTab.FindWindow() then
+        CarpenterDB.damageMeterTabAlpha = alpha
+    end
+end
+
+local alphaKeeper = CreateFrame("Frame")
+alphaKeeper:SetScript("OnEvent", function() Try(DamageMeterTab.KeepTabAlpha) end)
+for _, event in ipairs(ALPHA_EVENTS) do
+    Carpenter:SafeRegisterEvent(alphaKeeper, event)
+end
+Carpenter:SafeHook("FCF_SetWindowAlpha", function(...) Try(RememberTabAlpha, ...) end)
+DamageMeterTab.alphaKeeper = alphaKeeper
+
+-- =========================
 -- The text
 -- =========================
 local display, header, headerRight, headerClick, menuButton, segmentButton
@@ -1517,6 +1559,7 @@ end
 
 DamageMeterTab.feature = feature
 DamageMeterTab.state = state
+DamageMeterTab.eventFrame = eventFrame
 
 if Carpenter and Carpenter.RegisterFeature then
     Carpenter:RegisterFeature(FEATURE_KEY, feature)

@@ -186,7 +186,18 @@ DEFAULT_CHAT_FRAME = ChatFrame1
 GetChatWindowInfo = function(index)
     local window = windows[index]
     if not window then return "", 14, 0, 0, 0, 0, false, false, 0 end
-    return window.name, 14, 0, 0, 0, 0, window.shown, false, window.docked or 0
+    return window.name, 14, 0, 0, 0, window.alpha or 0.25, window.shown, false, window.docked or 0
+end
+-- Background opacity: the saved setting, and the game's call that applies
+-- it to a window and saves it unless told not to.
+local alphaWrites = {}
+SetChatWindowAlpha = function(index, alpha)
+    alphaWrites[#alphaWrites + 1] = { index = index, alpha = alpha }
+    if windows[index] then windows[index].alpha = alpha end
+end
+FCF_SetWindowAlpha = function(frame, alpha, doNotSave)
+    frame.oldAlpha = alpha
+    if not doNotSave then SetChatWindowAlpha(tonumber(frame:GetName():match("%d+$")), alpha) end
 end
 
 local opened, closed, popups = {}, {}, {}
@@ -366,7 +377,7 @@ H.load("Modules/DamageMeterTab.lua", ns)
 local feature = H.features.damageMeterTabEnabled
 if not feature then fail("the Damage Meter Tab did not register its feature") end
 local Tab = ns.Private.DamageMeterTab
-local eventFrame = H.createdFrames[1]
+local eventFrame = Tab.eventFrame
 
 local function Fire(event, ...)
     eventFrame.scripts.OnEvent(eventFrame, event, ...)
@@ -471,6 +482,32 @@ if not display then fail("the tab should get a display") end
 assertEqual(display.parent, ChatFrame3, "the display should sit in the new chat window")
 assertEqual(display.allPoints, ChatFrame3, "the display should cover the chat window")
 assertTrue(display:IsVisible(), "the display should show with its tab")
+
+-- =========================
+-- The tab's background opacity survives a reload.
+-- =========================
+local keeper = Tab.alphaKeeper
+assertTrue(keeper.events.ADDON_LOADED and keeper.events.UPDATE_CHAT_WINDOWS and keeper.events.UPDATE_FLOATING_CHAT_WINDOWS,
+    "the opacity should be handed back while the game loads its chat windows")
+local writesBefore = #alphaWrites
+keeper.scripts.OnEvent(keeper, "UPDATE_CHAT_WINDOWS")
+assertEqual(#alphaWrites, writesBefore, "nothing should be handed back before an opacity is picked")
+-- The player picks it in the tab's menu.
+FCF_SetWindowAlpha(ChatFrame3, 0)
+assertEqual(CarpenterDB.damageMeterTabAlpha, 0, "the opacity picked for the tab should be kept")
+FCF_SetWindowAlpha(ChatFrame1, 0.6)
+assertEqual(CarpenterDB.damageMeterTabAlpha, 0, "another window's opacity should not be kept for the tab")
+-- After a reload the game loads the tab at its default and applies it
+-- without saving.
+windows[3].alpha = 0.25
+FCF_SetWindowAlpha(ChatFrame3, 0.25, true)
+assertEqual(CarpenterDB.damageMeterTabAlpha, 0, "the game's own loading should not count as a pick")
+keeper.scripts.OnEvent(keeper, "UPDATE_CHAT_WINDOWS")
+assertEqual(windows[3].alpha, 0, "the kept opacity should go back to the game's saved settings")
+assertEqual(alphaWrites[#alphaWrites].index, 3, "the kept opacity should go to the tab's window")
+writesBefore = #alphaWrites
+keeper.scripts.OnEvent(keeper, "UPDATE_FLOATING_CHAT_WINDOWS")
+assertEqual(#alphaWrites, writesBefore, "an opacity that already matches should be left alone")
 
 local header, names, values = Read(display)
 assertEqual(header, "Damage Done", "the header should name the type on the left")

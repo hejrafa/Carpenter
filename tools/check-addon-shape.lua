@@ -22,6 +22,7 @@ local stateKeys = {
     autoTrackQuestWatches = true,
     blankLuaErrorTraceLog = true,
     blockedActionLog = true,
+    damageMeterTabAlpha = true,
     damageMeterTabNumbers = true,
     damageMeterTabSession = true,
     damageMeterTabType = true,
