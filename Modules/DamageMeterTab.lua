@@ -107,83 +107,6 @@ local function Try(callback, ...)
     return (pcall(callback, ...))
 end
 
--- =========================
--- TEMPORARY probe: the tab's background opacity after a reload
--- =========================
--- Logs who sets the chat windows' background opacity, and how the tab's
--- reads in the first seconds after login, to CarpenterDB.damageMeterTabProbe.
--- Remove once the cause is found.
-local probeLog = {}
-local function Probe(text)
-    if #probeLog >= 300 then return end
-    local now = GetTime and GetTime() or 0
-    probeLog[#probeLog + 1] = string.format("%.2f %s", now, text)
-    -- Loading clears the key, so the log is put back with every line.
-    if CarpenterDB then CarpenterDB.damageMeterTabProbe = probeLog end
-end
-
-local function ProbeNumber(value)
-    if issecretvalue and issecretvalue(value) then return "secret" end
-    if type(value) == "number" then return string.format("%.3f", value) end
-    return tostring(value)
-end
-
-local function DescribeWindow(frame, index)
-    if not frame or not frame.GetName then return "no window" end
-    local name = frame:GetName() or "?"
-    local saved = "?"
-    if index and GetChatWindowInfo then
-        local ok, _, _, _, _, _, alpha, shown, _, docked = pcall(GetChatWindowInfo, index)
-        if ok then
-            saved = ProbeNumber(alpha) .. " shown=" .. tostring(shown) .. " docked=" .. tostring(docked)
-        end
-    end
-    local background = _G[name .. "Background"]
-    return string.format("%s#%s saved=%s bg=%s old=%s faded=%s isDocked=%s visible=%s",
-        name, tostring(index), saved, ProbeNumber(background and background:GetAlpha()),
-        ProbeNumber(frame.oldAlpha), tostring(frame.hasBeenFaded), tostring(frame.isDocked),
-        tostring(frame.IsVisible and frame:IsVisible()))
-end
-
-local function ProbeSnapshot(label)
-    local frame, index = DamageMeterTab.FindWindow()
-    Probe(label .. " tab: " .. DescribeWindow(frame, index))
-    Probe(label .. " general: " .. DescribeWindow(_G.ChatFrame1, 1))
-end
-
-local function ProbeStack()
-    if not debugstack then return "" end
-    local stack = debugstack(2, 5, 0) or ""
-    return (stack:gsub("Interface/AddOns/", ""):gsub("%[string \"@", ""):gsub("\n", " | "))
-end
-
-local function HookProbe()
-    if not (Carpenter and Carpenter.SafeHook) then return end
-    Carpenter:SafeHook("FCF_SetWindowAlpha", function(frame, alpha, doNotSave)
-        local name = frame and frame.GetName and frame:GetName() or "?"
-        Probe(string.format("FCF_SetWindowAlpha %s %s save=%s via %s",
-            name, ProbeNumber(alpha), tostring(not doNotSave), ProbeStack()))
-    end)
-    for _, functionName in ipairs({ "FCF_FadeInChatFrame", "FCF_FadeOutChatFrame" }) do
-        Carpenter:SafeHook(functionName, function(frame)
-            local tab, index = DamageMeterTab.FindWindow()
-            if frame and frame == tab then Probe(functionName .. " " .. DescribeWindow(tab, index)) end
-        end)
-    end
-    local probeFrame = CreateFrame("Frame")
-    probeFrame:SetScript("OnEvent", function(_, event)
-        ProbeSnapshot(event)
-        if event == "PLAYER_ENTERING_WORLD" and C_Timer and C_Timer.After then
-            for _, seconds in ipairs({ 1, 3, 6, 12, 30 }) do
-                C_Timer.After(seconds, function() ProbeSnapshot("+" .. seconds .. "s") end)
-            end
-        end
-    end)
-    for _, event in ipairs({ "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "UPDATE_CHAT_WINDOWS", "UPDATE_FLOATING_CHAT_WINDOWS" }) do
-        Carpenter:SafeRegisterEvent(probeFrame, event)
-    end
-end
-
 -- The game's "Damage Meter" label; the docked tab is widened to fit it. A
 -- tab an earlier build named "Damage" is found and renamed.
 local function TabName()
@@ -447,7 +370,6 @@ end
 -- once.
 local function RenameLegacyWindow(frame, index, windowName)
     if not frame or windowName == TabName() or type(SetChatWindowName) ~= "function" then return end
-    Probe("RenameLegacyWindow " .. tostring(index))
     if not pcall(SetChatWindowName, index, TabName()) then return end
     local tab = _G["ChatFrame" .. index .. "Tab"]
     if tab and tab.SetText then tab:SetText(TabName()) end
@@ -481,7 +403,6 @@ end
 -- A tab that receives no chat.
 local function OpenWindow()
     if type(FCF_OpenNewWindow) ~= "function" then return nil end
-    Probe("OpenWindow")
     local ok, frame = pcall(FCF_OpenNewWindow, TabName(), true)
     if not ok or not frame then return nil end
     ShowReloadPopup()
@@ -515,7 +436,6 @@ function DamageMeterTab.KeepTabAlpha()
     local ok, _, _, _, _, _, alpha = pcall(GetChatWindowInfo, index)
     if not ok or not Readable(alpha) or type(alpha) ~= "number" then return end
     if math.abs(alpha - wanted) > 0.002 then
-        Probe(string.format("KeepTabAlpha #%d %.3f -> %.3f", index, alpha, wanted))
         pcall(SetChatWindowAlpha, index, wanted)
     end
 end
@@ -1403,7 +1323,6 @@ local function CreateDisplay()
     if menuButton then segmentButton = CreateSegmentButton() end
 
     display:SetScript("OnShow", function(self)
-        Try(ProbeSnapshot, "tab shown")
         self.elapsed = 0
         state.dirty = true
         Try(PlaceMenuButton)
@@ -1423,7 +1342,6 @@ local function Attach(window)
     if not window then return false end
     CreateDisplay()
     if display:GetParent() ~= window then
-        Probe("Attach " .. tostring(window.GetName and window:GetName()))
         display:SetParent(window)
         display:ClearAllPoints()
         display:SetAllPoints(window)
@@ -1541,7 +1459,6 @@ Carpenter:SafeRegisterEvent(eventFrame, "PLAYER_ENTERING_WORLD")
 local feature = {}
 
 function feature:Enable()
-    Probe("Enable chatReady=" .. tostring(state.chatReady))
     state.active = true
     HookTabLayout()
     if HookFloatingMeter() then
@@ -1583,9 +1500,6 @@ DamageMeterTab.eventFrame = eventFrame
 if Carpenter and Carpenter.RegisterFeature then
     Carpenter:RegisterFeature(FEATURE_KEY, feature)
 end
-
--- TEMPORARY probe, see above.
-Try(HookProbe)
 
 local _, ns = ...
 if ns then
