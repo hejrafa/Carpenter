@@ -21,8 +21,9 @@
 -- showing beside them. With the tab pulled out into a window of its own,
 -- they top that window's button column instead, with its collapse button
 -- moved down under them, and fade with that column. The arrow picks the
--- meter type and how the numbers read, Minimal, Compact or Complete as in
--- the game's Edit Mode, and resets the data. The segment button reads like
+-- meter type and how the list's numbers read, Minimal, Compact or Complete
+-- as in the game's Edit Mode, and resets the data; a breakdown always reads
+-- Complete, as the game's does. The segment button reads like
 -- the game's own: C for the current segment, O for overall, or the number
 -- of the encounter picked from its list.
 --
@@ -599,12 +600,13 @@ end
 
 -- "total (per second)", per second first for DPS and HPS, a count alone for
 -- interrupts and dispels. Minimal drops the parentheses; Complete adds the
--- total's share of the whole. Amounts may be hidden in combat, so they go to
--- the text through the game's own formatting.
-local function FillValue(row, total, perSecond, meterType, whole)
+-- total's share of the whole. `numbers` overrides the picked style. Amounts
+-- may be hidden in combat, so they go to the text through the game's own
+-- formatting.
+local function FillValue(row, total, perSecond, meterType, whole, numbers)
     local main, extra = total, perSecond
     if ShowsPerSecondFirst(meterType) then main, extra = extra, main end
-    local numbers = SelectedNumbers()
+    numbers = numbers or SelectedNumbers()
     local withExtra = numbers ~= "minimal" and not HasNoPerSecond(meterType)
     local share = numbers == "complete" and Share(total, whole) or nil
     if withExtra and share then
@@ -692,7 +694,8 @@ local function FillSpellRow(row, spell, meterType, classFilename, whole)
         row.name:SetText(_G.UNKNOWN or "Unknown")
     end
     row.name:SetTextColor(ClassColor(classFilename))
-    FillValue(row, spell.totalAmount, spell.amountPerSecond, meterType, whole)
+    -- Spells always read Complete, as in the game's own breakdown.
+    FillValue(row, spell.totalAmount, spell.amountPerSecond, meterType, whole, "complete")
     row.name:Show()
     row.value:Show()
     -- A click anywhere on the breakdown goes back to the list.
