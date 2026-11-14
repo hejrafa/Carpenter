@@ -1,5 +1,6 @@
 --[[ Carpenter - Enhance Tooltip ]]
--- When enabled: hides the health bar, recolors name/info lines, shows unit target.
+-- When enabled: hides the health bar, recolors name/info lines, shows unit target,
+-- and drops the unit frames' "Right click for Frame Settings" hint.
 local _, ns = ...
 ns = ns or {}
 ns.Private = ns.Private or {}
@@ -735,9 +736,43 @@ local function ShowTip(self)
     ScheduleEnhanceUnitTooltip(self, unit)
 end
 
+-- Blizzard's unit frames end their tooltip with a blank line and
+-- "<Right click for Frame Settings>", added after the tooltip's own lines
+-- (UnitFrame_UpdateTooltip, again every moment the frame stays hovered).
+-- Right after, both are emptied and the tooltip is laid out again: an empty
+-- line takes no room, and the game writes the next tooltip's lines anew.
+-- Clients without the hint have nothing to empty.
+local BLANK_LINE = " "
+
+local function StripFrameSettingsHint()
+    if not IsEnabled() then return end
+    local tooltip = GameTooltip
+    local hint = ReadableString(_G.UNIT_POPUP_RIGHT_CLICK)
+    if not (tooltip and hint and tooltip.NumLines) then return end
+    local last = tooltip:NumLines() or 0
+    local line = _G["GameTooltipTextLeft" .. last]
+    if not line or ReadableString(line:GetText()) ~= hint then return end
+    line:SetText(nil)
+    local blank = last > 1 and _G["GameTooltipTextLeft" .. (last - 1)]
+    if blank and ReadableString(blank:GetText()) == BLANK_LINE then
+        blank:SetText(nil)
+    end
+    RefreshTooltipLayout(tooltip)
+end
+
+local hintHooked = false
+local function HookFrameSettingsHint()
+    if hintHooked or not (Carpenter and Carpenter.SafeHook) then return end
+    hintHooked = Carpenter:SafeHook("UnitFrame_UpdateTooltip", function()
+        pcall(StripFrameSettingsHint)
+    end)
+end
+
 local hooked = false
 local function InstallHooks()
     if not GameTooltip then return end
+    -- The unit frames may load after this file; each call tries again.
+    HookFrameSettingsHint()
     if WorldFrame and WorldFrame.EnableMouseMotion then
         WorldFrame:EnableMouseMotion(true)
     end

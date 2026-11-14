@@ -23,7 +23,18 @@ LEVEL = "Level"
 function GetLocale() return "enUS" end
 RAID_CLASS_COLORS = { PRIEST = { r = 1, g = 1, b = 1 } }
 function GetCreatureDifficultyColor() return { r = 1, g = 1, b = 0 } end
-function hooksecurefunc() end
+-- Hooks on globals run after the original, as in the game; others are
+-- left out.
+local globalHooks = {}
+function hooksecurefunc(target, method)
+    if type(target) ~= "string" then return end
+    globalHooks[target] = method
+    local original = _G[target]
+    _G[target] = function(...)
+        original(...)
+        method(...)
+    end
+end
 
 local target = { exists = true, player = true, name = "Thrall", class = "Priest", token = "PRIEST", race = "Orc", level = 60 }
 function UnitExists(unit) return unit == "player" or (unit == "target" and target.exists) end
@@ -58,7 +69,8 @@ GameTooltip = {
     GetChildren = function() return end,
     NumLines = function(self) return #self.lines end,
     IsShown = function() return true end,
-    Show = function() end,
+    shows = 0,
+    Show = function(self) self.shows = self.shows + 1 end,
     AddLine = function(self, text, r, g, b)
         local line = NewFontString()
         line:SetText(text)
@@ -100,6 +112,20 @@ function CreateFrame()
 end
 
 CarpenterDB = { enhanceTooltipEnabled = true }
+
+-- Blizzard's unit frames add a blank line and the right-click hint after the
+-- unit's own lines (UnitFrame_UpdateTooltip).
+UNIT_POPUP_RIGHT_CLICK = "<Right click for Frame Settings>"
+local unitFrameLines = {}
+function UnitFrame_UpdateTooltip()
+    GameTooltip:ClearLines()
+    for _, text in ipairs(unitFrameLines) do
+        GameTooltip:AddLine(text)
+    end
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine(UNIT_POPUP_RIGHT_CLICK, 0.1, 1, 0.1)
+    GameTooltip:Show()
+end
 Carpenter = {
     IsEnabled = function(_, key) return CarpenterDB[key] == true end,
     RegisterFeature = function() end,
@@ -339,5 +365,59 @@ SetScores({
 })
 HoverEnemy()
 assertEqual(GameTooltip.lines[1]:GetText(), SECRET, "an ambiguous first name leaves Blizzard's lines alone")
+
+-- =========================
+-- The unit frames' right-click hint
+-- =========================
+local function LineTexts()
+    local out = {}
+    for i, line in ipairs(GameTooltip.lines) do out[i] = line:GetText() end
+    return out
+end
+
+unitFrameLines = { "Koji", "Shogunate", "Level 35 Undead Rogue", "Horde", "PvP" }
+local showsBefore = GameTooltip.shows
+UnitFrame_UpdateTooltip()
+local hintLines = LineTexts()
+assertEqual(hintLines[6], nil, "the blank line before the hint should be emptied")
+assertEqual(hintLines[7], nil, "the right-click hint should be emptied")
+assertEqual(hintLines[5], "PvP", "the unit's own lines should stay")
+assertEqual(hintLines[1], "Koji", "the name should stay")
+assertEqual(GameTooltip.shows, showsBefore + 2, "the tooltip should be laid out again without the hint")
+
+-- Hovering on: the game adds the hint again, and it goes again.
+UnitFrame_UpdateTooltip()
+assertEqual(LineTexts()[7], nil, "the hint should go each time the frame refreshes its tooltip")
+
+-- Only the hint and a blank line right before it go.
+local StripHint = globalHooks.UnitFrame_UpdateTooltip
+if not StripHint then fail("Enhanced Tooltip should hook the unit frames' tooltip") end
+SetTooltipLines("Koji", "PvP", UNIT_POPUP_RIGHT_CLICK)
+StripHint()
+hintLines = LineTexts()
+assertEqual(hintLines[2], "PvP", "a line that isn't blank should stay before the hint")
+assertEqual(hintLines[3], nil, "the hint should still go without a blank line before it")
+
+-- A hint that isn't the last line was not just added by the unit frame.
+SetTooltipLines("Koji", " ", UNIT_POPUP_RIGHT_CLICK, "Target: Hogger")
+StripHint()
+hintLines = LineTexts()
+assertEqual(hintLines[3], UNIT_POPUP_RIGHT_CLICK, "a hint that isn't last should stay")
+
+-- A last line the game hides from addons can't be read, so it stays.
+SetTooltipLines("Koji", " ", "hidden")
+GameTooltip.lines[3]:SetText(SECRET)
+StripHint()
+assertEqual(GameTooltip.lines[3]:GetText(), SECRET, "a hidden last line should be left alone")
+assertEqual(GameTooltip.lines[2]:GetText(), " ", "the blank line before a hidden line should stay")
+
+-- With the option off the hint stays.
+CarpenterDB.enhanceTooltipEnabled = false
+unitFrameLines = { "Koji" }
+UnitFrame_UpdateTooltip()
+hintLines = LineTexts()
+assertEqual(hintLines[3], UNIT_POPUP_RIGHT_CLICK, "with the option off the hint should stay")
+assertEqual(hintLines[2], " ", "with the option off the blank line should stay")
+CarpenterDB.enhanceTooltipEnabled = true
 
 print("enhance-tooltip fixtures passed")
