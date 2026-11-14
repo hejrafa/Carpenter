@@ -119,5 +119,15 @@ assertContains(config, "EditModeLayout.Install", "one-click Carpenter layout ins
 assertContains(config, "AddToggle(L.EDIT_MODE_LAYOUT_NAME", "Carpenter layout checkbox")
 assert(not config:find("CP_EditModeLayoutInstall", 1, true), "the layout is installed by checkbox, not a button")
 assert(not config:find("CP_EditModeLayoutCopy", 1, true), "copy fallback must stay removed")
+-- The layout sits under a Settings section at the top of the hidden page.
+local settingsHeader = config:find("CreateHeader(L.SECTION_SETTINGS ", 1, true)
+local layoutRow = config:find("AddToggle(L.EDIT_MODE_LAYOUT_NAME", 1, true)
+local macroHeader = config:find("for _, section in ipairs(MACRO_SECTIONS)", 1, true)
+assert(settingsHeader and layoutRow and macroHeader, "hidden page sections are missing")
+assert(settingsHeader < layoutRow and layoutRow < macroHeader,
+    "the layout should sit under Settings, at the top of the hidden page")
+assert(not config:find("SECTION_EDIT_MODE_LAYOUT", 1, true), "the layout should not get a section of its own")
+-- The author's keybinds checkbox was removed.
+assert(not config:find("SettingsPreset", 1, true), "the keybinds checkbox should stay removed")
 
 print("edit-mode layout fixtures: passed")

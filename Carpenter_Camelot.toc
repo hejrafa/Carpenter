@@ -41,7 +41,6 @@ Core\ErrorTrace.lua
 # Settings
 Modules\EditModeLayout.lua
 Modules\RPMacros.lua
-Modules\SettingsPreset.lua
 Settings\ConfigSidebar.lua
 Settings\ConfigOptions.lua
 Settings\Config.lua

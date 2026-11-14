@@ -177,7 +177,6 @@ local ConfigSidebar = ns and ns.Private and ns.Private.ConfigSidebar or {}
 local ConfigOptions = ns and ns.Private and ns.Private.ConfigOptions or {}
 local EditModeLayout = ns and ns.Private and ns.Private.EditModeLayout or {}
 local RPMacros = ns and ns.Private and ns.Private.RPMacros or {}
-local SettingsPreset = ns and ns.Private and ns.Private.SettingsPreset or {}
 local sidebarApi = ConfigSidebar.Create and ConfigSidebar.Create({
     Frame = frame,
     L = L,
@@ -644,8 +643,8 @@ end
 local mainWidgets, mainYPos = RenderSections(OPTION_SECTIONS)
 
 -- Hidden page rows are checkboxes that mirror something outside CarpenterDB
--- (the keybinds, the Edit Mode layout list, the macro list); the sidebar
--- reports how the last click went.
+-- (the Edit Mode layout list, the macro list); the sidebar reports how the
+-- last click went.
 local hiddenToggleRows = {}
 local selectedHiddenItem
 
@@ -682,29 +681,6 @@ local function RefreshHiddenToggles()
     for _, row in ipairs(hiddenToggleRows) do
         row.Refresh()
     end
-end
-
-local function ShowSettingsPresetSidebar()
-    ShowHiddenItemSidebar(SettingsPreset, L.SETTINGS_PRESET_DESCRIPTION or "Every carpenter sets up the workshop their own way. These are the author's own {hl}WoW Forever{/hl} keybinds.\n\nCheck it to switch over to them. Uncheck it to go back to the keybinds you had before.")
-end
-
-local SETTINGS_PRESET_MESSAGES = {
-    applied = L.SETTINGS_PRESET_APPLIED or "Workshop rearranged! The author's keybinds are in place.",
-    partial = L.SETTINGS_PRESET_PARTIAL or "The game turned down a few keybinds, but the rest are in place.",
-    restored = L.SETTINGS_PRESET_RESTORED or "Your own keybinds are back on the workbench.",
-    unchanged = L.SETTINGS_PRESET_UNCHANGED or "These already are your own keybinds, so there's nothing to put back.",
-    combat = L.SETTINGS_PRESET_COMBAT or "You can't rearrange the workshop while in combat.",
-}
-
-local function SetSettingsPresetApplied(applied)
-    local apply = SettingsPreset.Restore
-    if applied then apply = SettingsPreset.Apply end
-    local ok, result = false, "failed"
-    if apply then
-        ok, result = apply()
-    end
-    ShowSettingsPresetSidebar()
-    SetHiddenPageStatus(SETTINGS_PRESET_MESSAGES[result] or L.SETTINGS_PRESET_FAILED or "Carpenter couldn't change the keybinds.", ok)
 end
 
 local function ShowEditModeLayoutSidebar()
@@ -790,23 +766,9 @@ local function CreateHiddenPage()
         ShowHiddenPageSidebar = ShowHiddenPageSidebar or showDetails
     end
 
-    -- One Settings section: the keybinds and the Edit Mode layout, both on
-    -- Forever only.
-    local hasSettingsPreset = SettingsPreset.IsAvailable and SettingsPreset.IsAvailable()
-    local hasEditModeLayout = EditModeLayout.IsAvailable and EditModeLayout.IsAvailable()
-    if hasSettingsPreset or hasEditModeLayout then
-        widgets[#widgets + 1] = CreateHeader(L.SECTION_SETTINGS_PRESET or "Settings")
-    end
-
-    if hasSettingsPreset then
-        AddToggle(L.SETTINGS_PRESET_NAME or "Keybinds", ShowSettingsPresetSidebar, {
-            name = "CP_SettingsPresetCheck",
-            isChecked = function() return SettingsPreset.IsApplied and SettingsPreset.IsApplied() or false end,
-            onClick = SetSettingsPresetApplied,
-        })
-    end
-
-    if hasEditModeLayout then
+    -- A Settings section for the Edit Mode layout, on Forever only.
+    if EditModeLayout.IsAvailable and EditModeLayout.IsAvailable() then
+        widgets[#widgets + 1] = CreateHeader(L.SECTION_SETTINGS or "Settings")
         AddToggle(L.EDIT_MODE_LAYOUT_NAME or "Edit Mode Layout", ShowEditModeLayoutSidebar, {
             name = "CP_EditModeLayoutCheck",
             isChecked = function() return EditModeLayout.IsInstalled and EditModeLayout.IsInstalled() or false end,

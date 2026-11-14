@@ -27,7 +27,6 @@ local stateKeys = {
     explorerModeChatWindowRepairVersion = true,
     foreverDefaultsResetVersion = true,
     noObjectiveQuestWatches = true,
-    settingsPresetBackup = true,
     smartMacroLastItems = true,
 }
 
@@ -48,6 +47,7 @@ local removedOptionKeys = {
     nameplateCastNamesEnabled = true,
     nameplateClassHealthEnabled = true,
     raidTargetIconAlignedEnabled = true,
+    settingsPresetBackup = true, -- the removed keybinds checkbox's backup, cleared the same way
     targetHealthPercentEnabled = true,
 }
 

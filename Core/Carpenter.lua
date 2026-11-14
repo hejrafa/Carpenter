@@ -448,6 +448,8 @@ function Carpenter_InitializeSettings()
     CarpenterDB.chatGlossaryEnabled = nil
     CarpenterDB.targetHealthPercentEnabled = nil
     CarpenterDB.classicSettingsPresetEnabled = nil
+    -- The keybinds checkbox is gone, so nothing can put this backup back.
+    CarpenterDB.settingsPresetBackup = nil
     CarpenterDB.hideGroupIndicatorEnabled = nil
     CarpenterDB.nameplateClassHealthEnabled = nil
 
