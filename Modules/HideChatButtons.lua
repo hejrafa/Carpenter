@@ -133,6 +133,14 @@ local arrowButtons = {
     "ChatFrame4ButtonFrameBottomButton"
 }
 
+-- Buttons that sit with the chat buttons and copy their fade themselves:
+-- the Damage Meter Tab's, in the button column. The mouse on one keeps the
+-- chat buttons up, as on any chat button, but they aren't faded here.
+local hoverOnlyButtons = {
+    "CarpenterDamageMeterTabMenuButton",
+    "CarpenterDamageMeterTabSegmentButton",
+}
+
 -- All buttons that should be affected
 local allChatButtons = {}
 for _, group in ipairs({chatButtons, arrowButtons, minimizeButtons, socialButtons}) do
@@ -186,6 +194,11 @@ local function ShouldShow()
     RefreshChatFrames()
     for _, buttonName in ipairs(allChatButtons) do
         if IsMouseOverFrame(_G[buttonName]) then return true end
+    end
+    -- Only while shown: they hide with their tab.
+    for _, buttonName in ipairs(hoverOnlyButtons) do
+        local button = _G[buttonName]
+        if button and button.IsVisible and button:IsVisible() and IsMouseOverFrame(button) then return true end
     end
     for _, chatFrame in ipairs(chatFrames) do
         if IsMouseOverFrame(chatFrame) then return true end

@@ -704,6 +704,9 @@ assertEqual(segment.normalAtlas, "chatframe-button-up", "the segment button shou
 assertEqual(segment.ignoreParentAlpha, true, "the segment button should fade on its own")
 assertEqual(segment.parent, UIParent, "the segment button should not be drawn inside the chat window")
 assertEqual(segment.shown, true, "the segment button should show with the tab")
+-- Hide Chat Buttons finds them by these names.
+assertEqual(button:GetName(), "CarpenterDamageMeterTabMenuButton", "the arrow should carry the name Hide Chat Buttons looks for")
+assertEqual(segment:GetName(), "CarpenterDamageMeterTabSegmentButton", "the segment button should carry the name Hide Chat Buttons looks for")
 local face = segment.children[1]
 assertEqual(face and face.fontObject, GameFontNormalMed1, "the segment button should use the game's segment font")
 assertEqual(face and face.text, "C", "the segment button should read C for the current segment")

@@ -25,6 +25,9 @@ H.NamedFrame("ChatFrame1Tab")
 H.NamedFrame("ChatFrameMenuButton")
 -- Retail's social button beside the chat fades with the rest.
 H.NamedFrame("QuickJoinToastButton")
+-- The Damage Meter Tab's buttons in the column copy the fade themselves.
+H.NamedFrame("CarpenterDamageMeterTabMenuButton")
+H.NamedFrame("CarpenterDamageMeterTabSegmentButton")
 NUM_CHAT_WINDOWS = 1
 
 local function runUpdate()
@@ -46,6 +49,7 @@ if not hoverFrame then fail("Hide Chat Buttons did not create its hover frame") 
 
 registeredFeature:Enable()
 assertEqual(QuickJoinToastButton.alpha, 0, "the social button should start hidden with the chat buttons")
+assertEqual(CarpenterDamageMeterTabSegmentButton.alpha, 1, "the Damage Meter Tab's buttons should not be faded here")
 
 -- Retail no longer guarantees the legacy MouseIsOver global. The frame method
 -- must drive hover fading without it.
@@ -61,5 +65,25 @@ hoverFrame.legacyMouseOver = true
 MouseIsOver = function(frame) return frame.legacyMouseOver == true end
 runUpdate()
 assertEqual(ChatFrame1Tab.alpha, 0.5, "legacy hover fallback did not continue the fade")
+
+-- The mouse on one of the Damage Meter Tab's buttons keeps the chat
+-- buttons up, as on any chat button, while the button shows.
+hoverFrame.legacyMouseOver = false
+for _ = 1, 20 do runUpdate() end
+assertEqual(ChatFrame1Tab.alpha, 0, "leaving the chat should fade the buttons out")
+CarpenterDamageMeterTabSegmentButton.mouseOver = true
+runUpdate()
+assertEqual(ChatFrame1Tab.alpha, 0.25, "the mouse on the tab's segment button should bring the chat buttons up")
+assertEqual(QuickJoinToastButton.alpha, 0.25, "the mouse on the tab's segment button should bring the social button up")
+assertEqual(CarpenterDamageMeterTabSegmentButton.alpha, 1, "the tab's buttons should keep their own fade")
+CarpenterDamageMeterTabSegmentButton.mouseOver = false
+CarpenterDamageMeterTabMenuButton.mouseOver = true
+runUpdate()
+assertEqual(ChatFrame1Tab.alpha, 0.5, "the mouse on the tab's arrow should keep the chat buttons coming up")
+-- Hidden with another tab, a button no longer counts.
+CarpenterDamageMeterTabMenuButton.shown = false
+for _ = 1, 20 do runUpdate() end
+assertEqual(ChatFrame1Tab.alpha, 0, "a hidden tab button should not keep the chat buttons up")
+CarpenterDamageMeterTabMenuButton.shown, CarpenterDamageMeterTabMenuButton.mouseOver = true, false
 
 print("hide-chat-buttons fixtures: passed")

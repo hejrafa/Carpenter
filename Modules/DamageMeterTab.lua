@@ -1125,9 +1125,10 @@ end
 
 -- A button in the chat buttons' art with its menu opening up and to the
 -- right. Not a child of the chat window, which wouldn't draw it out in the
--- button column; it shows and hides with the tab instead.
-local function CreateColumnButton(setupMenu, tooltipText)
-    local ok, button = pcall(CreateFrame, "DropdownButton", nil, UIParent)
+-- button column; it shows and hides with the tab instead. Its name is how
+-- Hide Chat Buttons finds it, so the mouse on it keeps the chat buttons up.
+local function CreateColumnButton(name, setupMenu, tooltipText)
+    local ok, button = pcall(CreateFrame, "DropdownButton", name, UIParent)
     if not ok or not button or not button.SetupMenu then return nil end
     button:SetSize(MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT)
     button:SetNormalAtlas("chatframe-button-up")
@@ -1167,7 +1168,7 @@ local function PlaceFace(button, face, x, y)
 end
 
 local function CreateMenuButton()
-    local button = CreateColumnButton(SetupMenu, TabName)
+    local button = CreateColumnButton("CarpenterDamageMeterTabMenuButton", SetupMenu, TabName)
     if not button then return nil end
 
     local icon = button:CreateTexture(nil, "ARTWORK")
@@ -1195,7 +1196,7 @@ end
 -- Its face is the segment's short name in the game's gold, in the font of
 -- the game's own segment button; its tooltip, the segment's full name.
 local function CreateSegmentButton()
-    local button = CreateColumnButton(SetupSegmentMenu, function()
+    local button = CreateColumnButton("CarpenterDamageMeterTabSegmentButton", SetupSegmentMenu, function()
         local encounter = state.sessionID and FindEncounter(state.sessionID)
         if encounter then return EncounterText(encounter) end
         return SessionName(SelectedSession())
