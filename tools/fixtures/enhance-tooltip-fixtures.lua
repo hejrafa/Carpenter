@@ -23,11 +23,17 @@ LEVEL = "Level"
 function GetLocale() return "enUS" end
 RAID_CLASS_COLORS = { PRIEST = { r = 1, g = 1, b = 1 } }
 function GetCreatureDifficultyColor() return { r = 1, g = 1, b = 0 } end
--- Hooks on globals run after the original, as in the game; others are
--- left out.
+-- Hooks run after the original, as in the game.
 local globalHooks = {}
-function hooksecurefunc(target, method)
-    if type(target) ~= "string" then return end
+function hooksecurefunc(target, method, handler)
+    if type(target) ~= "string" then
+        local original = target[method]
+        target[method] = function(...)
+            original(...)
+            handler(...)
+        end
+        return
+    end
     globalHooks[target] = method
     local original = _G[target]
     _G[target] = function(...)
@@ -56,6 +62,7 @@ local function NewFontString()
     local fontString = { text = "" }
     function fontString:SetText(text) self.text = text end
     function fontString:GetText() return self.text end
+    function fontString:GetBottom() return self.bottom end
     function fontString:SetTextColor() end
     return fontString
 end
@@ -70,7 +77,21 @@ GameTooltip = {
     NumLines = function(self) return #self.lines end,
     IsShown = function() return true end,
     shows = 0,
-    Show = function(self) self.shows = self.shows + 1 end,
+    -- The game's layout, from a fixed top: 10 above the first line and below
+    -- the last, 14 for a line with text, none for an empty one, and 2
+    -- between lines whatever they hold.
+    Show = function(self)
+        self.shows = self.shows + 1
+        local y = 10
+        for i, line in ipairs(self.lines) do
+            if i > 1 then y = y + 2 end
+            if line.text ~= nil then y = y + 14 end
+            line.bottom = 1000 - y
+        end
+        self.height = y + 10
+    end,
+    GetHeight = function(self) return self.height end,
+    SetHeight = function(self, height) self.height = height end,
     AddLine = function(self, text, r, g, b)
         local line = NewFontString()
         line:SetText(text)
@@ -384,6 +405,10 @@ assertEqual(hintLines[7], nil, "the right-click hint should be emptied")
 assertEqual(hintLines[5], "PvP", "the unit's own lines should stay")
 assertEqual(hintLines[1], "Koji", "the name should stay")
 assertEqual(GameTooltip.shows, showsBefore + 2, "the tooltip should be laid out again without the hint")
+-- Five lines as if the hint was never there: 10 + 5 * 14 + 4 * 2 + 10.
+assertEqual(GameTooltip.height, 98, "the emptied lines should leave no room under the last line")
+GameTooltip:Show()
+assertEqual(GameTooltip.height, 98, "a later layout should leave no room under the last line either")
 
 -- Hovering on: the game adds the hint again, and it goes again.
 UnitFrame_UpdateTooltip()
@@ -411,6 +436,16 @@ StripHint()
 assertEqual(GameTooltip.lines[3]:GetText(), SECRET, "a hidden last line should be left alone")
 assertEqual(GameTooltip.lines[2]:GetText(), " ", "the blank line before a hidden line should stay")
 
+-- The next tooltip, even with as many lines, is laid out as the game does.
+unitFrameLines = { "Koji", "Shogunate", "Level 35 Undead Rogue", "Horde", "PvP" }
+UnitFrame_UpdateTooltip()
+SetTooltipLines("A", "B", "C", "D", "E", "F", "G")
+GameTooltip:Show()
+assertEqual(GameTooltip.height, 10 + 7 * 14 + 6 * 2 + 10, "a new tooltip with as many lines should keep its height")
+SetTooltipLines("A", "B")
+GameTooltip:Show()
+assertEqual(GameTooltip.height, 10 + 2 * 14 + 2 + 10, "a new tooltip should keep its height")
+
 -- With the option off the hint stays.
 CarpenterDB.enhanceTooltipEnabled = false
 unitFrameLines = { "Koji" }
@@ -418,6 +453,7 @@ UnitFrame_UpdateTooltip()
 hintLines = LineTexts()
 assertEqual(hintLines[3], UNIT_POPUP_RIGHT_CLICK, "with the option off the hint should stay")
 assertEqual(hintLines[2], " ", "with the option off the blank line should stay")
+assertEqual(GameTooltip.height, 10 + 3 * 14 + 2 * 2 + 10, "with the option off the tooltip should keep its height")
 CarpenterDB.enhanceTooltipEnabled = true
 
 print("enhance-tooltip fixtures passed")

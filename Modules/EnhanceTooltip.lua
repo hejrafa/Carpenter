@@ -718,6 +718,7 @@ local function ShowTip(self)
     if self ~= GameTooltip then return end
     -- Blizzard just wrote its own lines, so a rebuilt enemy tooltip is gone.
     self._CP_HiddenEnemySignature = nil
+    self._CP_HintTrim = nil
     if not IsEnabled() then return end
     -- Do not modify tooltip when it is showing an item (e.g. merchant); avoids comparison tooltip flicker
     if self.GetItem then
@@ -739,10 +740,42 @@ end
 -- Blizzard's unit frames end their tooltip with a blank line and
 -- "<Right click for Frame Settings>", added after the tooltip's own lines
 -- (UnitFrame_UpdateTooltip, again every moment the frame stays hovered).
--- Right after, both are emptied and the tooltip is laid out again: an empty
--- line takes no room, and the game writes the next tooltip's lines anew.
--- Clients without the hint have nothing to empty.
+-- Right after, both are emptied, and the game writes the next tooltip's
+-- lines anew. Clients without the hint have nothing to empty.
+--
+-- The game's layout still spaces the emptied lines, which left a few pixels
+-- under the last line. Each time the tooltip is laid out while they stay
+-- empty, it is shortened by the room from the last kept line's bottom to
+-- the last emptied line's bottom.
 local BLANK_LINE = " "
+
+local function ReadableNumber(value)
+    if IsSecret(value) or type(value) ~= "number" then return nil end
+    return value
+end
+
+local function TrimEmptiedHint(tooltip)
+    local mark = tooltip and tooltip._CP_HintTrim
+    if not mark then return end
+    local emptied = _G["GameTooltipTextLeft" .. mark.last]
+    local text = emptied and emptied:GetText()
+    -- Other lines took the place of the emptied ones.
+    if tooltip:NumLines() ~= mark.last or IsSecret(text) or text ~= nil then
+        tooltip._CP_HintTrim = nil
+        return
+    end
+    local height = ReadableNumber(tooltip:GetHeight())
+    -- Already shortened since the last layout.
+    if not height or (mark.height and math.abs(height - mark.height) < 0.5) then return end
+    local kept = _G["GameTooltipTextLeft" .. mark.kept]
+    local keptBottom = kept and ReadableNumber(kept:GetBottom())
+    local emptiedBottom = ReadableNumber(emptied:GetBottom())
+    if not (keptBottom and emptiedBottom) then return end
+    local extra = keptBottom - emptiedBottom
+    if extra < 0.5 or extra >= height then return end
+    mark.height = height - extra
+    tooltip:SetHeight(mark.height)
+end
 
 local function StripFrameSettingsHint()
     if not IsEnabled() then return end
@@ -753,19 +786,32 @@ local function StripFrameSettingsHint()
     local line = _G["GameTooltipTextLeft" .. last]
     if not line or ReadableString(line:GetText()) ~= hint then return end
     line:SetText(nil)
-    local blank = last > 1 and _G["GameTooltipTextLeft" .. (last - 1)]
+    local kept = last - 1
+    local blank = last > 1 and _G["GameTooltipTextLeft" .. kept]
     if blank and ReadableString(blank:GetText()) == BLANK_LINE then
         blank:SetText(nil)
+        kept = last - 2
     end
+    tooltip._CP_HintTrim = kept >= 1 and { kept = kept, last = last } or nil
     RefreshTooltipLayout(tooltip)
+    TrimEmptiedHint(tooltip)
 end
 
-local hintHooked = false
+local hintHooked, layoutHooked = false, false
 local function HookFrameSettingsHint()
-    if hintHooked or not (Carpenter and Carpenter.SafeHook) then return end
-    hintHooked = Carpenter:SafeHook("UnitFrame_UpdateTooltip", function()
-        pcall(StripFrameSettingsHint)
-    end)
+    if not (Carpenter and Carpenter.SafeHook) then return end
+    if not hintHooked then
+        hintHooked = Carpenter:SafeHook("UnitFrame_UpdateTooltip", function()
+            pcall(StripFrameSettingsHint)
+        end)
+    end
+    -- A later layout (a target line, a refresh) spaces the emptied lines
+    -- again.
+    if not layoutHooked and GameTooltip then
+        layoutHooked = Carpenter:SafeHook(GameTooltip, "Show", function(tooltip)
+            if tooltip._CP_HintTrim then pcall(TrimEmptiedHint, tooltip) end
+        end)
+    end
 end
 
 local hooked = false
