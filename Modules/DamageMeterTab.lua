@@ -15,12 +15,20 @@
 -- name opens a breakdown; after combat every name does again.
 --
 -- While the tab is open, a chat button with an arrow sits where the chat
--- channels button is. That button belongs to the General window's button
--- column and hides with it on other tabs, so the arrow takes its place there
--- and fades like the chat buttons still showing beside it. With the tab
--- pulled out into a window of its own, the arrow tops that window's button
--- column instead, with its collapse button moved down under it, and fades
--- with that column. It picks the meter type and segment and resets the data.
+-- channels button is, with a segment button under it. The channels button
+-- belongs to the General window's button column and hides with it on other
+-- tabs, so the two take its place there and fade like the chat buttons still
+-- showing beside them. With the tab pulled out into a window of its own,
+-- they top that window's button column instead, with its collapse button
+-- moved down under them, and fade with that column. The arrow picks the
+-- meter type and how the numbers read, Minimal, Compact or Complete as in
+-- the game's Edit Mode, and resets the data. The segment button reads like
+-- the game's own: C for the current segment, O for overall, or the number
+-- of the encounter picked from its list.
+--
+-- Complete adds each line's share of the whole, which takes math the game
+-- refuses on amounts it hides, so in combat lines read as Compact until the
+-- fight ends.
 --
 -- The game's own floating meter window stays hidden while the option is on,
 -- except in Edit Mode, where it can still be placed and set up.
@@ -55,6 +63,8 @@ local MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT, MENU_ICON_SIZE = 27, 26, 15
 -- face. Pressed, it moves with the face as the chat buttons' icons do.
 local MENU_ICON_OFFSET_X, MENU_ICON_OFFSET_Y = 1.5, -3
 local MENU_ICON_PUSHED_X, MENU_ICON_PUSHED_Y = -1, -2
+-- The column's buttons hang 2 under each other.
+local COLUMN_BUTTON_GAP = 2
 local MENU_ARROW_ATLAS = "friendslist-categorybutton-arrow-down"
 local MENU_ARROW_FALLBACK_ATLAS = "common-dropdown-a-button-shadowless"
 
@@ -79,6 +89,11 @@ local state = {
     -- list was scrolled to when it opened.
     breakdown = nil,
     listOffset = 0,
+    -- The encounter picked from the segment button, by the game's ID for
+    -- it, or nil for the saved current or overall segment. Like the game's
+    -- own meter, it isn't kept past a reload: the IDs belong to the fights
+    -- since login.
+    sessionID = nil,
 }
 
 local function Text(key, fallback)
@@ -190,6 +205,74 @@ local function SessionName(sessionType)
     return _G.DAMAGE_METER_CURRENT_SESSION or "Current Segment"
 end
 
+-- A value the game isn't hiding right now.
+local function Readable(value)
+    if issecretvalue and issecretvalue(value) then return false end
+    return value ~= nil
+end
+
+-- Readable text with something in it.
+local function KnownText(value)
+    return Readable(value) and type(value) == "string" and value ~= ""
+end
+
+-- The encounters the game keeps, oldest first, as its own segment menu
+-- lists them.
+local function Encounters()
+    if not (C_DamageMeter and C_DamageMeter.GetAvailableCombatSessions) then return {} end
+    local ok, encounters = pcall(C_DamageMeter.GetAvailableCombatSessions)
+    if ok and type(encounters) == "table" then return encounters end
+    return {}
+end
+
+local function FindEncounter(sessionID)
+    for _, encounter in ipairs(Encounters()) do
+        if Readable(encounter.sessionID) and encounter.sessionID == sessionID then return encounter end
+    end
+    return nil
+end
+
+-- "Name [time]", as in the game's segment menu, or "Combat 3" for one
+-- without a name.
+local function EncounterText(encounter)
+    local text = encounter.name
+    if not KnownText(text) then
+        text = string.format(_G.DAMAGE_METER_COMBAT_NUMBER or "Combat %d", encounter.sessionID)
+    end
+    local seconds = encounter.durationSeconds
+    if Readable(seconds) and type(seconds) == "number" and SecondsToClock then
+        text = text .. " [" .. SecondsToClock(seconds) .. "]"
+    end
+    return text
+end
+
+-- The segment button's face, as on the game's own: C, O, or the
+-- encounter's number.
+local function SegmentShortName(sessionType)
+    if state.sessionID then return tostring(state.sessionID) end
+    if sessionType == SessionTypes().Overall then
+        return _G.DAMAGE_METER_OVERALL_SESSION_SHORT or "O"
+    end
+    return _G.DAMAGE_METER_CURRENT_SESSION_SHORT or "C"
+end
+
+-- How the numbers read, as the game's Edit Mode offers it: the main value
+-- alone, with the other in parentheses, or with the share of the whole too.
+local NUMBER_STYLES = {
+    { key = "minimal", label = "HUD_EDIT_MODE_SETTING_DAMAGE_METER_NUMBERS_MINIMAL", fallback = "Minimal" },
+    { key = "compact", label = "HUD_EDIT_MODE_SETTING_DAMAGE_METER_NUMBERS_COMPACT", fallback = "Compact" },
+    { key = "complete", label = "HUD_EDIT_MODE_SETTING_DAMAGE_METER_NUMBERS_COMPLETE", fallback = "Complete" },
+}
+
+-- Compact, as the tab read before it had a choice.
+local function SelectedNumbers()
+    local saved = CarpenterDB and CarpenterDB.damageMeterTabNumbers
+    for _, style in ipairs(NUMBER_STYLES) do
+        if saved == style.key then return saved end
+    end
+    return "compact"
+end
+
 local function MarkDirty()
     state.dirty = true
 end
@@ -219,7 +302,41 @@ end
 
 local function SelectSession(sessionType)
     if CarpenterDB then CarpenterDB.damageMeterTabSession = sessionType end
+    state.sessionID = nil
     StartOver()
+end
+
+local function SelectEncounter(sessionID)
+    state.sessionID = sessionID
+    StartOver()
+end
+
+local function SelectNumbers(key)
+    if CarpenterDB then CarpenterDB.damageMeterTabNumbers = key end
+    MarkDirty()
+end
+
+-- A reset clears every segment: the breakdown's player and a picked
+-- encounter are gone with the data.
+local function ForgetSessions()
+    LeaveBreakdown()
+    state.sessionID = nil
+    StartOver()
+end
+
+-- The picked encounter's data, or the current or overall segment's.
+local function ReadSession(meterType)
+    if state.sessionID then
+        return C_DamageMeter.GetCombatSessionFromID(state.sessionID, meterType)
+    end
+    return C_DamageMeter.GetCombatSessionFromType(SelectedSession(), meterType)
+end
+
+local function ReadSource(meterType, guid, creatureID)
+    if state.sessionID then
+        return C_DamageMeter.GetCombatSessionSourceFromID(state.sessionID, meterType, guid, creatureID)
+    end
+    return C_DamageMeter.GetCombatSessionSourceFromType(SelectedSession(), meterType, guid, creatureID)
 end
 
 -- =========================
@@ -301,7 +418,7 @@ end
 -- =========================
 -- The text
 -- =========================
-local display, header, headerRight, headerClick, menuButton
+local display, header, headerRight, headerClick, menuButton, segmentButton
 local rows = {}
 local OnMouseWheel, OnClickArea
 
@@ -459,17 +576,6 @@ local function ClassColorCode(classFilename)
     return string.format("ff%02x%02x%02x", math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5))
 end
 
--- A value the game isn't hiding right now.
-local function Readable(value)
-    if issecretvalue and issecretvalue(value) then return false end
-    return value ~= nil
-end
-
--- Readable text with something in it.
-local function KnownText(value)
-    return Readable(value) and type(value) == "string" and value ~= ""
-end
-
 -- Who a line is, as the game's breakdown looks a player up: their ID, or a
 -- creature's. The game hides both in combat, so the local player's ID comes
 -- from their own unit instead, which it doesn't hide.
@@ -483,17 +589,35 @@ local function SourceKey(source)
     return guid, creatureID
 end
 
+-- A line's whole-number share of the whole, as the game rounds it, or nil
+-- while the game hides either amount.
+local function Share(amount, whole)
+    if not (Readable(amount) and Readable(whole)) then return nil end
+    if type(amount) ~= "number" or type(whole) ~= "number" or whole <= 0 then return nil end
+    return math.floor(amount / whole * 100 + 0.5)
+end
+
 -- "total (per second)", per second first for DPS and HPS, a count alone for
--- interrupts and dispels. Amounts may be hidden in combat, so they go to the
--- text through the game's own formatting.
-local function FillValue(row, total, perSecond, meterType)
+-- interrupts and dispels. Minimal drops the parentheses; Complete adds the
+-- total's share of the whole. Amounts may be hidden in combat, so they go to
+-- the text through the game's own formatting.
+local function FillValue(row, total, perSecond, meterType, whole)
     local main, extra = total, perSecond
     if ShowsPerSecondFirst(meterType) then main, extra = extra, main end
-    if HasNoPerSecond(meterType) then
-        row.value:SetText(AbbreviateLargeNumbers(main))
-    else
+    local numbers = SelectedNumbers()
+    local withExtra = numbers ~= "minimal" and not HasNoPerSecond(meterType)
+    local share = numbers == "complete" and Share(total, whole) or nil
+    if withExtra and share then
+        row.value:SetFormattedText(_G.DAMAGE_METER_ENTRY_FORMAT_COMPLETE or "%s (%s) %d%%",
+            AbbreviateLargeNumbers(main), AbbreviateLargeNumbers(extra), share)
+    elseif share then
+        row.value:SetFormattedText(_G.DAMAGE_METER_ENTRY_FORMAT_COMPLETE_NO_PARENTHESIS or "%s %d%%",
+            AbbreviateLargeNumbers(main), share)
+    elseif withExtra then
         row.value:SetFormattedText(_G.DAMAGE_METER_ENTRY_FORMAT_COMPACT or "%s (%s)",
             AbbreviateLargeNumbers(main), AbbreviateLargeNumbers(extra))
+    else
+        row.value:SetText(AbbreviateLargeNumbers(main))
     end
     row.value:SetTextColor(1, 1, 1)
 end
@@ -501,14 +625,14 @@ end
 -- Every field but the class and the local player flag may be hidden in
 -- combat, so each goes to the text as it is. A line takes a click when the
 -- game lets its player be looked up.
-local function FillRow(row, index, source, meterType, showRank)
+local function FillRow(row, index, source, meterType, showRank, whole)
     if showRank then
         row.name:SetFormattedText(_G.DAMAGE_METER_SOURCE_NAME or "%d. %s", index, source.name)
     else
         row.name:SetText(source.name)
     end
     row.name:SetTextColor(ClassColor(source.classFilename))
-    FillValue(row, source.totalAmount, source.amountPerSecond, meterType)
+    FillValue(row, source.totalAmount, source.amountPerSecond, meterType, whole)
     row.name:Show()
     row.value:Show()
 
@@ -541,7 +665,7 @@ end
 -- The game hides the pet's and unit's names in combat, so until it ends a
 -- line shows the spell alone. Lines are in the player's class color, as
 -- their bars are in the game's breakdown.
-local function FillSpellRow(row, spell, meterType, classFilename)
+local function FillSpellRow(row, spell, meterType, classFilename, whole)
     local spellName = SpellName(spell)
     local details = type(spell.combatSpellDetails) == "table" and spell.combatSpellDetails or nil
     local creatureName = spell.creatureName
@@ -568,7 +692,7 @@ local function FillSpellRow(row, spell, meterType, classFilename)
         row.name:SetText(_G.UNKNOWN or "Unknown")
     end
     row.name:SetTextColor(ClassColor(classFilename))
-    FillValue(row, spell.totalAmount, spell.amountPerSecond, meterType)
+    FillValue(row, spell.totalAmount, spell.amountPerSecond, meterType, whole)
     row.name:Show()
     row.value:Show()
     -- A click anywhere on the breakdown goes back to the list.
@@ -606,8 +730,10 @@ local function UnavailableReason()
     return nil
 end
 
--- The segment, with its time once it has one.
-local function SegmentText(sessionType)
+-- The segment, with its time once it has one: an encounter's as its menu
+-- names it.
+local function SegmentText(sessionType, encounter)
+    if encounter then return EncounterText(encounter) end
     local text = SessionName(sessionType)
     if C_DamageMeter and C_DamageMeter.GetSessionDurationSeconds and SecondsToClock then
         local ok, seconds = pcall(C_DamageMeter.GetSessionDurationSeconds, sessionType)
@@ -657,15 +783,18 @@ local function ShowNotice(window, lineHeight, text)
 end
 
 local function FillRows(window, lineHeight, capacity)
-    local meterType, sessionType = SelectedType(), SelectedSession()
+    local meterType = SelectedType()
     local reason = UnavailableReason()
     if reason then
         ShowNotice(window, lineHeight, reason)
         return
     end
 
-    local session = C_DamageMeter.GetCombatSessionFromType(sessionType, meterType)
+    local session = ReadSession(meterType)
     local sources = type(session) == "table" and session.combatSources or {}
+    -- Only passed along: the game may hide it.
+    local whole
+    if type(session) == "table" then whole = session.totalAmount end
     state.total = #sources
     -- A segment with no fight yet, as the current one after a reload.
     if state.total == 0 then
@@ -680,14 +809,14 @@ local function FillRows(window, lineHeight, capacity)
         PlaceRow(row, slot, window, lineHeight)
         -- A line shows its rank only when it is out of order: the local
         -- player pinned to the first or last line.
-        FillRow(row, index, sources[index], meterType, index ~= state.offset + slot)
+        FillRow(row, index, sources[index], meterType, index ~= state.offset + slot, whole)
     end
     HideRows(#picked + 1)
 end
 
 -- One player's spells, best first, as the game lists them.
 local function FillBreakdown(window, lineHeight, capacity)
-    local meterType, sessionType = SelectedType(), SelectedSession()
+    local meterType = SelectedType()
     local reason = UnavailableReason()
     if reason then
         ShowNotice(window, lineHeight, reason)
@@ -695,8 +824,10 @@ local function FillBreakdown(window, lineHeight, capacity)
     end
 
     local target = state.breakdown
-    local source = C_DamageMeter.GetCombatSessionSourceFromType(sessionType, meterType, target.guid, target.creatureID)
+    local source = ReadSource(meterType, target.guid, target.creatureID)
     local spells = type(source) == "table" and type(source.combatSpells) == "table" and source.combatSpells or {}
+    local whole
+    if type(source) == "table" then whole = source.totalAmount end
     state.total = #spells
     if state.total == 0 then
         state.offset = 0
@@ -709,7 +840,7 @@ local function FillBreakdown(window, lineHeight, capacity)
         slot = slot + 1
         local row = GetRow(slot)
         PlaceRow(row, slot, window, lineHeight)
-        FillSpellRow(row, spells[index], meterType, target.classFilename)
+        FillSpellRow(row, spells[index], meterType, target.classFilename, whole)
     end
     HideRows(slot + 1)
 end
@@ -745,11 +876,16 @@ function DamageMeterTab.Refresh()
     local capacity = math.max(0, math.floor((display:GetHeight() or 0) / lineHeight) - 1)
     state.capacity = capacity
     local meterType, sessionType = SelectedType(), SelectedSession()
+    -- The game keeps a limited number of encounters; one that has dropped
+    -- off its list goes back to the saved segment.
+    local encounter = state.sessionID and FindEncounter(state.sessionID)
+    if not encounter then state.sessionID = nil end
+    if segmentButton then segmentButton.Face:SetText(SegmentShortName(sessionType)) end
 
     -- The game refuses text on a line without its font.
     StyleFontString(header, window)
     StyleFontString(headerRight, window)
-    headerRight:SetText(SegmentText(sessionType))
+    headerRight:SetText(SegmentText(sessionType, encounter))
     headerRight:SetTextColor(TITLE_R, TITLE_G, TITLE_B)
     pcall(FillHeader, lineHeight, meterType)
 
@@ -801,13 +937,14 @@ local function OnDisplayUpdate(self, elapsed)
 end
 
 -- =========================
--- The menu button
+-- The menu buttons
 -- =========================
+-- The arrow's menu: the meter type, how the numbers read, and a reset.
 local function SetupMenu(_, rootDescription)
     if rootDescription.SetTag then rootDescription:SetTag("MENU_CARPENTER_DAMAGE_METER_TAB") end
 
     local function IsTypeSelected(meterType) return SelectedType() == meterType end
-    local function IsSessionSelected(sessionType) return SelectedSession() == sessionType end
+    local function IsNumbersSelected(key) return SelectedNumbers() == key end
 
     for _, category in ipairs(Categories()) do
         if category.types[1] ~= nil then
@@ -819,22 +956,55 @@ local function SetupMenu(_, rootDescription)
     end
 
     rootDescription:CreateDivider()
-    local sessions = SessionTypes()
-    rootDescription:CreateRadio(SessionName(sessions.Current), IsSessionSelected, SelectSession, sessions.Current)
-    rootDescription:CreateRadio(SessionName(sessions.Overall), IsSessionSelected, SelectSession, sessions.Overall)
+    local numbers = rootDescription:CreateButton(_G.HUD_EDIT_MODE_SETTING_DAMAGE_METER_NUMBERS or "Numbers")
+    for _, style in ipairs(NUMBER_STYLES) do
+        numbers:CreateRadio(_G[style.label] or style.fallback, IsNumbersSelected, SelectNumbers, style.key)
+    end
 
     if C_DamageMeter and C_DamageMeter.ResetAllCombatSessions then
         rootDescription:CreateDivider()
         rootDescription:CreateButton(_G.DAMAGE_METER_RESET_ALL_SESSIONS or "Reset Data", function()
             C_DamageMeter.ResetAllCombatSessions()
-            LeaveBreakdown()
-            StartOver()
+            ForgetSessions()
         end)
     end
 end
 
+-- The segment button's menu, as the game's own: each encounter it keeps,
+-- oldest first, then the current and overall segments.
+local function SetupSegmentMenu(_, rootDescription)
+    if rootDescription.SetTag then rootDescription:SetTag("MENU_CARPENTER_DAMAGE_METER_TAB_SEGMENTS") end
+
+    local function IsEncounterSelected(sessionID) return state.sessionID == sessionID end
+    local function IsSessionSelected(sessionType)
+        return state.sessionID == nil and SelectedSession() == sessionType
+    end
+
+    local listed = false
+    for _, encounter in ipairs(Encounters()) do
+        if Readable(encounter.sessionID) then
+            rootDescription:CreateRadio(EncounterText(encounter), IsEncounterSelected, SelectEncounter, encounter.sessionID)
+            listed = true
+        end
+    end
+
+    if listed then rootDescription:CreateDivider() end
+    local sessions = SessionTypes()
+    rootDescription:CreateRadio(SessionName(sessions.Current), IsSessionSelected, SelectSession, sessions.Current)
+    rootDescription:CreateRadio(SessionName(sessions.Overall), IsSessionSelected, SelectSession, sessions.Overall)
+end
+
 local function IsMenuOpen()
-    return menuButton and menuButton.IsMenuOpen and menuButton:IsMenuOpen() == true
+    for _, button in ipairs({ menuButton, segmentButton }) do
+        if button and button.IsMenuOpen and button:IsMenuOpen() == true then return true end
+    end
+    return false
+end
+
+-- Both buttons show and fade together.
+local function ForEachColumnButton(callback)
+    if menuButton then callback(menuButton) end
+    if segmentButton then callback(segmentButton) end
 end
 
 local function ChannelButton()
@@ -881,12 +1051,12 @@ local function MoveCollapseButtonUnder(button)
     button:ClearAllPoints()
     -- Its art has room around the button; the game sets it 4 higher than
     -- the column's top for the same reason.
-    button:SetPoint("TOP", menuButton, "BOTTOM", 0, 4)
+    button:SetPoint("TOP", segmentButton or menuButton, "BOTTOM", 0, 4)
 end
 
--- The button shows as much as the chat buttons beside it, so it fades with
--- Hide Chat Buttons and the chat window, and stays up while its menu is open.
--- In a pulled-out window those are its own column's.
+-- The buttons show as much as the chat buttons beside them, so they fade
+-- with Hide Chat Buttons and the chat window, and stay up while a menu of
+-- theirs is open. In a pulled-out window those are its own column's.
 function MirrorChannelButton()
     if not menuButton then return end
     local alpha = 1
@@ -906,14 +1076,17 @@ function MirrorChannelButton()
     end
     -- A fade the game hides from addons can't be copied; stay up instead.
     if issecretvalue and issecretvalue(alpha) then alpha = 1 end
-    if menuButton:GetAlpha() ~= alpha then
-        menuButton:SetAlpha(alpha)
-    end
+    ForEachColumnButton(function(button)
+        if button:GetAlpha() ~= alpha then
+            button:SetAlpha(alpha)
+        end
+    end)
 end
 
 -- Docked: over the channels button, a level above it. Pulled out: at the top
--- of the window's own button column, its collapse button moved under it. At
--- the tab's top-right corner on a client without either.
+-- of the window's own button column, its collapse button moved under them.
+-- At the tab's top-right corner on a client without either. The segment
+-- button hangs under the arrow either way, as the column's buttons do.
 function PlaceMenuButton()
     if not menuButton then return end
     local window = display:GetParent()
@@ -926,17 +1099,23 @@ function PlaceMenuButton()
         menuButton:SetPoint("TOP", column, "TOP", 0, 0)
         menuButton:SetFrameStrata(collapse:GetFrameStrata() or "MEDIUM")
         menuButton:SetFrameLevel((collapse:GetFrameLevel() or 0) + 1)
-        MoveCollapseButtonUnder(collapse)
-        return
-    end
-    RestoreCollapseButtons()
-    if channel then
-        menuButton:SetPoint("CENTER", channel, "CENTER", 0, 0)
-        menuButton:SetFrameStrata(channel:GetFrameStrata() or "MEDIUM")
-        menuButton:SetFrameLevel((channel:GetFrameLevel() or 0) + 10)
     else
-        menuButton:SetPoint("TOPRIGHT", display, "TOPRIGHT", 0, MENU_BUTTON_HEIGHT)
+        RestoreCollapseButtons()
+        if channel then
+            menuButton:SetPoint("CENTER", channel, "CENTER", 0, 0)
+            menuButton:SetFrameStrata(channel:GetFrameStrata() or "MEDIUM")
+            menuButton:SetFrameLevel((channel:GetFrameLevel() or 0) + 10)
+        else
+            menuButton:SetPoint("TOPRIGHT", display, "TOPRIGHT", 0, MENU_BUTTON_HEIGHT)
+        end
     end
+    if segmentButton then
+        segmentButton:ClearAllPoints()
+        segmentButton:SetPoint("TOP", menuButton, "BOTTOM", 0, -COLUMN_BUTTON_GAP)
+        segmentButton:SetFrameStrata(menuButton:GetFrameStrata() or "MEDIUM")
+        segmentButton:SetFrameLevel(menuButton:GetFrameLevel() or 0)
+    end
+    if collapse then MoveCollapseButtonUnder(collapse) end
 end
 
 local function HasAtlas(atlas)
@@ -944,9 +1123,10 @@ local function HasAtlas(atlas)
     return C_Texture.GetAtlasInfo(atlas) ~= nil
 end
 
-local function CreateMenuButton()
-    -- Not a child of the chat window, which wouldn't draw it out in the
-    -- button column; it shows and hides with the tab instead.
+-- A button in the chat buttons' art with its menu opening up and to the
+-- right. Not a child of the chat window, which wouldn't draw it out in the
+-- button column; it shows and hides with the tab instead.
+local function CreateColumnButton(setupMenu, tooltipText)
     local ok, button = pcall(CreateFrame, "DropdownButton", nil, UIParent)
     if not ok or not button or not button.SetupMenu then return nil end
     button:SetSize(MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT)
@@ -956,8 +1136,42 @@ local function CreateMenuButton()
     -- Its own fade, not the chat window's on top of it.
     button:SetIgnoreParentAlpha(true)
 
+    if AnchorUtil and AnchorUtil.CreateAnchor and button.SetMenuAnchor then
+        button:SetMenuAnchor(AnchorUtil.CreateAnchor("BOTTOMLEFT", button, "TOPRIGHT", 0, 0))
+    end
+    button:SetupMenu(setupMenu)
+    button:HookScript("OnEnter", function(self)
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(tooltipText())
+        GameTooltip:Show()
+    end)
+    button:HookScript("OnLeave", function()
+        if GameTooltip then GameTooltip:Hide() end
+    end)
+    button:SetAlpha(0)
+    button:Hide()
+    return button
+end
+
+-- The icon or text on a button's face, centered at x, y. Pressed, it moves
+-- with the face as the chat buttons' icons do.
+local function PlaceFace(button, face, x, y)
+    face:SetPoint("CENTER", button, "CENTER", x, y)
+    button:HookScript("OnMouseDown", function()
+        face:SetPoint("CENTER", button, "CENTER", x + MENU_ICON_PUSHED_X, y + MENU_ICON_PUSHED_Y)
+    end)
+    button:HookScript("OnMouseUp", function()
+        face:SetPoint("CENTER", button, "CENTER", x, y)
+    end)
+end
+
+local function CreateMenuButton()
+    local button = CreateColumnButton(SetupMenu, TabName)
+    if not button then return nil end
+
     local icon = button:CreateTexture(nil, "ARTWORK")
-    icon:SetPoint("CENTER", button, "CENTER", MENU_ICON_OFFSET_X, MENU_ICON_OFFSET_Y)
+    PlaceFace(button, icon, MENU_ICON_OFFSET_X, MENU_ICON_OFFSET_Y)
     if HasAtlas(MENU_ARROW_ATLAS) then
         icon:SetAtlas(MENU_ARROW_ATLAS)
         icon:SetSize(MENU_ICON_SIZE, MENU_ICON_SIZE)
@@ -975,29 +1189,33 @@ local function CreateMenuButton()
         icon:SetSize(MENU_BUTTON_WIDTH - 4, MENU_BUTTON_HEIGHT - 4)
     end
     button.Icon = icon
+    return button
+end
 
-    if AnchorUtil and AnchorUtil.CreateAnchor and button.SetMenuAnchor then
-        button:SetMenuAnchor(AnchorUtil.CreateAnchor("BOTTOMLEFT", button, "TOPRIGHT", 0, 0))
+-- Its face is the segment's short name in the game's gold, in the font of
+-- the game's own segment button; its tooltip, the segment's full name.
+local function CreateSegmentButton()
+    local button = CreateColumnButton(SetupSegmentMenu, function()
+        local encounter = state.sessionID and FindEncounter(state.sessionID)
+        if encounter then return EncounterText(encounter) end
+        return SessionName(SelectedSession())
+    end)
+    if not button then return nil end
+
+    local face = button:CreateFontString(nil, "ARTWORK")
+    -- The game refuses text on a font string without a font.
+    local font = _G.GameFontNormalMed1 or _G.GameFontNormal
+    if font then
+        face:SetFontObject(font)
+    else
+        face:SetFont(_G.STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", 12, "")
+        face:SetTextColor(TITLE_R, TITLE_G, TITLE_B)
     end
-    button:SetupMenu(SetupMenu)
-    button:HookScript("OnEnter", function(self)
-        if not GameTooltip then return end
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(TabName())
-        GameTooltip:Show()
-    end)
-    button:HookScript("OnLeave", function()
-        if GameTooltip then GameTooltip:Hide() end
-    end)
-    button:HookScript("OnMouseDown", function()
-        icon:SetPoint("CENTER", button, "CENTER",
-            MENU_ICON_OFFSET_X + MENU_ICON_PUSHED_X, MENU_ICON_OFFSET_Y + MENU_ICON_PUSHED_Y)
-    end)
-    button:HookScript("OnMouseUp", function()
-        icon:SetPoint("CENTER", button, "CENTER", MENU_ICON_OFFSET_X, MENU_ICON_OFFSET_Y)
-    end)
-    button:SetAlpha(0)
-    button:Hide()
+    face:SetJustifyH("CENTER")
+    face:SetWordWrap(false)
+    PlaceFace(button, face, 0, 0)
+    face:SetText(SegmentShortName(SelectedSession()))
+    button.Face = face
     return button
 end
 
@@ -1037,17 +1255,19 @@ local function CreateDisplay()
     headerClick = CreateClickArea()
 
     menuButton = CreateMenuButton()
+    -- Only under the arrow.
+    if menuButton then segmentButton = CreateSegmentButton() end
 
     display:SetScript("OnShow", function(self)
         self.elapsed = 0
         state.dirty = true
         Try(PlaceMenuButton)
-        if menuButton then menuButton:Show() end
+        ForEachColumnButton(function(button) button:Show() end)
         Try(DamageMeterTab.Refresh)
         Try(MirrorChannelButton)
     end)
     display:SetScript("OnHide", function()
-        if menuButton then menuButton:Hide() end
+        ForEachColumnButton(function(button) button:Hide() end)
     end)
     -- The chat window got its size, or was resized: lay the lines out again.
     display:SetScript("OnSizeChanged", MarkDirty)
@@ -1154,9 +1374,7 @@ eventFrame:SetScript("OnEvent", function(_, event, addonName)
     elseif event == "UPDATE_CHAT_WINDOWS" then
         TryAttach()
     elseif event == "DAMAGE_METER_RESET" then
-        -- The breakdown's player is gone with the data.
-        LeaveBreakdown()
-        StartOver()
+        ForgetSessions()
     else
         MarkDirty()
     end

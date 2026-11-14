@@ -226,57 +226,111 @@ DAMAGE_METER_TYPE_DPS = "DPS"
 DAMAGE_METER_TYPE_INTERRUPTS = "Interrupts"
 DAMAGE_METER_CURRENT_SESSION = "Current Segment"
 DAMAGE_METER_OVERALL_SESSION = "Overall"
+DAMAGE_METER_CURRENT_SESSION_SHORT = "C"
+DAMAGE_METER_OVERALL_SESSION_SHORT = "O"
+DAMAGE_METER_COMBAT_NUMBER = "Combat %d"
 DAMAGE_METER_SOURCE_NAME = "%d. %s"
 DAMAGE_METER_ENTRY_FORMAT_COMPACT = "%s (%s)"
+DAMAGE_METER_ENTRY_FORMAT_COMPLETE = "%s (%s) %d%%"
+DAMAGE_METER_ENTRY_FORMAT_COMPLETE_NO_PARENTHESIS = "%s %d%%"
+HUD_EDIT_MODE_SETTING_DAMAGE_METER_NUMBERS = "Numbers"
+HUD_EDIT_MODE_SETTING_DAMAGE_METER_NUMBERS_MINIMAL = "Minimal"
+HUD_EDIT_MODE_SETTING_DAMAGE_METER_NUMBERS_COMPACT = "Compact"
+HUD_EDIT_MODE_SETTING_DAMAGE_METER_NUMBERS_COMPLETE = "Complete"
+-- The font of the game's own segment button.
+GameFontNormalMed1 = { name = "GameFontNormalMed1" }
 RAID_CLASS_COLORS = {
     ROGUE = { r = 1.00, g = 0.96, b = 0.41 },
     PRIEST = { r = 1.00, g = 1.00, b = 1.00 },
 }
 
-local meter = { enabled = true, available = true, inCombat = false, duration = 83, sources = {}, requests = {}, resets = 0 }
+-- Encounters the game keeps, oldest first, each with its own sources.
+local meter = { enabled = true, available = true, inCombat = false, duration = 83, sources = {}, requests = {}, resets = 0,
+    encounters = {} }
 C_CVar = { GetCVarBool = function(name) if name == "damageMeterEnabled" then return meter.enabled end end }
+local function Hide(value)
+    if meter.inCombat then return Secret(value) end
+    return value
+end
+-- A segment's lines and its whole, which the game hides in combat too.
+local function BuildSession(list)
+    local sources, whole = {}, 0
+    for index, source in ipairs(list) do
+        sources[index] = {
+            name = Hide(source.name),
+            sourceGUID = Hide(source.guid),
+            classFilename = source.classFilename,
+            isLocalPlayer = source.isLocalPlayer == true,
+            totalAmount = Hide(source.total),
+            amountPerSecond = Hide(source.perSecond),
+        }
+        whole = whole + source.total
+    end
+    return { combatSources = sources, maxAmount = 0, totalAmount = Hide(whole) }
+end
+local function BuildSource(guid, creatureID)
+    local spells, whole = {}, 0
+    for index, spell in ipairs(meter.spells[guid or creatureID] or {}) do
+        spells[index] = {
+            spellID = Hide(spell.id),
+            totalAmount = Hide(spell.total),
+            amountPerSecond = Hide(spell.perSecond),
+            creatureName = Hide(spell.pet or ""),
+            combatSpellDetails = {
+                unitName = Hide(spell.unit or ""),
+                unitClassFilename = spell.unitClass or "",
+            },
+        }
+        whole = whole + spell.total
+    end
+    return { combatSpells = spells, maxAmount = 0, totalAmount = Hide(whole) }
+end
+local function FindTestEncounter(sessionID)
+    for _, encounter in ipairs(meter.encounters) do
+        if encounter.id == sessionID then return encounter end
+    end
+end
+-- Like the game, the lookups refuse an argument hidden from the addon.
+local function RefuseHidden(...)
+    for index = 1, select("#", ...) do
+        if IsSecret((select(index, ...))) then error("hidden argument") end
+    end
+end
 C_DamageMeter = {
     IsDamageMeterAvailable = function() return meter.available, meter.available and "" or "Not here" end,
     GetSessionDurationSeconds = function()
         if meter.inCombat then return Secret(meter.duration) end
         return meter.duration
     end,
-    GetCombatSessionFromType = function(sessionType, meterType)
-        meter.requests[#meter.requests + 1] = { sessionType = sessionType, meterType = meterType }
-        local sources = {}
-        for index, source in ipairs(meter.sources) do
-            local hide = meter.inCombat and Secret or function(value) return value end
-            sources[index] = {
-                name = hide(source.name),
-                sourceGUID = hide(source.guid),
-                classFilename = source.classFilename,
-                isLocalPlayer = source.isLocalPlayer == true,
-                totalAmount = hide(source.total),
-                amountPerSecond = hide(source.perSecond),
-            }
+    GetAvailableCombatSessions = function()
+        local list = {}
+        for index, encounter in ipairs(meter.encounters) do
+            list[index] = { sessionID = encounter.id, name = encounter.name, durationSeconds = encounter.duration }
         end
-        return { combatSources = sources, maxAmount = 0, totalAmount = 0 }
+        return list
     end,
-    -- Like the game, it refuses an ID hidden from the addon calling it.
+    GetCombatSessionFromType = function(sessionType, meterType)
+        RefuseHidden(sessionType, meterType)
+        meter.requests[#meter.requests + 1] = { sessionType = sessionType, meterType = meterType }
+        return BuildSession(meter.sources)
+    end,
+    GetCombatSessionFromID = function(sessionID, meterType)
+        RefuseHidden(sessionID, meterType)
+        meter.requests[#meter.requests + 1] = { sessionID = sessionID, meterType = meterType }
+        local encounter = FindTestEncounter(sessionID)
+        return BuildSession(encounter and encounter.sources or {})
+    end,
     GetCombatSessionSourceFromType = function(sessionType, meterType, guid, creatureID)
-        if IsSecret(guid) or IsSecret(creatureID) then error("hidden argument") end
+        RefuseHidden(sessionType, meterType, guid, creatureID)
         meter.sourceRequests[#meter.sourceRequests + 1] = { sessionType = sessionType, meterType = meterType,
             guid = guid, creatureID = creatureID }
-        local hide = meter.inCombat and Secret or function(value) return value end
-        local spells = {}
-        for index, spell in ipairs(meter.spells[guid or creatureID] or {}) do
-            spells[index] = {
-                spellID = hide(spell.id),
-                totalAmount = hide(spell.total),
-                amountPerSecond = hide(spell.perSecond),
-                creatureName = hide(spell.pet or ""),
-                combatSpellDetails = {
-                    unitName = hide(spell.unit or ""),
-                    unitClassFilename = spell.unitClass or "",
-                },
-            }
-        end
-        return { combatSpells = spells, maxAmount = 0, totalAmount = 0 }
+        return BuildSource(guid, creatureID)
+    end,
+    GetCombatSessionSourceFromID = function(sessionID, meterType, guid, creatureID)
+        RefuseHidden(sessionID, meterType, guid, creatureID)
+        meter.sourceRequests[#meter.sourceRequests + 1] = { sessionID = sessionID, meterType = meterType,
+            guid = guid, creatureID = creatureID }
+        return BuildSource(guid, creatureID)
     end,
     ResetAllCombatSessions = function() meter.resets = meter.resets + 1 end,
 }
@@ -635,8 +689,38 @@ Tick()
 assertEqual(button.alpha, 1, "with no chat button showing the menu button should stay up")
 QuickJoinToastButton.shown, QuickJoinToastButton.alpha = true, 1
 
--- The menu picks the type and segment and resets the data.
-local root = { items = {} }
+-- The segment button hangs under the arrow, in the same art, and fades
+-- with it.
+local segment = menuButtons[2]
+if not segment then fail("the tab should have a segment button") end
+local segmentPoint = segment.points[1]
+assertEqual(segmentPoint and segmentPoint[1], "TOP", "the segment button should hang from its top")
+assertEqual(segmentPoint and segmentPoint[2], button, "the segment button should sit under the arrow")
+assertEqual(segmentPoint and segmentPoint[3], "BOTTOM", "the segment button should sit under the arrow")
+assertEqual(segmentPoint and segmentPoint[5], -2, "the segment button should keep the chat column's gap")
+assertEqual(segment.strata, "MEDIUM", "the segment button should share the arrow's strata")
+assertEqual(segment.level, 16, "the segment button should share the arrow's level")
+assertEqual(segment.normalAtlas, "chatframe-button-up", "the segment button should use the chat button art")
+assertEqual(segment.ignoreParentAlpha, true, "the segment button should fade on its own")
+assertEqual(segment.parent, UIParent, "the segment button should not be drawn inside the chat window")
+assertEqual(segment.shown, true, "the segment button should show with the tab")
+local face = segment.children[1]
+assertEqual(face and face.fontObject, GameFontNormalMed1, "the segment button should use the game's segment font")
+assertEqual(face and face.text, "C", "the segment button should read C for the current segment")
+QuickJoinToastButton.alpha = 0.4
+Tick()
+assertEqual(segment.alpha, 0.4, "the segment button should fade with the arrow")
+QuickJoinToastButton.alpha = 0
+segment.menuOpen = true
+Tick()
+assertEqual(button.alpha, 1, "an open segment menu should keep the arrow up")
+assertEqual(segment.alpha, 1, "an open segment menu should keep its button up")
+segment.menuOpen = false
+QuickJoinToastButton.alpha = 1
+Tick()
+
+-- The arrow's menu picks the type and how numbers read, and resets the
+-- data; the segment button's picks the segment.
 local function Description(store)
     local description = { items = store }
     function description:SetTag() end
@@ -651,18 +735,33 @@ local function Description(store)
     function description:CreateDivider() store[#store + 1] = { kind = "divider" } end
     return description
 end
-button.generator(button, Description(root.items))
-local dpsRadio, overallRadio, resetButton
-local function Walk(items)
+local function OpenMenu(owner)
+    local items = {}
+    owner.generator(owner, Description(items))
+    return items
+end
+local function FindItem(items, text, kind)
     for _, item in ipairs(items) do
-        if item.kind == "radio" and item.data == Types.Dps and item.text == "DPS" then dpsRadio = item end
-        if item.kind == "radio" and item.text == "Overall" then overallRadio = item end
-        if item.kind == "button" and item.callback then resetButton = item end
-        if item.items then Walk(item.items) end
+        if item.text == text and (kind == nil or item.kind == kind) then return item end
+        local found = item.items and FindItem(item.items, text, kind)
+        if found then return found end
     end
 end
-Walk(root.items)
-if not (dpsRadio and overallRadio and resetButton) then fail("the menu should offer types, segments and a reset") end
+local arrowMenu, segmentMenu = OpenMenu(button), OpenMenu(segment)
+local dpsRadio = FindItem(arrowMenu, "DPS", "radio")
+local resetButton = FindItem(arrowMenu, "Reset Data", "button")
+local overallRadio = FindItem(segmentMenu, "Overall", "radio")
+if not (dpsRadio and resetButton) then fail("the arrow's menu should offer types and a reset") end
+if not overallRadio then fail("the segment button's menu should offer the segments") end
+assertTrue(FindItem(arrowMenu, "Overall") == nil, "the segments should move out of the arrow's menu")
+local numbersMenu = FindItem(arrowMenu, "Numbers", "button")
+if not numbersMenu then fail("the arrow's menu should offer how numbers read") end
+assertEqual(#numbersMenu.items, 3, "the numbers should offer the Edit Mode's three styles")
+assertEqual(numbersMenu.items[1].text, "Minimal", "the numbers should start with Minimal")
+assertEqual(numbersMenu.items[2].text, "Compact", "the numbers should offer Compact")
+assertEqual(numbersMenu.items[3].text, "Complete", "the numbers should end with Complete")
+assertTrue(numbersMenu.items[2].isSelected(numbersMenu.items[2].data), "the numbers should read Compact by default")
+assertTrue(not numbersMenu.items[1].isSelected(numbersMenu.items[1].data), "only one number style should be marked")
 -- A new type goes back from a breakdown to its list.
 Tab.Refresh()
 for _, area in pairs(ClickAreas(display)) do
@@ -681,6 +780,127 @@ assertEqual(request.meterType, Types.Dps, "the tab should follow the picked type
 assertEqual(request.sessionType, Sessions.Overall, "the tab should follow the picked segment")
 resetButton.callback()
 assertEqual(meter.resets, 1, "the reset should clear the meter")
+
+-- =========================
+-- Numbers read as picked: Minimal, Compact or Complete.
+-- =========================
+CarpenterDB.damageMeterTabType, CarpenterDB.damageMeterTabSession = nil, nil
+meter.sources = {
+    { name = "Koji Hakamori", guid = "Player-1-0001", classFilename = "ROGUE", isLocalPlayer = true, total = 1500, perSecond = 124.3 },
+    { name = "Suggo Battsuggovic", guid = "Player-1-0002", classFilename = "PRIEST", total = 500, perSecond = 70 },
+}
+local minimalRadio, completeRadio = numbersMenu.items[1], numbersMenu.items[3]
+minimalRadio.setSelected(minimalRadio.data)
+assertEqual(CarpenterDB.damageMeterTabNumbers, "minimal", "picking Minimal should save it")
+assertTrue(minimalRadio.isSelected(minimalRadio.data), "the menu should mark the picked number style")
+display.scripts.OnUpdate(display, 0.6)
+header, names, values = Read(display)
+assertEqual(values[1] and values[1].text, "1500", "Minimal should show the total alone")
+CarpenterDB.damageMeterTabType = Types.Dps
+Tab.Refresh()
+header, names, values = Read(display)
+assertEqual(values[1] and values[1].text, "124.3", "Minimal DPS should show per second alone")
+
+completeRadio.setSelected(completeRadio.data)
+Tab.Refresh()
+header, names, values = Read(display)
+assertEqual(values[1] and values[1].text, "124.3 (1500) 75%", "Complete DPS should add the total's share")
+CarpenterDB.damageMeterTabType = nil
+Tab.Refresh()
+header, names, values = Read(display)
+assertEqual(values[1] and values[1].text, "1500 (124.3) 75%", "Complete should add each line's share of the whole")
+assertEqual(values[2] and values[2].text, "500 (70) 25%", "every line should get its share")
+CarpenterDB.damageMeterTabType = Types.Interrupts
+Tab.Refresh()
+header, names, values = Read(display)
+assertEqual(values[1] and values[1].text, "1500 75%", "a Complete count should show its share without parentheses")
+CarpenterDB.damageMeterTabType = nil
+-- The share takes math the game refuses on hidden amounts.
+meter.inCombat = true
+Tab.Refresh()
+header, names, values = Read(display)
+assertEqual(values[1] and values[1].text, "1500 (124.3)", "in combat Complete should read as Compact")
+meter.inCombat = false
+-- A breakdown's share is of the player's own whole.
+Tab.Refresh()
+Click(ClickAreas(display)[1])
+header, names, values = Read(display)
+assertEqual(values[1] and values[1].text, "2000 (100) 80%", "a spell's share should be of the player's whole")
+assertEqual(values[2] and values[2].text, "500 (24.3) 20%", "every spell should get its share")
+Click(ClickAreas(display)[1])
+CarpenterDB.damageMeterTabNumbers = "huge"
+Tab.Refresh()
+header, names, values = Read(display)
+assertEqual(values[1] and values[1].text, "1500 (124.3)", "an unknown number style should read as Compact")
+CarpenterDB.damageMeterTabNumbers = nil
+
+-- =========================
+-- The segment button picks an encounter, as the game's own segment menu.
+-- =========================
+meter.encounters = {
+    { id = 4, name = "Haunted Servitor", duration = 38, sources = {
+        { name = "Koji Hakamori", guid = "Player-1-0001", classFilename = "ROGUE", isLocalPlayer = true, total = 300, perSecond = 7.9 },
+    } },
+    { id = 5, name = "", duration = 8, sources = {} },
+}
+segmentMenu = OpenMenu(segment)
+assertEqual(segmentMenu[1] and segmentMenu[1].text, "Haunted Servitor [0:38]", "encounters should be listed by name and time, oldest first")
+assertEqual(segmentMenu[2] and segmentMenu[2].text, "Combat 5 [0:08]", "an encounter without a name should get the game's numbered one")
+assertEqual(segmentMenu[3] and segmentMenu[3].kind, "divider", "the encounters should be set apart from the segments")
+assertEqual(segmentMenu[4] and segmentMenu[4].text, "Current Segment", "the current segment should follow the encounters")
+assertEqual(segmentMenu[5] and segmentMenu[5].text, "Overall", "overall should end the list")
+assertTrue(segmentMenu[4].isSelected(segmentMenu[4].data), "the current segment should be marked")
+local servitor = segmentMenu[1]
+servitor.setSelected(servitor.data)
+assertTrue(servitor.isSelected(servitor.data), "the picked encounter should be marked")
+assertTrue(not segmentMenu[4].isSelected(segmentMenu[4].data), "picking an encounter should unmark the current segment")
+display.scripts.OnUpdate(display, 0.6)
+header, names, values = Read(display)
+assertEqual(meter.requests[#meter.requests].sessionID, 4, "the tab should read the picked encounter")
+assertEqual(headerRightText, "Haunted Servitor [0:38]", "the title should name the encounter and its time")
+assertEqual(face.text, "4", "the segment button should read the encounter's number")
+assertEqual(names[1] and names[1].text, "Koji Hakamori", "the encounter's lines should show")
+assertEqual(values[1] and values[1].text, "300 (7.9)", "the encounter's amounts should show")
+assertTrue(names[2] == nil, "only the encounter's players should show")
+assertEqual(CarpenterDB.damageMeterTabSession, nil, "an encounter should not be saved past a reload")
+-- Its breakdown reads from the encounter too, in combat as well.
+meter.inCombat = true
+Tab.Refresh()
+Click(ClickAreas(display)[1])
+assertEqual(meter.sourceRequests[#meter.sourceRequests].sessionID, 4, "a breakdown should read from the picked encounter")
+assertEqual(StripColors((Read(display))), "Damage Done: Koji Hakamori", "an encounter's breakdown should open in combat")
+Click(ClickAreas(display)[1])
+meter.inCombat = false
+-- An encounter the game drops goes back to the saved segment.
+CarpenterDB.damageMeterTabSession = Sessions.Overall
+table.remove(meter.encounters, 1)
+Tab.Refresh()
+assertTrue(Tab.state.sessionID == nil, "a dropped encounter should be let go")
+assertEqual(meter.requests[#meter.requests].sessionType, Sessions.Overall, "a dropped encounter should go back to the saved segment")
+assertEqual(face.text, "O", "the segment button should read O for overall")
+-- An empty encounter says so; picking a segment, or a reset, leaves it.
+segmentMenu = OpenMenu(segment)
+segmentMenu[1].setSelected(segmentMenu[1].data)
+Tab.Refresh()
+header, names = Read(display)
+assertEqual(names[1] and names[1].text, "Nothing recorded in this segment yet.", "an empty encounter should say so")
+local currentRadio = FindItem(segmentMenu, "Current Segment", "radio")
+currentRadio.setSelected(currentRadio.data)
+assertTrue(Tab.state.sessionID == nil, "picking the current segment should leave the encounter")
+assertEqual(CarpenterDB.damageMeterTabSession, Sessions.Current, "picking the current segment should save it")
+segmentMenu[1].setSelected(segmentMenu[1].data)
+Fire("DAMAGE_METER_RESET")
+assertTrue(Tab.state.sessionID == nil, "a reset should leave the encounter")
+segmentMenu[1].setSelected(segmentMenu[1].data)
+resetButton.callback()
+assertTrue(Tab.state.sessionID == nil, "the menu's reset should leave the encounter")
+meter.encounters = {}
+CarpenterDB.damageMeterTabSession = nil
+Tab.Refresh()
+assertEqual(face.text, "C", "the segment button should read C again")
+segmentMenu = OpenMenu(segment)
+assertEqual(segmentMenu[1] and segmentMenu[1].text, "Current Segment", "with no encounters the menu should open on the segments")
+assertEqual(#segmentMenu, 2, "with no encounters the menu should hold only the two segments")
 
 -- =========================
 -- The wheel scrolls the lines.
@@ -785,6 +1005,7 @@ assertEqual(closed[1], 3, "turning the option off should close the tab")
 assertEqual(popups[1], "CARPENTER_DAMAGE_METER_TAB_RELOAD", "closing the tab should ask for a reload")
 assertTrue(not display:IsVisible(), "the display should hide")
 assertEqual(button.shown, false, "the menu button should hide with the tab")
+assertEqual(segment.shown, false, "the segment button should hide with the tab")
 assertEqual(DamageMeter.shown, true, "with the option off the game should show its meter again")
 DamageMeter:SetShown(false)
 assertEqual(DamageMeter.shown, false, "with the option off the game should hide its meter as it likes")
@@ -833,12 +1054,17 @@ local menuPoint = button.points[1]
 assertEqual(menuPoint and menuPoint[2], ChatFrame4.buttonFrame, "a pulled-out tab should top its own button column with the menu button")
 assertEqual(menuPoint and menuPoint[1], "TOP", "the menu button should sit at the column's top")
 local collapsePoint = collapse.points[1]
-assertEqual(collapsePoint and collapsePoint[2], button, "the collapse button should move under the menu button")
-assertEqual(collapsePoint and collapsePoint[3], "BOTTOM", "the collapse button should hang from the menu button's bottom")
+assertEqual(segment.points[1] and segment.points[1][2], button, "the segment button should stay under the arrow")
+assertEqual(collapsePoint and collapsePoint[2], segment, "the collapse button should move under the segment button")
+assertEqual(collapsePoint and collapsePoint[3], "BOTTOM", "the collapse button should hang from the segment button's bottom")
+assertEqual(#collapse.points, 1, "the collapse button should hang from one anchor")
 assertEqual(button.strata, "LOW", "the menu button should share the column's strata")
+assertEqual(segment.strata, "LOW", "the segment button should share the column's strata")
+assertEqual(segment.level, 9, "the segment button should share the arrow's level")
 ChatFrame4.buttonFrame.alpha = 0.2
 Tick()
 assertEqual(button.alpha, 0.2, "the menu button should fade with its window's button column")
+assertEqual(segment.alpha, 0.2, "the segment button should fade with its window's button column")
 ChatFrame4.buttonFrame.alpha = 1
 Tick()
 assertEqual(button.alpha, 1, "the menu button should show with its window's button column")
@@ -848,6 +1074,7 @@ ChatFrame4.isDocked, collapse.shown = true, false
 Tick()
 menuPoint = button.points[1]
 assertEqual(menuPoint and menuPoint[2], ChatFrameChannelButton, "a docked tab should put the menu button back on the channels button")
+assertEqual(segment.points[1] and segment.points[1][2], button, "a docked tab should keep the segment button under the arrow")
 collapsePoint = collapse.points[1]
 assertEqual(collapsePoint and collapsePoint[2], ChatFrame4.buttonFrame, "docking should give the collapse button its own anchor back")
 assertEqual(collapsePoint and collapsePoint[5], 4, "the collapse button should keep the game's offset")
@@ -856,7 +1083,7 @@ assertEqual(#collapse.points, 1, "the collapse button should have only its own a
 -- Turning off while pulled out also gives the collapse button back.
 ChatFrame4.isDocked, collapse.shown = nil, true
 Tick()
-assertEqual(collapse.points[1][2], button, "the collapse button should move under the menu button again")
+assertEqual(collapse.points[1][2], segment, "the collapse button should move under the segment button again")
 feature:Disable()
 assertEqual(DamageMeter.shown, true, "turning off should bring back a floating meter the game wants shown")
 assertEqual(collapse.points[1][2], ChatFrame4.buttonFrame, "turning off should give the collapse button its own anchor back")
