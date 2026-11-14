@@ -270,6 +270,7 @@ local function BuildSession(list)
         sources[index] = {
             name = Hide(source.name),
             sourceGUID = Hide(source.guid),
+            sourceCreatureID = source.creatureID,
             classFilename = source.classFilename,
             isLocalPlayer = source.isLocalPlayer == true,
             totalAmount = Hide(source.total),
@@ -348,6 +349,8 @@ C_DamageMeter = {
 meter.spells, meter.sourceRequests = {}, {}
 UnitAffectingCombat = function() return meter.inCombat end
 UnitGUID = function(unit) if unit == "player" then return "Player-1-0001" end end
+-- On WoW Forever the first name and the surname come apart.
+UnitName = function(unit) if unit == "player" then return "Koji", "Hakamori" end end
 local spellNames = { [1752] = "Sinister Strike", [3110] = "Firebolt", [6603] = "Melee" }
 C_Spell = {
     GetSpellName = function(spellID)
@@ -570,8 +573,8 @@ assertEqual(areas[1].highlight.shown, false, "the highlight should go with the m
 
 Click(areas[1])
 header, names, values = Read(display)
-assertEqual(StripColors(header), "Damage Done: Koji Hakamori", "the title should say whose breakdown it is")
-assertTrue(header:find("|cfffff569Koji Hakamori|r", 1, true) ~= nil, "the title's name should be in class color")
+assertEqual(StripColors(header), "Damage Done: Koji", "the title should name the player by their first name")
+assertTrue(header:find("|cfffff569Koji|r", 1, true) ~= nil, "the title's name should be in class color")
 assertEqual(names[1] and names[1].text, "Sinister Strike", "the breakdown should list the player's spells")
 assertEqual(values[1] and values[1].text, "2000 (100) 80%", "a spell should read Complete, as in the game's breakdown")
 assertEqual(values[2] and values[2].text, "500 (24.3) 20%", "every spell should show its share of the player's whole")
@@ -596,7 +599,7 @@ assertEqual((Read(display)), "Damage Done", "a right-click on a name should not 
 -- Another player's, with spells cast at them by others.
 Click(ClickAreas(display)[2])
 header, names = Read(display)
-assertEqual(StripColors(header), "Damage Done: Suggo Battsuggovic", "another player's name should open their breakdown")
+assertEqual(StripColors(header), "Damage Done: Suggo", "another player's name should open their breakdown")
 assertEqual(meter.sourceRequests[#meter.sourceRequests].guid, "Player-1-0002", "the breakdown should ask for that player")
 assertEqual(names[1] and names[1].text, "Melee - Hogger", "a spell cast at the player should name who cast it")
 assertEqual(names[2] and names[2].text, "Sinister Strike - |cfffff569Koji|r", "a player who cast it should be in class color")
@@ -613,7 +616,7 @@ Click(areas[2])
 assertEqual((Read(display)), "Damage Done", "a click on a hidden player should do nothing")
 Click(areas[1])
 header, names, values = Read(display)
-assertEqual(StripColors(header), "Damage Done: Koji Hakamori", "in combat your own breakdown should open")
+assertEqual(StripColors(header), "Damage Done: Koji", "in combat your own breakdown should open, titled by your first name")
 assertEqual(meter.sourceRequests[#meter.sourceRequests].guid, "Player-1-0001", "in combat your ID should come from your unit")
 assertEqual(names[1] and names[1].text, "Sinister Strike", "hidden spell names should still show")
 assertEqual(values[1] and values[1].text, "2000 (100)", "hidden spell amounts should still show, without the share")
@@ -628,7 +631,7 @@ Click(ClickAreas(display)[2])
 meter.inCombat = true
 display.scripts.OnUpdate(display, 0.6)
 header, names = Read(display)
-assertEqual(StripColors(header), "Damage Done: Suggo Battsuggovic", "a breakdown opened before combat should stay open")
+assertEqual(StripColors(header), "Damage Done: Suggo", "a breakdown opened before combat should stay open")
 assertEqual(names[1] and names[1].text, "Melee", "a breakdown opened before combat should keep filling")
 meter.inCombat = false
 
@@ -646,6 +649,16 @@ Fire("DAMAGE_METER_RESET")
 Tab.Refresh()
 assertEqual((Read(display)), "Damage Done", "a reset should go back to the list")
 assertTrue(Tab.state.breakdown == nil, "a reset should close the breakdown")
+
+-- A creature keeps its whole name in the title.
+meter.sources[3] = { name = "Healing Stream Totem", creatureID = 3527, classFilename = "", total = 10, perSecond = 1 }
+meter.spells[3527] = { { id = 6603, total = 10, perSecond = 1 } }
+Tab.Refresh()
+Click(ClickAreas(display)[3])
+assertEqual(StripColors((Read(display))), "Damage Done: Healing Stream Totem", "a creature should keep its whole name in the title")
+Click(ClickAreas(display)[1])
+meter.sources[3], meter.spells[3527] = nil, nil
+Tab.Refresh()
 
 -- =========================
 -- Types that read differently
@@ -910,7 +923,7 @@ meter.inCombat = true
 Tab.Refresh()
 Click(ClickAreas(display)[1])
 assertEqual(meter.sourceRequests[#meter.sourceRequests].sessionID, 4, "a breakdown should read from the picked encounter")
-assertEqual(StripColors((Read(display))), "Damage Done: Koji Hakamori", "an encounter's breakdown should open in combat")
+assertEqual(StripColors((Read(display))), "Damage Done: Koji", "an encounter's breakdown should open in combat")
 Click(ClickAreas(display)[1])
 meter.inCombat = false
 -- An encounter the game drops goes back to the saved segment.

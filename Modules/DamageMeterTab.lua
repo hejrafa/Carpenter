@@ -9,8 +9,8 @@
 --
 -- Clicking a name shows that player's breakdown in the tab, as the game's
 -- own meter does in a window beside it: their spells, best first, each with
--- its total, under a title naming them. Clicking the breakdown goes back to
--- the list. The game finds a player's spells by their ID, which it hides
+-- its total, under a title naming them, a player by their first name.
+-- Clicking the breakdown goes back to the list. The game finds a player's spells by their ID, which it hides
 -- from addons in combat for everyone but you, so in combat only your own
 -- name opens a breakdown; after combat every name does again.
 --
@@ -763,6 +763,7 @@ local function FillRow(row, index, source, meterType, showRank, whole)
     local target = row.target
     target.guid, target.creatureID = guid, creatureID
     target.name, target.classFilename = source.name, source.classFilename
+    target.isLocalPlayer = source.isLocalPlayer == true
     row.hasTarget = guid ~= nil or creatureID ~= nil
     SetClickable(row.click, row.hasTarget)
 end
@@ -974,7 +975,7 @@ end
 local function FillHeader(lineHeight, meterType)
     local target = state.breakdown
     if target then
-        header:SetFormattedText("%s: |c%s%s|r", TypeName(meterType), ClassColorCode(target.classFilename), target.name)
+        header:SetFormattedText("%s: |c%s%s|r", TypeName(meterType), ClassColorCode(target.classFilename), target.titleName)
     else
         header:SetText(TypeName(meterType))
     end
@@ -1017,6 +1018,23 @@ function DamageMeterTab.Refresh()
     pcall(state.breakdown and FillBreakdown or FillRows, window, lineHeight, capacity)
 end
 
+-- The name in a breakdown's title: a player's first name, as on WoW Forever
+-- every name carries a surname, and a creature's whole. It is read on the
+-- click, while the game lets the name be read; your own comes from your
+-- unit, which the game doesn't hide in combat. A name still hidden goes into
+-- the title whole.
+local function TitleName(target)
+    local name = target.name
+    if target.isLocalPlayer and UnitName then
+        local ok, own = pcall(UnitName, "player")
+        if ok and KnownText(own) then name = own end
+    end
+    if not KnownText(name) then return target.name end
+    local isPlayer = type(target.guid) == "string" and target.guid:find("^Player%-") ~= nil
+    if not isPlayer then return name end
+    return name:match("^(%S+)") or name
+end
+
 -- A click on a name opens its breakdown; a click on a breakdown, its title
 -- included, goes back to the list.
 function OnClickArea(area, mouseButton)
@@ -1028,6 +1046,7 @@ function OnClickArea(area, mouseButton)
             guid = target.guid,
             creatureID = target.creatureID,
             name = target.name,
+            titleName = TitleName(target),
             classFilename = target.classFilename,
         }
         state.listOffset = state.offset
