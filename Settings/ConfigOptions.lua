@@ -302,6 +302,12 @@ function Options.Create(context)
                     image = GetSettingsImage("poisonmacro.png"),
                 },
                 {
+                    key = "quickLockpickEnabled",
+                    class = "ROGUE",
+                    label = L.OPTION_QUICK_LOCKPICK or "Quick Lockpick",
+                    description = Description("DESC_QUICK_LOCKPICK"),
+                },
+                {
                     key = "autoTrackQuestsEnabled",
                     label = L.OPTION_AUTO_TRACK_QUESTS or "Auto Track Quests",
                     description = Description("DESC_AUTO_TRACK_QUESTS"),
