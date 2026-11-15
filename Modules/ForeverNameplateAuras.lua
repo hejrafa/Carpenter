@@ -9,6 +9,7 @@
 local _, ns = ...
 ns = ns or {}
 ns.Private = ns.Private or {}
+local IsSecret = Carpenter.Secret.IsSecret
 
 local Nameplates = ns.Private.Nameplates or {}
 
@@ -43,7 +44,7 @@ end
 
 local function IsHostile(unit)
     local ok, canAttack = pcall(UnitCanAttack, "player", unit)
-    if not ok or (issecretvalue and issecretvalue(canAttack)) then return false end
+    if not ok or IsSecret(canAttack) then return false end
     return canAttack == true
 end
 

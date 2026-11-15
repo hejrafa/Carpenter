@@ -3,6 +3,8 @@
 -- whether they come with the game's error event or are written straight onto
 -- the error frame. Add phrases here as you find ones you want to suppress.
 
+local IsSecret = Carpenter.Secret.IsSecret
+
 -- These belong to Action Cam and must not affect Blizzard warnings from other
 -- addons when Carpenter's camera feature is disabled.
 local ACTION_CAM_HIDE_PHRASES = {
@@ -61,7 +63,7 @@ local HIDE_PHRASES = {
 
 local function ShouldHideError(message)
     -- Text the game hides from addons can't be searched.
-    if issecretvalue and issecretvalue(message) then return false end
+    if IsSecret(message) then return false end
     if not message or type(message) ~= "string" then return false end
     local lower = message:lower()
     for _, phrase in ipairs(NEVER_HIDE) do
@@ -108,7 +110,7 @@ local function Probe(text)
 end
 
 local function ProbeText(value)
-    if issecretvalue and issecretvalue(value) then return "secret" end
+    if IsSecret(value) then return "secret" end
     if value == nil then return "nil" end
     return string.format("%q", tostring(value))
 end
@@ -139,7 +141,7 @@ local function BlankSystemLine(message)
     local line = frame and id and frame.GetFontStringByID and frame:GetFontStringByID(id)
     if not line then return false end
     local text = line:GetText()
-    if issecretvalue and issecretvalue(text) then return false end
+    if IsSecret(text) then return false end
     if text ~= message then return false end
     line:SetText("")
     return true
@@ -196,13 +198,13 @@ local function HookErrors()
             local errorType, message = ...
 
             if ProfileShouldHideError(message) then
-                if type(message) == "string" and not (issecretvalue and issecretvalue(message))
+                if type(message) == "string" and not IsSecret(message)
                     and message:lower():find("auction", 1, true) then
                     Probe("event hid " .. ProbeText(message))
                 end
                 return
             end
-            if type(message) == "string" and not (issecretvalue and issecretvalue(message))
+            if type(message) == "string" and not IsSecret(message)
                 and message:lower():find("auction", 1, true) then
                 Probe("event passed " .. ProbeText(message))
             end

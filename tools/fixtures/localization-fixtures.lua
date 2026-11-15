@@ -54,6 +54,8 @@ do
         { strings = {}, line = "Deadly Poison (12 min)", name = "Deadly Poison" },
     }
 
+    Carpenter = {}
+    load("Core/Secret.lua")
     for _, case in ipairs(cases) do
         ITEM_ENCHANT_TIME_LEFT_MIN = case.strings.MIN
         ITEM_ENCHANT_TIME_LEFT_SEC = case.strings.SEC
@@ -64,6 +66,7 @@ do
         local name = ns.Private.EnchantWarning.GetEnchantNameFromLine(case.line)
         check(name == case.name, "poison warning: expected [" .. case.name .. "] got [" .. tostring(name) .. "]")
     end
+    Carpenter = nil
 end
 
 -- 3. Consumable Macros pick up the client's own words.

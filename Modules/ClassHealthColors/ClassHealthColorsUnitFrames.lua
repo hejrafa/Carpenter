@@ -5,6 +5,7 @@ ns = ns or {}
 ns.Private = ns.Private or {}
 
 local ClassHealth = ns.Private.ClassHealthColors or {}
+local IsSecret = Carpenter.Secret.IsSecret
 
 local function IsMainlineClient()
     return ClassHealth.IsMainlineClient and ClassHealth.IsMainlineClient()
@@ -31,7 +32,7 @@ end
 local function UseStatusFill(bar)
     local texture = GetFillTexture(bar)
     local atlas = texture and texture:GetAtlas()
-    if issecretvalue and issecretvalue(atlas) then return end
+    if IsSecret(atlas) then return end
     if type(atlas) ~= "string" or atlas:sub(-#STATUS_SUFFIX) == STATUS_SUFFIX then return end
 
     local statusAtlas = atlas .. STATUS_SUFFIX
@@ -210,10 +211,6 @@ local function GetPartyHealthBar(index)
     end
 end
 
-local function IsReadable(value)
-    return not (issecretvalue and issecretvalue(value))
-end
-
 -- Battlegrounds and combat hide a player's GUID and class from addons on
 -- Forever, but the class still feeds C_ClassColor, and the health bar accepts
 -- the resulting hidden color. That marks the bar's color and alpha as hidden
@@ -234,7 +231,7 @@ local HIDDEN_CLASS_COLOR_UNITS = {
 local function IsReadablePlayer(unit)
     if not UnitIsPlayer then return false end
     local ok, isPlayer = pcall(UnitIsPlayer, unit)
-    return ok and IsReadable(isPlayer) and isPlayer == true
+    return ok and not IsSecret(isPlayer) and isPlayer == true
 end
 
 local function CanUseHiddenClassColor(unit)

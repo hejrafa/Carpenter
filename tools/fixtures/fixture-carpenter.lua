@@ -108,5 +108,15 @@ return function(Carpenter)
         if key then self.Tickers[key] = nil end
     end
 
+    -- The real secret-value helpers rather than a mirror: they only read the
+    -- issecretvalue global, which fixtures mock.
+    if not Carpenter.Secret then
+        local root = debug.getinfo(1, "S").source:match("^@(.*)/tools/fixtures/") or "."
+        local global = _G.Carpenter
+        _G.Carpenter = Carpenter
+        assert(loadfile(root .. "/Core/Secret.lua"))()
+        _G.Carpenter = global
+    end
+
     return Carpenter
 end

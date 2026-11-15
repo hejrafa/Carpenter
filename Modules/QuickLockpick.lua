@@ -58,9 +58,7 @@ local function Now()
     return GetTime and GetTime() or 0
 end
 
-local function IsSecret(value)
-    return issecretvalue ~= nil and issecretvalue(value) == true
-end
+local IsSecret = Carpenter.Secret.IsSecret
 
 local function IsRogue()
     local _, class = UnitClass("player")

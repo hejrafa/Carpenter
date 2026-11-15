@@ -404,6 +404,15 @@ for runtimePath in pairs(runtimeFiles) do
     end
 end
 
+-- Secret values are checked in one place, so every module reads them the
+-- same way.
+for runtimePath in pairs(runtimeFiles) do
+    if runtimePath:match("%.lua$") and runtimePath ~= "Core/Secret.lua"
+        and readFile(repo .. "/" .. runtimePath):find("issecretvalue", 1, true) then
+        fail(runtimePath .. " calls issecretvalue; use Carpenter.Secret from Core/Secret.lua")
+    end
+end
+
 -- A settings option nothing reads is a dead checkbox: it saves a value and
 -- changes nothing, which is invisible until someone toggles it in game.
 local consumedOptionKeys = {}

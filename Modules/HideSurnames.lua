@@ -24,9 +24,7 @@ local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled(FEATURE_KEY)
 end
 
-local function IsSecret(value)
-    return issecretvalue and issecretvalue(value)
-end
+local IsSecret = Carpenter.Secret.IsSecret
 
 local function IsUsableFrame(frame)
     if not frame or IsSecret(frame) then return false end

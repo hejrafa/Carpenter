@@ -86,21 +86,15 @@ function Social.Create(config)
     -- units we can see, then on players who spoke in chat this session.
     local senderClasses = {}
 
-    local function IsReadable(value)
-        if issecretvalue then
-            local ok, secret = pcall(issecretvalue, value)
-            if not ok or secret then return false end
-        end
-        return true
-    end
+    local IsSecret = Carpenter.Secret.IsSecret
 
     function api.RememberSenderClass(name, guid)
-        if not GetPlayerInfoByGUID or not IsReadable(name) or not IsReadable(guid) then return end
+        if not GetPlayerInfoByGUID or IsSecret(name) or IsSecret(guid) then return end
         if type(guid) ~= "string" or guid == "" then return end
         local key = PlayerKey(name)
         if not key then return end
         local ok, _, classToken = pcall(GetPlayerInfoByGUID, guid)
-        if ok and type(classToken) == "string" and IsReadable(classToken) then
+        if ok and type(classToken) == "string" and not IsSecret(classToken) then
             senderClasses[key] = classToken
         end
     end
@@ -122,7 +116,7 @@ function Social.Create(config)
             local _, token = UnitClass(unit)
             return token
         end)
-        if ok and type(classToken) == "string" and IsReadable(classToken) then
+        if ok and type(classToken) == "string" and not IsSecret(classToken) then
             return classToken
         end
     end
@@ -173,7 +167,7 @@ function Social.Create(config)
         local chatInfo = C_ChatInfo
         if not (chatInfo and chatInfo.InChatMessagingLockdown) then return false end
         local ok, inLockdown = pcall(chatInfo.InChatMessagingLockdown)
-        return ok and IsReadable(inLockdown) and inLockdown == true
+        return ok and not IsSecret(inLockdown) and inLockdown == true
     end
 
     -- The death line uses the first name; join and leave lines use the full
@@ -181,7 +175,7 @@ function Social.Create(config)
     local function GetMemberNames(unit)
         if not UnitName then return nil end
         local ok, name, surname = pcall(UnitName, unit)
-        if not ok or not IsReadable(name) or not IsReadable(surname) then return nil end
+        if not ok or IsSecret(name) or IsSecret(surname) then return nil end
         if type(name) ~= "string" or name == "" or name == UNKNOWNOBJECT then return nil end
         local fullName = name
         local client = Carpenter and Carpenter.Client
@@ -196,7 +190,7 @@ function Social.Create(config)
     -- Unit comparisons can be hidden too, so the name decides as well.
     local function IsSelf(unit, fullName)
         local okSelf, isSelf = pcall(UnitIsUnit, unit, "player")
-        if okSelf and IsReadable(isSelf) and isSelf then return true end
+        if okSelf and not IsSecret(isSelf) and isSelf then return true end
         return fullName ~= nil and fullName == GetMemberNames("player")
     end
 
@@ -230,7 +224,7 @@ function Social.Create(config)
 
     local function NoteMemberDeath(unit, fullName, firstName, announce, now)
         local ok, dead = pcall(UnitIsDeadOrGhost, unit)
-        if not ok or not IsReadable(dead) then return end
+        if not ok or IsSecret(dead) then return end
         dead = dead == true
         if dead and not deadMembers[fullName] and announce then
             AddNotice("died", firstName, now)
@@ -429,7 +423,7 @@ function Social.Create(config)
     end
 
     function api.IsBattleStartAnnouncement(text)
-        if not IsReadable(text) or type(text) ~= "string" then return false end
+        if IsSecret(text) or type(text) ~= "string" then return false end
         for _, pattern in ipairs(BATTLE_START_PATTERNS) do
             if text:match(pattern) then return true end
         end

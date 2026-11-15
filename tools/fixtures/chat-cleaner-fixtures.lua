@@ -155,6 +155,7 @@ local function loadAddonFile(path)
 end
 
 loadAddonFile("Localization/enUS.lua")
+loadAddonFile("Core/Secret.lua")
 loadAddonFile("Modules/ChatCleaner/ChatCleanerUtils.lua")
 loadAddonFile("Modules/ChatCleaner/ChatCleanerLoot.lua")
 loadAddonFile("Modules/ChatCleaner/ChatCleanerSessions.lua")

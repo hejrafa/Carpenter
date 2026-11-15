@@ -147,23 +147,10 @@ local function CanAccessValue(value)
     return true
 end
 
-local function IsSecret(value)
-    return type(issecretvalue) == "function" and issecretvalue(value) == true
-end
-
--- A string this addon may read and compare, or nil.
-local function ReadableString(value)
-    if IsSecret(value) or type(value) ~= "string" or value == "" then return nil end
-    return value
-end
-
--- A yes/no answer from the game, or nil when it failed or is hidden.
-local function ReadableBool(func, ...)
-    if type(func) ~= "function" then return nil end
-    local ok, value = pcall(func, ...)
-    if not ok or IsSecret(value) then return nil end
-    return value == true
-end
+local IsSecret = Carpenter.Secret.IsSecret
+local ReadableString = Carpenter.Secret.ReadableString
+local ReadableBool = Carpenter.Secret.ReadableBool
+local ReadableNumber = Carpenter.Secret.ReadableNumber
 
 local function IsAccessibleString(value)
     if Unit.IsToken then return Unit.IsToken(value) end
@@ -375,7 +362,7 @@ local function ApplyNameLine(tooltip, unit)
         else
             -- Forever hides PvP flags in combat; a hidden one reads as not flagged.
             local okPvP, isPvP = pcall(UnitIsPVP, unit)
-            if okPvP and not (issecretvalue and issecretvalue(isPvP)) and isPvP then
+            if okPvP and not IsSecret(isPvP) and isPvP then
                 left1:SetTextColor(0, 1, 0)
             else
                 left1:SetTextColor(0, 0.67, 1)
@@ -787,11 +774,6 @@ end
 -- empty, it is shortened by the room from the last kept line's bottom to
 -- the last emptied line's bottom.
 local BLANK_LINE = " "
-
-local function ReadableNumber(value)
-    if IsSecret(value) or type(value) ~= "number" then return nil end
-    return value
-end
 
 local function TrimEmptiedHint(tooltip)
     local mark = tooltip and tooltip._CP_HintTrim

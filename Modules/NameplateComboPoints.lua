@@ -2,6 +2,7 @@
 -- Shows Rogue TargetFrame-style combo points under CURRENT TARGET's nameplate.
 
 local _, ns = ...
+local IsSecret = Carpenter.Secret.IsSecret
 local Nameplates = ns and ns.Private and ns.Private.Nameplates or {}
 local addonFrame = CreateFrame("Frame")
 local resourceFrame
@@ -231,7 +232,7 @@ local function update()
 
     -- 3. Get Combo Points
     local cp = GetComboPoints("player", "target") or 0
-    if issecretvalue and issecretvalue(cp) then
+    if IsSecret(cp) then
         cp = 0
     end
 

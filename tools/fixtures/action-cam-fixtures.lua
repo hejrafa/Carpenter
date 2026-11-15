@@ -115,6 +115,7 @@ local function fire(frame, event, ...)
     handler(frame, event, ...)
 end
 
+loadAddonFile("Core/Secret.lua")
 loadAddonFile("Modules/ActionCam.lua")
 
 local eventFrame = createdFrames[1]

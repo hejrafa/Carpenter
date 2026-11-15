@@ -28,9 +28,7 @@ local loading = false
 local scanTooltip = CreateFrame("GameTooltip", "CarpenterScanTooltip", nil, "GameTooltipTemplate")
 scanTooltip:SetOwner(WorldFrame, "ANCHOR_NONE")
 
-local function IsSecret(value)
-    return issecretvalue and issecretvalue(value)
-end
+local IsSecret = Carpenter.Secret.IsSecret
 
 -- Turns a time-left format such as ITEM_ENCHANT_TIME_LEFT_MIN ("%s (%d min)")
 -- into a pattern that captures the enchant name, in the client's language.

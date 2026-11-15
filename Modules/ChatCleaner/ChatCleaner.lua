@@ -1,6 +1,7 @@
 --[[ Carpenter - ChatCleaner ]]
 local _, ns = ...
 local L = (Carpenter and Carpenter.L) or (ns and ns.L) or {}
+local IsSecret = Carpenter.Secret.IsSecret
 
 -- Shared Carpenter color palette
 local Colors = ns and ns.Private and ns.Private.Colors
@@ -292,7 +293,7 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     -- inside instances, and don't pass those lines to addon filters at all;
     -- ChatCleanerHiddenLines rewrites them in the chat history instead. Should
     -- one get here anyway, it passes through untouched.
-    if issecretvalue and issecretvalue(msg) then
+    if IsSecret(msg) then
         return false, msg, author, ...
     end
 
@@ -542,7 +543,7 @@ local HiddenLines = ns.Private.ChatCleanerHiddenLines
 local function InChatMessagingLockdown()
     if not (C_ChatInfo and C_ChatInfo.InChatMessagingLockdown) then return false end
     local ok, locked = pcall(C_ChatInfo.InChatMessagingLockdown)
-    return ok and not (issecretvalue and issecretvalue(locked)) and locked == true
+    return ok and not IsSecret(locked) and locked == true
 end
 
 local hiddenLines = HiddenLines and HiddenLines.Create({
@@ -600,7 +601,7 @@ skillRankFrame:SetScript("OnEvent", function(_, event, arg1)
         systemFormatter.RefreshSkillRanks()
     end
     if event == "CHAT_MSG_SKILL" then
-        if issecretvalue and issecretvalue(arg1) then
+        if IsSecret(arg1) then
             UpdateHiddenLines()
             UpdateHiddenLines(SKILL_LATE_PASS)
         end
@@ -620,7 +621,7 @@ groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
         end
         return
     elseif event == "CHAT_MSG_SYSTEM" then
-        if issecretvalue and issecretvalue(arg1) then
+        if IsSecret(arg1) then
             UpdateHiddenLines()
             UpdateHiddenLines(0)
             UpdateHiddenLines(HiddenLines.START_NOTICE_GRACE + 0.05)

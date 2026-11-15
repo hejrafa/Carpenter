@@ -2,6 +2,7 @@
 local _, ns = ...
 local f = CreateFrame("Frame")
 local L = ns and ns.L or {}
+local IsSecret = Carpenter.Secret.IsSecret
 
 -- Grey + prefix, warm muted red‑orange text for repair (loss)
 local Colors = ns and ns.Private and ns.Private.Colors
@@ -55,7 +56,7 @@ end
 -- A short guild bank refuses the repair, and one that splits the cost refuses
 -- it if the player can't cover their part.
 local function IsGuildRepairRefused(message)
-    if issecretvalue and issecretvalue(message) then return false end
+    if IsSecret(message) then return false end
     return message == ERR_GUILD_NOT_ENOUGH_MONEY or message == ERR_NOT_ENOUGH_MONEY
 end
 

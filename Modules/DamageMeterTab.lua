@@ -206,15 +206,13 @@ local function SessionName(sessionType)
     return _G.DAMAGE_METER_CURRENT_SESSION or "Current Segment"
 end
 
--- A value the game isn't hiding right now.
-local function Readable(value)
-    if issecretvalue and issecretvalue(value) then return false end
-    return value ~= nil
-end
+local IsReadable = Carpenter.Secret.IsReadable
+local IsSecret = Carpenter.Secret.IsSecret
+local ReadableString = Carpenter.Secret.ReadableString
 
 -- Readable text with something in it.
 local function KnownText(value)
-    return Readable(value) and type(value) == "string" and value ~= ""
+    return ReadableString(value) ~= nil
 end
 
 -- The encounters the game keeps, oldest first, as its own segment menu
@@ -228,7 +226,7 @@ end
 
 local function FindEncounter(sessionID)
     for _, encounter in ipairs(Encounters()) do
-        if Readable(encounter.sessionID) and encounter.sessionID == sessionID then return encounter end
+        if IsReadable(encounter.sessionID) and encounter.sessionID == sessionID then return encounter end
     end
     return nil
 end
@@ -241,7 +239,7 @@ local function EncounterText(encounter)
         text = string.format(_G.DAMAGE_METER_COMBAT_NUMBER or "Combat %d", encounter.sessionID)
     end
     local seconds = encounter.durationSeconds
-    if Readable(seconds) and type(seconds) == "number" and SecondsToClock then
+    if IsReadable(seconds) and type(seconds) == "number" and SecondsToClock then
         text = text .. " [" .. SecondsToClock(seconds) .. "]"
     end
     return text
@@ -434,7 +432,7 @@ function DamageMeterTab.KeepTabAlpha()
     local _, index = DamageMeterTab.FindWindow()
     if not index then return end
     local ok, _, _, _, _, _, alpha = pcall(GetChatWindowInfo, index)
-    if not ok or not Readable(alpha) or type(alpha) ~= "number" then return end
+    if not ok or not IsReadable(alpha) or type(alpha) ~= "number" then return end
     if math.abs(alpha - wanted) > 0.002 then
         pcall(SetChatWindowAlpha, index, wanted)
     end
@@ -443,7 +441,7 @@ end
 -- The opacity picked for the tab, from the tab's menu. The game's own
 -- loading passes doNotSave and isn't a pick.
 local function RememberTabAlpha(frame, alpha, doNotSave)
-    if doNotSave or not CarpenterDB or not Readable(alpha) or type(alpha) ~= "number" then return end
+    if doNotSave or not CarpenterDB or not IsReadable(alpha) or type(alpha) ~= "number" then return end
     if frame and frame == DamageMeterTab.FindWindow() then
         CarpenterDB.damageMeterTabAlpha = alpha
     end
@@ -624,17 +622,17 @@ end
 local function SourceKey(source)
     if source.isLocalPlayer == true and UnitGUID then
         local ok, guid = pcall(UnitGUID, "player")
-        if ok and Readable(guid) then return guid, nil end
+        if ok and IsReadable(guid) then return guid, nil end
     end
-    local guid = Readable(source.sourceGUID) and source.sourceGUID or nil
-    local creatureID = Readable(source.sourceCreatureID) and source.sourceCreatureID or nil
+    local guid = IsReadable(source.sourceGUID) and source.sourceGUID or nil
+    local creatureID = IsReadable(source.sourceCreatureID) and source.sourceCreatureID or nil
     return guid, creatureID
 end
 
 -- A line's whole-number share of the whole, as the game rounds it, or nil
 -- while the game hides either amount.
 local function Share(amount, whole)
-    if not (Readable(amount) and Readable(whole)) then return nil end
+    if not (IsReadable(amount) and IsReadable(whole)) then return nil end
     if type(amount) ~= "number" or type(whole) ~= "number" or whole <= 0 then return nil end
     return math.floor(amount / whole * 100 + 0.5)
 end
@@ -699,7 +697,7 @@ end
 -- Text that may be hidden counts as there; readable text only when it
 -- isn't empty.
 local function MayHaveText(value)
-    if issecretvalue and issecretvalue(value) then return true end
+    if IsSecret(value) then return true end
     return type(value) == "string" and value ~= ""
 end
 
@@ -782,7 +780,7 @@ local function SegmentText(sessionType, encounter)
     local text = SessionName(sessionType)
     if C_DamageMeter and C_DamageMeter.GetSessionDurationSeconds and SecondsToClock then
         local ok, seconds = pcall(C_DamageMeter.GetSessionDurationSeconds, sessionType)
-        local hidden = issecretvalue and issecretvalue(seconds)
+        local hidden = IsSecret(seconds)
         if ok and not hidden and type(seconds) == "number" and seconds > 0 then
             text = text .. " [" .. SecondsToClock(seconds) .. "]"
         end
@@ -1045,7 +1043,7 @@ local function SetupSegmentMenu(_, rootDescription)
 
     local listed = false
     for _, encounter in ipairs(Encounters()) do
-        if Readable(encounter.sessionID) then
+        if IsReadable(encounter.sessionID) then
             rootDescription:CreateRadio(EncounterText(encounter), IsEncounterSelected, SelectEncounter, encounter.sessionID)
             listed = true
         end
@@ -1138,7 +1136,7 @@ function MirrorChannelButton()
         end
     end
     -- A fade the game hides from addons can't be copied; stay up instead.
-    if issecretvalue and issecretvalue(alpha) then alpha = 1 end
+    if IsSecret(alpha) then alpha = 1 end
     ForEachColumnButton(function(button)
         if button:GetAlpha() ~= alpha then
             button:SetAlpha(alpha)

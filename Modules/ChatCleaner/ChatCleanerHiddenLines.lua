@@ -44,9 +44,7 @@ local START_NOTICE_GRACE = HiddenLines.START_NOTICE_GRACE
 local BATCH_SLACK = 0.5
 local BATCH_GRACE = HiddenLines.BATCH_GRACE
 
-local function IsSecret(value)
-    return issecretvalue ~= nil and issecretvalue(value) == true
-end
+local IsSecret = Carpenter.Secret.IsSecret
 
 -- config:
 --   GetFrames()         chat windows whose lines may be edited

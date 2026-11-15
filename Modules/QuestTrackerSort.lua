@@ -23,23 +23,21 @@ local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled(FEATURE_KEY)
 end
 
-local function IsUsable(value)
-    return value ~= nil and not (issecretvalue and issecretvalue(value))
-end
+local IsReadable = Carpenter.Secret.IsReadable
 
 -- The tracker's "[12]" prefix comes from difficultyLevel, so sort on the same value.
 local function GetQuestLevel(questID)
     local logIndex = C_QuestLog.GetLogIndexForQuestID and C_QuestLog.GetLogIndexForQuestID(questID)
-    if not IsUsable(logIndex) then return nil end
+    if not IsReadable(logIndex) then return nil end
 
     local info = C_QuestLog.GetInfo(logIndex)
     if not info then return nil end
 
     local level = info.difficultyLevel
-    if not IsUsable(level) or level == 0 then
+    if not IsReadable(level) or level == 0 then
         level = info.level
     end
-    if not IsUsable(level) or type(level) ~= "number" then return nil end
+    if not IsReadable(level) or type(level) ~= "number" then return nil end
     return level
 end
 
@@ -55,7 +53,7 @@ local function GetWatchedQuests()
     local quests = {}
     for watchIndex = 1, C_QuestLog.GetNumQuestWatches() do
         local questID = C_QuestLog.GetQuestIDForQuestWatchIndex(watchIndex)
-        if IsUsable(questID) then
+        if IsReadable(questID) then
             quests[#quests + 1] = {
                 questID = questID,
                 index = watchIndex,
@@ -126,7 +124,7 @@ local function SortWatchList()
         C_QuestLog.AddQuestWatch(sorted[i].questID)
     end
 
-    if IsUsable(superTrackedQuestID) and superTrackedQuestID ~= 0
+    if IsReadable(superTrackedQuestID) and superTrackedQuestID ~= 0
         and C_SuperTrack.SetSuperTrackedQuestID
         and C_SuperTrack.GetSuperTrackedQuestID() ~= superTrackedQuestID
     then

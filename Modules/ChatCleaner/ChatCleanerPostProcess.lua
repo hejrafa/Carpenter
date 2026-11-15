@@ -491,9 +491,7 @@ function PostProcess.Create(config)
         return originalAddMessage(frame, message, unpack(args))
     end
 
-    local function IsSecret(value)
-        return issecretvalue ~= nil and issecretvalue(value) == true
-    end
+    local IsSecret = Carpenter.Secret.IsSecret
 
     -- What the post-processor would print for a line: the new text, or
     -- nothing when the line should go.
@@ -519,7 +517,7 @@ function PostProcess.Create(config)
     -- restyled after they are added, and lines that should go are dropped by
     -- the chat filter before they are added.
     local function CanEditAfterAdd(frame)
-        return issecretvalue ~= nil
+        return Carpenter.Secret.ClientHidesValues()
             and hooksecurefunc ~= nil
             and type(frame.AddMessage) == "function"
             and type(frame.TransformMessages) == "function"
