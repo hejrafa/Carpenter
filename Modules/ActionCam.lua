@@ -54,7 +54,7 @@ local function IsEnabled()
     return Carpenter and Carpenter:IsEnabled("actionCamEnabled")
 end
 
-local function IsRetail()
+local function IsMainlineClient()
     return Carpenter and Carpenter.Client and Carpenter.Client.isMainline
 end
 
@@ -162,7 +162,7 @@ local function SmoothZoomTo(targetZoom, duration)
 end
 
 UpdateSpellOverlayOffset = function()
-    if not IsRetail() or not SpellActivationOverlayFrame then return end
+    if not IsMainlineClient() or not SpellActivationOverlayFrame then return end
 
     HookSpellOverlay()
     spellOverlayApplying = true
@@ -175,7 +175,7 @@ UpdateSpellOverlayOffset = function()
 end
 
 HookSpellOverlay = function()
-    if spellOverlayHooked or not IsRetail() or not SpellActivationOverlayFrame then return end
+    if spellOverlayHooked or not IsMainlineClient() or not SpellActivationOverlayFrame then return end
 
     SpellActivationOverlayFrame:HookScript("OnShow", function()
         UpdateSpellOverlayOffset()

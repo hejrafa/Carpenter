@@ -137,7 +137,7 @@ local macroData = ns.Private.SmartMacroData
 local configSidebar = ns.Private.ConfigSidebar
 
 Carpenter.Client = { isMainline = true, isForever = true }
-if not macroData.IsRetail() then
+if not macroData.IsMainlineClient() then
     failures[#failures + 1] = "Forever API flavor: expected Retail tooltip behavior"
 end
 if not macroData.UsesClassicMacros() then

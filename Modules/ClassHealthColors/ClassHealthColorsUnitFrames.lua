@@ -7,7 +7,7 @@ ns.Private = ns.Private or {}
 local ClassHealth = ns.Private.ClassHealthColors or {}
 
 local function IsMainlineClient()
-    return ClassHealth.IsRetail and ClassHealth.IsRetail()
+    return ClassHealth.IsMainlineClient and ClassHealth.IsMainlineClient()
 end
 
 local USE_ATLAS_SIZE = TextureKitConstants and TextureKitConstants.UseAtlasSize
@@ -82,7 +82,7 @@ end
 
 local function HookUnitFrameHealthBar(bar, unit)
     if not bar or bar._CarpenterUnitFrameClassColorHooked or not bar.SetStatusBarColor then return end
-    if ClassHealth.IsRetail and ClassHealth.IsRetail() then return end
+    if IsMainlineClient() then return end
     bar._CarpenterUnitFrameClassColorHooked = true
     bar._CarpenterUnitFrameUnit = unit
 

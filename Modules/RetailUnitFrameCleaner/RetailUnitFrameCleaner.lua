@@ -14,66 +14,66 @@ local regionOriginalAlpha = setmetatable({}, { __mode = "k" })
 -- How strongly the red threat glow still shows with Clean Unit Frame on.
 local THREAT_GLOW_ALPHA = 0.3
 
-local function IsRetail()
+local function IsMainlineClient()
     return Carpenter and Carpenter.Client and Carpenter.Client.isMainline
 end
 
 -- Retail-only cleanups: WoW Forever leaves the player corner icon, party frame
 -- title, and realm indicators alone.
-local function IsRetailOnly()
-    return IsRetail() and not Carpenter.Client.isForever
+local function IsRetailClient()
+    return Carpenter and Carpenter.Client and Carpenter.Client.isRetail
 end
 
 local function ShouldHidePvPIcon()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
+    return IsMainlineClient() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHidePowerBar()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("hideUnitFramePowerBarEnabled")
+    return IsMainlineClient() and Carpenter and Carpenter:IsEnabled("hideUnitFramePowerBarEnabled")
 end
 
 local function ShouldHideBossFrames()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("hideBossFramesEnabled")
+    return IsMainlineClient() and Carpenter and Carpenter:IsEnabled("hideBossFramesEnabled")
 end
 
 local function ShouldHideRestAnimation()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
+    return IsMainlineClient() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHideCombatIcon()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
+    return IsMainlineClient() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHideHealthLossFx()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
+    return IsMainlineClient() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHideRealmIndicator()
-    return IsRetailOnly() and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
+    return IsRetailClient() and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHidePlayerCornerIcon()
-    return IsRetailOnly() and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
+    return IsRetailClient() and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHidePartyFrameTitle()
-    return IsRetailOnly() and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
+    return IsRetailClient() and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHideTargetReputationColor()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
+    return IsMainlineClient() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldDimThreatGlow()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
+    return IsMainlineClient() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function ShouldHidePvPTimer()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
+    return IsMainlineClient() and Carpenter and Carpenter:IsEnabled("cleanUpUnitFramesEnabled")
 end
 
 local function HasActiveCleanerOption()
-    if not IsRetail() then return false end
+    if not IsMainlineClient() then return false end
     return ShouldHidePvPIcon()
         or ShouldHidePowerBar()
         or ShouldHideBossFrames()
@@ -190,7 +190,7 @@ local function ApplyRegionAlphaFeature(featureKey, getRegions, predicate, alpha)
 end
 
 local function Apply()
-    if not IsRetail() then return end
+    if not IsMainlineClient() then return end
     if not ShouldRunCleaner() then return end
 
     ApplyFrameFeature("pvpIcon", Targets.GetPvPIconFrames, ShouldHidePvPIcon, false)
@@ -289,7 +289,7 @@ frame:SetScript("OnEvent", function(...)
 end)
 
 local function RefreshSubscriptions()
-    if not IsRetail() then
+    if not IsMainlineClient() then
         UnregisterCleanerEvents()
         return
     end

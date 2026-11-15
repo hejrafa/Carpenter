@@ -90,6 +90,7 @@ assert(PlayerPVPTimerText.alpha == 1, "turning the option off should restore the
 assert(targetRepColor.alpha == 1 and focusRepColor.alpha == 1, "turning the option off should restore the reputation colors")
 
 Carpenter.Client.isForever = false
+Carpenter.Client.isRetail = true
 cleanEnabled = true
 feature:Enable()
 assert(CompactPartyFrameTitle.alpha == 0, "Retail should still hide the party frame title")

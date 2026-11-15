@@ -7,7 +7,7 @@ local Unit = ns.Private.Unit or {}
 local Shared = ns.Private.ClassHealthColors or {}
 ns.Private.ClassHealthColors = Shared
 
-function Shared.IsRetail()
+function Shared.IsMainlineClient()
     return Carpenter and Carpenter.Client and Carpenter.Client.isMainline
 end
 

@@ -13,8 +13,8 @@ local GetItemSpell = (C_Item and C_Item.GetItemSpell) or _G.GetItemSpell
 local scanTooltip = CreateFrame("GameTooltip", "CP_SmartMacroScanTooltip", nil, "GameTooltipTemplate")
 scanTooltip:SetOwner(WorldFrame, "ANCHOR_NONE")
 
-local function IsRetail()
-    return Data.IsRetail and Data.IsRetail()
+local function IsMainlineClient()
+    return Data.IsMainlineClient and Data.IsMainlineClient()
 end
 
 local function ContainsAny(text, hints)
@@ -62,14 +62,14 @@ local function Read(bag, slot, item)
         if tooltipData and tooltipData.lines then
             for i = 2, #tooltipData.lines do
                 local line = tooltipData.lines[i]
-                if IsRetail() and line then
+                if IsMainlineClient() and line then
                     AddTooltipLine(result, line.leftText)
                     AddTooltipLine(result, line.rightText)
                 elseif line and line.type == 0 then
                     AddTooltipLine(result, line.leftText)
                 end
             end
-            if result.text ~= "" or not IsRetail() then
+            if result.text ~= "" or not IsMainlineClient() then
                 return result
             end
         end

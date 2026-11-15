@@ -6,12 +6,12 @@ local SCALE_MULTIPLIER = 0.8
 local originalScales = setmetatable({}, { __mode = "k" })
 local ApplyWithFollowUps
 
-local function IsRetail()
+local function IsMainlineClient()
     return Carpenter and Carpenter.Client and Carpenter.Client.isMainline
 end
 
 local function IsEnabled()
-    return IsRetail() and Carpenter and Carpenter:IsEnabled("scaleExtraAbilityEnabled")
+    return IsMainlineClient() and Carpenter and Carpenter:IsEnabled("scaleExtraAbilityEnabled")
 end
 
 local function CanChangeFrame(frame)
@@ -59,7 +59,7 @@ local function GetFrames()
 end
 
 function Carpenter_ApplyExtraAbilityScale()
-    if not IsRetail() then return end
+    if not IsMainlineClient() then return end
 
     local enabled = IsEnabled()
     local frames = GetFrames()

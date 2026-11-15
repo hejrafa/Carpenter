@@ -245,7 +245,7 @@ Data.CookingSubclassID = 8
 Data.MiscellaneousClassID = 15
 Data.ReagentSubclassID = 1
 
-function Data.IsRetail()
+function Data.IsMainlineClient()
     return Carpenter and Carpenter.Client and Carpenter.Client.isMainline
 end
 
