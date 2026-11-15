@@ -261,19 +261,68 @@ vLineBot:SetGradient("VERTICAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, 0
 local SCROLL_CONTENT_TOP_PADDING = 16
 local yPos = -SCROLL_CONTENT_TOP_PADDING
 
--- Shows a row's hover lines at exactly one screen pixel tall. A fixed 0.5
--- rounds to no pixel at all on a row that sits just so between pixels, which
--- left Sort Quests by Level without its bottom line. Sized on each hover so a
--- UI scale change is picked up.
-local function ShowHoverLines(lines)
-    local unitsPerPixel = PixelUtil and PixelUtil.GetPixelToUIUnitFactor and PixelUtil.GetPixelToUIUnitFactor()
-    for _, line in pairs(lines) do
-        local scale = unitsPerPixel and line.GetEffectiveScale and line:GetEffectiveScale()
-        if scale and scale > 0 then
-            line:SetHeight(unitsPerPixel / scale)
-        end
-        line:Show()
+-- A 32-tall row at yPos for the settings list, with its hover look: a faint
+-- background and lines along the top and bottom, all brightest at the middle.
+-- Returns the row and the functions that show and hide the hover.
+local function CreateRow()
+    local row = CreateFrame("Button", nil, content)
+    row:SetHeight(32)
+    row:SetPoint("TOPLEFT", 0, yPos)
+    row:SetPoint("TOPRIGHT", 0, yPos)
+    row:EnableMouse(true)
+
+    local hover, lines = {}, {}
+    local function AddGradient(layer, fromAlpha, toAlpha)
+        local texture = row:CreateTexture(nil, layer)
+        texture:SetTexture("Interface\\BUTTONS\\WHITE8X8")
+        texture:SetGradient("HORIZONTAL", CreateColor(1, 1, 1, fromAlpha), CreateColor(1, 1, 1, toAlpha))
+        texture:Hide()
+        hover[#hover + 1] = texture
+        return texture
     end
+
+    local backgroundLeft = AddGradient("BACKGROUND", 0, 0.06)
+    backgroundLeft:SetPoint("TOPLEFT")
+    backgroundLeft:SetPoint("BOTTOMLEFT")
+    backgroundLeft:SetPoint("RIGHT", row, "CENTER")
+    local backgroundRight = AddGradient("BACKGROUND", 0.06, 0)
+    backgroundRight:SetPoint("TOPRIGHT")
+    backgroundRight:SetPoint("BOTTOMRIGHT")
+    backgroundRight:SetPoint("LEFT", row, "CENTER")
+
+    for _, edge in ipairs({ "TOP", "BOTTOM" }) do
+        local left = AddGradient("OVERLAY", 0, 0.8)
+        left:SetPoint(edge .. "LEFT", row, edge .. "LEFT", 0, 0)
+        left:SetPoint("RIGHT", row, edge, 0, 0)
+        local right = AddGradient("OVERLAY", 0.8, 0)
+        right:SetPoint(edge .. "RIGHT", row, edge .. "RIGHT", 0, 0)
+        right:SetPoint("LEFT", row, edge, 0, 0)
+        left:SetHeight(0.5)
+        right:SetHeight(0.5)
+        lines[#lines + 1] = left
+        lines[#lines + 1] = right
+    end
+
+    -- The lines are exactly one screen pixel tall. A fixed 0.5 rounds to no
+    -- pixel at all on a row that sits just so between pixels, which left Sort
+    -- Quests by Level without its bottom line. Sized on each hover so a UI
+    -- scale change is picked up; 0.5 stays as the fallback.
+    local function ShowHover()
+        local unitsPerPixel = PixelUtil and PixelUtil.GetPixelToUIUnitFactor and PixelUtil.GetPixelToUIUnitFactor()
+        for _, line in ipairs(lines) do
+            local scale = unitsPerPixel and line:GetEffectiveScale()
+            if scale and scale > 0 then
+                line:SetHeight(unitsPerPixel / scale)
+            end
+        end
+        for _, texture in ipairs(hover) do texture:Show() end
+    end
+
+    local function HideHover()
+        for _, texture in ipairs(hover) do texture:Hide() end
+    end
+
+    return row, ShowHover, HideHover
 end
 
 local function CreateHeader(text)
@@ -290,57 +339,7 @@ end
 local function CreateCheckbox(key, label, description, sideLogic, imagePath, requiresReload, unavailableMessage, badge)
     requiresReload = requiresReload == true
     local isUnavailable = unavailableMessage ~= nil
-    local row = CreateFrame("Button", nil, content)
-    row:SetHeight(32)
-    row:SetPoint("TOPLEFT", 0, yPos)
-    row:SetPoint("TOPRIGHT", 0, yPos)
-    row:EnableMouse(true)
-
-    local textures = {}
-    local function CreateLine(anchor, gStart, gEnd)
-        local t = row:CreateTexture(nil, "OVERLAY")
-        t:SetHeight(0.5)
-        t:SetTexture("Interface\\BUTTONS\\WHITE8X8")
-        t:SetGradient("HORIZONTAL", gStart, gEnd)
-
-        if anchor == "TOPLEFT" then
-            t:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
-            t:SetPoint("RIGHT", row, "TOP", 0, 0)
-        elseif anchor == "TOPRIGHT" then
-            t:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, 0)
-            t:SetPoint("LEFT", row, "TOP", 0, 0)
-        elseif anchor == "BOTTOMLEFT" then
-            t:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)
-            t:SetPoint("RIGHT", row, "BOTTOM", 0, 0)
-        elseif anchor == "BOTTOMRIGHT" then
-            t:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, 0)
-            t:SetPoint("LEFT", row, "BOTTOM", 0, 0)
-        end
-
-        t:Hide()
-        return t
-    end
-
-    textures.lineTopL = CreateLine("TOPLEFT", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, 0.8))
-    textures.lineTopR = CreateLine("TOPRIGHT", CreateColor(1, 1, 1, 0.8), CreateColor(1, 1, 1, 0))
-    textures.lineBotL = CreateLine("BOTTOMLEFT", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, 0.8))
-    textures.lineBotR = CreateLine("BOTTOMRIGHT", CreateColor(1, 1, 1, 0.8), CreateColor(1, 1, 1, 0))
-
-    local bgLeft = row:CreateTexture(nil, "BACKGROUND")
-    bgLeft:SetPoint("TOPLEFT")
-    bgLeft:SetPoint("BOTTOMLEFT")
-    bgLeft:SetPoint("RIGHT", row, "CENTER")
-    bgLeft:SetTexture("Interface\\BUTTONS\\WHITE8X8")
-    bgLeft:SetGradient("HORIZONTAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, 0.06))
-    bgLeft:Hide()
-
-    local bgRight = row:CreateTexture(nil, "BACKGROUND")
-    bgRight:SetPoint("TOPRIGHT")
-    bgRight:SetPoint("BOTTOMRIGHT")
-    bgRight:SetPoint("LEFT", row, "CENTER")
-    bgRight:SetTexture("Interface\\BUTTONS\\WHITE8X8")
-    bgRight:SetGradient("HORIZONTAL", CreateColor(1, 1, 1, 0.06), CreateColor(1, 1, 1, 0))
-    bgRight:Hide()
+    local row, ShowHover, HideHover = CreateRow()
 
     local check = CreateFrame("CheckButton", "CP_Check_" .. key, row, "InterfaceOptionsCheckButtonTemplate")
     check:SetPoint("LEFT", 15, 0)
@@ -440,23 +439,15 @@ local function CreateCheckbox(key, label, description, sideLogic, imagePath, req
     end
 
     local function OnEnter()
-        bgLeft:Show()
-        bgRight:Show()
-        ShowHoverLines(textures)
+        ShowHover()
         ToggleSideImage(imagePath)
         sideDesc:SetText(description)
         if sideLogic then sideLogic() else sideContent:Hide() end
         if requiresReload and not isUnavailable then sideReloadHint:Show() else sideReloadHint:Hide() end
     end
 
-    local function OnLeave()
-        bgLeft:Hide()
-        bgRight:Hide()
-        for _, t in pairs(textures) do t:Hide() end
-    end
-
     row:SetScript("OnEnter", OnEnter)
-    row:SetScript("OnLeave", OnLeave)
+    row:SetScript("OnLeave", HideHover)
     row:SetScript("OnClick", function()
         if isUnavailable then
             ResetUnavailableOption()
@@ -465,7 +456,7 @@ local function CreateCheckbox(key, label, description, sideLogic, imagePath, req
         end
     end)
     check:SetScript("OnEnter", OnEnter)
-    check:SetScript("OnLeave", OnLeave)
+    check:SetScript("OnLeave", HideHover)
     check:SetScript("OnClick", function(self)
         if isUnavailable then
             ResetUnavailableOption()
@@ -517,11 +508,7 @@ end
 -- whose state comes from toggle.isChecked and whose clicks go to
 -- toggle.onClick instead of CarpenterDB.
 local function CreateListItem(label, showDetails, toggle)
-    local row = CreateFrame("Button", nil, content)
-    row:SetHeight(32)
-    row:SetPoint("TOPLEFT", 0, yPos)
-    row:SetPoint("TOPRIGHT", 0, yPos)
-    row:EnableMouse(true)
+    local row, ShowHover, HideHover = CreateRow()
 
     local check
     if toggle then
@@ -538,70 +525,17 @@ local function CreateListItem(label, showDetails, toggle)
         text:SetText(label)
     end
 
-    local textures = {}
-    local function CreateLine(anchor, gStart, gEnd)
-        local texture = row:CreateTexture(nil, "OVERLAY")
-        texture:SetHeight(0.5)
-        texture:SetTexture("Interface\\BUTTONS\\WHITE8X8")
-        texture:SetGradient("HORIZONTAL", gStart, gEnd)
-
-        if anchor == "TOPLEFT" then
-            texture:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
-            texture:SetPoint("RIGHT", row, "TOP", 0, 0)
-        elseif anchor == "TOPRIGHT" then
-            texture:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, 0)
-            texture:SetPoint("LEFT", row, "TOP", 0, 0)
-        elseif anchor == "BOTTOMLEFT" then
-            texture:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)
-            texture:SetPoint("RIGHT", row, "BOTTOM", 0, 0)
-        elseif anchor == "BOTTOMRIGHT" then
-            texture:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, 0)
-            texture:SetPoint("LEFT", row, "BOTTOM", 0, 0)
-        end
-
-        texture:Hide()
-        return texture
-    end
-
-    textures.lineTopL = CreateLine("TOPLEFT", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, 0.8))
-    textures.lineTopR = CreateLine("TOPRIGHT", CreateColor(1, 1, 1, 0.8), CreateColor(1, 1, 1, 0))
-    textures.lineBotL = CreateLine("BOTTOMLEFT", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, 0.8))
-    textures.lineBotR = CreateLine("BOTTOMRIGHT", CreateColor(1, 1, 1, 0.8), CreateColor(1, 1, 1, 0))
-
-    local bgLeft = row:CreateTexture(nil, "BACKGROUND")
-    bgLeft:SetPoint("TOPLEFT")
-    bgLeft:SetPoint("BOTTOMLEFT")
-    bgLeft:SetPoint("RIGHT", row, "CENTER")
-    bgLeft:SetTexture("Interface\\BUTTONS\\WHITE8X8")
-    bgLeft:SetGradient("HORIZONTAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, 0.06))
-    bgLeft:Hide()
-
-    local bgRight = row:CreateTexture(nil, "BACKGROUND")
-    bgRight:SetPoint("TOPRIGHT")
-    bgRight:SetPoint("BOTTOMRIGHT")
-    bgRight:SetPoint("LEFT", row, "CENTER")
-    bgRight:SetTexture("Interface\\BUTTONS\\WHITE8X8")
-    bgRight:SetGradient("HORIZONTAL", CreateColor(1, 1, 1, 0.06), CreateColor(1, 1, 1, 0))
-    bgRight:Hide()
-
     local function OnEnter()
-        bgLeft:Show()
-        bgRight:Show()
-        ShowHoverLines(textures)
+        ShowHover()
         showDetails()
-    end
-    local function OnLeave()
-        bgLeft:Hide()
-        bgRight:Hide()
-        for _, texture in pairs(textures) do texture:Hide() end
     end
 
     row:SetScript("OnEnter", OnEnter)
-    row:SetScript("OnLeave", OnLeave)
+    row:SetScript("OnLeave", HideHover)
     if check then
         row:SetScript("OnClick", function() check:Click() end)
         check:SetScript("OnEnter", OnEnter)
-        check:SetScript("OnLeave", OnLeave)
+        check:SetScript("OnLeave", HideHover)
         check:SetScript("OnClick", function(self)
             toggle.onClick(self:GetChecked() and true or false)
             row.Refresh()
