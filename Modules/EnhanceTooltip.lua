@@ -598,9 +598,20 @@ local function BuildTargetLine(unit)
     return TARGET_PREFIX .. name
 end
 
+-- A unit frame's tooltip ends with its emptied right-click hint (see
+-- StripFrameSettingsHint). A line added now would land under the hint's
+-- empty room, and the tooltip would jump when the frame's next refresh, a
+-- fifth of a second later, writes it above the hint.
+local function HasEmptiedHint(tooltip)
+    local mark = tooltip._CP_HintTrim
+    return mark ~= nil and tooltip:NumLines() == mark.last
+end
+
 local function ShowUnitTargetInTooltip(tooltip, unit)
     if not unit then return end
     if TooltipAlreadyHasTargetLine() then return end
+    -- A target picked while hovering waits for that refresh.
+    if HasEmptiedHint(tooltip) then return end
 
     local ok, line = pcall(BuildTargetLine, unit)
     if ok and line then

@@ -463,6 +463,21 @@ assertEqual(GameTooltip.height, 98, "a later layout should leave no room under t
 UnitFrame_UpdateTooltip()
 assertEqual(LineTexts()[7], nil, "the hint should go each time the frame refreshes its tooltip")
 
+-- Picking a target while hovering: an added target line would land under the
+-- emptied hint's room, so it waits for the frame's next refresh.
+do
+    local realUnitExists, realUnitName = UnitExists, UnitName
+    UnitExists = function(unit) return unit == "targettarget" or realUnitExists(unit) end
+    UnitName = function(unit)
+        if unit == "targettarget" then return "Hogger" end
+        return realUnitName(unit)
+    end
+    scripts.OnUpdate(GameTooltip, 1)
+    assertEqual(#GameTooltip.lines, 7, "a new target line should wait for the unit frame's refresh")
+    assertEqual(GameTooltip.height, 98, "the tooltip shouldn't grow under the emptied hint")
+    UnitExists, UnitName = realUnitExists, realUnitName
+end
+
 -- Only the hint and a blank line right before it go.
 local StripHint = globalHooks.UnitFrame_UpdateTooltip
 if not StripHint then fail("Enhanced Tooltip should hook the unit frames' tooltip") end
