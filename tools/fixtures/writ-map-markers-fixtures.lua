@@ -1,8 +1,9 @@
 #!/usr/bin/env lua
--- Offline fixture checks for Writ Map Markers on WoW Forever: with the map's
--- Quest Objectives filter (questPOI) off, Craftsman's Writ quests keep their
--- markers, placed as Blizzard's QuestDataProvider would place them, and every
--- other quest stays hidden. With the filter on, Blizzard draws them itself.
+-- Offline fixture checks for the always-on writ map marker fix on WoW
+-- Forever: with the map's Quest Objectives filter (questPOI) off, Craftsman's
+-- Writ quests keep their markers, placed as Blizzard's QuestDataProvider would
+-- place them, and every other quest stays hidden. With the filter on, Blizzard
+-- draws them itself. There is no setting.
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then repo = repo:sub(1, -2) end
@@ -17,21 +18,37 @@ local function readFile(path)
 end
 
 -- =========================
--- Offered on Forever only
+-- No setting
 -- =========================
-local function LoadCompatibility(interfaceVersion, projectID)
-    Carpenter = {}
-    WOW_PROJECT_ID = projectID
-    WOW_PROJECT_MAINLINE = 1
-    WOW_PROJECT_CLASSIC = 2
-    GetBuildInfo = function() return "x", "", "", interfaceVersion end
-    assert(loadfile(repo .. "/Core/Compatibility.lua"))("Carpenter", {})
-    return Carpenter
-end
+-- The setting it had before release is gone, and so are its saved value and
+-- the test log, cleared on load.
+do
+    SlashCmdList = {}
+    floor = math.floor
+    Carpenter = { Client = { isMainline = true, isForever = true } }
+    CreateFrame = function()
+        return { RegisterEvent = function() end, UnregisterEvent = function() end, SetScript = function() end }
+    end
+    assert(loadfile(repo .. "/Core/Carpenter.lua"))("Carpenter", { Private = {} })
+    assertEqual(Carpenter.Defaults.writMapMarkersEnabled, nil, "no default for the removed setting")
+    CarpenterDB = {
+        foreverDefaultsResetVersion = 1,
+        writMapMarkersEnabled = true,
+        writMapMarkersProbeLog = { "16:43:00 map=1440" },
+    }
+    Carpenter_InitializeSettings()
+    assertEqual(CarpenterDB.writMapMarkersEnabled, nil, "old setting cleared on load")
+    assertEqual(CarpenterDB.writMapMarkersProbeLog, nil, "old test log cleared on load")
 
-assertEqual(LoadCompatibility(16001, 99):IsFeatureAvailable("writMapMarkersEnabled"), true, "offered on Forever")
-assertEqual(LoadCompatibility(120000, 1):IsFeatureAvailable("writMapMarkersEnabled"), false, "not offered on Retail")
-assertEqual(LoadCompatibility(11507, 2):IsFeatureAvailable("writMapMarkersEnabled"), false, "not offered on Classic")
+    Carpenter = {}
+    WOW_PROJECT_ID = 99
+    WOW_PROJECT_MAINLINE = 1
+    GetBuildInfo = function() return "x", "", "", 16001 end
+    assert(loadfile(repo .. "/Core/Compatibility.lua"))("Carpenter", {})
+    assertEqual(Carpenter.FeatureManifest.writMapMarkersEnabled, nil, "no feature entry")
+    assertTrue(not readFile("Settings/ConfigOptions.lua"):find("writMapMarkers", 1, true), "no settings option")
+    assertTrue(not readFile("Localization/enUS.lua"):find("WRIT_MAP_MARKERS", 1, true), "no option strings")
+end
 
 -- The pin template inherits Blizzard's quest pin and takes the module's mixin,
 -- and the Forever TOC loads the module before it.
@@ -208,17 +225,11 @@ end
 -- =========================
 -- Module
 -- =========================
-CarpenterDB = { writMapMarkersEnabled = true }
-H.carpenter({
-    Client = { isForever = true },
-    IsEnabled = function(_, key) return CarpenterDB[key] == true end,
-    RegisterFeature = H.captureFeature("writMapMarkersEnabled"),
-})
+CarpenterDB = {}
+H.carpenter({ Client = { isForever = true } })
 local ns = { Private = {} }
 H.load("Modules/WritMapMarkers.lua", ns)
 local Writs = ns.Private.WritMapMarkers
-local feature = H.features.writMapMarkersEnabled
-assertTrue(feature, "feature registered")
 assertTrue(_G.CarpenterWritQuestPinMixin, "pin mixin is global for the XML template")
 
 -- Writs by quest ID, in any language.
@@ -229,10 +240,14 @@ for _, questID in ipairs({ 94211, 94361, 9180, 9142, NORMAL_QUEST }) do
     assertEqual(Writs.IsWritQuest(questID), false, "not a writ quest " .. questID)
 end
 
-feature:Enable()
-assertTrue(mapFrame.dataProvider, "data provider added to the world map")
+-- On from the moment it loads.
+local provider = mapFrame.dataProvider
+assertTrue(provider, "data provider added to the world map at load")
 local eventFrame = H.createdFrames[1]
-assertTrue(eventFrame.events.QUEST_LOG_UPDATE and eventFrame.events.CVAR_UPDATE, "refresh events registered")
+assertTrue(eventFrame.events.QUEST_LOG_UPDATE and eventFrame.events.CVAR_UPDATE, "refresh events registered at load")
+eventFrame.scripts.OnEvent(eventFrame, "PLAYER_LOGIN")
+eventFrame.scripts.OnEvent(eventFrame, "ADDON_LOADED", "Blizzard_WorldMap")
+assertEqual(mapFrame.dataProvider, provider, "setting up again keeps the one provider")
 
 -- A ready writ, a normal quest, and a writ the map only hints at.
 questsOnMap[ZONE] = {
@@ -347,16 +362,7 @@ assertEqual(superTracked, nil, "left-click on the selected writ stops super-trac
 pin:OnMouseClickAction("RightButton")
 assertEqual(superTracked, nil, "right-click doesn't super-track")
 
--- The temporary probe logged what it saw.
-assertTrue(type(CarpenterDB.writMapMarkersProbeLog) == "table" and #CarpenterDB.writMapMarkersProbeLog > 0,
-    "probe log written")
-
--- Off: markers gone, events dropped, refreshes draw nothing.
-feature:Disable()
-assertEqual(#Pins(), 0, "disable removes the markers")
-assertTrue(next(eventFrame.events) == nil, "disable drops the events")
-CarpenterDB.writMapMarkersEnabled = false
-Refresh()
-assertEqual(#Pins(), 0, "disabled feature draws nothing")
+-- Nothing is saved.
+assertTrue(next(CarpenterDB) == nil, "nothing written to saved variables")
 
 print("writ-map-markers fixtures passed")

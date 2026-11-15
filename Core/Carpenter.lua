@@ -20,7 +20,6 @@ local defaults = {
     minimapClutterEnabled = false,
     worldMapCleanupEnabled = false,
     worldMapPOIIconsEnabled = false,
-    writMapMarkersEnabled = false,
     professionIconPortraitEnabled = false,
     talentIconPortraitEnabled = false,
     enhanceTooltipEnabled = false,
@@ -415,6 +414,10 @@ function Carpenter_InitializeSettings()
     CarpenterDB.damageMeterTabProbe = nil
     -- An Enhanced Tooltip log from testing a fix, never released.
     CarpenterDB.enhanceTooltipProbeLog = nil
+    -- Writ map markers became an always-on Forever fix before release, so
+    -- its setting and its test log are gone.
+    CarpenterDB.writMapMarkersEnabled = nil
+    CarpenterDB.writMapMarkersProbeLog = nil
 
     if CarpenterDB and Carpenter.Client and Carpenter.Client.isMainline and
         CarpenterDB.hideUnitFrameCombatTextEnabled == true and

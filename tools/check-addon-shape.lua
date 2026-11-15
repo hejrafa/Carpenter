@@ -29,7 +29,6 @@ local stateKeys = {
     explorerModeChatWindowRepairVersion = true,
     foreverDefaultsResetVersion = true,
     hideErrorProbeLog = true, -- TEMPORARY probe log for Hide Error Messages
-    writMapMarkersProbeLog = true, -- TEMPORARY probe log for Writ Map Markers
     noObjectiveQuestWatches = true,
     smartMacroLastItems = true,
 }
@@ -54,6 +53,8 @@ local removedOptionKeys = {
     raidTargetIconAlignedEnabled = true,
     settingsPresetBackup = true, -- the removed keybinds checkbox's backup, cleared the same way
     targetHealthPercentEnabled = true,
+    writMapMarkersEnabled = true,
+    writMapMarkersProbeLog = true, -- a debug log, not a setting, but cleared the same way
 }
 
 local failures = {}

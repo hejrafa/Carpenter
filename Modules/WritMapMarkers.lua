@@ -5,10 +5,11 @@
 -- on: Blizzard's QuestDataProvider and QuestBlobDataProvider both stop at
 -- GetCVarBool("questPOI"). With the filter off, a writ can't be found.
 --
--- This data provider of Carpenter's own draws the writs' markers while the
--- filter is off: the point C_QuestLog.GetQuestsOnMap gives (the delivery, or
--- the objective while it's in progress) and the next waypoint of a focused or
--- super-tracked writ, as Blizzard's provider does. While the filter is on it
+-- A fix for the game, always on with no setting: this data provider of
+-- Carpenter's own draws the writs' markers while the filter is off. That is
+-- the point C_QuestLog.GetQuestsOnMap gives (the delivery, or the objective
+-- while it's in progress) and the next waypoint of a focused or super-tracked
+-- writ, as Blizzard's provider does. While the filter is on it
 -- draws nothing, so Blizzard's own markers aren't doubled. Other quests keep
 -- following the filter.
 --
@@ -25,17 +26,12 @@ ns.Private = ns.Private or {}
 local WritMapMarkers = {}
 ns.Private.WritMapMarkers = WritMapMarkers
 
-local FEATURE_KEY = "writMapMarkersEnabled"
 local PIN_TEMPLATE = "CarpenterWritQuestPinTemplate"
 local QUEST_FILTER_CVAR = "questPOI"
 
 local eventFrame = CreateFrame("Frame")
 local provider
 local hookedWorldMap = false
-
-local function IsEnabled()
-    return Carpenter and Carpenter:IsEnabled(FEATURE_KEY)
-end
 
 -- =========================
 -- Writ quests
@@ -135,72 +131,6 @@ local function CollectMarkers(mapID)
     return markers
 end
 WritMapMarkers.CollectMarkers = CollectMarkers
-
--- =========================
--- TEMPORARY probe
--- =========================
--- Logs what the map reports for the writs in the quest log, once per distinct
--- line, to CarpenterDB.writMapMarkersProbeLog. Remove once seen in game.
-local PROBE_LIMIT = 80
-local probeSeen = {}
-
-local function ProbeLog(line)
-    if type(CarpenterDB) ~= "table" or probeSeen[line] then return end
-    probeSeen[line] = true
-    local log = CarpenterDB.writMapMarkersProbeLog
-    if type(log) ~= "table" then
-        log = {}
-        CarpenterDB.writMapMarkersProbeLog = log
-    end
-    if #log >= PROBE_LIMIT then return end
-    local stamp = date and date("%H:%M:%S") or "--:--:--"
-    log[#log + 1] = stamp .. " " .. (line:gsub("|", "||"))
-end
-
-local function FormatPoint(x, y)
-    if type(x) ~= "number" or type(y) ~= "number" then return "-" end
-    return string.format("%.3f,%.3f", x, y)
-end
-
-local function FindOnMap(mapID, questID)
-    if not mapID then return "-" end
-    for _, info in ipairs(C_QuestLog.GetQuestsOnMap(mapID) or {}) do
-        if info.questID == questID then return FormatPoint(info.x, info.y) end
-    end
-    return "no"
-end
-
-local function ProbeRefresh(mapID, markers, acquireError)
-    if not (C_QuestLog and C_QuestLog.GetNumQuestLogEntries and C_QuestLog.GetInfo) then return end
-    local writs = {}
-    for index = 1, C_QuestLog.GetNumQuestLogEntries() or 0 do
-        local info = C_QuestLog.GetInfo(index)
-        local questID = info and not info.isHeader and info.questID
-        if IsWritQuest(questID) then
-            local uiMapID = GetQuestUiMapID and GetQuestUiMapID(questID)
-            local wpMapID, wpX, wpY
-            if C_QuestLog.GetNextWaypoint then wpMapID, wpX, wpY = C_QuestLog.GetNextWaypoint(questID) end
-            writs[#writs + 1] = string.format("%d done=%s onMap=%s localPOI=%s uiMap=%s at=%s wp=%s@%s",
-                questID, tostring(C_QuestLog.IsComplete and C_QuestLog.IsComplete(questID)),
-                tostring(info.isOnMap), tostring(info.hasLocalPOI), tostring(uiMapID),
-                FindOnMap(uiMapID, questID), tostring(wpMapID), FormatPoint(wpX, wpY))
-        end
-    end
-    if #writs == 0 then
-        ProbeLog("no writ in the quest log")
-        return
-    end
-
-    local mapInfo = C_Map and C_Map.GetMapInfo and C_Map.GetMapInfo(mapID)
-    local onThisMap = {}
-    for _, info in ipairs(mapID and C_QuestLog.GetQuestsOnMap(mapID) or {}) do
-        onThisMap[#onThisMap + 1] = tostring(info.questID) .. (IsWritQuest(info.questID) and "*" or "")
-    end
-    ProbeLog(string.format("map=%s type=%s filter=%s focus=%s super=%s quests=[%s] markers=%d%s | writs: %s",
-        tostring(mapID), tostring(mapInfo and mapInfo.mapType), tostring(IsQuestFilterOn()),
-        tostring(GetFocusedQuestID()), tostring(GetSuperTrackedQuestID()), table.concat(onThisMap, " "),
-        #markers, acquireError and (" error=" .. tostring(acquireError)) or "", table.concat(writs, "; ")))
-end
 
 -- =========================
 -- Pin
@@ -369,28 +299,28 @@ local function EnsureProvider()
 
     function provider:RefreshAllData()
         RemoveMarkers()
-        if not IsEnabled() then return end
         local map = self:GetMap()
         if not map then return end
 
-        local mapID = map:GetMapID()
-        local markers = CollectMarkers(mapID)
-        local acquireError
-        for _, marker in ipairs(markers) do
-            local ok, err = pcall(map.AcquirePin, map, PIN_TEMPLATE, marker)
-            if not ok then acquireError = acquireError or err end
+        -- There's no setting to turn this off, so a pin that fails stays a
+        -- missing marker instead of an error on every quest log update.
+        for _, marker in ipairs(CollectMarkers(map:GetMapID())) do
+            pcall(map.AcquirePin, map, PIN_TEMPLATE, marker)
         end
-        ProbeRefresh(mapID, markers, acquireError)
     end
 
     mapFrame:AddDataProvider(provider)
     return provider
 end
 
-local function Refresh()
+local function IsMapShown()
     local mapFrame = _G.WorldMapFrame
-    if not (provider and mapFrame and mapFrame.IsShown and mapFrame:IsShown()) then return end
-    provider:RefreshAllData()
+    return mapFrame ~= nil and mapFrame.IsShown ~= nil and mapFrame:IsShown() == true
+end
+
+-- A closed map draws its markers again when it opens.
+local function Refresh()
+    if provider and IsMapShown() then provider:RefreshAllData() end
 end
 
 local function ScheduleRefresh()
@@ -411,16 +341,6 @@ local function Setup()
     if EnsureProvider() then Refresh() end
 end
 
-eventFrame:SetScript("OnEvent", function(_, event, arg1)
-    if event == "ADDON_LOADED" then
-        if arg1 == "Blizzard_WorldMap" then Setup() end
-        return
-    end
-    if event == "CVAR_UPDATE" and arg1 ~= QUEST_FILTER_CVAR then return end
-    if not provider then Setup() end
-    ScheduleRefresh()
-end)
-
 local REFRESH_EVENTS = {
     "QUEST_LOG_UPDATE",
     "QUEST_POI_UPDATE",
@@ -429,21 +349,24 @@ local REFRESH_EVENTS = {
     "CVAR_UPDATE",
 }
 
-local feature = {}
-
-function feature:Enable()
-    Carpenter:SafeRegisterEvent(eventFrame, "ADDON_LOADED")
-    for _, event in ipairs(REFRESH_EVENTS) do
-        Carpenter:SafeRegisterEvent(eventFrame, event)
+eventFrame:SetScript("OnEvent", function(_, event, arg1)
+    if event == "ADDON_LOADED" then
+        if arg1 == "Blizzard_WorldMap" then Setup() end
+        return
     end
-    Setup()
-end
+    if event == "PLAYER_LOGIN" then
+        Setup()
+        return
+    end
+    if event == "CVAR_UPDATE" and arg1 ~= QUEST_FILTER_CVAR then return end
+    if not IsMapShown() then return end
+    if not provider then Setup() end
+    ScheduleRefresh()
+end)
 
-function feature:Disable()
-    eventFrame:UnregisterAllEvents()
-    RemoveMarkers()
+eventFrame:RegisterEvent("ADDON_LOADED")
+eventFrame:RegisterEvent("PLAYER_LOGIN")
+for _, event in ipairs(REFRESH_EVENTS) do
+    eventFrame:RegisterEvent(event)
 end
-
-if Carpenter and Carpenter.RegisterFeature then
-    Carpenter:RegisterFeature(FEATURE_KEY, feature)
-end
+Setup()

@@ -69,8 +69,6 @@ local featureManifest = {
         { clients = CLASSIC, files = { "Modules/WorldMapCleanup/WorldMapCleanup.lua" } },
         { clients = "forever", files = { "Modules/WorldMapCleanup/WorldMapCleanupForever.lua" } },
     },
-    -- Only Forever has the Craftsman's Writs that leave their drop-off to the map.
-    writMapMarkersEnabled = { { clients = "forever", files = { "Modules/WritMapMarkers.lua" } } },
     professionIconPortraitEnabled = { { clients = CLASSIC, files = { "Modules/ProfessionIconPortrait.lua" } } },
     talentIconPortraitEnabled = { { clients = CLASSIC, files = { "Modules/TalentIconPortrait.lua" } } },
     enhanceTooltipEnabled = { { clients = ALL, files = { "Modules/EnhanceTooltip.lua" } } },
