@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.9.1
+
+- New in the Automations settings for rogues on WoW Forever: Quick Lockpick. Right-click a locked lockbox in your bags, or the one another player puts in the trade window's bottom slot, to cast Pick Lock on it. While you hover the box, the cursor shows the glowing hand, and a left-click still picks the box up.
+- Craftsman's Writs on WoW Forever now show where to deliver them on the world map, even with the map's Quest Objectives filter off. Other quests still follow the filter.
+- Damage Meter Tab has a segment button under its arrow. As in the game's own meter, it shows C for the current segment, O for overall, or the number of the fight you picked from its list.
+- Damage Meter Tab's menu now has the Numbers styles from Edit Mode: Minimal, Compact or Complete, which adds each player's share. A player's spells always show total, per second and share. In combat, the share waits until the fight ends.
+- On WoW Forever, Damage Meter Tab titles a player's spells with their first name, such as "Damage Done: Koji", and its background opacity now stays the same after a reload.
+- The chat buttons no longer fade out while the mouse is on Damage Meter Tab's buttons.
+- Enhanced Tooltip removes "<Right click for Frame Settings>" from unit frame tooltips without leaving a gap. The tooltip no longer jumps when you change target while hovering a frame.
+- Enhanced Tooltip now styles party members who are far away or in another instance, and their tooltips no longer flicker.
+- Hide Error Messages now hides "Internal auction error." at the Auction House.
+- The hover lines in the settings now show on every row. Sort Quests by Level had lost its bottom line.
+
 ## 1.9.0
 
 - New in the Chat settings on Retail and WoW Forever: Damage Meter Tab. It shows the game's damage meter as plain text in a chat tab of its own, named "Damage Meter": the meter type and segment with its time on top, then each player in class color with their total and per second. It docks, resizes and fades like any other chat tab, and can be pulled out into a window of its own.
