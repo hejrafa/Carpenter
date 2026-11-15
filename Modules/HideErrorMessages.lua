@@ -1,6 +1,7 @@
 --[[ Carpenter - HideErrorMessages ]]
--- When enabled, hides only the error messages in the hide list (and their sound).
--- Add phrases here as you find ones you want to suppress.
+-- When enabled, hides only the error messages in the hide list (and their sound),
+-- whether they come with the game's error event or are written straight onto
+-- the error frame. Add phrases here as you find ones you want to suppress.
 
 -- These belong to Action Cam and must not affect Blizzard warnings from other
 -- addons when Carpenter's camera feature is disabled.
@@ -59,6 +60,8 @@ local HIDE_PHRASES = {
 }
 
 local function ShouldHideError(message)
+    -- Text the game hides from addons can't be searched.
+    if issecretvalue and issecretvalue(message) then return false end
     if not message or type(message) ~= "string" then return false end
     local lower = message:lower()
     for _, phrase in ipairs(NEVER_HIDE) do
@@ -90,9 +93,30 @@ end
 
 local hooked = false
 
+-- Some Blizzard code writes its errors straight onto the frame, with no
+-- error event: the Auction House shows "Internal auction error." that way.
+-- They are added as one line under the game's system error ID, with no
+-- sound, so a post-hook blanks that line right after it is added and
+-- nothing of Blizzard's is replaced.
+local function BlankExternalError(frame, message)
+    if not ProfileShouldHideError(message) then return end
+    local id = _G.LE_GAME_ERR_SYSTEM
+    local line = id and frame.GetFontStringByID and frame:GetFontStringByID(id)
+    if not line then return end
+    local text = line:GetText()
+    if issecretvalue and issecretvalue(text) then return end
+    if text == message then
+        line:SetText("")
+    end
+end
+
 local function HookErrors()
     if not UIErrorsFrame then return end
     if hooked then return end
+
+    if Carpenter and Carpenter.SafeHook then
+        Carpenter:SafeHook(UIErrorsFrame, "AddExternalErrorMessage", BlankExternalError)
+    end
 
     local origOnEvent = UIErrorsFrame:GetScript("OnEvent")
     UIErrorsFrame:SetScript("OnEvent", function(self, event, ...)
