@@ -261,6 +261,21 @@ vLineBot:SetGradient("VERTICAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, 0
 local SCROLL_CONTENT_TOP_PADDING = 16
 local yPos = -SCROLL_CONTENT_TOP_PADDING
 
+-- Shows a row's hover lines at exactly one screen pixel tall. A fixed 0.5
+-- rounds to no pixel at all on a row that sits just so between pixels, which
+-- left Sort Quests by Level without its bottom line. Sized on each hover so a
+-- UI scale change is picked up.
+local function ShowHoverLines(lines)
+    local unitsPerPixel = PixelUtil and PixelUtil.GetPixelToUIUnitFactor and PixelUtil.GetPixelToUIUnitFactor()
+    for _, line in pairs(lines) do
+        local scale = unitsPerPixel and line.GetEffectiveScale and line:GetEffectiveScale()
+        if scale and scale > 0 then
+            line:SetHeight(unitsPerPixel / scale)
+        end
+        line:Show()
+    end
+end
+
 local function CreateHeader(text)
     local label = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     label:SetPoint("TOPLEFT", 10, yPos)
@@ -427,7 +442,7 @@ local function CreateCheckbox(key, label, description, sideLogic, imagePath, req
     local function OnEnter()
         bgLeft:Show()
         bgRight:Show()
-        for _, t in pairs(textures) do t:Show() end
+        ShowHoverLines(textures)
         ToggleSideImage(imagePath)
         sideDesc:SetText(description)
         if sideLogic then sideLogic() else sideContent:Hide() end
@@ -572,7 +587,7 @@ local function CreateListItem(label, showDetails, toggle)
     local function OnEnter()
         bgLeft:Show()
         bgRight:Show()
-        for _, texture in pairs(textures) do texture:Show() end
+        ShowHoverLines(textures)
         showDetails()
     end
     local function OnLeave()
