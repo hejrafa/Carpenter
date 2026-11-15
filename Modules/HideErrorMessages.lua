@@ -93,21 +93,93 @@ end
 
 local hooked = false
 
+-- =========================
+-- TEMPORARY probe: listed errors written straight onto the error frame
+-- =========================
+-- Logs what the frame holds when a listed error is written onto it, when its
+-- line turns up, and whether a blanked line stays blank, to
+-- CarpenterDB.hideErrorProbeLog. Remove once the auction error stays hidden.
+local probeLog = {}
+local function Probe(text)
+    if #probeLog >= 100 then return end
+    local now = GetTime and GetTime() or 0
+    probeLog[#probeLog + 1] = string.format("%.2f %s", now, (text:gsub("|", "||")))
+    if CarpenterDB then CarpenterDB.hideErrorProbeLog = probeLog end
+end
+
+local function ProbeText(value)
+    if issecretvalue and issecretvalue(value) then return "secret" end
+    if value == nil then return "nil" end
+    return string.format("%q", tostring(value))
+end
+
+local function ProbeSystemLine()
+    local id = _G.LE_GAME_ERR_SYSTEM
+    local frame = UIErrorsFrame
+    local line = frame and id and frame.GetFontStringByID and frame:GetFontStringByID(id)
+    if not line then return "none" end
+    return ProbeText(line:GetText())
+end
+
 -- Some Blizzard code writes its errors straight onto the frame, with no
 -- error event: the Auction House shows "Internal auction error." that way.
 -- They are added as one line under the game's system error ID, with no
--- sound, so a post-hook blanks that line right after it is added and
--- nothing of Blizzard's is replaced.
-local function BlankExternalError(frame, message)
-    if not ProfileShouldHideError(message) then return end
+-- sound. The frame only draws a new line on its next update, so the line is
+-- looked for each frame, for up to a second, and blanked once it shows the
+-- error. Nothing of Blizzard's is replaced.
+local BLANK_WAIT_SECONDS = 1
+local pendingBlanks = {}
+local blankWatcher = CreateFrame("Frame")
+blankWatcher:Hide()
+
+-- Blanks the newest system line if it shows message.
+local function BlankSystemLine(message)
     local id = _G.LE_GAME_ERR_SYSTEM
-    local line = id and frame.GetFontStringByID and frame:GetFontStringByID(id)
-    if not line then return end
+    local frame = UIErrorsFrame
+    local line = frame and id and frame.GetFontStringByID and frame:GetFontStringByID(id)
+    if not line then return false end
     local text = line:GetText()
-    if issecretvalue and issecretvalue(text) then return end
-    if text == message then
-        line:SetText("")
+    if issecretvalue and issecretvalue(text) then return false end
+    if text ~= message then return false end
+    line:SetText("")
+    return true
+end
+
+local function ProbeBlanked(pending)
+    Probe(string.format("blanked %s after %d checks", ProbeText(pending.text), pending.checks))
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0.5, function() Probe("line +0.5s: " .. ProbeSystemLine()) end)
     end
+end
+
+blankWatcher:SetScript("OnUpdate", function(self)
+    local now = GetTime()
+    for index = #pendingBlanks, 1, -1 do
+        local pending = pendingBlanks[index]
+        pending.checks = pending.checks + 1
+        if BlankSystemLine(pending.text) then
+            ProbeBlanked(pending)
+            table.remove(pendingBlanks, index)
+        elseif now > pending.untilTime then
+            Probe("gave up on " .. ProbeText(pending.text) .. ", line " .. ProbeSystemLine())
+            table.remove(pendingBlanks, index)
+        end
+    end
+    if #pendingBlanks == 0 then self:Hide() end
+end)
+
+local function BlankExternalError(_, message)
+    local hide = ProfileShouldHideError(message)
+    Probe("external " .. ProbeText(message) .. " hide=" .. tostring(hide) .. " line " .. ProbeSystemLine())
+    if not hide then return end
+    local pending = { text = message, untilTime = GetTime() + BLANK_WAIT_SECONDS, checks = 0 }
+    -- A client that draws the line right away needs no wait.
+    if BlankSystemLine(message) then
+        ProbeBlanked(pending)
+        return
+    end
+    pendingBlanks[#pendingBlanks + 1] = pending
+    blankWatcher:Show()
 end
 
 local function HookErrors()
@@ -124,7 +196,15 @@ local function HookErrors()
             local errorType, message = ...
 
             if ProfileShouldHideError(message) then
+                if type(message) == "string" and not (issecretvalue and issecretvalue(message))
+                    and message:lower():find("auction", 1, true) then
+                    Probe("event hid " .. ProbeText(message))
+                end
                 return
+            end
+            if type(message) == "string" and not (issecretvalue and issecretvalue(message))
+                and message:lower():find("auction", 1, true) then
+                Probe("event passed " .. ProbeText(message))
             end
 
             -- Customize "Player is already in a group." → red & clearer wording

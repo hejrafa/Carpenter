@@ -28,6 +28,7 @@ local stateKeys = {
     damageMeterTabType = true,
     explorerModeChatWindowRepairVersion = true,
     foreverDefaultsResetVersion = true,
+    hideErrorProbeLog = true, -- TEMPORARY probe log for Hide Error Messages
     noObjectiveQuestWatches = true,
     smartMacroLastItems = true,
 }

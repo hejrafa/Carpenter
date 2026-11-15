@@ -76,6 +76,8 @@ function CreateFrame()
     function frame:RegisterUnitEvent(event) self.events[event] = true end
     function frame:UnregisterEvent(event) self.events[event] = nil end
     function frame:SetScript(script, handler) self.scripts[script] = handler end
+    function frame:Show() self.shown = true end
+    function frame:Hide() self.shown = false end
     createdFrames[#createdFrames + 1] = frame
     return frame
 end
