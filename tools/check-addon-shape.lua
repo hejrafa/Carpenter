@@ -29,6 +29,7 @@ local stateKeys = {
     explorerModeChatWindowRepairVersion = true,
     foreverDefaultsResetVersion = true,
     hideErrorProbeLog = true, -- TEMPORARY probe log for Hide Error Messages
+    enhanceTooltipProbeLog = true, -- TEMPORARY probe log for Enhanced Tooltip
     noObjectiveQuestWatches = true,
     smartMacroLastItems = true,
 }
