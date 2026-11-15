@@ -28,7 +28,6 @@ local stateKeys = {
     damageMeterTabType = true,
     explorerModeChatWindowRepairVersion = true,
     foreverDefaultsResetVersion = true,
-    hideErrorProbeLog = true, -- TEMPORARY probe log for Hide Error Messages
     noObjectiveQuestWatches = true,
     smartMacroLastItems = true,
 }
@@ -46,6 +45,7 @@ local removedOptionKeys = {
     damageMeterTabProbe = true, -- a debug log, not a setting, but cleared the same way
     enhanceTooltipProbeLog = true, -- a debug log, not a setting, but cleared the same way
     classicSettingsPresetEnabled = true,
+    hideErrorProbeLog = true, -- a debug log, not a setting, but cleared the same way
     hideGroupIndicatorEnabled = true,
     hideShouldersEnabled = true,
     nameplateCastNamesEnabled = true,

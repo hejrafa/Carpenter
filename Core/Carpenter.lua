@@ -414,6 +414,8 @@ function Carpenter_InitializeSettings()
     CarpenterDB.damageMeterTabProbe = nil
     -- An Enhanced Tooltip log from testing a fix, never released.
     CarpenterDB.enhanceTooltipProbeLog = nil
+    -- A Hide Error Messages log from testing a fix, never released.
+    CarpenterDB.hideErrorProbeLog = nil
     -- Writ map markers became an always-on Forever fix before release, so
     -- its setting and its test log are gone.
     CarpenterDB.writMapMarkersEnabled = nil
