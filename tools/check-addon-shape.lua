@@ -29,6 +29,7 @@ local stateKeys = {
     explorerModeChatWindowRepairVersion = true,
     foreverDefaultsResetVersion = true,
     hideErrorProbeLog = true, -- TEMPORARY probe log for Hide Error Messages
+    writMapMarkersProbeLog = true, -- TEMPORARY probe log for Writ Map Markers
     noObjectiveQuestWatches = true,
     smartMacroLastItems = true,
 }

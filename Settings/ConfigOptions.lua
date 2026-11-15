@@ -131,6 +131,11 @@ function Options.Create(context)
                     image = GetSettingsImage("map.png"),
                 },
                 {
+                    key = "writMapMarkersEnabled",
+                    label = L.OPTION_WRIT_MAP_MARKERS or "Writ Map Markers",
+                    description = Description("DESC_WRIT_MAP_MARKERS"),
+                },
+                {
                     key = "professionIconPortraitEnabled",
                     label = L.OPTION_PROFESSION_ICON_PORTRAIT or "Profession Icon Portrait",
                     description = Description("DESC_PROFESSION_ICON_PORTRAIT"),

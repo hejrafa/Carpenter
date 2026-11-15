@@ -20,6 +20,7 @@ local defaults = {
     minimapClutterEnabled = false,
     worldMapCleanupEnabled = false,
     worldMapPOIIconsEnabled = false,
+    writMapMarkersEnabled = false,
     professionIconPortraitEnabled = false,
     talentIconPortraitEnabled = false,
     enhanceTooltipEnabled = false,

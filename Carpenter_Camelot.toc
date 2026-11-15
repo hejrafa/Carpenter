@@ -60,6 +60,8 @@ Modules\HideQuestTrackerTitles.lua
 Modules\QuestTrackerSort.lua
 Modules\WorldMapCleanup\WorldMapCleanupSilithus.lua
 Modules\WorldMapCleanup\WorldMapCleanupForever.lua
+Modules\WritMapMarkers.lua
+Modules\WritMapMarkers.xml
 
 # Unit Frames
 Modules\ClassHealthColors\ClassHealthColorsShared.lua
