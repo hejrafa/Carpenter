@@ -33,6 +33,7 @@ local FOREVER_SETTINGS_IMAGES = {
     ["hidequesttrack.png"] = true,
     ["keybind.png"] = true,
     ["layout.png"] = true,
+    ["lockpick.png"] = true,
     ["macro.png"] = true,
     ["macrotext.png"] = true,
     ["map.png"] = true,

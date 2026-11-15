@@ -306,6 +306,7 @@ function Options.Create(context)
                     class = "ROGUE",
                     label = L.OPTION_QUICK_LOCKPICK or "Quick Lockpick",
                     description = Description("DESC_QUICK_LOCKPICK"),
+                    image = GetSettingsImage(nil, "lockpick.png"),
                 },
                 {
                     key = "autoTrackQuestsEnabled",
