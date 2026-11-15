@@ -266,18 +266,53 @@ text = Hover("Ravenclaw Guardian", "Undead")
 assertEqual(text[2], "Undead", "a tooltip without a level line is left alone")
 
 -- A party member out of sight, far away or in another instance: the game
--- can't say how they regard you, and their party frame rewrites the tooltip
--- five times a second. Each rewrite is restyled right away, so the game's
--- own lines never flash between two of Carpenter's passes.
+-- gives the tooltip's GUID but no unit token, the mouse sets no mouseover,
+-- and how they regard you is unknown. Their party frame rewrites the tooltip
+-- five times a second; each rewrite is restyled right away, through the
+-- party unit with that GUID, so the game's own lines never flash.
 target.player, target.reaction, target.canAttack = true, nil, false
 target.name, target.class, target.token, target.race, target.level = "Thrall", "Priest", "PRIEST", "Orc", 34
 target.creatureType, target.classification = nil, nil
-local unitReaction = UnitReaction
+local FAR_GUID = "Player-1-0000BEEF"
+local saved = {
+    GetUnit = GameTooltip.GetUnit, UnitExists = UnitExists, UnitIsPlayer = UnitIsPlayer,
+    UnitReaction = UnitReaction, UnitGUID = UnitGUID, UnitName = UnitName,
+}
+local tooltipGUID = FAR_GUID
+GameTooltip.GetUnit = function() return nil, nil, tooltipGUID end
+local owner = { unit = "party2" }
+GameTooltip.GetOwner = function() return owner end
+function UnitExists(unit) return unit == "player" or unit == "party2" end
+function UnitIsPlayer(unit) return unit == "party2" end
+function UnitGUID(unit)
+    if unit == "party2" then return FAR_GUID end
+    if unit == "player" then return "Player-1-00000001" end
+end
+function UnitName(unit) if unit == "party2" then return "Thrall" end end
 function UnitReaction() return nil end
+
 text = Hover("Thrall", "Level 34 Orc (Player)", "Priest", "Tirisfal Glades")
-assertEqual(text[2], "Level 34 Orc", "a party member out of sight should be restyled as the game writes the tooltip")
+assertEqual(text[2], "Level 34 Orc", "a party member out of sight should be restyled through their party frame's unit")
 assertEqual(text[4], "Tirisfal Glades", "a party member's zone line should stay")
-UnitReaction = unitReaction
+
+-- A tooltip some other frame owns finds the member in the group.
+owner = {}
+text = Hover("Thrall", "Level 34 Orc (Player)", "Priest", "Tirisfal Glades")
+assertEqual(text[2], "Level 34 Orc", "a party member out of sight should be found in the group by GUID")
+
+-- A frame whose unit has another GUID doesn't decide.
+owner = { unit = "player" }
+text = Hover("Thrall", "Level 34 Orc (Player)", "Priest", "Tirisfal Glades")
+assertEqual(text[2], "Level 34 Orc", "an owner showing someone else should not hide the group member")
+
+-- A GUID no one in the group has stays as the game wrote it.
+tooltipGUID = "Player-1-0000DEAD"
+text = Hover("Stranger", "Level 34 Orc (Player)", "Priest")
+assertEqual(text[2], "Level 34 Orc (Player)", "a unit outside the group should keep the game's lines")
+
+GameTooltip.GetUnit, GameTooltip.GetOwner = saved.GetUnit, nil
+UnitExists, UnitIsPlayer, UnitReaction = saved.UnitExists, saved.UnitIsPlayer, saved.UnitReaction
+UnitGUID, UnitName = saved.UnitGUID, saved.UnitName
 
 -- Forever battlegrounds hide an enemy player's GUID, class and race from
 -- addons, and the tooltip text along with them. The name, level and faction

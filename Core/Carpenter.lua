@@ -412,6 +412,8 @@ function Carpenter_InitializeSettings()
     CarpenterDB.buffTimerProbeLog = nil
     -- A Damage Meter Tab log from testing a fix, never released.
     CarpenterDB.damageMeterTabProbe = nil
+    -- An Enhanced Tooltip log from testing a fix, never released.
+    CarpenterDB.enhanceTooltipProbeLog = nil
 
     if CarpenterDB and Carpenter.Client and Carpenter.Client.isMainline and
         CarpenterDB.hideUnitFrameCombatTextEnabled == true and

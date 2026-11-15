@@ -29,7 +29,6 @@ local stateKeys = {
     explorerModeChatWindowRepairVersion = true,
     foreverDefaultsResetVersion = true,
     hideErrorProbeLog = true, -- TEMPORARY probe log for Hide Error Messages
-    enhanceTooltipProbeLog = true, -- TEMPORARY probe log for Enhanced Tooltip
     noObjectiveQuestWatches = true,
     smartMacroLastItems = true,
 }
@@ -45,6 +44,7 @@ local removedOptionKeys = {
     buffTimerProbeLog = true, -- a debug log, not a setting, but cleared the same way
     chatGlossaryEnabled = true,
     damageMeterTabProbe = true, -- a debug log, not a setting, but cleared the same way
+    enhanceTooltipProbeLog = true, -- a debug log, not a setting, but cleared the same way
     classicSettingsPresetEnabled = true,
     hideGroupIndicatorEnabled = true,
     hideShouldersEnabled = true,

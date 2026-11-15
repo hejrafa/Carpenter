@@ -523,13 +523,46 @@ local function TooltipAlreadyHasTargetLine()
     return false
 end
 
+local function HasGUID(unit, guid)
+    if not CanUseUnit(unit) or not UnitGUID then return false end
+    local ok, unitGUID = pcall(UnitGUID, unit)
+    return ok and not IsSecret(unitGUID) and unitGUID == guid
+end
+
+-- The game finds a unit token for a tooltip's GUID only while the unit is in
+-- sight, and the mouse sets no mouseover over a party member who isn't. A
+-- party or raid member far away or in another instance keeps their token, so
+-- the GUID is matched against the unit of the frame that owns the tooltip,
+-- then against the group.
+local function GroupUnitFromGUID(tooltip, guid)
+    if IsSecret(guid) or type(guid) ~= "string" or guid == "" then return nil end
+    local okOwner, ownerUnit = pcall(function()
+        local owner = tooltip.GetOwner and tooltip:GetOwner()
+        return owner and owner.unit
+    end)
+    if okOwner and IsAccessibleString(ownerUnit) and HasGUID(ownerUnit, guid) then
+        return ownerUnit
+    end
+    for index = 1, 4 do
+        local unit = "party" .. index
+        if HasGUID(unit, guid) then return unit end
+    end
+    if IsInRaid and ReadableBool(IsInRaid) then
+        for index = 1, 40 do
+            local unit = "raid" .. index
+            if HasGUID(unit, guid) then return unit end
+        end
+    end
+    return nil
+end
+
 local function GetTooltipUnit(tooltip)
     if WorldFrame and WorldFrame.IsMouseMotionFocus and WorldFrame:IsMouseMotionFocus() and CanUseUnit("mouseover") then
         return "mouseover"
     end
 
     if tooltip and tooltip.GetUnit then
-        local ok, name, unit = pcall(tooltip.GetUnit, tooltip)
+        local ok, name, unit, guid = pcall(tooltip.GetUnit, tooltip)
         if ok then
             if IsAccessibleString(unit) then
                 return unit
@@ -539,6 +572,10 @@ local function GetTooltipUnit(tooltip)
                 if nameOk and nameExists then
                     return name
                 end
+            end
+            local groupUnit = GroupUnitFromGUID(tooltip, guid)
+            if groupUnit then
+                return groupUnit
             end
         end
     end
@@ -677,79 +714,13 @@ local function EnhanceUnitTooltip(tooltip, unit)
     ShowUnitTargetInTooltip(tooltip, unit)
 end
 
--- =========================
--- TEMPORARY probe: party members out of sight
--- =========================
--- Logs each restyle pass over a unit tooltip (which pass, the unit it found,
--- what each check said, lines 1 and 2 before and after) to
--- CarpenterDB.enhanceTooltipProbeLog, once per distinct entry. Remove once
--- far-away party members' tooltips are restyled again.
-local probeLog, probeSeen = {}, {}
-local function ProbeValue(value)
-    if IsSecret(value) then return "secret" end
-    if value == nil then return "nil" end
-    if type(value) == "string" then return string.format("%q", value) end
-    return tostring(value)
-end
-
-local function ProbeLine(index)
-    local line = _G["GameTooltipTextLeft" .. index]
-    if not line then return "none" end
-    local ok, text = pcall(line.GetText, line)
-    return ok and ProbeValue(text) or "error"
-end
-
-local function ProbeGUID(unit)
-    if not CanUseUnit(unit) or not UnitGUID then return "no unit" end
-    local ok, guid = pcall(UnitGUID, unit)
-    if not ok then return "error" end
-    if IsSecret(guid) then return "secret" end
-    if type(guid) ~= "string" then return tostring(guid) end
-    return guid:match("^([^%-]+)") or "?"
-end
-
--- Only tooltips a party frame owns.
-local function ProbeWanted(tooltip)
-    local ok, ownerUnit = pcall(function()
-        local owner = tooltip.GetOwner and tooltip:GetOwner()
-        return owner and owner.unit
-    end)
-    return ok and type(ownerUnit) == "string" and not IsSecret(ownerUnit) and ownerUnit:find("^party") ~= nil
-end
-
-local function Probe(source, tooltip, unit, note)
-    if #probeLog >= 150 or not ProbeWanted(tooltip) then return end
-    local okUnit, name, token, guid = pcall(function() return tooltip:GetUnit() end)
-    local text = string.format(
-        "%s unit=%s getUnit=%s/%s/%s mouseover=%s use=%s text=%s hidden=%s isPlayer=%s guid=%s reaction=%s lines=%s l1=%s l2=%s%s",
-        source, ProbeValue(unit),
-        okUnit and ProbeValue(name) or "error", okUnit and ProbeValue(token) or "error",
-        okUnit and (guid == nil and "nil" or (IsSecret(guid) and "secret" or "set")) or "error",
-        tostring(CanUseUnit("mouseover")), tostring(CanUseUnit(unit)), tostring(CanAccessTooltipText()),
-        tostring(CanUseUnit(unit) and IsHiddenPlayer(unit)), tostring(CanUseUnit(unit) and Unit.IsPlayer and Unit.IsPlayer(unit)),
-        ProbeGUID(unit), ProbeValue(SafeUnitReaction(unit, "player")),
-        tostring(tooltip.NumLines and tooltip:NumLines()), ProbeLine(1), ProbeLine(2),
-        note and (" " .. note) or "")
-    text = text:gsub("|", "||")
-    if probeSeen[text] then return end
-    probeSeen[text] = true
-    local now = GetTime and GetTime() or 0
-    probeLog[#probeLog + 1] = string.format("%.2f %s", now, text)
-    if CarpenterDB then CarpenterDB.enhanceTooltipProbeLog = probeLog end
-end
-
 local function ScheduleEnhanceUnitTooltip(tooltip, unit)
-    Probe("post-call before", tooltip, unit)
     EnhanceUnitTooltip(tooltip, unit)
-    Probe("post-call after", tooltip, unit)
     if not (C_Timer and C_Timer.After) then return end
 
     local function Reapply()
         if IsEnabled() and tooltip and tooltip:IsShown() and GetTooltipUnit(tooltip) == unit then
             EnhanceUnitTooltip(tooltip, unit)
-            Probe("timer after", tooltip, unit)
-        elseif tooltip and tooltip:IsShown() then
-            Probe("timer skipped", tooltip, unit, "now=" .. ProbeValue(GetTooltipUnit(tooltip)))
         end
     end
 
@@ -773,11 +744,7 @@ local function MaintainEnhancedTooltip(self, elapsed)
 
     local unit = GetTooltipUnit(self)
     if CanUseUnit(unit) then
-        Probe("update before", self, unit)
         EnhanceUnitTooltip(self, unit)
-        Probe("update after", self, unit)
-    else
-        Probe("update no unit", self, unit)
     end
 end
 
@@ -796,10 +763,7 @@ local function ShowTip(self)
         if itemLink and itemLink ~= "" then return end
     end
     local unit = GetTooltipUnit(self)
-    if not CanUseUnit(unit) then
-        Probe("post-call no unit", self, unit)
-        return
-    end
+    if not CanUseUnit(unit) then return end
     -- A party member out of sight (far away, in another instance) has no
     -- reaction, and their party frame rewrites the tooltip five times a
     -- second. Restyling it only in the OnUpdate pass let the game's own
