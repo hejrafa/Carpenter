@@ -727,8 +727,10 @@ local function ShowTip(self)
     end
     local unit = GetTooltipUnit(self)
     if not CanUseUnit(unit) then return end
-    local reaction = SafeUnitReaction(unit, "player")
-    if not reaction then return end
+    -- A party member out of sight (far away, in another instance) has no
+    -- reaction, and their party frame rewrites the tooltip five times a
+    -- second. Restyling it only in the OnUpdate pass let the game's own
+    -- lines and name color flash between passes, so it is restyled here too.
 
     -- Hide the bar before touching protected tooltip strings. Retail can block
     -- text access for some world-hover enemy tooltips, but the status bar still

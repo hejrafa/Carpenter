@@ -265,6 +265,20 @@ target.level = 20
 text = Hover("Ravenclaw Guardian", "Undead")
 assertEqual(text[2], "Undead", "a tooltip without a level line is left alone")
 
+-- A party member out of sight, far away or in another instance: the game
+-- can't say how they regard you, and their party frame rewrites the tooltip
+-- five times a second. Each rewrite is restyled right away, so the game's
+-- own lines never flash between two of Carpenter's passes.
+target.player, target.reaction, target.canAttack = true, nil, false
+target.name, target.class, target.token, target.race, target.level = "Thrall", "Priest", "PRIEST", "Orc", 34
+target.creatureType, target.classification = nil, nil
+local unitReaction = UnitReaction
+function UnitReaction() return nil end
+text = Hover("Thrall", "Level 34 Orc (Player)", "Priest", "Tirisfal Glades")
+assertEqual(text[2], "Level 34 Orc", "a party member out of sight should be restyled as the game writes the tooltip")
+assertEqual(text[4], "Tirisfal Glades", "a party member's zone line should stay")
+UnitReaction = unitReaction
+
 -- Forever battlegrounds hide an enemy player's GUID, class and race from
 -- addons, and the tooltip text along with them. The name, level and faction
 -- stay readable, and the scoreboard keeps everyone's class and race.
