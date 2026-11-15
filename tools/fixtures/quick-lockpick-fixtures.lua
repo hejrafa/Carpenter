@@ -47,7 +47,12 @@ local inCombat = false
 InCombatLockdown = function() return inCombat end
 local cursorItem
 GetCursorInfo = function() return cursorItem end
-SpellIsTargeting = function() return false end
+local targeting = false
+SpellIsTargeting = function() return targeting end
+-- The cursor the UI asked for; ResetCursor gives it back to the game.
+local cursorMode
+SetCursorByMode = function(mode) cursorMode = mode; return true end
+ResetCursor = function() cursorMode = nil end
 local playerClass = "WARRIOR"
 UnitClass = function() return "Class", playerClass end
 local knowsPickLock = true
@@ -58,7 +63,10 @@ GREEN_FONT_COLOR = { r = 0.1, g = 1, b = 0.1 }
 NUM_TOTAL_EQUIPPED_BAG_SLOTS = 5
 TRADE_ENCHANT_SLOT = 7
 
-Enum = { PlayerInteractionType = { TradePartner = 1, Merchant = 5, Banker = 8, MailInfo = 17, Auctioneer = 21 } }
+Enum = {
+    PlayerInteractionType = { TradePartner = 1, Merchant = 5, Banker = 8, MailInfo = 17, Auctioneer = 21 },
+    Cursormode = { PointCursor = 1, CastCursor = 2, LockCursor = 14 },
+}
 local interacting = {}
 C_PlayerInteractionManager = {
     IsInteractingWithNpcOfType = function(kind) return interacting[kind] == true end,
@@ -220,10 +228,21 @@ local point, relativeTo = GameTooltip:GetPoint(1)
 assertEqual(point, "BOTTOMRIGHT", "the tooltip should keep the game's anchor")
 assertEqual(relativeTo, box, "the tooltip should stay next to the slot")
 assertTrue(Covered(), "the button's own tooltip should not move it")
+assertEqual(cursorMode, Enum.Cursormode.CastCursor, "hovering the box should show the glowing hand")
 
 Leave()
 assertTrue(not Covered(), "leaving the slot should hide the button")
 assertTrue(not GameTooltip.shown, "leaving the slot should hide the button's tooltip")
+assertEqual(cursorMode, nil, "leaving the box should give the cursor back to the game")
+
+-- While a spell waits for its target, the game keeps its own cursor.
+Hover(box)
+cover.scripts.OnEnter(cover)
+targeting = true
+Leave()
+assertEqual(cursorMode, Enum.Cursormode.CastCursor, "a targeting cursor should be left alone")
+targeting = false
+cursorMode = nil
 
 -- =========================
 -- Slots that stay the game's
@@ -322,7 +341,13 @@ Leave()
 -- =========================
 now = now + 5
 Hover(box)
+-- Targeting the box gives the cursor back to the game; the click puts the
+-- glowing hand back while the mouse is still on the box.
+cover.mouseOver = true
+cursorMode = nil
 cover.scripts.PostClick(cover, "RightButton")
+assertEqual(cursorMode, Enum.Cursormode.CastCursor, "the glowing hand should come back after the click")
+cover.mouseOver = nil
 Fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast", 2098)
 assertTrue(Covered(), "another spell should keep the button")
 -- The mouse may leave before the cast finishes.

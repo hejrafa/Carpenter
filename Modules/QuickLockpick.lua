@@ -8,7 +8,8 @@
 -- <slot>", or "/click" on the trade slot. Left-clicks pass through to the
 -- slot, so the box can still be picked up and moved. The button uses
 -- InsecureActionButtonTemplate, which acts only out of combat, and it hides
--- when combat starts.
+-- when combat starts. Over the box, the cursor turns into the glowing hand
+-- the game shows while Pick Lock waits for its target.
 --
 -- Nothing of Blizzard's is changed. Post-hooks on GameTooltip's SetBagItem
 -- and SetTradeTargetItem notice the hovered slot, and the game's tooltip
@@ -154,6 +155,16 @@ local function TooltipPoints(tooltip)
     return points
 end
 
+-- The glowing hand the game shows while a spell waits for its target, so the
+-- box looks the way it does with Pick Lock in hand. The game ignores
+-- SetCursor over the world, but the button is a UI frame.
+local function ShowCastCursor()
+    local modes = Enum and Enum.Cursormode
+    if SetCursorByMode and modes and modes.CastCursor then
+        SetCursorByMode(modes.CastCursor)
+    end
+end
+
 local function HideCover()
     lastKey = nil
     if cover and cover:IsShown() then cover:Hide() end
@@ -182,15 +193,19 @@ local function Cover_OnEnter(self)
     GameTooltip:AddLine(L.QUICK_LOCKPICK_HINT or "<Right Click to Pick Lock>",
         color and color.r or 0.1, color and color.g or 1, color and color.b or 0.1, true)
     GameTooltip:Show()
+    ShowCastCursor()
 end
 
 local function Cover_OnLeave()
     HideCover()
 end
 
+-- Like the game's own bag slots, the cursor stays as it is while a spell
+-- waits for its target.
 local function Cover_OnHide(self)
     covered = nil
     if GameTooltip:IsOwned(self) then GameTooltip:Hide() end
+    if ResetCursor and not (SpellIsTargeting and SpellIsTargeting()) then ResetCursor() end
 end
 
 -- Closing the bags or the trade window takes the slot away under the cover.
@@ -202,9 +217,12 @@ local function Cover_OnUpdate()
 end
 
 -- Runs after the button's own click, so the cast's slot is known even if
--- the mouse leaves before Pick Lock finishes.
-local function Cover_PostClick(_, mouseButton)
-    if mouseButton == "RightButton" and covered then castKey = covered.key end
+-- the mouse leaves before Pick Lock finishes. Targeting the box hands the
+-- cursor back to the game, so the glowing hand goes back on.
+local function Cover_PostClick(self, mouseButton)
+    if mouseButton ~= "RightButton" or not covered then return end
+    castKey = covered.key
+    if self:IsMouseOver() then ShowCastCursor() end
 end
 
 local function CreateCover()
