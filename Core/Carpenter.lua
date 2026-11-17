@@ -416,6 +416,8 @@ function Carpenter_InitializeSettings()
     CarpenterDB.enhanceTooltipProbeLog = nil
     -- A Hide Error Messages log from testing a fix, never released.
     CarpenterDB.hideErrorProbeLog = nil
+    -- A Chat Cleaner queue line log from testing a fix, never released.
+    CarpenterDB.chatQueueProbeLog = nil
     -- Writ map markers became an always-on Forever fix before release, so
     -- its setting and its test log are gone.
     CarpenterDB.writMapMarkersEnabled = nil

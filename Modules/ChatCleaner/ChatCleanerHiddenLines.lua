@@ -64,7 +64,6 @@ local IsSecret = Carpenter.Secret.IsSecret
 function HiddenLines.Create(config)
     config = config or {}
     local api = {}
-    local probe = config.Probe or function() end -- TEMPORARY queue probe
     local seen = setmetatable({}, { __mode = "k" })
     local pendingByFrame = setmetatable({}, { __mode = "k" })
     local doneByFrame = setmetatable({}, { __mode = "k" })
@@ -118,8 +117,6 @@ function HiddenLines.Create(config)
                             lines[#lines + 1] = {
                                 frame = frame, entry = entry, kind = kind, time = entry.timestamp, order = order,
                             }
-                            probe(string.format("hidden %s line #%d at %.2f in %s", kind, order, entry.timestamp,
-                                tostring(frame.GetName and frame:GetName() or frame)))
                         end
                     end
                 end
@@ -175,7 +172,7 @@ function HiddenLines.Create(config)
             for _, rise in ipairs(rises) do
                 if Claims(rise, frame) == 0 and math.abs(rise.time - line.time) <= SKILL_WINDOW then
                     rise.claims[frame] = 1
-                    Apply(line, config.FormatSkillRise(rise), "skill")
+                    Apply(line, config.FormatSkillRise(rise))
                     break
                 end
             end
@@ -211,8 +208,7 @@ function HiddenLines.Create(config)
                 end
                 if pick then
                     change.claims[frame] = 1
-                    Apply(pick, config.FormatQueueChange(change),
-                        string.format("queue %s at %.2f", change.kind, change.time))
+                    Apply(pick, config.FormatQueueChange(change))
                 end
             end
         end
@@ -237,8 +233,7 @@ function HiddenLines.Create(config)
                 end)
                 for _, candidate in ipairs(candidates) do
                     if claimed >= 2 then break end
-                    Apply(candidate.line, claimed == 0 and config.FormatChange(change) or "",
-                        string.format("roster %s at %.2f", change.kind, change.time))
+                    Apply(candidate.line, claimed == 0 and config.FormatChange(change) or "")
                     claimed = claimed + 1
                     change.claims[frame] = claimed
                 end
@@ -307,9 +302,8 @@ function HiddenLines.Create(config)
         local done = doneByFrame[frame] or {}
         doneByFrame[frame] = done
 
-        local function Apply(line, text, rule)
+        local function Apply(line, text)
             if text == nil then return end
-            probe(string.format("line #%d by %s: %s", line.order, rule or "?", text))
             line.resolved = true
             pcall(Rewrite, line, text)
         end
@@ -324,18 +318,16 @@ function HiddenLines.Create(config)
         ResolveQueueChanges(frame, systemLines, queueChanges, Apply)
         ResolveRosterChanges(frame, systemLines, changes, Apply)
         for _, line in ipairs(systemLines) do
-            if not line.resolved then Apply(line, ClaimBattleNotice(line, done, now), "notice") end
+            if not line.resolved then Apply(line, ClaimBattleNotice(line, done, now)) end
         end
         for _, line in ipairs(systemLines) do
-            if not line.resolved then Apply(line, ClaimDeath(line, systemLines, changes), "death") end
+            if not line.resolved then Apply(line, ClaimDeath(line, systemLines, changes)) end
         end
 
         local kept = {}
         for _, line in ipairs(lines) do
             if not line.resolved and now - line.time <= LINE_MAX_AGE then
                 kept[#kept + 1] = line
-            elseif not line.resolved then
-                probe(string.format("line #%d left as written", line.order))
             end
         end
         pendingByFrame[frame] = kept
@@ -384,7 +376,6 @@ function HiddenLines.Create(config)
         end
         if added then
             added.resolved = true
-            probe(string.format("line #%d emptied as a batch line", added.order))
             pcall(Rewrite, added, "")
         end
     end
@@ -406,7 +397,6 @@ function HiddenLines.Create(config)
                 end
             end
             if oldest then
-                probe(string.format("shown line at %.2f renamed: %s", oldestTime, text))
                 local ok, rewritten = pcall(RewriteEntry, frame, oldest, text, expected)
                 renamed = renamed or (ok and rewritten)
             end
