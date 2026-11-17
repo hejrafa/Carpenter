@@ -20,7 +20,7 @@ function Loot.IsRollPayload(text)
     local lower = text:lower()
     return lower:find("has selected", 1, true) or lower:find("have selected", 1, true) or
         lower:find("passed on", 1, true) or lower:find("%f[%a]won%f[%A]") or
-        lower:find("%f[%a]rolls?%s+%d") or false
+        lower:find("%f[%a]rolls?%f[%A]") or lower:find("%f[%a]rolled%f[%A]") or false
 end
 
 local function AddFormatPattern(patterns, spec)

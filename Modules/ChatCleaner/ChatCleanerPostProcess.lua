@@ -5,36 +5,24 @@ ns.Private = ns.Private or {}
 local PostProcess = ns.Private.ChatCleanerPostProcess or {}
 ns.Private.ChatCleanerPostProcess = PostProcess
 
+local Utils = ns.Private.ChatCleanerUtils
+local IsRollPayload = ns.Private.ChatCleanerLoot.IsRollPayload
+local IsSecret = Carpenter.Secret.IsSecret
+
+-- Chat prefixes shortened: "[Party Leader]" to "PL", "[Raid Warning]" to a
+-- red "!". The bracketed names come from the game's own strings.
 local channelReplacements = {}
-
-local function AddBracketReplacement(globalName, short)
-    local tag = _G[globalName]
-    if not tag or type(tag) ~= "string" then return end
-
-    local label = tag:match("%[(.-)%]")
-    if not label or label == "" then return end
-
-    label = label:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
-    table.insert(channelReplacements, { "%[" .. label .. "%]", "[" .. short .. "]" })
-end
-
-AddBracketReplacement("CHAT_PARTY_LEADER_GET", "PL")
-AddBracketReplacement("CHAT_PARTY_GET", "P")
-AddBracketReplacement("CHAT_RAID_LEADER_GET", "RL")
-AddBracketReplacement("CHAT_RAID_GET", "R")
-AddBracketReplacement("CHAT_INSTANCE_CHAT_LEADER_GET", "IL")
-AddBracketReplacement("CHAT_INSTANCE_CHAT_GET", "I")
-AddBracketReplacement("CHAT_GUILD_GET", "G")
-AddBracketReplacement("CHAT_OFFICER_GET", "O")
-
-do
-    local rwTag = _G.CHAT_RAID_WARNING_GET
-    if rwTag and type(rwTag) == "string" then
-        local label = rwTag:match("%[(.-)%]")
-        if label and label ~= "" then
-            label = label:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
-            table.insert(channelReplacements, { "%[" .. label .. "%]", "|cffff0000!|r" })
-        end
+for _, entry in ipairs({
+    { "CHAT_PARTY_LEADER_GET", "[PL]" }, { "CHAT_PARTY_GET", "[P]" },
+    { "CHAT_RAID_LEADER_GET", "[RL]" }, { "CHAT_RAID_GET", "[R]" },
+    { "CHAT_INSTANCE_CHAT_LEADER_GET", "[IL]" }, { "CHAT_INSTANCE_CHAT_GET", "[I]" },
+    { "CHAT_GUILD_GET", "[G]" }, { "CHAT_OFFICER_GET", "[O]" },
+    { "CHAT_RAID_WARNING_GET", "|cffff0000!|r" },
+}) do
+    local tag = _G[entry[1]]
+    local label = type(tag) == "string" and tag:match("%[(.-)%]")
+    if label and label ~= "" then
+        table.insert(channelReplacements, { "%[" .. Utils.EscapePattern(label) .. "%]", entry[2] })
     end
 end
 
@@ -47,8 +35,7 @@ local flagReplacements = {}
 for globalName, short in pairs({ CHAT_FLAG_AFK = "AFK ", CHAT_FLAG_DND = "DND " }) do
     local flag = _G[globalName]
     if type(flag) == "string" and flag ~= "" then
-        local escaped = flag:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
-        table.insert(flagReplacements, { escaped .. "|Hplayer:", short .. "|Hplayer:" })
+        table.insert(flagReplacements, { Utils.EscapePattern(flag) .. "|Hplayer:", short .. "|Hplayer:" })
     end
 end
 
@@ -63,12 +50,11 @@ local function ApplyChannelStyling(text)
         text = text:gsub(entry[1], entry[2])
     end
 
-    text = text:gsub("|Hchannel:(.-):(%d+)|h%[(%d+)%. (.-)%s%-%s.-%]|h", "|Hchannel:%1:%2|h%3.|h")
+    -- "[1. General - Mulgore]" becomes "1.".
     text = text:gsub("|Hchannel:(.-):(%d+)|h%[(%d+)%. (.-)%]|h", "|Hchannel:%1:%2|h%3.|h")
     -- Lines with no sender, like Local Defense's, read "3. : text". The colon was
     -- meant to follow the name, so it goes too.
     text = text:gsub("(|Hchannel:[^|]*|h%d+%.|h) : ", "%1 ")
-    text = text:gsub("^Changed Channel: |Hchannel:(.-):(%d+)|h%[(%d+)%. (.-)%]|h", "|Hchannel:%1:%2|h%3. %4|h")
 
     return text
 end
@@ -97,7 +83,7 @@ end
 
 function PostProcess.Create(config)
     config = config or {}
-    local applyChannelStyling = config.ApplyChannelStyling or ApplyChannelStyling
+    local applyChannelStyling = ApplyChannelStyling
     local removeLinkBrackets = config.RemoveLinkBrackets or function(text) return text end
     local formatLevelUpRewardMessage = config.FormatLevelUpRewardMessage or function() return nil end
     local formatAppearanceCollectionMessage = config.FormatAppearanceCollectionMessage or function() return nil end
@@ -113,8 +99,10 @@ function PostProcess.Create(config)
     local joinDedupDelay = config.JoinDedupDelay or 8
     local L = config.L or (Carpenter and Carpenter.L) or {}
 
-    local lastHonorByFrame = {}
-    local lastJoinKey, lastJoinTime = nil, nil
+    -- Each chat window gets its own copy of a line, so repeats are told apart
+    -- per window.
+    local lastHonorByFrame = setmetatable({}, { __mode = "k" })
+    local lastJoinByFrame = setmetatable({}, { __mode = "k" })
 
     local api = {}
 
@@ -183,11 +171,6 @@ function PostProcess.Create(config)
         return colorLootLiteral .. text .. "|r"
     end
 
-    local function SelectedRollText(typeWord)
-        local rollType = typeWord and T("CHAT_ROLL_" .. typeWord:upper(), typeWord) or ""
-        return rollType
-    end
-
     local function FormatDirectLootWin(text)
         if not text or type(text) ~= "string" then return nil end
 
@@ -213,17 +196,6 @@ function PostProcess.Create(config)
         if not plainText or type(plainText) ~= "string" then return false end
         return plainText:match("^%s*[PGROI!][%s:][^:]+:") ~= nil
             or plainText:match("^%s*%d+%.[^:]+:") ~= nil
-    end
-
-    local function IsRollPayload(text)
-        if not text or type(text) ~= "string" then return false end
-        local lower = text:lower()
-        return lower:find("has selected", 1, true) or
-            lower:find("have selected", 1, true) or
-            lower:find("selected ", 1, true) or
-            lower:find("passed on", 1, true) or
-            lower:find(" won", 1, true) or
-            lower:find("roll", 1, true)
     end
 
     local function ExtractBareLootItem(text)
@@ -314,30 +286,6 @@ function PostProcess.Create(config)
         text = text:gsub("(|r)%s*[Ll]oot%s*:?%s*", "%1 ")
         text = text:gsub("(%s+has selected %w+)%s+for%s*:%s*", "%1: ")
         text = text:gsub("%s+[Ll]oot%s*$", "")
-        text = text:gsub(" x(%d+)(|r)?%s*$", function(count, reset)
-            return " " .. colorPlus .. "(" .. count .. ")|r" .. (reset or "")
-        end)
-
-        local nameAtEnd = plain:match(" by ([^|%[%]]+)%s*$") or plain:match(" won by ([^|%[%]]+)%s*$") or plain:match(" [Ww]inner:?%s+([^|%[%]]+)%s*$")
-        if nameAtEnd then
-            nameAtEnd = Trim(nameAtEnd):gsub("%-.*$", "")
-            if nameAtEnd ~= "" then
-                local didReplace
-                text = text:gsub(" by ([^|%[%]]+)%s*(|r)?%s*$", function(name, reset)
-                    didReplace = true
-                    local short = Trim(name):gsub("%-.*$", "")
-                    return " by " .. colorLootLiteral .. short .. "|r" .. (reset or "")
-                end, 1)
-                if not didReplace then
-                    text = text:gsub(" ([Ww]inner:?%s+)([^|%[%]]+)%s*(|r)?%s*$", function(label, name, reset)
-                        didReplace = true
-                        local short = Trim(name):gsub("%-.*$", "")
-                        return " " .. label .. colorLootLiteral .. short .. "|r" .. (reset or "")
-                    end, 1)
-                end
-                if didReplace then return text end
-            end
-        end
 
         text = text:gsub("^(|c%x%x%x%x%x%x%x%x)?%s*([^|%[%]%s]+)(%s+receives loot:%s*)(.-)$", function(prefix, name, literal, tail)
             local short = Trim(name):gsub("%-.*$", "")
@@ -363,7 +311,7 @@ function PostProcess.Create(config)
         text = text:gsub("^(.-)%s+has selected%s+(%w+)%s*:%s*(.+)$", function(name, typeWord, item)
             local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
             if short ~= "" and short ~= "Loot" and typeWord then
-                return colorLootLiteral .. short .. "|r " .. Literal(SelectedRollText(typeWord)) .. " " .. item
+                return colorLootLiteral .. short .. "|r " .. Literal(T("CHAT_ROLL_" .. typeWord:upper(), typeWord)) .. " " .. item
             end
             return name .. " " .. typeWord .. ": " .. item
         end)
@@ -415,21 +363,52 @@ function PostProcess.Create(config)
         return text
     end
 
+    local function Unpack(args)
+        return unpack(args, 1, args.n or #args)
+    end
+
+    -- Chat type ids of players' chat, where only the prefix, brackets and
+    -- AFK/DND flag are restyled: a player's words are never loot or roll
+    -- lines. Read on first use, once the chat frames have set the ids.
+    local PLAYER_CHAT_TYPES = {
+        "SAY", "YELL", "EMOTE", "WHISPER", "WHISPER_INFORM", "BN_WHISPER", "BN_WHISPER_INFORM",
+        "GUILD", "OFFICER", "PARTY", "PARTY_LEADER", "RAID", "RAID_LEADER", "RAID_WARNING",
+        "INSTANCE_CHAT", "INSTANCE_CHAT_LEADER",
+    }
+    local playerChatTypeIDs
+    local function IsPlayerChatLine(args)
+        local typeID = args and args[4]
+        if typeID == nil or IsSecret(typeID) or not ChatTypeInfo then return false end
+        if not playerChatTypeIDs then
+            playerChatTypeIDs = {}
+            local function Add(info)
+                if info and info.id ~= nil then playerChatTypeIDs[info.id] = true end
+            end
+            for _, chatType in ipairs(PLAYER_CHAT_TYPES) do Add(ChatTypeInfo[chatType]) end
+            for index = 1, 20 do Add(ChatTypeInfo["CHANNEL" .. index]) end
+        end
+        return playerChatTypeIDs[typeID] == true
+    end
+
     -- keepLine: the line is already in the chat frame and can only be restyled,
-    -- so lines that would be dropped are kept as they are.
+    -- so lines that would be dropped are kept as they are. args are the rest
+    -- of AddMessage's values, packed with their count in n.
     function api.ProcessMessage(frame, originalAddMessage, message, args, keepLine)
         message = applyChannelStyling(tostring(message))
         message = removeLinkBrackets(message)
+        if IsPlayerChatLine(args) then
+            return originalAddMessage(frame, message, Unpack(args))
+        end
 
         local plain = StripColorCodes(message)
         local appearanceCollectionMessage = formatAppearanceCollectionMessage("CHAT_MSG_SYSTEM", message, plain, colorPlus .. "+|r ")
         if appearanceCollectionMessage then
-            return originalAddMessage(frame, appearanceCollectionMessage, unpack(args))
+            return originalAddMessage(frame, appearanceCollectionMessage, Unpack(args))
         end
 
         local directLootWin = FormatDirectLootWin(message)
         if directLootWin then
-            return originalAddMessage(frame, directLootWin, unpack(args))
+            return originalAddMessage(frame, directLootWin, Unpack(args))
         end
 
         message = StyleLootRollNames(message)
@@ -437,18 +416,18 @@ function PostProcess.Create(config)
         plain = StripColorCodes(message)
         local bareLootMessage = FormatBareLoot(message)
         if bareLootMessage then
-            return originalAddMessage(frame, bareLootMessage, unpack(args))
+            return originalAddMessage(frame, bareLootMessage, Unpack(args))
         end
 
         local hardcoreDeathMessage = FormatHardcoreDeathMessage(plain)
         if hardcoreDeathMessage then
-            return originalAddMessage(frame, hardcoreDeathMessage, unpack(args))
+            return originalAddMessage(frame, hardcoreDeathMessage, Unpack(args))
         end
 
         if not HasChatChannelPrefix(plain) then
             local styledLevelReward = formatLevelUpRewardMessage(plain)
             if styledLevelReward then
-                return originalAddMessage(frame, styledLevelReward, unpack(args))
+                return originalAddMessage(frame, styledLevelReward, Unpack(args))
             end
         end
 
@@ -458,37 +437,28 @@ function PostProcess.Create(config)
         -- without tainting it, so it is emptied instead.
         if parseRetailMoneyGain(plain) or plain:find("^Changed Channel:") or plain:find("^Left Channel:") or plain:find("^Auctionator:") then
             if keepLine then
-                return originalAddMessage(frame, "", unpack(args))
+                return originalAddMessage(frame, "", Unpack(args))
             end
             return
         end
 
-        local isLongForm = plain:match("^%s*(.-)%s+has joined the battle%.?%s*$")
-        local isShortForm = not plain:find("has joined the battle") and plain:match("^%s*(.-)%s+joined%s*$")
+        -- The same join twice in a row ("X has joined the battle." then
+        -- "X joined") shows once.
         local joinPlayers = plain:match("^(%d+)%s+players joined%s*$")
-        local joinKey = nil
-        if joinPlayers then
-            joinKey = "players:" .. joinPlayers
-        elseif isLongForm and isLongForm:gsub("^%s+", ""):gsub("%s+$", "") ~= "" then
-            joinKey = (isLongForm:gsub("^%s+", ""):gsub("%s+$", "")):lower()
-        elseif isShortForm and isShortForm:gsub("^%s+", ""):gsub("%s+$", "") ~= "" then
-            joinKey = (isShortForm:gsub("^%s+", ""):gsub("%s+$", "")):lower()
-        end
-        if not keepLine and joinKey and lastJoinKey == joinKey and (GetTime() - lastJoinTime) < joinDedupDelay then
-            return
-        end
-        if joinKey and (isShortForm or joinPlayers) then
-            lastJoinKey, lastJoinTime = joinKey, GetTime()
+        local joinName = plain:match("^%s*(.-)%s+has joined the battle%.?%s*$") or
+            (not plain:find("has joined the battle", 1, true) and plain:match("^%s*(.-)%s+joined%s*$"))
+        local joinKey = joinPlayers and ("players:" .. joinPlayers) or (joinName and joinName ~= "" and joinName:lower())
+        if joinKey then
+            local last = lastJoinByFrame[frame]
+            if not keepLine and last and last.key == joinKey and (GetTime() - last.time) < joinDedupDelay then
+                return
+            end
+            lastJoinByFrame[frame] = { key = joinKey, time = GetTime() }
         end
 
         local rosterLine = FormatBattleRosterLine(plain)
         if rosterLine then
-            -- A styled long-form join reads like the short form, so a short
-            -- duplicate right after it is dropped too.
-            if joinKey then
-                lastJoinKey, lastJoinTime = joinKey, GetTime()
-            end
-            return originalAddMessage(frame, rosterLine, unpack(args))
+            return originalAddMessage(frame, rosterLine, Unpack(args))
         end
 
         local honor, honorKind = ParseHonorLine(plain)
@@ -503,13 +473,11 @@ function PostProcess.Create(config)
             end
             lastHonorByFrame[frame] = { kind = honorKind, amount = honor, time = GetTime() }
             local styled = spaceBeforeX(colorPlus .. "+|r " .. "|cffffffff" .. honor .. " |r|cffffffffHonor Points|r")
-            return originalAddMessage(frame, styled, unpack(args))
+            return originalAddMessage(frame, styled, Unpack(args))
         end
 
-        return originalAddMessage(frame, message, unpack(args))
+        return originalAddMessage(frame, message, Unpack(args))
     end
-
-    local IsSecret = Carpenter.Secret.IsSecret
 
     -- What the post-processor would print for a line: the new text, or
     -- nothing when the line should go.
@@ -591,7 +559,7 @@ function PostProcess.Create(config)
     end
 
     local function EditAddedLine(frame, message, ...)
-        local added, result = ResolveMessage(frame, message, { ... }, true)
+        local added, result = ResolveMessage(frame, message, { n = select("#", ...), ... }, true)
         if added and result ~= message then
             ReplaceLine(frame, message, result)
         end
@@ -647,7 +615,7 @@ function PostProcess.Create(config)
             end
 
             local originalMessage = message
-            local args = { ... }
+            local args = { n = select("#", ...), ... }
             local ok = pcall(function()
                 local function RunPostProcess()
                     return api.ProcessMessage(self, originalAddMessage, message, args)
@@ -659,7 +627,7 @@ function PostProcess.Create(config)
                 return RunPostProcess()
             end)
             if not ok then
-                originalAddMessage(self, originalMessage, unpack(args))
+                originalAddMessage(self, originalMessage, Unpack(args))
             end
         end
         frame._CP_AddMessageHooked = true

@@ -1531,6 +1531,41 @@ do
     _G.ChatFrame1EditBox = originalEditBox
 end
 
+-- The post-processor leaves players' words alone: only the prefix, the link
+-- brackets and the AFK flag. A party line from a cross-realm player saying
+-- "I roll 100" kept being read as a roll and broke the player's link. The
+-- game colors chat lines through AddMessage, so the text has no color code.
+do
+    local realPartyID = ChatTypeInfo.PARTY.id
+    ChatTypeInfo.PARTY.id = 2
+    local captured
+    postProcessor.ProcessMessage({}, function(_, text) captured = text end,
+        "|Hchannel:PARTY|h[Party]|h |Hplayer:Bob-Realm:5:PARTY|h[Bob-Realm]|h: I roll 100",
+        { n = 4, 0.67, 0.67, 1, 2 })
+    additionalChecks = additionalChecks + 1
+    if plain(captured) ~= "P Bob-Realm: I roll 100" or not tostring(captured):find("|Hplayer:Bob-Realm:5:PARTY|h", 1, true) then
+        failures[#failures + 1] = "post-process: a player's party line should keep its words and link, got [" .. tostring(captured) .. "]"
+    end
+    ChatTypeInfo.PARTY.id = realPartyID
+
+    -- Each chat window shows a battleground join once, in its own copy.
+    local windowA, windowB = {}, {}
+    local shown = {}
+    local function Show(window, text)
+        local out
+        postProcessor.ProcessMessage(window, function(_, line) out = line end, text, {})
+        shown[#shown + 1] = out and plain(out) or "<dropped>"
+    end
+    now = now + 60
+    Show(windowA, "Bob has joined the battle.")
+    Show(windowB, "Bob has joined the battle.")
+    Show(windowA, "Bob joined")
+    additionalChecks = additionalChecks + 1
+    if table.concat(shown, " / ") ~= "Bob joined / Bob joined / <dropped>" then
+        failures[#failures + 1] = "post-process: a join should show once in each window, got [" .. table.concat(shown, " / ") .. "]"
+    end
+end
+
 -- A chat window's history as ScrollingMessageFrame keeps it: entries with the
 -- message, color, chat type id and time, rewritten in place by
 -- TransformMessages.
