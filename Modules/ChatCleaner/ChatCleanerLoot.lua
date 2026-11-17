@@ -2,38 +2,31 @@
 local _, ns = ...
 ns.Private = ns.Private or {}
 
-local Utils = ns.Private.ChatCleanerUtils or {}
+local Utils = ns.Private.ChatCleanerUtils
 local Loot = ns.Private.ChatCleanerLoot or {}
 ns.Private.ChatCleanerLoot = Loot
-local GetItemInfo = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo
 
-local function StripBrackets(text)
-    return Utils.StripBrackets and Utils.StripBrackets(text) or text
-end
+-- Loot lines from your group, and the yells some addons send for them.
+local GROUP_LOOT_EVENTS = {
+    CHAT_MSG_LOOT = true, CHAT_MSG_PARTY = true, CHAT_MSG_PARTY_LEADER = true,
+    CHAT_MSG_RAID = true, CHAT_MSG_RAID_LEADER = true,
+}
 
-local function CleanPunctuation(text)
-    return Utils.CleanPunctuation and Utils.CleanPunctuation(text) or text
-end
-
-local function GetItemLinkFromMessage(text)
-    return Utils.GetItemLinkFromMessage and Utils.GetItemLinkFromMessage(text) or nil
-end
-
-local function MakeLootPattern(fmt)
-    return Utils.MakeLootPattern and Utils.MakeLootPattern(fmt) or nil
-end
-
-local function MakeFormatPattern(fmt, fields, options)
-    if Utils.MakeFormatPattern then
-        return Utils.MakeFormatPattern(fmt, fields, options)
-    end
-    return MakeLootPattern(fmt), fields
+-- Text that makes a "Loot: ..." line a roll result rather than an item.
+-- Whole phrases, so items like "Scroll of Agility" or "Troll Charm" aren't
+-- taken for rolls.
+function Loot.IsRollPayload(text)
+    if not text or type(text) ~= "string" then return false end
+    local lower = text:lower()
+    return lower:find("has selected", 1, true) or lower:find("have selected", 1, true) or
+        lower:find("passed on", 1, true) or lower:find("%f[%a]won%f[%A]") or
+        lower:find("%f[%a]rolls?%s+%d") or false
 end
 
 local function AddFormatPattern(patterns, spec)
     local fmt = spec and _G[spec.global]
     if fmt and type(fmt) == "string" then
-        local pattern, fields = MakeFormatPattern(fmt, spec.fields, { AnchorStart = true, AnchorEnd = true })
+        local pattern, fields = Utils.MakeFormatPattern(fmt, spec.fields, { AnchorStart = true, AnchorEnd = true })
         if pattern then
             patterns[#patterns + 1] = { pattern = pattern, fields = fields, global = spec.global }
         end
@@ -83,7 +76,7 @@ function Loot.GetGroupLootPlayerName(message, groupLootPatterns, author)
     for _, entry in ipairs(groupLootPatterns or {}) do
         local values = MatchFormatEntry(plainLoot, entry)
         if values and values.name then
-            return values.name:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
+            return (values.name:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", ""))
         end
     end
 
@@ -105,15 +98,16 @@ end
 
 function Loot.BuildGroupLootPatterns()
     local patterns = {}
+    -- Each _MULTIPLE first: the single form's "(.+)" would take "x5" too.
     local specs = {
-        { global = "LOOT_ITEM", fields = { "name", "item" } },
         { global = "LOOT_ITEM_MULTIPLE", fields = { "name", "item", "count" } },
-        { global = "LOOT_ITEM_PUSHED", fields = { "name", "item" } },
+        { global = "LOOT_ITEM", fields = { "name", "item" } },
         { global = "LOOT_ITEM_PUSHED_MULTIPLE", fields = { "name", "item", "count" } },
-        { global = "LOOT_ITEM_BONUS_ROLL", fields = { "name", "item" } },
+        { global = "LOOT_ITEM_PUSHED", fields = { "name", "item" } },
         { global = "LOOT_ITEM_BONUS_ROLL_MULTIPLE", fields = { "name", "item", "count" } },
-        { global = "CREATED_ITEM", fields = { "name", "item" } },
+        { global = "LOOT_ITEM_BONUS_ROLL", fields = { "name", "item" } },
         { global = "CREATED_ITEM_MULTIPLE", fields = { "name", "item", "count" } },
+        { global = "CREATED_ITEM", fields = { "name", "item" } },
     }
 
     for _, spec in ipairs(specs) do
@@ -125,13 +119,14 @@ end
 
 function Loot.BuildSelfLootPatterns()
     local patterns = {}
+    -- Each _MULTIPLE first: the single form's "(.+)" would take "x5" too.
     local specs = {
-        { global = "LOOT_ITEM_SELF", fields = { "item" } },
         { global = "LOOT_ITEM_SELF_MULTIPLE", fields = { "item", "count" } },
-        { global = "LOOT_ITEM_PUSHED_SELF", fields = { "item" } },
+        { global = "LOOT_ITEM_SELF", fields = { "item" } },
         { global = "LOOT_ITEM_PUSHED_SELF_MULTIPLE", fields = { "item", "count" } },
-        { global = "LOOT_ITEM_CREATED_SELF", fields = { "item" } },
+        { global = "LOOT_ITEM_PUSHED_SELF", fields = { "item" } },
         { global = "LOOT_ITEM_CREATED_SELF_MULTIPLE", fields = { "item", "count" } },
+        { global = "LOOT_ITEM_CREATED_SELF", fields = { "item" } },
     }
 
     for _, spec in ipairs(specs) do
@@ -161,11 +156,9 @@ function Loot.BuildRollPatterns()
     for _, globalName in ipairs(globals) do
         local fmt = _G[globalName]
         if fmt and type(fmt) == "string" and not fmt:find("|H") then
-            local pattern = MakeLootPattern(fmt)
+            local pattern = Utils.MakeFormatPattern(fmt)
             if pattern then
-                local literal = (fmt:gsub("%%[%d%$]*s", ""):gsub("%%[%d%$]*d", ""):gsub("^%s+", " "):gsub("%s+$", " "))
-                local relaxed = pattern:gsub(" need ", " .- "):gsub(" greed ", " .- "):gsub(" passed on ", " .- on "):gsub(" disenchant ", " .- "):gsub(" won ", " .- ")
-                patterns[#patterns + 1] = { pattern = relaxed, literal = literal, rollType = rollTypes[globalName] }
+                patterns[#patterns + 1] = { pattern = pattern, rollType = rollTypes[globalName] }
             end
         end
     end
@@ -173,53 +166,12 @@ function Loot.BuildRollPatterns()
     return patterns
 end
 
-Loot.RollPatternsFallback = {
-    { pattern = "^(.-)%s+has selected .- for%s+(.+)$", literal = " has selected for " },
-    { pattern = "^(.-)%s+passed on[:%s]+(.+)$", literal = " passed on " },
-    { pattern = "^(.-)%s+won%s+(.+)$", literal = " won " },
-}
-
-local rollTypeByItem = {}
-
-function Loot.GetRollItemKey(itemPart, msg)
-    if not itemPart or itemPart == "" then
-        local link = GetItemLinkFromMessage(msg or "")
-        if link and GetItemInfo then
-            local name = GetItemInfo(link)
-            if name then return name end
-        end
-        return ""
-    end
-
-    local plain = (itemPart:gsub("|H.-|h(.-)|h", "%1")):gsub("^%s+", ""):gsub("%s+$", "")
-    return CleanPunctuation(StripBrackets(plain)) or ""
-end
-
-function Loot.GetRollType(itemKey, playerName)
-    if not itemKey or itemKey == "" then return "Greed" end
-    local itemRolls = rollTypeByItem[itemKey]
-    if not itemRolls then return "Greed" end
-    return itemRolls[playerName] or itemRolls["You"] or "Greed"
-end
-
-function Loot.SetRollType(itemKey, playerName, rollType)
-    if not itemKey or itemKey == "" then return end
-    rollTypeByItem[itemKey] = rollTypeByItem[itemKey] or {}
-    rollTypeByItem[itemKey][playerName] = rollType
-end
-
-function Loot.ClearRollItem(itemKey)
-    if itemKey and itemKey ~= "" then
-        rollTypeByItem[itemKey] = nil
-    end
-end
-
 function Loot.Create(config)
     config = config or {}
-    local cleanPunctuation = config.CleanPunctuation or CleanPunctuation
-    local stripBrackets = config.StripBrackets or StripBrackets
+    local cleanPunctuation = config.CleanPunctuation or Utils.CleanPunctuation
+    local stripBrackets = config.StripBrackets or Utils.StripBrackets
     local spaceBeforeX = config.SpaceBeforeX or function(text) return text end
-    local getItemLinkFromMessage = config.GetItemLinkFromMessage or GetItemLinkFromMessage
+    local getItemLinkFromMessage = config.GetItemLinkFromMessage or Utils.GetItemLinkFromMessage
     local getItemLinkWithQualityColor = config.GetItemLinkWithQualityColor or function(link) return link end
     local formatItemCountSuffix = config.FormatItemCountSuffix or function(text) return text end
     local formatReceivedDisplay = config.FormatReceivedDisplay or function() return nil end
@@ -227,7 +179,6 @@ function Loot.Create(config)
     local selfLootPatterns = config.SelfLootPatterns or Loot.BuildSelfLootPatterns()
     local groupLootPatterns = config.GroupLootPatterns or Loot.BuildGroupLootPatterns()
     local rollPatterns = config.RollPatterns or Loot.BuildRollPatterns()
-    local rollPatternsFallback = config.RollPatternsFallback or Loot.RollPatternsFallback
     local colorPlus = config.ColorPlus or "|cffc8c8c8"
     local colorLootLiteral = config.ColorLootLiteral or "|cffc8c8c8"
     local colorGreen = config.ColorGreen or "|cff00ff00"
@@ -252,17 +203,6 @@ function Loot.Create(config)
     local function StyleBareLootDisplay(display)
         if not display or display == "" or display:find("|Hitem:", 1, true) then return display end
         return colorGreen .. display .. "|r"
-    end
-
-    local function IsRollPayload(text)
-        if not text or type(text) ~= "string" then return false end
-        local lower = text:lower()
-        return lower:find("has selected", 1, true) or
-            lower:find("have selected", 1, true) or
-            lower:find("selected ", 1, true) or
-            lower:find("passed on", 1, true) or
-            lower:find(" won", 1, true) or
-            lower:find("roll", 1, true)
     end
 
     local function CleanRollActionText(text)
@@ -294,13 +234,20 @@ function Loot.Create(config)
         return nil
     end
 
+    -- The item a roll line names: its link in quality color, else its name.
+    local function RollItemDisplay(message, rawItem)
+        local itemLink = getItemLinkFromMessage(message)
+        return itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(rawItem))
+    end
+
     local function BuildRollDisplay(itemPart, fromMsg)
         local itemLink = getItemLinkFromMessage(fromMsg or "")
         local display
         if itemLink then
             display = getItemLinkWithQualityColor(itemLink)
             display = spaceBeforeX(display)
-            local stackCount = (fromMsg or ""):match(" x(%d+)%s*(|r)?%s*$") or (fromMsg or ""):match(" x(%d+)%s* by ")
+            local unclosed = (fromMsg or ""):gsub("|r", "")
+            local stackCount = unclosed:match(" x(%d+)%s*$") or unclosed:match(" x(%d+)%s* by ")
             if stackCount then
                 display = display .. " " .. colorPlus .. "(" .. stackCount .. ")|r"
             end
@@ -327,7 +274,7 @@ function Loot.Create(config)
             message:match("You received item: (.+)") or message:match("You received items: (.+)")
         if not item then
             local lootPayload = message:match("^%s*[Ll]oot:%s*(.+)$")
-            if lootPayload and not IsRollPayload(lootPayload) then
+            if lootPayload and not Loot.IsRollPayload(lootPayload) then
                 local display = formatReceivedDisplay(lootPayload, message)
                 local lootLabelColor = getChannelMessageColor(event) or colorLootLiteral
                 if display then return lootLabelColor .. "Loot|r " .. prefixPlus .. StyleBareLootDisplay(display) end
@@ -359,9 +306,7 @@ function Loot.Create(config)
     end
 
     function api.FormatGroupLootMessage(event, message, author)
-        local isGroupLootEvent = event == "CHAT_MSG_LOOT" or event == "CHAT_MSG_PARTY" or event == "CHAT_MSG_PARTY_LEADER" or
-            event == "CHAT_MSG_RAID" or event == "CHAT_MSG_RAID_LEADER" or event == "CHAT_MSG_YELL"
-        if not isGroupLootEvent then return nil end
+        if not GROUP_LOOT_EVENTS[event] then return nil end
 
         local nameColor = getChannelMessageColor(event) or colorLootLiteral
         local function StyleGroupLoot(name, display)
@@ -375,7 +320,7 @@ function Loot.Create(config)
             if values and values.name then
                 local name = values.name
                 local itemPart = ItemWithCount(values.item, values.count)
-                name = name:gsub("^%s+", ""):gsub("%s+$", "")
+                name = name:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
                 local display = BuildDisplayFromMessage(message)
                 if not display then
                     display = cleanPunctuation(stripBrackets(itemPart or ""))
@@ -428,15 +373,14 @@ function Loot.Create(config)
                 :gsub("%s+$", "")
         end
         local rollPrefixColor = getChannelMessageColor(event) or colorLootLiteral
-        -- Rollers get their class color, like names in say and party chat.
+        -- Rollers take their class color where GetPlayerNameColor gives one
+        -- (outside a group); else the roll line's color.
         local function NameOut(name)
             name = CleanRollName(name)
-            local isYou = name:lower() == "you"
-            if isYou then
-                return rollPrefixColor .. You() .. "|r", true
+            if name:lower() == "you" then
+                return rollPrefixColor .. You() .. "|r"
             end
-            local short = name:gsub("%-.*$", "")
-            return (getPlayerNameColor(short) or rollPrefixColor) .. short .. "|r", false
+            return (getPlayerNameColor(name) or rollPrefixColor) .. name .. "|r"
         end
         local function RollLiteral(text)
             text = CleanRollActionText(text)
@@ -473,9 +417,7 @@ function Loot.Create(config)
 
         local looseYouType, looseYouItem = plainRoll:match("[Yy]ou%s+have%s+selected%s+(%S+).-[Ff]or%s*:?%s*(.+)$")
         if looseYouType and looseYouItem then
-            local itemLink = getItemLinkFromMessage(message)
-            local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(looseYouItem))
-            return RollLine("You", SelectedRollText(looseYouType), display)
+            return RollLine("You", SelectedRollText(looseYouType), RollItemDisplay(message, looseYouItem))
         end
 
         local directWinName, directWinItem = plainRoll:match("^%s*%b[]%s*[Ll]oot:%s*(.-)%s+[Ww]on:%s*(.+)$")
@@ -489,37 +431,21 @@ function Loot.Create(config)
             return RollLine(directWinName, T("CHAT_WON_LABEL", "won:"), display)
         end
 
-        local afterLootPass = coreRoll:match("^%s*[Ll]oot:%s*(.+)$") or coreRoll
-        local passName, passItem = afterLootPass:match("^(.-)%s+passed on[:%s]+(.+)$")
+        local afterLoot = coreRoll:match("^%s*[Ll]oot:%s*(.+)$") or coreRoll
+        local passName, passItem = afterLoot:match("^(.-)%s+passed on[:%s]+(.+)$")
         if passName and passItem then
             passName = CleanRollName(passName)
             if passName ~= "" and passName ~= "Loot" then
-                local itemLink = getItemLinkFromMessage(message)
-                local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(passItem))
-                return RollLine(passName, T("CHAT_PASSED_LABEL", "passed:"), display)
+                return RollLine(passName, T("CHAT_PASSED_LABEL", "passed:"), RollItemDisplay(message, passItem))
             end
         end
 
-        local afterLoot = coreRoll:match("^%s*[Ll]oot:%s*(.+)$") or coreRoll
         local selName, selType, selItem = afterLoot:match("^(.-)%s+has selected%s+(%S+)%s*:%s*(.+)$")
         if not selName then
             selName, selType, selItem = afterLoot:match("^(.-)%s+has selected%s+(%S+).-%s+for%s*:?%s*(.+)$")
         end
         if selName and selType and selItem then
-            selName = CleanRollName(selName)
-            local itemLink = getItemLinkFromMessage(message)
-            local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(selItem))
-            return RollLine(selName, SelectedRollText(selType), display)
-        end
-
-        local youType, youItem = afterLoot:match("^[Yy]ou%s+have%s+selected%s+(%S+).-[Ff]or%s*: ?(.+)$")
-        if not youType then
-            youType, youItem = afterLoot:match("^[Yy]ou%s+have%s+selected%s+(%S+)%s+for%s+(.+)$")
-        end
-        if youType and youItem then
-            local itemLink = getItemLinkFromMessage(message)
-            local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(youItem))
-            return RollLine("You", SelectedRollText(youType), display)
+            return RollLine(CleanRollName(selName), SelectedRollText(selType), RollItemDisplay(message, selItem))
         end
 
         local wonName, wonItem = afterLoot:match("^(.-)%s+[Ww]on:%s*(.+)$")
@@ -527,73 +453,34 @@ function Loot.Create(config)
         if not wonName then wonName, wonItem = coreRoll:match("^(.-)%s+[Ww]on:%s*(.+)$") end
         if not wonName then wonName, wonItem = coreRoll:match("^(.-)%s+[Ww]on%s+(.+)$") end
         if wonName and wonItem then
-            wonName = CleanRollName(wonName)
-            local itemLink = getItemLinkFromMessage(message)
-            local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(wonItem))
-            return RollLine(wonName, T("CHAT_WON_LABEL", "won:"), display)
+            return RollLine(CleanRollName(wonName), T("CHAT_WON_LABEL", "won:"), RollItemDisplay(message, wonItem))
         end
 
         local wonItem2, wonBy = coreRoll:match("^%s*[Ll]oot:%s*(.-)%s+won by%s+(.+)$")
         if wonItem2 and wonBy then
-            wonBy = CleanRollName(wonBy)
-            local itemLink = getItemLinkFromMessage(message)
-            local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(wonItem2))
-            return RollLine(wonBy, T("CHAT_WON_LABEL", "won:"), display)
+            return RollLine(CleanRollName(wonBy), T("CHAT_WON_LABEL", "won:"), RollItemDisplay(message, wonItem2))
         end
 
-        local function RollTypeWord(literal)
-            if not literal then return "Greed" end
-            local lower = literal:lower()
-            if lower:find("need") then return "Need" end
-            if lower:find("greed") then return "Greed" end
-            if lower:find("passed on") or lower:find("pass") then return "Pass" end
-            if lower:find("disenchant") then return "Disenchant" end
-            if lower:find(" won ") or lower:find(" wins ") then return "Won" end
-            return "Greed"
-        end
-
-        local function TryRollEntry(entry)
-            local name, itemPart = coreRoll:match(entry.pattern)
-            if not name or name == "" then return nil end
-            name = CleanRollName(name)
-            if name == "" or name == "Loot" then return nil end
-
-            local display = BuildRollDisplay(itemPart, message)
-            local isYou = name == "You" or name == playerName
-            local displayName = isYou and "You" or name
-            local shortName = CleanRollName(name)
-            local typeWord = entry.rollType or RollTypeWord(entry.literal)
-            local itemKey = Loot.GetRollItemKey(itemPart, message)
-
-            if typeWord == "Pass" then
-                return RollLine(displayName, T("CHAT_PASSED_LABEL", "passed:"), display)
-            end
-            if typeWord == "Won" then
-                Loot.ClearRollItem(itemKey)
-                return RollLine(displayName, T("CHAT_WON_LABEL", "won:"), display)
-            end
-            Loot.SetRollType(itemKey, shortName, typeWord)
-            if isYou then Loot.SetRollType(itemKey, "You", typeWord) end
-            if display and display ~= "" then
-                return RollLine(displayName, SelectedRollText(typeWord), display)
-            end
-            return true
-        end
-
+        -- Other clients' roll lines, from the game's own LOOT_ROLL_* strings;
+        -- the roll type comes with the string.
         for _, entry in ipairs(rollPatterns) do
-            local result = TryRollEntry(entry)
-            if result ~= nil then return result end
-        end
-        for _, entry in ipairs(rollPatternsFallback) do
-            local result = TryRollEntry(entry)
-            if result ~= nil then return result end
+            local name, itemPart = coreRoll:match(entry.pattern)
+            name = CleanRollName(name)
+            if name ~= "" and name ~= "Loot" then
+                local display = BuildRollDisplay(itemPart, message)
+                local displayName = (name == "You" or name == playerName) and "You" or name
+                if entry.rollType == "Won" then
+                    return RollLine(displayName, T("CHAT_WON_LABEL", "won:"), display)
+                end
+                if not display or display == "" then return true end
+                return RollLine(displayName, SelectedRollText(entry.rollType), display)
+            end
         end
 
         local rollName, rollNum, rollItemPart = coreRoll:match("^%s*(.-)%s+rolls?%s+(%d+)%s*:?%s*(.*)$")
         if rollName and rollNum and rollName ~= "" then
             rollName = CleanRollName(rollName)
             if rollName ~= "" and rollName ~= "Loot" then
-                local itemKey = Loot.GetRollItemKey(rollItemPart, message)
                 local isYouRoll = rollName == "You" or rollName == playerName
                 local isSimpleRange = rollItemPart == nil or rollItemPart == "" or rollItemPart:match("^%(%d+%-%d+%)%s*$")
                 if isSimpleRange then
@@ -612,7 +499,6 @@ function Loot.Create(config)
                     end
                     return RollLine(rollName, T("CHAT_ROLLS_LABEL", "rolls %s:", rollNum), display)
                 end
-                local _ = Loot.GetRollType(itemKey, isYouRoll and "You" or rollName:gsub("%-.*$", ""))
             end
         end
 
@@ -626,19 +512,18 @@ function Loot.Create(config)
                 local forPart = coreRoll:match(" for (.+) by ") or coreRoll:match(" for (.+)%.?%s*[Ww]inner") or ""
                 local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(forPart))
                 display = spaceBeforeX(display)
-                local stackCount = message:match(" x(%d+)%s*(|r)?%s*$") or message:match(" x(%d+)%s* by ") or message:match(" x(%d+)%s*%.?%s*[Ww]inner")
+                local unclosed = message:gsub("|r", "")
+                local stackCount = unclosed:match(" x(%d+)%s*$") or unclosed:match(" x(%d+)%s* by ") or unclosed:match(" x(%d+)%s*%.?%s*[Ww]inner")
                 if stackCount then display = display .. " " .. colorPlus .. "(" .. stackCount .. ")|r" end
                 if not itemLink then display = formatItemCountSuffix(display) end
                 display = StripTrailingLoot(display)
-                local itemKey = Loot.GetRollItemKey(forPart, message)
                 local isYou = nameAtEnd == playerName or nameAtEnd == "You"
                 local displayName = isYou and "You" or nameAtEnd
                 if isWinner then
-                    Loot.ClearRollItem(itemKey)
                     return RollLine(displayName, T("CHAT_WON_LABEL", "won:"), display)
                 end
                 if not rollNum or not display or display == "" then
-                    return spaceBeforeX(message)
+                    return nil
                 end
                 if isYou then
                     return RollLine("You", T("CHAT_ROLL_LABEL", "roll %s:", rollNum), display)

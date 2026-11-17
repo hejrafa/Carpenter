@@ -159,7 +159,15 @@ function Utils.FormatReceivedDisplay(rawDisplay, sourceMessage, options)
     options = options or {}
 
     local itemLink = Utils.GetItemLinkFromMessage(sourceMessage or rawDisplay)
-    local display = itemLink and Utils.GetItemLinkWithQualityColor(itemLink) or Utils.CleanPunctuation(Utils.StripBrackets(rawDisplay))
+    local display
+    if itemLink then
+        -- The link alone would drop a stack's count: "|h[Linen Cloth]|h|rx5".
+        display = Utils.GetItemLinkWithQualityColor(itemLink)
+        local count = rawDisplay:gsub("|r", ""):match("x(%d+)%s*%.?%s*$")
+        if count then display = display .. " x" .. count end
+    else
+        display = Utils.CleanPunctuation(Utils.StripBrackets(rawDisplay))
+    end
     display = display:gsub("^%s+", ""):gsub("%s+$", "")
     display = display:gsub("^an?%s+item:%s*", "")
     display = display:gsub("^item:%s*", "")
@@ -226,8 +234,4 @@ function Utils.MakeFormatPattern(fmt, fields, options)
     end
 
     return pattern, captureFields
-end
-
-function Utils.MakeLootPattern(fmt)
-    return Utils.MakeFormatPattern(fmt)
 end

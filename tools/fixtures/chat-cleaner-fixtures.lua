@@ -956,6 +956,24 @@ local fixtures = {
         expectPlain = "You receive 5 tokens",
     },
     {
+        name = "a linked stack you loot keeps its count",
+        event = "CHAT_MSG_LOOT",
+        message = "You receive loot: |cffffffff|Hitem:2589::::::::1:::::::|h[Linen Cloth]|h|rx5.",
+        expectPlain = "+ [Linen Cloth] (5)",
+    },
+    {
+        name = "a scroll in a loot line isn't a roll",
+        event = "CHAT_MSG_LOOT",
+        message = "Loot: Scroll of Agility",
+        expectPlain = "Loot + Scroll of Agility",
+    },
+    {
+        name = "group loot leaves the realm off",
+        event = "CHAT_MSG_LOOT",
+        message = "Malagas-Grobbulus receives loot: Linen Clothx5.",
+        expectPlain = "Malagas + Linen Cloth (5)",
+    },
+    {
         name = "a refund names the item and count",
         event = "CHAT_MSG_SYSTEM",
         message = "You are refunded: Badge of Justice x10.",
@@ -1187,7 +1205,6 @@ do
         SelfLootPatterns = loot.BuildSelfLootPatterns(),
         GroupLootPatterns = loot.BuildGroupLootPatterns(),
         RollPatterns = {},
-        RollPatternsFallback = {},
         ColorPlus = countColor,
         ColorLootLiteral = "|cffffffff",
         ColorGreen = "|cff00ff00",
@@ -1238,7 +1255,6 @@ do
         GetItemLinkFromMessage = utils.GetItemLinkFromMessage,
         GetItemLinkWithQualityColor = utils.GetItemLinkWithQualityColor,
         RollPatterns = loot.BuildRollPatterns(),
-        RollPatternsFallback = {},
         ColorLootLiteral = "|cffffffff",
     })
 

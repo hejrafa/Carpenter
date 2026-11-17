@@ -122,7 +122,6 @@ end
 
 local GroupLootPatterns = ChatCleanerLoot.BuildGroupLootPatterns and ChatCleanerLoot.BuildGroupLootPatterns() or {}
 local RollPatterns = ChatCleanerLoot.BuildRollPatterns and ChatCleanerLoot.BuildRollPatterns() or {}
-local RollPatternsFallback = ChatCleanerLoot.RollPatternsFallback or {}
 -- Assigned once the social formatter exists; the loot formatter is built first.
 local GetPlayerClassColor
 -- Roll names take their class color only outside a group; in a party or raid
@@ -143,7 +142,6 @@ local lootFormatter = ChatCleanerLoot.Create and ChatCleanerLoot.Create({
     ShouldSkipGenericReceive = ShouldSkipGenericReceive,
     GroupLootPatterns = GroupLootPatterns,
     RollPatterns = RollPatterns,
-    RollPatternsFallback = RollPatternsFallback,
     GetPlayerNameColor = GetPlayerNameColor,
     ColorPlus = ColorPlus,
     ColorLootLiteral = ColorLootLiteral,
