@@ -546,7 +546,7 @@ function PostProcess.Create(config)
 
     local function EditsAfterAdd(frame)
         return frame ~= nil and frame._CP_AddMessagePostHooked == true and frame._CP_AddMessageHooked == true
-            and Carpenter ~= nil and Carpenter:IsEnabled("chatCleanerEnabled")
+            and Carpenter:IsEnabled("chatCleanerEnabled")
     end
 
     -- Lines without a sender, which the chat frame prints as they are.
@@ -636,18 +636,14 @@ function PostProcess.Create(config)
 
     local function OnLineAdded(frame, message, ...)
         if not frame._CP_AddMessageHooked then return end
-        if not (Carpenter and Carpenter:IsEnabled("chatCleanerEnabled")) then return end
+        if not Carpenter:IsEnabled("chatCleanerEnabled") then return end
         if IsSecret(message) then
             if hiddenLineHandler then pcall(hiddenLineHandler, frame) end
             return
         end
         if type(message) ~= "string" then return end
 
-        if Carpenter.Profile then
-            pcall(Carpenter.Profile, Carpenter, "ChatCleaner:AddMessage", EditAddedLine, frame, message, ...)
-        else
-            pcall(EditAddedLine, frame, message, ...)
-        end
+        pcall(Carpenter.Profile, Carpenter, "ChatCleaner:AddMessage", EditAddedLine, frame, message, ...)
     end
 
     function api.HookChatFrameAddMessage(frame)
@@ -666,24 +662,15 @@ function PostProcess.Create(config)
         frame._CP_OriginalAddMessage = originalAddMessage
 
         frame.AddMessage = function(self, message, ...)
-            if not (Carpenter and Carpenter:IsEnabled("chatCleanerEnabled")) then
+            if not Carpenter:IsEnabled("chatCleanerEnabled") then
                 return originalAddMessage(self, message, ...)
             end
 
-            local originalMessage = message
             local args = { n = select("#", ...), ... }
-            local ok = pcall(function()
-                local function RunPostProcess()
-                    return api.ProcessMessage(self, originalAddMessage, message, args)
-                end
-
-                if Carpenter and Carpenter.Profile then
-                    return Carpenter:Profile("ChatCleaner:AddMessage", RunPostProcess)
-                end
-                return RunPostProcess()
-            end)
+            local ok = pcall(Carpenter.Profile, Carpenter, "ChatCleaner:AddMessage", api.ProcessMessage, self,
+                originalAddMessage, message, args)
             if not ok then
-                originalAddMessage(self, originalMessage, Unpack(args))
+                originalAddMessage(self, message, Unpack(args))
             end
         end
         frame._CP_AddMessageHooked = true

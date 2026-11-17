@@ -93,7 +93,7 @@ function HiddenLines.Create(config)
     local order = 0
 
     local function Now()
-        return GetTime and GetTime() or 0
+        return GetTime()
     end
 
     -- Chat type ids of the lines looked at, by kind, read once per set of

@@ -46,7 +46,7 @@ function System.Create()
     local function IsRepeatedLearnedLine(frame, display)
         local key = frame or sharedLearnedLineKey
         local name, rank = PlainLearnedName(display)
-        local now = GetTime and GetTime() or 0
+        local now = GetTime()
         local last = lastLearnedLines[key]
         if last and last.name == name and (now - last.time) <= LEARNED_SKILL_DEDUP_SECONDS
             and (last.rank == rank or last.rank == "" or rank == "") then
@@ -362,7 +362,7 @@ function System.Create()
     -- its queue goes, so ChatCleaner names the shown line once the queue has;
     -- should the queue go first, the line is named here.
     local function LeftQueueName()
-        local now = GetTime and GetTime() or 0
+        local now = GetTime()
         for index = #queueChanges, 1, -1 do
             local change = queueChanges[index]
             if now - change.time > SAME_MOMENT_SECONDS then return nil end
@@ -455,7 +455,7 @@ function System.Create()
             local name, rank = PlainLearnedName(display)
             if rank ~= "" then
                 lastLearnedSkillName = name
-                lastLearnedSkillTime = GetTime and GetTime() or 0
+                lastLearnedSkillTime = GetTime()
             end
             if IsRepeatedLearnedLine(frame, display) then
                 return true
@@ -476,7 +476,7 @@ function System.Create()
         local gainedSkill = plainText:match("[Yy]ou have gained the (.-) skill[%.,!]?%s*$")
         if gainedSkill then
             local display = CleanPunctuation(StripBrackets(gainedSkill))
-            local now = GetTime and GetTime() or 0
+            local now = GetTime()
             if lastLearnedSkillName and PlainLearnedName(display) == lastLearnedSkillName and (now - lastLearnedSkillTime) <= LEARNED_SKILL_DEDUP_SECONDS then
                 return true
             end
@@ -528,7 +528,7 @@ function System.Create()
     end
 
     function api.RefreshSkillRanks()
-        local now = GetTime and GetTime() or 0
+        local now = GetTime()
         while skillRises[1] and now - skillRises[1].time > SKILL_RISE_WINDOW_SECONDS do
             table.remove(skillRises, 1)
         end
@@ -588,7 +588,7 @@ function System.Create()
     end
 
     function api.RefreshQueues()
-        local now = GetTime and GetTime() or 0
+        local now = GetTime()
         while queueChanges[1] and now - queueChanges[1].time > QUEUE_CHANGE_WINDOW_SECONDS do
             table.remove(queueChanges, 1)
         end
