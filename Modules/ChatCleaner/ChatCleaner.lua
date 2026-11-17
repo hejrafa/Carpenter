@@ -565,6 +565,73 @@ function Carpenter_ApplyChatEditBoxTexture()
     end
 end
 
+-- Inside battlegrounds, and in fights in instances, the game hides player
+-- chat from addons. The chat window still keeps each line's event and its
+-- values, and addon code may join hidden text into new text, so the line is
+-- rebuilt as the post-processor styles a shown one: the short channel tag,
+-- the sender as a player link, and the message. Event: chat type and the
+-- player link's chat group.
+local HIDDEN_CHAT_TYPES = {
+    CHAT_MSG_GUILD = { "GUILD", "GUILD" },
+    CHAT_MSG_OFFICER = { "OFFICER", "OFFICER" },
+    CHAT_MSG_PARTY = { "PARTY", "PARTY" },
+    CHAT_MSG_PARTY_LEADER = { "PARTY_LEADER", "PARTY" },
+    CHAT_MSG_RAID = { "RAID", "RAID" },
+    CHAT_MSG_RAID_LEADER = { "RAID_LEADER", "RAID" },
+    CHAT_MSG_RAID_WARNING = { "RAID_WARNING", "RAID" },
+    CHAT_MSG_INSTANCE_CHAT = { "INSTANCE_CHAT", "INSTANCE_CHAT" },
+    CHAT_MSG_INSTANCE_CHAT_LEADER = { "INSTANCE_CHAT_LEADER", "INSTANCE_CHAT" },
+}
+local LogHiddenChat = function() end -- TEMPORARY: the hidden chat probe logs here
+
+local function IsHiddenChatEvent(event)
+    return HIDDEN_CHAT_TYPES[event] ~= nil
+end
+
+-- The sender as the game shows them: its own decoration (class color, short
+-- name) when it takes the hidden values, else the name as sent.
+local function HiddenSenderName(event, args)
+    local util = ChatFrameUtil
+    if util and util.GetDecoratedSenderName then
+        local ok, name = pcall(util.GetDecoratedSenderName, event, unpack(args, 1, args.n or 17))
+        if ok and name then return name end
+    end
+    local ok, short = pcall(Ambiguate, args[2], "none")
+    if ok and short then return short end
+    return args[2]
+end
+
+-- The chat timestamp the game puts before each line, when it's switched on.
+local function ChatTimestamp()
+    local util = ChatFrameUtil
+    if not (util and util.GetTimestampFormat and TimeUtil and TimeUtil.BetterDate) then return "" end
+    local ok, format = pcall(util.GetTimestampFormat)
+    if not ok or not format then return "" end
+    local okDate, stamp = pcall(TimeUtil.BetterDate, format, type(time) == "function" and time() or nil)
+    return okDate and type(stamp) == "string" and stamp or ""
+end
+
+local function BuildHiddenChat(event, args)
+    local types = HIDDEN_CHAT_TYPES[event]
+    if not types or type(args) ~= "table" or not postProcessor.StyleChatPrefix then return nil end
+    local prefix = postProcessor.StyleChatPrefix(_G["CHAT_" .. types[1] .. "_GET"])
+    local message, author, lineID = args[1], args[2], args[11]
+    if not (prefix and message and author) then return nil end
+    local link = "|Hplayer:" .. author .. ":" .. (lineID or 0) .. ":" .. types[2] .. "|h"
+        .. HiddenSenderName(event, args) .. "|h"
+    return ChatTimestamp() .. string.format(prefix, link) .. message
+end
+
+local function FormatHiddenChat(event, args)
+    local ok, text = pcall(BuildHiddenChat, event, args)
+    if not ok then
+        LogHiddenChat("rebuild failed for " .. tostring(event) .. ": " .. tostring(text))
+        return nil
+    end
+    LogHiddenChat("rebuilt " .. tostring(event) .. (text and (" secret=" .. tostring(IsSecret(text))) or " nil"))
+    return text
+end
+
 -- Keeps group deaths, the roster, skill ranks and battleground queues
 -- current, so hidden death, join, leave, skill-up and queue lines can be
 -- rewritten from them in the chat history.
@@ -602,6 +669,8 @@ local hiddenLines = HiddenLines and HiddenLines.Create({
         return Carpenter ~= nil and Carpenter.Client ~= nil and Carpenter.Client.isForever == true
     end,
     FormatOwnDeath = OwnDeathLine,
+    IsHiddenChatEvent = IsHiddenChatEvent,
+    FormatHiddenChat = FormatHiddenChat,
 })
 ns.Private.ChatCleaner.HiddenLines = hiddenLines
 
@@ -857,6 +926,7 @@ local function TryJoin(label, value)
     return string.format("%s join ok secret=%s, format %s secret=%s", label, tostring(IsSecret(result)),
         okFormat and "ok" or ("error: " .. tostring(formatted)), tostring(okFormat and IsSecret(formatted)))
 end
+LogHiddenChat = HiddenChatProbe
 local hiddenChatSeen = 0
 local hiddenChatFrame = CreateFrame("Frame")
 for _, event in ipairs({

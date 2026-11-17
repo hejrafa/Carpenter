@@ -1452,6 +1452,16 @@ local function NewHistoryChatFrame()
         table.insert(self.historyBuffer.elements, entry)
         return entry
     end
+    -- A chat line keeps its event and values, as Blizzard's chat handler
+    -- adds it: AddMessage(text, r, g, b, id, accessID, typeID, event, eventArgs, formatter).
+    function frame:AddChat(message, event, args)
+        local entry = {
+            message = message, r = 0.25, g = 1, b = 0.25, timestamp = now,
+            extraData = { 4, 0, 0, event, args, function() end, n = 6 },
+        }
+        table.insert(self.historyBuffer.elements, entry)
+        return entry
+    end
     function frame:Text(entry)
         for _, current in ipairs(self.historyBuffer.elements) do
             if current == entry then return current.message end
@@ -1913,6 +1923,62 @@ do
         ExpectBoth(nearA, "<hidden>", "with two lines by your death the first stays")
         ExpectBoth(nearB, "<hidden>", "with two lines by your death the second stays")
         C_DeathRecap = nil
+
+        -- Hidden player chat is rebuilt from the event and values its window
+        -- keeps: the short channel tag, the sender as a player link, the words.
+        local realGuildGet, realInstanceLeaderGet = CHAT_GUILD_GET, CHAT_INSTANCE_CHAT_LEADER_GET
+        CHAT_GUILD_GET = "|Hchannel:GUILD|h[Guild]|h %s: "
+        CHAT_INSTANCE_CHAT_LEADER_GET = "|Hchannel:INSTANCE_CHAT|h[Instance Leader]|h %s: "
+        local function ChatArgs(text, author, lineID)
+            local args = { text, author, n = 17 }
+            args[11], args[12] = lineID, "Player-1-00000001"
+            return args
+        end
+        local function ChatText(entry)
+            local text = frame1:Text(entry)
+            if text == HIDDEN then return "<hidden>" end
+            return text
+        end
+        local function ExpectChat(entry, expectedPlain, label, rawPart)
+            additionalChecks = additionalChecks + 1
+            local raw = ChatText(entry)
+            local got = raw == "<hidden>" and raw or plain(raw)
+            if got ~= expectedPlain or (rawPart and not tostring(raw):find(rawPart, 1, true)) then
+                failures[#failures + 1] = "hidden chat: " .. label .. ": expected [" .. expectedPlain .. "] got [" .. tostring(raw) .. "]"
+            end
+        end
+        At(270)
+        local guildLine = frame1:AddChat(HIDDEN, "CHAT_MSG_GUILD", ChatArgs("can someone inv me pls", "Sufur", 7))
+        hiddenLines.OnHiddenLineAdded(frame1)
+        ExpectChat(guildLine, "G Sufur: can someone inv me pls", "a hidden guild line is rebuilt as it's added",
+            "|Hchannel:GUILD|hG|h |Hplayer:Sufur:7:GUILD|hSufur|h: ")
+
+        -- The game's own decoration of the sender, class color included.
+        ChatFrameUtil = { GetDecoratedSenderName = function(_, _, author) return "|cff3fc7eb" .. author .. "|r" end }
+        local leaderLine = frame1:AddChat(HIDDEN, "CHAT_MSG_INSTANCE_CHAT_LEADER", ChatArgs("the tunnel", "Brick", 8))
+        hiddenLines.OnHiddenLineAdded(frame1)
+        ExpectChat(leaderLine, "IL Brick: the tunnel", "a hidden instance leader line is rebuilt with the game's sender name",
+            "|Hplayer:Brick:8:INSTANCE_CHAT|h|cff3fc7ebBrick|r|h")
+        ChatFrameUtil = nil
+
+        -- Found by the next pass when not as it's added.
+        local warningLine = frame1:AddChat(HIDDEN, "CHAT_MSG_RAID_WARNING", ChatArgs("inc mid", "Brick", 9))
+        hiddenLines.Update()
+        ExpectChat(warningLine, "! Brick: inc mid", "a hidden raid warning is rebuilt", "|cffff0000!|r ")
+
+        -- With chat timestamps on, the line starts with one, as the game's do.
+        ChatFrameUtil = { GetTimestampFormat = function() return "%H:%M " end }
+        TimeUtil = { BetterDate = function() return "21:07 " end }
+        local stampedLine = frame1:AddChat(HIDDEN, "CHAT_MSG_GUILD", ChatArgs("gg", "Sufur", 10))
+        hiddenLines.OnHiddenLineAdded(frame1)
+        ExpectChat(stampedLine, "21:07 G Sufur: gg", "a hidden chat line keeps the chat timestamp")
+        ChatFrameUtil, TimeUtil = nil, nil
+
+        -- Without its values the line stays as the game wrote it.
+        local bareLine = frame1:AddChat(HIDDEN, "CHAT_MSG_GUILD", nil)
+        hiddenLines.OnHiddenLineAdded(frame1)
+        ExpectChat(bareLine, "<hidden>", "a hidden chat line without values stays")
+        CHAT_GUILD_GET, CHAT_INSTANCE_CHAT_LEADER_GET = realGuildGet, realInstanceLeaderGet
         inLockdown = false
     end
 

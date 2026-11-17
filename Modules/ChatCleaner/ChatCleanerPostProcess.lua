@@ -581,6 +581,13 @@ function PostProcess.Create(config)
 
     -- Lines whose text the game hides go to ChatCleanerHiddenLines.
     local hiddenLineHandler
+    -- A chat line's prefix format, such as "|Hchannel:GUILD|h[Guild]|h %s: ",
+    -- styled as the post-processor styles the line: "|Hchannel:GUILD|hG|h %s: ".
+    function api.StyleChatPrefix(format)
+        if type(format) ~= "string" then return nil end
+        return (removeLinkBrackets(applyChannelStyling(format)))
+    end
+
     function api.SetHiddenLineHandler(handler)
         hiddenLineHandler = handler
     end

@@ -12,6 +12,9 @@
 --     gets the name; battlegrounds send two lines per change, and the other,
 --     or Blizzard's batched line landing beside it, is emptied.
 --   * a group member's death, when exactly one death and one line meet.
+--   * guild, officer, party, raid and instance chat, which the game hides
+--     too. The chat window keeps each such line's event and its values, so
+--     ChatCleaner rebuilds the line from them, styled, as soon as it's added.
 --   * your own death, the game's "[You died.]" Death Recap link, from
 --     PLAYER_DEAD: the one hidden line near it, among combat info lines or
 --     else system lines.
@@ -70,6 +73,8 @@ local IsSecret = Carpenter.Secret.IsSecret
 --   FormatSkillRise(rise)
 --   GetQueueChanges()   recent battleground queue changes { kind, name, time }, oldest first
 --   FormatQueueChange(change)
+--   IsHiddenChatEvent(event)  true for the chat events rebuilt here
+--   FormatHiddenChat(event, args)  the styled line, or nil
 --   IsActive()          true while lines can be hidden
 --   IsForever()         battleground rules only apply on WoW Forever
 function HiddenLines.Create(config)
@@ -100,11 +105,17 @@ function HiddenLines.Create(config)
         if type(elements) == "table" then return elements end
     end
 
-    -- "system", "skill" or "misc" (combat info) for a recent hidden line.
+    -- "system", "skill", "misc" (combat info) or "chat" for a recent hidden
+    -- line. A chat line is told by the event the window keeps with it.
     local function HiddenLineKind(entry, typeIDs, now)
         local time, extra = entry.timestamp, entry.extraData
         if type(time) ~= "number" or IsSecret(time) or now - time > LINE_MAX_AGE then return nil end
         if not IsSecret(entry.message) or type(extra) ~= "table" then return nil end
+        local event = extra[4]
+        if config.IsHiddenChatEvent and type(event) == "string" and not IsSecret(event)
+            and config.IsHiddenChatEvent(event) then
+            return "chat"
+        end
         local typeID = extra[1]
         if typeID == nil or IsSecret(typeID) then return nil end
         for kind, id in pairs(typeIDs) do
@@ -130,6 +141,9 @@ function HiddenLines.Create(config)
                             lines[#lines + 1] = {
                                 frame = frame, entry = entry, kind = kind, time = entry.timestamp, order = order,
                             }
+                            if kind == "chat" then
+                                lines[#lines].event, lines[#lines].args = entry.extraData[4], entry.extraData[5]
+                            end
                         end
                     end
                 end
@@ -168,6 +182,20 @@ function HiddenLines.Create(config)
 
     local function Rewrite(line, text)
         return RewriteEntry(line.frame, line.entry, text)
+    end
+
+    -- Hidden chat lines rebuilt from the event and values their window keeps.
+    local function ResolveChatLines(lines)
+        if not config.FormatHiddenChat then return end
+        for _, line in ipairs(lines) do
+            if line.kind == "chat" and not line.resolved then
+                local text = config.FormatHiddenChat(line.event, line.args)
+                if text then
+                    line.resolved = true
+                    pcall(Rewrite, line, text)
+                end
+            end
+        end
     end
 
     -- How many of a frame's lines a change or skill rise has taken.
@@ -368,10 +396,12 @@ function HiddenLines.Create(config)
 
         local systemLines, skillLines, miscLines = {}, {}, {}
         for _, line in ipairs(lines) do
-            local kindLines = (line.kind == "skill" and skillLines) or (line.kind == "misc" and miscLines) or systemLines
-            kindLines[#kindLines + 1] = line
+            local kindLines = (line.kind == "skill" and skillLines) or (line.kind == "misc" and miscLines)
+                or (line.kind ~= "chat" and systemLines)
+            if kindLines then kindLines[#kindLines + 1] = line end
         end
 
+        ResolveChatLines(lines)
         ResolveSkillLines(frame, skillLines, Apply)
         ResolveOwnDeath(frame, systemLines, miscLines, Apply)
         ResolveGroupSetup(frame, systemLines, Apply)
@@ -424,11 +454,13 @@ function HiddenLines.Create(config)
 
     -- Called from the chat window's AddMessage hook with a hidden line just added.
     function api.OnHiddenLineAdded(frame)
-        if not (config.IsForever and config.IsForever()) or not battle.enteredAt then return end
         if not (config.IsActive and config.IsActive()) then return end
-        if not IsFromBattlegroundChatFilter() then return end
         local before = order
         Collect(Now())
+        -- A hidden chat line is rebuilt before the window redraws.
+        ResolveChatLines(pendingByFrame[frame] or {})
+        if not (config.IsForever and config.IsForever()) or not battle.enteredAt then return end
+        if not IsFromBattlegroundChatFilter() then return end
         local added
         for _, line in ipairs(pendingByFrame[frame] or {}) do
             if line.order > before and line.kind == "system" then
