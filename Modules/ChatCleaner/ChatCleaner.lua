@@ -582,6 +582,7 @@ local hiddenLines = HiddenLines and HiddenLines.Create({
     end,
     GetQueueChanges = systemFormatter.GetQueueChanges,
     FormatQueueChange = systemFormatter.FormatQueueChange,
+    QueueWindow = systemFormatter.QUEUE_LINE_WINDOW,
     IsActive = function()
         return Carpenter ~= nil and Carpenter:IsEnabled("chatCleanerEnabled") and InChatMessagingLockdown()
     end,
@@ -594,6 +595,20 @@ ns.Private.ChatCleaner.HiddenLines = hiddenLines
 
 if hiddenLines and postProcessor and postProcessor.SetHiddenLineHandler then
     postProcessor.SetHiddenLineHandler(hiddenLines.OnHiddenLineAdded)
+end
+
+-- "You are no longer queued." doesn't say which queue, and can come a moment
+-- before the queue goes. Once it has, the line shown as "− Left the queue"
+-- gets the queue's name.
+local function NameShownQueueLines()
+    if not (hiddenLines and systemFormatter.GetQueueChanges and systemFormatter.LeftQueueText) then return end
+    for _, change in ipairs(systemFormatter.GetQueueChanges()) do
+        if change.kind == "left" and change.name and not change.shownChecked then
+            change.shownChecked = true
+            hiddenLines.RenameShownLine(systemFormatter.LeftQueueText(), systemFormatter.FormatQueueChange(change),
+                change.time - systemFormatter.QUEUE_LINE_WINDOW)
+        end
+    end
 end
 
 -- The chat windows handle an event before Carpenter does, so a hidden line is
@@ -671,6 +686,7 @@ groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
     elseif event == "UPDATE_BATTLEFIELD_STATUS" then
         QueueProbe("UPDATE_BATTLEFIELD_STATUS " .. tostring(arg1))
         if systemFormatter.RefreshQueues then systemFormatter.RefreshQueues() end
+        NameShownQueueLines()
         UpdateHiddenLines()
         return
     end

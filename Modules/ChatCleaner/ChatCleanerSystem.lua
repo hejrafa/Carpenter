@@ -349,8 +349,35 @@ function System.Create(config)
         return spaceBeforeX(colorPlus .. "+|r " .. colorWhite .. T("CHAT_JOINED_QUEUE_LABEL", "Joined the queue:") .. " |r" .. colorQueue .. name .. "|r")
     end
 
-    local function LeftQueueText()
-        return spaceBeforeX(colorMinus .. Carpenter.MinusSign .. "|r " .. colorWhite .. T("CHAT_LEFT_QUEUE", "Left the queue") .. "|r")
+    local function LeftQueueText(name)
+        if not name then
+            return spaceBeforeX(colorMinus .. Carpenter.MinusSign .. "|r " .. colorWhite .. T("CHAT_LEFT_QUEUE", "Left the queue") .. "|r")
+        end
+        return spaceBeforeX(colorMinus .. Carpenter.MinusSign .. "|r " .. colorWhite .. T("CHAT_LEFT_QUEUE_LABEL", "Left the queue:") .. " |r" .. colorQueue .. name .. "|r")
+    end
+
+    -- A queue's line and the queue starting or ending come in the same
+    -- moment. Each change is kept a few seconds, for a line that comes after
+    -- it (here, or hidden in ChatCleanerHiddenLines).
+    local QUEUE_CHANGE_WINDOW_SECONDS = 3
+    api.QUEUE_LINE_WINDOW = 0.2
+    local queueChanges = {}
+
+    -- "You are no longer queued." doesn't say which queue. When the queue
+    -- has already gone, it's named here; when the line comes first,
+    -- ChatCleaner names the shown line once the queue goes.
+    local function LeftQueueName()
+        local now = GetTime and GetTime() or 0
+        for index = #queueChanges, 1, -1 do
+            local change = queueChanges[index]
+            if now - change.time > api.QUEUE_LINE_WINDOW then return nil end
+            if change.kind == "left" then return change.name end
+        end
+    end
+
+    -- The unnamed leave line, as shown before its queue is known.
+    function api.LeftQueueText()
+        return LeftQueueText()
     end
 
     -- "You have joined the queue for %s." and its kin, as patterns that take
@@ -417,7 +444,7 @@ function System.Create(config)
         end
 
         if message:match("^You are no longer queued%.?$") then
-            return LeftQueueText()
+            return LeftQueueText(LeftQueueName())
         end
 
         if message:match("^You are now saved to this instance%.?$") then
@@ -553,11 +580,10 @@ function System.Create(config)
 
     -- WoW Forever hides system lines from addons inside battlegrounds, so
     -- "You have joined the queue for Warsong Gulch." asked for from there
-    -- can't be read. The queues stay readable: each one that starts or ends
-    -- is kept a few seconds, so ChatCleanerHiddenLines can rewrite its line.
-    local QUEUE_CHANGE_WINDOW_SECONDS = 3
+    -- can't be read, and "You are no longer queued." never names its queue.
+    -- The queues stay readable: each one that starts or ends is noted with
+    -- its battleground, so its line can be named.
     local queueStates
-    local queueChanges = {}
 
     -- Each queue slot's status ("none", "queued", "confirm", "active") and
     -- battleground name; either is nil while the game hides it.
@@ -599,9 +625,10 @@ function System.Create(config)
                 if state.status == "queued" and was == "none" and state.name then
                     queueChanges[#queueChanges + 1] = { kind = "joined", name = state.name, time = now }
                     probe("queue change joined " .. state.name .. " slot " .. index)
-                elseif state.status == "none" and was == "queued" then
-                    queueChanges[#queueChanges + 1] = { kind = "left", time = now }
-                    probe("queue change left slot " .. index)
+                elseif state.status == "none" and (was == "queued" or was == "confirm") then
+                    local name = queueStates[index].name
+                    queueChanges[#queueChanges + 1] = { kind = "left", name = name, time = now }
+                    probe("queue change left " .. tostring(name) .. " slot " .. index)
                 end
             end
         end
@@ -616,7 +643,7 @@ function System.Create(config)
 
     function api.FormatQueueChange(change)
         if change.kind == "joined" then return JoinedQueueText(change.name) end
-        return LeftQueueText()
+        return LeftQueueText(change.name)
     end
 
     function api.FormatAppearanceCollectionMessage(event, message, plainText, prefixPlus)

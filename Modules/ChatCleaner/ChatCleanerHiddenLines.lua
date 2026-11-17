@@ -43,7 +43,6 @@ local LINE_BEFORE_CHANGE = 0.5
 local LINE_AFTER_CHANGE = 0.3
 local DEATH_WINDOW = 1.0
 local SKILL_WINDOW = 1.5
-local QUEUE_WINDOW = 0.2
 local ENTER_NOTICE_WINDOW = 1.5
 local START_NOTICE_WINDOW = 5
 local START_NOTICE_GRACE = HiddenLines.START_NOTICE_GRACE
@@ -66,6 +65,7 @@ function HiddenLines.Create(config)
     config = config or {}
     local api = {}
     local probe = config.Probe or function() end -- TEMPORARY queue probe
+    local queueWindow = config.QueueWindow or 0.2
     local seen = setmetatable({}, { __mode = "k" })
     local pendingByFrame = setmetatable({}, { __mode = "k" })
     local doneByFrame = setmetatable({}, { __mode = "k" })
@@ -129,9 +129,10 @@ function HiddenLines.Create(config)
     end
 
     -- The history keeps lines in its own order; TransformMessages walks that
-    -- same array, so the line is found by its place there.
-    local function Rewrite(line, text)
-        local frame, target = line.frame, line.entry
+    -- same array, so the line is found by its place there. A hidden line is
+    -- rewritten while it's still hidden; a shown one while it still reads
+    -- `expected`.
+    local function RewriteEntry(frame, target, text, expected)
         local elements = GetElements(frame)
         if not elements or type(frame.TransformMessages) ~= "function" then return false end
         local position
@@ -146,12 +147,18 @@ function HiddenLines.Create(config)
         local call, rewritten = 0, false
         frame:TransformMessages(function(message)
             call = call + 1
-            return call == position and IsSecret(message)
+            if call ~= position then return false end
+            if expected == nil then return IsSecret(message) end
+            return not IsSecret(message) and message == expected
         end, function(_, ...)
             rewritten = true
             return text, ...
         end)
         return rewritten
+    end
+
+    local function Rewrite(line, text)
+        return RewriteEntry(line.frame, line.entry, text)
     end
 
     -- How many of a frame's lines a change or skill rise has taken.
@@ -185,12 +192,16 @@ function HiddenLines.Create(config)
     -- queue's line.
     local function ResolveQueueChanges(frame, lines, queueChanges, Apply)
         if not (lines[1] and config.FormatQueueChange) then return end
+        local entered = battle.enteredAt
         for _, change in ipairs(queueChanges) do
-            if Claims(change, frame) == 0 then
+            -- The game drops your queues on its own as you enter, with no line.
+            local dropped = change.kind == "left" and entered
+                and change.time >= entered and change.time - entered <= ENTER_NOTICE_WINDOW
+            if not dropped and Claims(change, frame) == 0 then
                 local newest
                 for _, line in ipairs(lines) do
                     if not line.resolved and line.order <= change.seenOrder
-                        and math.abs(change.time - line.time) <= QUEUE_WINDOW
+                        and math.abs(change.time - line.time) <= queueWindow
                         and (not newest or line.order > newest.order) then
                         newest = line
                     end
@@ -372,6 +383,28 @@ function HiddenLines.Create(config)
             added.resolved = true
             probe(string.format("line #%d emptied as a batch line", added.order))
             pcall(Rewrite, added, "")
+        end
+    end
+
+    -- Rewrites, in each chat window, the newest shown line that reads
+    -- `expected` and was added at or after `since`: a line the chat filter
+    -- styled before its cause was known.
+    function api.RenameShownLine(expected, text, since)
+        if not config.GetFrames then return end
+        for _, frame in ipairs(config.GetFrames()) do
+            local newest, newestTime
+            for _, entry in ipairs(GetElements(frame) or {}) do
+                local time = type(entry) == "table" and entry.timestamp
+                if type(time) == "number" and not IsSecret(time) and time >= since
+                    and not IsSecret(entry.message) and entry.message == expected
+                    and (not newestTime or time >= newestTime) then
+                    newest, newestTime = entry, time
+                end
+            end
+            if newest then
+                probe(string.format("shown line at %.2f renamed: %s", newestTime, text))
+                pcall(RewriteEntry, frame, newest, text, expected)
+            end
         end
     end
 

@@ -1664,7 +1664,7 @@ do
         members.raid7 = { "Quill", "Ashmantle" }
         groupMembers = 7
         Fire("GROUP_ROSTER_UPDATE")
-        Expect(leftQueue, "\226\136\146 Left the queue", "leaving a queue names its line")
+        Expect(leftQueue, "\226\136\146 Left the queue: Warsong Gulch", "leaving a queue names its line")
         Expect(joinedThen, "Quill Ashmantle joined", "a join right after a queue line keeps its own line")
 
         -- A queue that pops isn't left.
@@ -1719,6 +1719,52 @@ do
         Fire("GROUP_ROSTER_UPDATE")
         hiddenLines.Update()
         Expect(outside, "<hidden>", "nothing changes outside lockdown")
+
+        -- Out of a battleground "You are no longer queued." is shown as the
+        -- chat filter styles it, and doesn't say which queue.
+        local function ShowSystem(text)
+            local _, styled = filter(nil, "CHAT_MSG_SYSTEM", text, "", "", "", "", "", 0, 0, "", 0, 3001)
+            return { frame1:Add(styled), frame2:Add(styled) }
+        end
+        local function ExpectBoth(line, expected, label)
+            for _, frame in ipairs({ frame1, frame2 }) do
+                additionalChecks = additionalChecks + 1
+                local got = Shown(line, frame)
+                if got ~= expected then
+                    failures[#failures + 1] = "queue lines: " .. label .. ": expected [" .. expected .. "] got [" .. tostring(got) .. "]"
+                end
+            end
+        end
+        At(230)
+        queues[1] = { "queued", "Darkspear Islands" }
+        queues[2] = { "queued", "Warsong Gulch" }
+        Fire("UPDATE_BATTLEFIELD_STATUS", 2)
+
+        -- The line comes first, then the queue goes: the shown line gets its name.
+        At(232)
+        local leftFirst = ShowSystem("You are no longer queued.")
+        ExpectBoth(leftFirst, "\226\136\146 Left the queue", "a leave line waits for its queue")
+        queues[2] = { "none", "" }
+        Fire("UPDATE_BATTLEFIELD_STATUS", 2)
+        ExpectBoth(leftFirst, "\226\136\146 Left the queue: Warsong Gulch", "a shown leave line is named once its queue goes")
+
+        -- The queue goes first: the line is named as it's shown.
+        At(235)
+        queues[1] = { "none", "" }
+        Fire("UPDATE_BATTLEFIELD_STATUS", 1)
+        local leftAfter = ShowSystem("You are no longer queued.")
+        ExpectBoth(leftAfter, "\226\136\146 Left the queue: Darkspear Islands", "a leave line after its queue went is named")
+
+        -- A leave line from earlier isn't renamed by a later queue.
+        At(240)
+        local earlier = ShowSystem("You are no longer queued.")
+        At(241)
+        queues[1] = { "queued", "Arathi Basin" }
+        Fire("UPDATE_BATTLEFIELD_STATUS", 1)
+        At(243)
+        queues[1] = { "none", "" }
+        Fire("UPDATE_BATTLEFIELD_STATUS", 1)
+        ExpectBoth(earlier, "\226\136\146 Left the queue", "an earlier leave line keeps its text")
     end
 
     feature.Disable()
