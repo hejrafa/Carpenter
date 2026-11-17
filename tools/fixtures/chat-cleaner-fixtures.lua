@@ -28,6 +28,7 @@ Carpenter = {
         Copper = "|A:coin-copper:10:10:2:0|a",
     },
     MinusSign = "\226\136\146",
+    MerchantState = {},
     IsEnabled = function(_, key) return key == "chatCleanerEnabled" end,
     RegisterFeature = function(_, key, feature)
         registeredChatFeatures = registeredChatFeatures or {}
@@ -1453,6 +1454,40 @@ do
         failures[#failures + 1] = "merchant double close: expected 1 summary got " .. tostring(#printed)
     elseif type(onMerchantEvent) == "function" and plain(printed[1]) ~= "+ 2500" then
         failures[#failures + 1] = "merchant double close: expected [+ 2500] got [" .. tostring(plain(printed[1])) .. "]"
+    end
+end
+
+-- A big purchase gets its summary too (spending more than you have left
+-- used to print nothing), and the mailbox sums up what you took from it.
+do
+    local printed = {}
+    local originalPrint = print
+    print = function(message) printed[#printed + 1] = plain(tostring(message)) end
+
+    local session = ns.Private.ChatCleanerSessions.Create({
+        FormatMoney = function(amount) return tostring(amount or 0) end,
+        ColorPlus = "|cffffffff",
+        ColorMinus = "|cffffffff",
+    })
+    local onMerchantEvent = session.merchantFrame._scripts.OnEvent
+    currentMoney = 10000
+    onMerchantEvent(session.merchantFrame, "MERCHANT_SHOW")
+    currentMoney = 4000
+    onMerchantEvent(session.merchantFrame, "MERCHANT_CLOSED")
+
+    local onMailEvent = session.mailTracker._scripts.OnEvent
+    onMailEvent(session.mailTracker, "MAIL_SHOW")
+    currentMoney = 4500
+    onMailEvent(session.mailTracker, "PLAYER_MONEY")
+    currentMoney = 4700
+    onMailEvent(session.mailTracker, "PLAYER_MONEY")
+    onMailEvent(session.mailTracker, "MAIL_CLOSED")
+    onMailEvent(session.mailTracker, "MAIL_CLOSED")
+    print = originalPrint
+
+    additionalChecks = additionalChecks + 1
+    if table.concat(printed, " / ") ~= "\226\136\146 6000 / + 700" then
+        failures[#failures + 1] = "sessions: expected [\226\136\146 6000 / + 700] got [" .. table.concat(printed, " / ") .. "]"
     end
 end
 
