@@ -22,6 +22,7 @@ local stateKeys = {
     autoTrackQuestWatches = true,
     blankLuaErrorTraceLog = true,
     blockedActionLog = true,
+    chatQueueProbeLog = true, -- TEMPORARY probe log for Chat Cleaner's queue lines
     damageMeterTabAlpha = true,
     damageMeterTabNumbers = true,
     damageMeterTabSession = true,

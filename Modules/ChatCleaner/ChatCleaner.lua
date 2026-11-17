@@ -3,6 +3,22 @@ local _, ns = ...
 local L = (Carpenter and Carpenter.L) or (ns and ns.L) or {}
 local IsSecret = Carpenter.Secret.IsSecret
 
+-- =========================
+-- TEMPORARY probe: battleground queue lines
+-- =========================
+-- Logs queue slot changes, system lines (hidden, or readable ones about a
+-- queue), entering a battleground or the world, and each hidden line seen,
+-- rewritten (and by which rule) or given up on, to
+-- CarpenterDB.chatQueueProbeLog. Remove once queue lines read right inside a
+-- battleground.
+local queueProbeLog = {}
+local function QueueProbe(text)
+    if #queueProbeLog >= 500 then return end
+    local now = GetTime and GetTime() or 0
+    queueProbeLog[#queueProbeLog + 1] = string.format("%.2f %s", now, (tostring(text):gsub("|", "||")))
+    if CarpenterDB then CarpenterDB.chatQueueProbeLog = queueProbeLog end
+end
+
 -- Shared Carpenter color palette
 local Colors = ns and ns.Private and ns.Private.Colors
 
@@ -181,6 +197,7 @@ local systemFormatter = ChatCleanerSystem.Create and ChatCleanerSystem.Create({
         return Carpenter.Client and Carpenter.Client.isMainline == true
     end,
     LearnedSkillDedupSeconds = 3,
+    Probe = QueueProbe,
 }) or {}
 local IsLevelUpRewardEvent = systemFormatter.IsLevelUpRewardEvent
 local FormatExperienceMessage = systemFormatter.FormatExperienceMessage
@@ -571,6 +588,7 @@ local hiddenLines = HiddenLines and HiddenLines.Create({
     IsForever = function()
         return Carpenter ~= nil and Carpenter.Client ~= nil and Carpenter.Client.isForever == true
     end,
+    Probe = QueueProbe,
 })
 ns.Private.ChatCleaner.HiddenLines = hiddenLines
 
@@ -624,12 +642,18 @@ groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
         return
     elseif event == "CHAT_MSG_SYSTEM" then
         if IsSecret(arg1) then
+            QueueProbe("system line hidden, lockdown=" .. tostring(InChatMessagingLockdown()))
+        elseif type(arg1) == "string" and (arg1:lower():find("queue", 1, true) or arg1:find("^Notify system")) then
+            QueueProbe("system line readable: " .. arg1)
+        end
+        if IsSecret(arg1) then
             UpdateHiddenLines()
             UpdateHiddenLines(0)
             UpdateHiddenLines(HiddenLines.START_NOTICE_GRACE + 0.05)
         end
         return
     elseif event == "PLAYER_ENTERING_BATTLEGROUND" then
+        QueueProbe("entering battleground, lockdown=" .. tostring(InChatMessagingLockdown()))
         if hiddenLines then
             hiddenLines.EnteredBattleground()
             for _, batchTime in ipairs(HiddenLines.BATCH_TIMES) do
@@ -645,11 +669,13 @@ groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
         end
         return
     elseif event == "UPDATE_BATTLEFIELD_STATUS" then
+        QueueProbe("UPDATE_BATTLEFIELD_STATUS " .. tostring(arg1))
         if systemFormatter.RefreshQueues then systemFormatter.RefreshQueues() end
         UpdateHiddenLines()
         return
     end
     if event == "PLAYER_ENTERING_WORLD" and hiddenLines then
+        QueueProbe("entering world, lockdown=" .. tostring(InChatMessagingLockdown()))
         hiddenLines.LeftBattleground()
     end
     if socialFormatter.NoteGroupRoster then

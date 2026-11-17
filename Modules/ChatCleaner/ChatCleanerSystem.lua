@@ -24,6 +24,7 @@ function System.Create(config)
     local colorYellow = config.ColorYellow or "|cffffd200"
     local getItemLinkFromMessage = config.GetItemLinkFromMessage or function() return nil end
     local isMainlineClient = config.IsMainlineClient or function() return false end
+    local probe = config.Probe or function() end -- TEMPORARY queue probe
     local L = config.L or (Carpenter and Carpenter.L) or {}
 
     local function T(key, fallback, ...)
@@ -581,13 +582,26 @@ function System.Create(config)
         end
 
         local states = ReadQueues()
+        -- TEMPORARY queue probe: each slot snapshot that differs from the last.
+        local slots = {}
+        for index, state in pairs(states) do
+            slots[#slots + 1] = index .. "=" .. tostring(state.status) .. ":" .. tostring(state.name)
+        end
+        table.sort(slots)
+        local signature = table.concat(slots, " ")
+        if signature ~= api.lastQueueSignature then
+            api.lastQueueSignature = signature
+            probe("queue slots " .. signature)
+        end
         if queueStates then
             for index, state in pairs(states) do
                 local was = queueStates[index] and queueStates[index].status
                 if state.status == "queued" and was == "none" and state.name then
                     queueChanges[#queueChanges + 1] = { kind = "joined", name = state.name, time = now }
+                    probe("queue change joined " .. state.name .. " slot " .. index)
                 elseif state.status == "none" and was == "queued" then
                     queueChanges[#queueChanges + 1] = { kind = "left", time = now }
+                    probe("queue change left slot " .. index)
                 end
             end
         end
