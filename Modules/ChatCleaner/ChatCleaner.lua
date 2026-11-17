@@ -804,10 +804,10 @@ end)
 local groupNoticeFrame = CreateFrame("Frame")
 groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
     if event == "UNIT_HEALTH" or event == "UNIT_FLAGS" then
-        if socialFormatter.NoteGroupMemberHealth then
-            socialFormatter.NoteGroupMemberHealth(arg1)
-        end
-        if hiddenLines and hiddenLines.HasPending() then
+        -- These fire for every unit; only a group member's new death can
+        -- explain a waiting line.
+        if socialFormatter.NoteGroupMemberHealth and socialFormatter.NoteGroupMemberHealth(arg1)
+            and hiddenLines and hiddenLines.HasPending() then
             UpdateHiddenLines()
         end
         return
@@ -822,7 +822,7 @@ groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
         if hiddenLines then
             hiddenLines.EnteredBattleground()
             for _, batchTime in ipairs(HiddenLines.BATCH_TIMES) do
-                UpdateHiddenLines(batchTime + HiddenLines.BATCH_GRACE + 0.2)
+                UpdateHiddenLines(batchTime + HiddenLines.BATCH_CHECK_DELAY)
             end
         end
         UpdateHiddenLines()

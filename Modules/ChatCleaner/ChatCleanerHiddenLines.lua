@@ -1,42 +1,42 @@
 --[[ Carpenter - ChatCleaner hidden lines ]]
--- WoW Forever hides system and skill-up lines from addons during chat
--- messaging lockdown, which covers whole battlegrounds and fights in
--- instances. Its chat filters only call an addon that can read the line, so
--- these can't be styled before they are added. They still land in each chat
--- window's history with their chat type and the time they were added, so they
--- are found there and rewritten when their cause is known:
---   * a skill-up, from the skill rank that rose within a moment of it (skill
---     ranks stay readable). Two skills rising together each take a line.
---   * a join or departure, from the roster change it comes with (at most a
---     quarter second before it in three battleground logs). The nearest line
---     gets the name; battlegrounds send two lines per change, and the other,
---     or Blizzard's batched line landing beside it, is emptied.
---   * a group member's death, when exactly one death and one line meet.
---   * guild, officer, party, raid and instance chat, which the game hides
---     too. The chat window keeps each such line's event and its values, so
---     ChatCleaner rebuilds the line from them, styled, as soon as it's added.
---   * your own death, the game's "[You died.]" Death Recap link, from
---     PLAYER_DEAD: the one hidden line near it, among combat info lines or
---     else system lines.
---   * joining or leaving a battleground queue, from the queue that starts or
---     ends right after it: the game sends the line, then the queue. The
---     queues the game drops and adds back as you enter a battleground (a
---     probe's log): the drop has no line, and each one added back has its own
---     "You have joined the queue for ..." just before it.
---   * the battleground's group forming as you enter: "Party converted to
---     Raid", the loot method and the loot threshold, three lines in a row
---     just before GROUP_JOINED (a probe's log), in the same moment. They are
---     told by their place, as the loot settings may not change.
---   * "Notify system has been disabled/enabled": the first hidden line right
---     after entering a battleground, once the group's lines have had the
---     moment to claim theirs (it doesn't always come), and right after the
---     battle begins.
---   * Blizzard's batched "has joined the battle" lines in a battleground's
---     first minute, which repeat joins already shown. They come from its
---     battleground chat filter, whose call stack stays readable (the chat
---     frame's own hidden lines have a hidden stack), so they are emptied as
---     they are added, before the window redraws. Failing that, they print
---     every 5 s from 30 s after entering and are checked after each tick.
+-- Retail and WoW Forever hide system, skill-up and player chat lines from
+-- addons during chat messaging lockdown, which covers whole battlegrounds
+-- and fights in instances. Chat filters are only called for lines an addon
+-- can read, so these can't be styled before they are added. They still land
+-- in each chat window's history with their chat type and the time they were
+-- added, so they are found there and rewritten once their cause is known.
+-- The rules, in the order they claim lines:
+--   1. Guild, officer, party, raid and instance chat. The window keeps each
+--      line's event and its values, so ChatCleaner rebuilds the line from
+--      them, styled, as it's added.
+--   2. A skill-up, from the skill rank that rose within a moment of it
+--      (skill ranks stay readable). Two skills rising together each take
+--      a line.
+--   3. Your own death, the game's "[You died.]" Death Recap link, which it
+--      adds with no chat event: the one hidden line that comes with or after
+--      PLAYER_DEAD, a combat info line before a system line.
+--   4. A battleground's group forming as you enter: "Party converted to
+--      Raid" (in a raid), the loot method and the loot threshold, in a row
+--      just before GROUP_JOINED (a probe's log). They are told by their
+--      place, as the loot settings may not change.
+--   5. Joining or leaving a battleground queue, from the queue that starts
+--      or ends right after its line. The queues the game drops and adds back
+--      as you enter a battleground: the drop has no line, and each one added
+--      back has its own "You have joined the queue for ..." just before it.
+--   6. A join or departure, from the roster change it comes with (at most a
+--      quarter second before it in three battleground logs). Each change
+--      names its nearest line; battlegrounds send two lines per change, so
+--      there each then empties its next nearest.
+--   7. A group member's death, when exactly one death and one line meet.
+--   8. On Forever, in a battleground: "Notify system has been
+--      disabled/enabled", the first hidden line right after entering (it
+--      doesn't always come) and right after the battle begins; and
+--      Blizzard's batched "has joined the battle" lines in the first minute,
+--      which repeat joins already shown. Those come from its battleground
+--      chat filter, whose call stack stays readable (the window's own hidden
+--      lines have a hidden stack), so they are emptied as they are added;
+--      failing that, they print every 5 s from 30 s after entering and are
+--      checked after each tick.
 -- Anything else stays as the game wrote it. Lines are edited with
 -- TransformMessages only: removing them would taint the chat history.
 local _, ns = ...
@@ -45,12 +45,11 @@ ns.Private = ns.Private or {}
 local HiddenLines = {}
 ns.Private.ChatCleanerHiddenLines = HiddenLines
 
-HiddenLines.LINE_MAX_AGE = 3
 HiddenLines.START_NOTICE_GRACE = 0.35
 HiddenLines.BATCH_GRACE = 0.6
 HiddenLines.BATCH_TIMES = { 30, 35, 40, 45, 50, 55, 60 }
 
-local LINE_MAX_AGE = HiddenLines.LINE_MAX_AGE
+local LINE_MAX_AGE = 3
 local LINE_BEFORE_CHANGE = 0.5
 local LINE_AFTER_CHANGE = 0.3
 local DEATH_WINDOW = 1.0
@@ -62,6 +61,11 @@ local SAME_MOMENT = 0.2
 local GROUP_SETUP_WINDOW = 10
 local BATCH_SLACK = 0.5
 local BATCH_GRACE = HiddenLines.BATCH_GRACE
+-- When to look again after each batch tick: a line can come up to
+-- BATCH_SLACK after the tick and is claimed BATCH_GRACE after it came.
+HiddenLines.BATCH_CHECK_DELAY = BATCH_SLACK + BATCH_GRACE + 0.05
+-- Blizzard's batches stop a minute after entering.
+local BATCH_PERIOD = HiddenLines.BATCH_TIMES[#HiddenLines.BATCH_TIMES] + BATCH_SLACK
 
 local IsSecret = Carpenter.Secret.IsSecret
 
@@ -75,8 +79,9 @@ local IsSecret = Carpenter.Secret.IsSecret
 --   FormatQueueChange(change)
 --   IsHiddenChatEvent(event)  true for the chat events rebuilt here
 --   FormatHiddenChat(event, args)  the styled line, or nil
+--   FormatOwnDeath()    the styled "You died" line, or nil
 --   IsActive()          true while lines can be hidden
---   IsForever()         battleground rules only apply on WoW Forever
+--   IsForever()         rule 8 only applies on WoW Forever
 function HiddenLines.Create(config)
     config = config or {}
     local api = {}
@@ -91,12 +96,18 @@ function HiddenLines.Create(config)
         return GetTime and GetTime() or 0
     end
 
-    -- Chat type ids of the lines looked at, by kind.
+    -- Chat type ids of the lines looked at, by kind, read once per set of
+    -- chat type tables.
+    local typeIDs, typeInfos = nil, {}
     local function TypeIDs()
         local system = ChatTypeInfo and ChatTypeInfo.SYSTEM
         local skill = ChatTypeInfo and ChatTypeInfo.SKILL
         local misc = ChatTypeInfo and ChatTypeInfo.COMBAT_MISC_INFO
-        return { system = system and system.id, skill = skill and skill.id, misc = misc and misc.id }
+        if not typeIDs or typeInfos[1] ~= system or typeInfos[2] ~= skill or typeInfos[3] ~= misc then
+            typeInfos = { system, skill, misc }
+            typeIDs = { system = system and system.id, skill = skill and skill.id, misc = misc and misc.id }
+        end
+        return typeIDs
     end
 
     local function GetElements(frame)
@@ -123,17 +134,17 @@ function HiddenLines.Create(config)
         end
     end
 
-    -- Hidden lines added since the last look.
-    local function Collect(now)
-        local typeIDs = TypeIDs()
-        if not typeIDs.system or not config.GetFrames then return end
-        for _, frame in ipairs(config.GetFrames()) do
+    -- Hidden lines added since the last look, in every chat window or in one.
+    local function Collect(now, onlyFrame)
+        local ids = TypeIDs()
+        if not ids.system or not config.GetFrames then return end
+        for _, frame in ipairs(onlyFrame and { onlyFrame } or config.GetFrames()) do
             local elements = GetElements(frame)
             if elements then
                 for _, entry in ipairs(elements) do
                     if type(entry) == "table" and not seen[entry] then
                         seen[entry] = true
-                        local kind = HiddenLineKind(entry, typeIDs, now)
+                        local kind = HiddenLineKind(entry, ids, now)
                         if kind then
                             order = order + 1
                             local lines = pendingByFrame[frame] or {}
@@ -177,6 +188,9 @@ function HiddenLines.Create(config)
             rewritten = true
             return text, ...
         end)
+        -- The history may hold a new entry there now. A rebuilt chat line is
+        -- still hidden text with its event, so it would be rebuilt again.
+        if rewritten and elements[position] then seen[elements[position]] = true end
         return rewritten
     end
 
@@ -198,7 +212,8 @@ function HiddenLines.Create(config)
         end
     end
 
-    -- How many of a frame's lines a change or skill rise has taken.
+    -- How many of a window's lines a cause (a change, rise, death or group
+    -- setup) has taken.
     local function Claims(cause, frame)
         cause.claims = cause.claims or setmetatable({}, { __mode = "k" })
         return cause.claims[frame] or 0
@@ -276,43 +291,53 @@ function HiddenLines.Create(config)
         end
     end
 
-    -- Each change takes the lines nearest to it: the first gets the name, a
-    -- second is emptied.
-    local function ResolveRosterChanges(frame, lines, changes, Apply)
-        for _, change in ipairs(changes) do
-            if change.kind == "joined" or change.kind == "left" then
-                local claimed = Claims(change, frame)
-                local candidates = {}
-                for _, line in ipairs(lines) do
-                    local delta = change.time - line.time
-                    if not line.resolved and delta >= -LINE_AFTER_CHANGE and delta <= LINE_BEFORE_CHANGE then
-                        candidates[#candidates + 1] = { line = line, distance = math.abs(delta) }
-                    end
+    -- The unclaimed line nearest to a roster change, in its window.
+    local function NearestRosterLine(lines, change)
+        local best, bestDistance
+        for _, line in ipairs(lines) do
+            local delta = change.time - line.time
+            if not line.resolved and delta >= -LINE_AFTER_CHANGE and delta <= LINE_BEFORE_CHANGE then
+                local distance = math.abs(delta)
+                if not best or distance < bestDistance or (distance == bestDistance and line.order < best.order) then
+                    best, bestDistance = line, distance
                 end
-                table.sort(candidates, function(a, b)
-                    if a.distance ~= b.distance then return a.distance < b.distance end
-                    return a.line.order < b.line.order
-                end)
-                for _, candidate in ipairs(candidates) do
-                    if claimed >= 2 then break end
-                    Apply(candidate.line, claimed == 0 and config.FormatChange(change) or "")
-                    claimed = claimed + 1
-                    change.claims[frame] = claimed
+            end
+        end
+        return best
+    end
+
+    -- Every change first names the line nearest to it; then, in a
+    -- battleground, which sends two lines per change, each empties the next
+    -- nearest. Naming all of them first keeps two joins at once from both
+    -- going to the first.
+    local function ResolveRosterChanges(frame, lines, changes, Apply)
+        if not config.FormatChange then return end
+        local lineCount = battle.enteredAt and 2 or 1
+        for claim = 1, lineCount do
+            for _, change in ipairs(changes) do
+                if (change.kind == "joined" or change.kind == "left") and Claims(change, frame) == claim - 1 then
+                    local line = NearestRosterLine(lines, change)
+                    if line then
+                        change.claims[frame] = claim
+                        Apply(line, claim == 1 and config.FormatChange(change) or "")
+                    end
                 end
             end
         end
     end
 
-    -- Your death takes the one hidden line near it, a combat info line if
-    -- there are any, else a system line; with two or more, none.
-    local function ResolveOwnDeath(frame, systemLines, miscLines, Apply)
+    -- Your death takes the one hidden line that came with or after it, a
+    -- combat info line if there are any, else a system line; with two or
+    -- more, none. A line from before the death belongs to something else.
+    local function ResolveOwnDeath(frame, systemLines, miscLines, Apply, now)
         local death = ownDeath
         if not death or not config.FormatOwnDeath or Claims(death, frame) > 0 then return end
-        if Now() - death.time > LINE_MAX_AGE then return end
+        if now - death.time > LINE_MAX_AGE then return end
         local function Single(lines)
             local found, count = nil, 0
             for _, line in ipairs(lines) do
-                if not line.resolved and math.abs(line.time - death.time) <= DEATH_WINDOW then
+                local since = line.time - death.time
+                if not line.resolved and since >= -SAME_MOMENT and since <= DEATH_WINDOW then
                     found, count = line, count + 1
                 end
             end
@@ -362,7 +387,7 @@ function HiddenLines.Create(config)
         local entered, started = battle.enteredAt, battle.startedAt
         if entered and not done.enter and now - line.time >= START_NOTICE_GRACE then
             local since = line.time - entered
-            if since >= -0.2 and since <= ENTER_NOTICE_WINDOW then
+            if since >= -SAME_MOMENT and since <= ENTER_NOTICE_WINDOW then
                 done.enter = true
                 return ""
             end
@@ -401,17 +426,18 @@ function HiddenLines.Create(config)
             if kindLines then kindLines[#kindLines + 1] = line end
         end
 
+        -- The rules in order of precedence: the most certain claims first.
         ResolveChatLines(lines)
         ResolveSkillLines(frame, skillLines, Apply)
-        ResolveOwnDeath(frame, systemLines, miscLines, Apply)
+        ResolveOwnDeath(frame, systemLines, miscLines, Apply, now)
         ResolveGroupSetup(frame, systemLines, Apply)
         ResolveQueueChanges(frame, systemLines, queueChanges, Apply)
         ResolveRosterChanges(frame, systemLines, changes, Apply)
         for _, line in ipairs(systemLines) do
-            if not line.resolved then Apply(line, ClaimBattleNotice(line, done, now)) end
+            if not line.resolved then Apply(line, ClaimDeath(line, systemLines, changes)) end
         end
         for _, line in ipairs(systemLines) do
-            if not line.resolved then Apply(line, ClaimDeath(line, systemLines, changes)) end
+            if not line.resolved then Apply(line, ClaimBattleNotice(line, done, now)) end
         end
 
         local kept = {}
@@ -456,11 +482,15 @@ function HiddenLines.Create(config)
     function api.OnHiddenLineAdded(frame)
         if not (config.IsActive and config.IsActive()) then return end
         local before = order
-        Collect(Now())
+        local now = Now()
+        Collect(now, frame)
         -- A hidden chat line is rebuilt before the window redraws.
         ResolveChatLines(pendingByFrame[frame] or {})
-        if not (config.IsForever and config.IsForever()) or not battle.enteredAt then return end
-        if not IsFromBattlegroundChatFilter() then return end
+
+        -- In a battleground's first minute, Blizzard's batched join lines.
+        local entered = battle.enteredAt
+        if not entered or now - entered > BATCH_PERIOD then return end
+        if not (config.IsForever and config.IsForever()) then return end
         local added
         for _, line in ipairs(pendingByFrame[frame] or {}) do
             if line.order > before and line.kind == "system" then
@@ -469,7 +499,7 @@ function HiddenLines.Create(config)
                 added = line
             end
         end
-        if added then
+        if added and IsFromBattlegroundChatFilter() then
             added.resolved = true
             pcall(Rewrite, added, "")
         end
@@ -499,9 +529,12 @@ function HiddenLines.Create(config)
         return renamed
     end
 
+    -- Whether a hidden line still waits for its cause.
     function api.HasPending()
         for _, lines in pairs(pendingByFrame) do
-            if lines[1] then return true end
+            for _, line in ipairs(lines) do
+                if not line.resolved then return true end
+            end
         end
         return false
     end

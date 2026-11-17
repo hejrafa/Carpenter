@@ -2131,6 +2131,95 @@ do
     issecretvalue = nil
 end
 
+-- Matching rules for hidden group lines: two joins at once each name their
+-- own line; outside a battleground a roster change has one line, so the
+-- next one isn't emptied; your death takes no line from before it.
+do
+    local HIDDEN = {}
+    issecretvalue = function(value) return value == HIDDEN end
+    C_ChatInfo = { InChatMessagingLockdown = function() return true end }
+    Carpenter.Client.isForever = true
+    local realSystemInfo = ChatTypeInfo.SYSTEM
+    ChatTypeInfo.SYSTEM = { r = 1, g = 1, b = 0, id = 1 }
+    local window = NewHistoryChatFrame()
+    local realChatFrame1, realChatFrame2, realWindows = ChatFrame1, ChatFrame2, NUM_CHAT_WINDOWS
+    ChatFrame1, NUM_CHAT_WINDOWS = window, 1
+
+    local members = {}
+    local realUnitName = UnitName
+    UnitName = function(unit)
+        local member = members[unit]
+        if member then return member[1], member[2] end
+        return realUnitName(unit)
+    end
+    UnitIsUnit = function(a, b) return a == b or (a == "raid1" and b == "player") end
+    UnitIsDeadOrGhost = function() return false end
+
+    local feature = registeredChatFeatures[#registeredChatFeatures].feature
+    feature.Enable()
+    local hiddenLines = ns.Private.ChatCleaner.HiddenLines
+    local eventFrame
+    for _, created in ipairs(createdFrames) do
+        if created._events.PLAYER_ENTERING_BATTLEGROUND and created._events.UNIT_HEALTH then eventFrame = created end
+    end
+    local function Fire(event, ...) eventFrame._scripts.OnEvent(eventFrame, event, ...) end
+    local function Hidden() return window:Add(HIDDEN) end
+    local function Expect(entry, expected, label)
+        additionalChecks = additionalChecks + 1
+        local text = window:Text(entry)
+        local got = text == HIDDEN and "<hidden>" or plain(text)
+        if got ~= expected then
+            failures[#failures + 1] = "hidden line rules: " .. label .. ": expected [" .. expected .. "] got [" .. tostring(got) .. "]"
+        end
+    end
+    local base = 9000
+    local function At(seconds) now = base + seconds end
+
+    At(0)
+    members.raid1, members.raid2 = { "Tester", "" }, { "Ann", "Ash" }
+    inRaid, groupMembers = true, 2
+    Fire("PLAYER_ENTERING_WORLD")
+    Fire("PLAYER_ENTERING_BATTLEGROUND")
+    At(70)
+    local joinA, joinB = Hidden(), Hidden()
+    members.raid3, members.raid4 = { "Bea", "Birch" }, { "Cy", "Cole" }
+    groupMembers = 4
+    Fire("GROUP_ROSTER_UPDATE")
+    Expect(joinA, "Bea Birch joined", "the first of two joins at once")
+    Expect(joinB, "Cy Cole joined", "the second of two joins at once")
+
+    -- Out of the battleground, in a fight in a dungeon.
+    At(100)
+    Fire("PLAYER_ENTERING_WORLD")
+    At(110)
+    local leftLine, leaderLine = Hidden(), Hidden()
+    members.raid4 = nil
+    groupMembers = 3
+    Fire("GROUP_ROSTER_UPDATE")
+    Expect(leftLine, "Cy Cole left", "a departure outside a battleground")
+    Expect(leaderLine, "<hidden>", "the next line after a departure outside a battleground")
+
+    -- A line waiting for its cause when you die isn't your death's.
+    At(120)
+    local earlier = Hidden()
+    At(120.5)
+    Fire("PLAYER_DEAD")
+    At(120.6)
+    local deathLine = Hidden()
+    hiddenLines.Update()
+    Expect(earlier, "<hidden>", "a line from before your death")
+    Expect(deathLine, "You died", "your death's own line")
+
+    feature.Disable()
+    inRaid, groupMembers = false, 0
+    UnitName, UnitIsUnit, UnitIsDeadOrGhost = realUnitName, nil, nil
+    ChatFrame1, ChatFrame2, NUM_CHAT_WINDOWS = realChatFrame1, realChatFrame2, realWindows
+    ChatTypeInfo.SYSTEM = realSystemInfo
+    C_ChatInfo = nil
+    Carpenter.Client.isForever = nil
+    issecretvalue = nil
+end
+
 -- WoW Forever hides skill-ups during chat lockdown too, and they never reach
 -- addon filters either. Each is rewritten in the chat history from the skill
 -- rank that rose within a moment of it.

@@ -242,20 +242,25 @@ function Social.Create(config)
         groupChanges[#groupChanges + 1] = { kind = kind, name = name, time = now, lines = 0 }
     end
 
-    local function NoteMemberDeath(unit, fullName, firstName, announce, now)
+    -- True when a new death was noted for a hidden line to take. announce
+    -- says whether lines are hidden; when it's left out, that's checked only
+    -- for a new death, since health events come for every unit.
+    local function NoteMemberDeath(unit, fullName, firstName, now, announce)
         local ok, dead = pcall(UnitIsDeadOrGhost, unit)
-        if not ok or IsSecret(dead) then return end
+        if not ok or IsSecret(dead) then return false end
         dead = dead == true
-        if dead and not deadMembers[fullName] and announce then
+        local noted = dead and not deadMembers[fullName] and (announce == nil and InChatLockdown() or announce)
+        if noted then
             AddNotice("died", firstName, now)
         end
         deadMembers[fullName] = dead or nil
+        return noted == true
     end
 
     local function NoteDeaths(now, announce)
         if not UnitIsDeadOrGhost then return end
         ForEachGroupMember(function(unit, fullName, firstName)
-            NoteMemberDeath(unit, fullName, firstName, announce, now)
+            NoteMemberDeath(unit, fullName, firstName, now, announce)
         end)
     end
 
@@ -270,8 +275,9 @@ function Social.Create(config)
         if not (unit:match("^raid%d+$") or unit:match("^party%d$")) then return end
         local fullName, firstName = GetMemberNames(unit)
         if fullName and not IsSelf(unit, fullName) then
-            NoteMemberDeath(unit, fullName, firstName, InChatLockdown(), Now())
+            return NoteMemberDeath(unit, fullName, firstName, Now())
         end
+        return false
     end
 
     -- Pass reset to take a fresh snapshot without noting any change, such as
