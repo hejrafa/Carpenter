@@ -582,7 +582,6 @@ local HIDDEN_CHAT_TYPES = {
     CHAT_MSG_INSTANCE_CHAT = { "INSTANCE_CHAT", "INSTANCE_CHAT" },
     CHAT_MSG_INSTANCE_CHAT_LEADER = { "INSTANCE_CHAT_LEADER", "INSTANCE_CHAT" },
 }
-local LogHiddenChat = function() end -- TEMPORARY: the hidden chat probe logs here
 
 local function IsHiddenChatEvent(event)
     return HIDDEN_CHAT_TYPES[event] ~= nil
@@ -643,12 +642,7 @@ end
 
 local function FormatHiddenChat(event, args)
     local ok, text = pcall(BuildHiddenChat, event, args)
-    if not ok then
-        LogHiddenChat("rebuild failed for " .. tostring(event) .. ": " .. tostring(text))
-        return nil
-    end
-    LogHiddenChat("rebuilt " .. tostring(event) .. (text and (" secret=" .. tostring(IsSecret(text))) or " nil"))
-    return text
+    if ok then return text end
 end
 
 -- Keeps group deaths, the roster, skill ranks and battleground queues
@@ -915,72 +909,6 @@ groupProbeFrame:SetScript("OnEvent", function(_, event, arg1)
     elseif type(arg1) == "string" and (arg1:find("[Ll]oot") or arg1:find("[Rr]aid") or arg1:find("[Pp]arty")
         or arg1:find("[Gg]roup") or arg1:find("Hdeath", 1, true)) then
         GroupProbe("system line readable: " .. arg1)
-    end
-end)
-
--- =========================
--- TEMPORARY probe: hidden player chat
--- =========================
--- For the first 10 player chat messages the game hides (guild chat in a
--- battleground), logs which of the event's values addons can read, whether
--- addon code may join hidden text into a new string, and what the chat
--- window's history keeps for the line. To CarpenterDB.chatHiddenChatProbe.
--- Remove once hidden player chat is styled or known not to be possible.
-local hiddenChatProbe = {}
-local function HiddenChatProbe(text)
-    if #hiddenChatProbe >= 60 then return end
-    hiddenChatProbe[#hiddenChatProbe + 1] = string.format("%.2f %s", GetTime and GetTime() or 0,
-        (tostring(text):gsub("|", "||")))
-    if CarpenterDB then CarpenterDB.chatHiddenChatProbe = hiddenChatProbe end
-end
-local function Shape(value)
-    if IsSecret(value) then return "secret" end
-    if value == nil then return "nil" end
-    return type(value) .. ":" .. tostring(value):sub(1, 40)
-end
-local function TryJoin(label, value)
-    local ok, result = pcall(function() return "G " .. value .. "|r" end)
-    if not ok then return label .. " join error: " .. tostring(result) end
-    local okFormat, formatted = pcall(string.format, "G %s", value)
-    return string.format("%s join ok secret=%s, format %s secret=%s", label, tostring(IsSecret(result)),
-        okFormat and "ok" or ("error: " .. tostring(formatted)), tostring(okFormat and IsSecret(formatted)))
-end
-LogHiddenChat = HiddenChatProbe
-local hiddenChatSeen = 0
-local hiddenChatFrame = CreateFrame("Frame")
-for _, event in ipairs({
-    "CHAT_MSG_GUILD", "CHAT_MSG_OFFICER", "CHAT_MSG_PARTY", "CHAT_MSG_PARTY_LEADER", "CHAT_MSG_RAID",
-    "CHAT_MSG_RAID_LEADER", "CHAT_MSG_INSTANCE_CHAT", "CHAT_MSG_INSTANCE_CHAT_LEADER", "CHAT_MSG_WHISPER",
-    "CHAT_MSG_SAY", "CHAT_MSG_YELL", "CHAT_MSG_CHANNEL",
-}) do
-    pcall(hiddenChatFrame.RegisterEvent, hiddenChatFrame, event)
-end
-hiddenChatFrame:SetScript("OnEvent", function(_, event, ...)
-    local msg, author = ...
-    if not IsSecret(msg) or hiddenChatSeen >= 10 then return end
-    hiddenChatSeen = hiddenChatSeen + 1
-    local lineID, guid = select(11, ...), select(12, ...)
-    HiddenChatProbe(string.format("%s msg=%s author=%s lineID=%s guid=%s", event, Shape(msg), Shape(author),
-        Shape(lineID), Shape(guid)))
-    HiddenChatProbe(TryJoin("event msg", msg))
-    if C_Timer and C_Timer.After then
-        C_Timer.After(0, function()
-            local elements = ChatFrame1 and ChatFrame1.historyBuffer and ChatFrame1.historyBuffer.elements
-            if type(elements) ~= "table" then return end
-            local newest, newestTime
-            for _, entry in ipairs(elements) do
-                local time = type(entry) == "table" and entry.timestamp
-                if type(time) == "number" and not IsSecret(time) and (not newestTime or time >= newestTime) then
-                    newest, newestTime = entry, time
-                end
-            end
-            if not newest then return end
-            local typeID = type(newest.extraData) == "table" and newest.extraData[1]
-            local guildInfo = ChatTypeInfo and ChatTypeInfo.GUILD
-            HiddenChatProbe(string.format("history newest: message=%s typeID=%s (guild id %s)", Shape(newest.message),
-                Shape(typeID), tostring(guildInfo and guildInfo.id)))
-            HiddenChatProbe(TryJoin("history message", newest.message))
-        end)
     end
 end)
 
