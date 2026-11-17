@@ -418,8 +418,9 @@ function Carpenter_InitializeSettings()
     CarpenterDB.hideErrorProbeLog = nil
     -- A Chat Cleaner queue line log from testing a fix, never released.
     CarpenterDB.chatQueueProbeLog = nil
-    -- A Chat Cleaner hidden chat log from testing a fix, never released.
+    -- Chat Cleaner logs from testing fixes, never released.
     CarpenterDB.chatHiddenChatProbe = nil
+    CarpenterDB.chatGroupProbeLog = nil
     -- Writ map markers became an always-on Forever fix before release, so
     -- its setting and its test log are gone.
     CarpenterDB.writMapMarkersEnabled = nil
