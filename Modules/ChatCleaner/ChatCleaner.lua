@@ -192,8 +192,6 @@ local FormatQueueNotice = systemFormatter.FormatQueueNotice
 local FormatSkillMessage = systemFormatter.FormatSkillMessage
 local ClaimVisibleSkillRise = systemFormatter.ClaimVisibleSkillRise
 local FormatAppearanceCollectionMessage = systemFormatter.FormatAppearanceCollectionMessage
-local ApplyLevelUpGlobalStringStyling = systemFormatter.ApplyLevelUpGlobalStringStyling
-local RestoreLevelUpGlobalStringStyling = systemFormatter.RestoreLevelUpGlobalStringStyling
 
 local rewardFormatter = ChatCleanerRewards.Create and ChatCleanerRewards.Create({
     L = L,
@@ -553,8 +551,6 @@ local chatCleanerFeature = ChatCleanerLifecycle.Create and ChatCleanerLifecycle.
     RestoreChatFrameAddMessage = postProcessor.RestoreChatFrameAddMessage,
     ShouldDropBeforeAdd = postProcessor.ShouldDropBeforeAdd,
     ShouldDropChannelNotice = postProcessor.ShouldDropChannelNotice,
-    ApplyLevelUpGlobalStringStyling = ApplyLevelUpGlobalStringStyling,
-    RestoreLevelUpGlobalStringStyling = RestoreLevelUpGlobalStringStyling,
     SessionTracker = sessionTracker,
 }) or {}
 

@@ -39,31 +39,7 @@ local chatEvents = {
     "CHAT_MSG_YELL",
 }
 
-local CHAT_FLAG_KEYS = { "CHAT_FLAG_AFK", "CHAT_FLAG_DND" }
-local CHAT_FLAG_VALUES = { CHAT_FLAG_AFK = "AFK ", CHAT_FLAG_DND = "DND " }
-
-local originalChatFlags
 local originalEditBoxTextures = {}
-
-local function ApplyChatFlags()
-    if originalChatFlags then return end
-    originalChatFlags = {}
-    for _, key in ipairs(CHAT_FLAG_KEYS) do
-        originalChatFlags[key] = _G[key]
-        _G[key] = CHAT_FLAG_VALUES[key]
-    end
-end
-
-local function RestoreChatFlags()
-    if not originalChatFlags then return end
-    for _, key in ipairs(CHAT_FLAG_KEYS) do
-        -- Leave the flag alone if another addon replaced it after us.
-        if _G[key] == CHAT_FLAG_VALUES[key] then
-            _G[key] = originalChatFlags[key]
-        end
-    end
-    originalChatFlags = nil
-end
 
 local function ForEachEditBoxTexture(callback)
     for i = 1, NUM_CHAT_WINDOWS do
@@ -222,10 +198,6 @@ function Lifecycle.Create(options)
         featureEnabled = true
         InitializeHooks()
         HookChatFrames()
-        if options.ApplyLevelUpGlobalStringStyling then
-            options.ApplyLevelUpGlobalStringStyling()
-        end
-        ApplyChatFlags()
         RegisterChatFilters()
         ApplyEditBox()
         if options.SessionTracker and options.SessionTracker.Enable then
@@ -237,10 +209,6 @@ function Lifecycle.Create(options)
         featureEnabled = false
         UnregisterChatFilters()
         RestoreChatFrames()
-        if options.RestoreLevelUpGlobalStringStyling then
-            options.RestoreLevelUpGlobalStringStyling()
-        end
-        RestoreChatFlags()
         RestoreEditBox()
         if options.SessionTracker and options.SessionTracker.Disable then
             options.SessionTracker:Disable()

@@ -35,8 +35,6 @@ function System.Create(config)
     end
 
     local api = {}
-    local originalLevelUpGlobals = nil
-    local appliedLevelUpGlobals = nil
     local lastLearnedSkillName, lastLearnedSkillTime = nil, 0
     local learnedSkillDedupSeconds = config.LearnedSkillDedupSeconds or 3
     -- The last "Learned" line each chat frame showed. The filter runs once per
@@ -84,26 +82,40 @@ function System.Create(config)
         return ok and result == true
     end
 
-    function api.NormalizeSkillName(name)
-        if not name or type(name) ~= "string" then return nil end
-        name = cleanPunctuation(stripBrackets(name))
-        name = name:gsub("%s*%b()%s*$", "")
-        name = name:gsub("^%s+", ""):gsub("%s+$", "")
-        if name == "" then return nil end
-        return name:lower()
-    end
-
     function api.IsLevelUpRewardEvent(event)
         return event == "CHAT_MSG_SYSTEM" or
             event == "CHAT_MSG_COMBAT_XP_GAIN" or
             event == "CHAT_MSG_COMBAT_MISC_INFO"
     end
 
+    -- The level the game counts as the top for this client's players.
+    local function MaxPlayerLevel()
+        local level = type(GetMaxPlayerLevel) == "function" and ReadableNumber(GetMaxPlayerLevel())
+        return level or 60
+    end
+
+    local function GainedPoints(amount, one, many)
+        local word = tonumber(amount) == 1 and one or many
+        return colorPlus .. "+|r " .. colorWhite .. amount .. " " .. word .. "|r"
+    end
+
+    -- Level-up lines, yours and other players': the game's LEVEL_UP,
+    -- LEVEL_UP_HEALTH(_MANA), LEVEL_UP_CHAR_POINTS and LEVEL_UP_STAT, and
+    -- "<name> has reached level N" lines.
     function api.FormatLevelUpRewardMessage(plainText)
         if not plainText or type(plainText) ~= "string" then return nil end
 
-        local plainLower = plainText:lower()
+        -- Forever links the level: "you have reached [Level 12]!".
+        plainText = plainText:gsub("[%[%]]", "")
         local levelColor = colorWhite
+
+        local selfLevel = plainText:match("^%s*[Cc]ongratulations,?%s+you%s+have%s+reached%s+[Ll]evel%s+(%d+)") or
+            plainText:match("^%s*[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$") or
+            plainText:match("^%s*[Yy]ou%s+[Hh]ave%s+[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$") or
+            plainText:match("^%s*[Yy]ou%s+[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
+        if selfLevel then
+            return levelColor .. T("CHAT_REACHED_LEVEL_NO_NAME", "Reached level %s", selfLevel) .. "|r"
+        end
 
         local function TrimName(name)
             if not name or name == "" then return nil end
@@ -123,7 +135,7 @@ function System.Create(config)
                 return nil
             end
 
-            if tonumber(levelNum) == 60 then
+            if tonumber(levelNum) == MaxPlayerLevel() then
                 return colorYellow .. T("CHAT_REACHED_LEVEL", "%s reached level %s", name, levelNum) .. "|r"
             end
 
@@ -138,34 +150,30 @@ function System.Create(config)
         styledOther = FormatOtherPlayerLevel(otherName, otherLevel)
         if styledOther then return styledOther end
 
-        otherName, otherLevel = plainText:match("^%s*[Cc]ongratulations%s+to%s+(.+)%s+on%s+[Rr]eaching%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$") or
-            plainText:match("^%s*[Cc]ongratulations%s+to%s+(.+)%s+for%s+[Rr]eaching%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
+        -- Two patterns, one at a time: `a, b = x:match() or y:match()` would
+        -- keep only the name.
+        otherName, otherLevel = plainText:match("^%s*[Cc]ongratulations%s+to%s+(.+)%s+on%s+[Rr]eaching%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
+        if not otherName then
+            otherName, otherLevel = plainText:match("^%s*[Cc]ongratulations%s+to%s+(.+)%s+for%s+[Rr]eaching%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
+        end
         styledOther = FormatOtherPlayerLevel(otherName, otherLevel)
         if styledOther then return styledOther end
 
-        local selfLevel = plainText:match("^%s*[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$") or
-            plainText:match("^%s*[Yy]ou%s+[Hh]ave%s+[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$") or
-            plainText:match("^%s*[Yy]ou%s+[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
-        if selfLevel then
-            return levelColor .. T("CHAT_REACHED_LEVEL_NO_NAME", "Reached level %s", selfLevel) .. "|r"
+        local hitPoint, hitPoints = T("CHAT_HIT_POINT", "Hit Point"), T("CHAT_HIT_POINTS", "Hit Points")
+        local healthAmount, manaAmount = plainText:match("[Gg]ained%s+(%d+)%s+[Hh]it [Pp]oints?%s+and%s+(%d+)%s+[Mm]ana")
+        if healthAmount then
+            local mana = _G.MANA or "Mana"
+            return GainedPoints(healthAmount, hitPoint, hitPoints) .. ", " .. GainedPoints(manaAmount, mana, mana)
         end
 
-        local hitAmount = plainText:match("[Yy]ou%s+have%s+gained%s+(%d+)%s+[Hh]it [Pp]oint") or
-            plainText:match("[Hh]ave%s+gained%s+(%d+)%s+[Hh]it [Pp]oint") or
-            plainText:match("[Gg]ained%s*:?.-%s*(%d+)%s+[Hh]it [Pp]oint")
-        if hitAmount and plainLower:find("hit point") then
-            local n = tonumber(hitAmount) or 0
-            local word = (n == 1) and T("CHAT_HIT_POINT", "Hit Point") or T("CHAT_HIT_POINTS", "Hit Points")
-            return colorPlus .. "+|r " .. levelColor .. hitAmount .. " " .. word .. "|r"
+        local hitAmount = plainText:match("[Gg]ained%s*:?.-%s*(%d+)%s+[Hh]it [Pp]oint")
+        if hitAmount then
+            return GainedPoints(hitAmount, hitPoint, hitPoints)
         end
 
-        local talentAmount = plainText:match("[Yy]ou%s+have%s+gained%s+(%d+)%s+[Tt]alent [Pp]oint") or
-            plainText:match("[Hh]ave%s+gained%s+(%d+)%s+[Tt]alent [Pp]oint") or
-            plainText:match("[Gg]ained%s*:?.-%s*(%d+)%s+[Tt]alent [Pp]oint")
-        if talentAmount and plainLower:find("talent point") then
-            local n = tonumber(talentAmount) or 0
-            local word = (n == 1) and T("CHAT_TALENT_POINT", "Talent Point") or T("CHAT_TALENT_POINTS", "Talent Points")
-            return colorPlus .. "+|r " .. levelColor .. talentAmount .. " " .. word .. "|r"
+        local talentAmount = plainText:match("[Gg]ained%s*:?.-%s*(%d+)%s+[Tt]alent [Pp]oint")
+        if talentAmount then
+            return GainedPoints(talentAmount, T("CHAT_TALENT_POINT", "Talent Point"), T("CHAT_TALENT_POINTS", "Talent Points"))
         end
 
         if plainText:match("[Yy]our%s+%w+%s+increases%s+by%s+%d+") or plainText:match("[Ii]ncreases:%s*%w+%s+by%s+%d+") then
@@ -325,13 +333,14 @@ function System.Create(config)
             return spaceBeforeX(colorPlus .. "+|r " .. colorWhite .. amount .. " " .. T("CHAT_REPUTATION_LABEL", "Reputation:") .. " |r" .. colorBluePurple .. faction .. "|r")
         end
 
-        local repFaction, repAmount = message:match("Your reputation with (.-) has decreased by (%d+)")
-        if not repFaction then repFaction, repAmount = message:match("Your (.-) reputation has decreased by (%d+)") end
-        if not repFaction then repFaction, repAmount = message:match("Reputation with (.-) decreased by (%d+)") end
-        if not repFaction then repAmount, repFaction = message:match("(%d+) reputation with (.-) lost") end
-        if not repFaction then repFaction, repAmount = message:match("(.-) reputation decreased by (%d+)") end
-        if repFaction and repAmount then
-            return spaceBeforeX(colorMinus .. Carpenter.MinusSign .. "|r " .. colorWhite .. repAmount .. " " .. T("CHAT_REPUTATION_LABEL", "Reputation:") .. " |r" .. colorBluePurple .. repFaction .. "|r")
+        faction, amount = repMsg:match("Your reputation with (.-) has decreased by (%d+)")
+        if not faction then faction, amount = repMsg:match("Your (.-) reputation has decreased by (%d+)") end
+        if not faction then faction, amount = repMsg:match("Reputation with (.-) decreased by (%d+)") end
+        if not faction then amount, faction = repMsg:match("(%d+) reputation with (.-) lost") end
+        if not faction then faction, amount = repMsg:match("(.-) reputation decreased by (%d+)") end
+        if faction and amount then
+            faction = cleanPunctuation(stripBrackets(faction))
+            return spaceBeforeX(colorMinus .. Carpenter.MinusSign .. "|r " .. colorWhite .. amount .. " " .. T("CHAT_REPUTATION_LABEL", "Reputation:") .. " |r" .. colorBluePurple .. faction .. "|r")
         end
 
         return nil
@@ -422,29 +431,6 @@ function System.Create(config)
         local queuedName = QueuedName(message)
         if queuedName then return JoinedQueueText(queuedName) end
 
-        local queueMsg = message:lower()
-        if queueMsg:find("joined the queue") or queueMsg:find("joined queue") or
-           queueMsg:find("entering battleground") or queueMsg:find("entered battleground") or
-           queueMsg:find("battlefield queue") then
-            local bgType = T("CHAT_UNKNOWN", "Unknown")
-            if queueMsg:find("alterac valley", 1, true) then
-                bgType = "Alterac Valley"
-            elseif queueMsg:find("warsong gulch", 1, true) then
-                bgType = "Warsong Gulch"
-            elseif queueMsg:find("arathi basin", 1, true) then
-                bgType = "Arathi Basin"
-            elseif queueMsg:find("eye of the storm", 1, true) then
-                bgType = "Eye of the Storm"
-            elseif queueMsg:find("strand of the ancients", 1, true) then
-                bgType = "Strand of the Ancients"
-            elseif queueMsg:find("isle of conquest", 1, true) then
-                bgType = "Isle of Conquest"
-            elseif queueMsg:find("arena", 1, true) or queueMsg:find("2v2", 1, true) or queueMsg:find("3v3", 1, true) or queueMsg:find("5v5", 1, true) then
-                bgType = T("CHAT_ARENA", "Arena")
-            end
-            return JoinedQueueText(bgType)
-        end
-
         if message:match("^You are no longer queued%.?$") then
             return LeftQueueText(LeftQueueName())
         end
@@ -453,10 +439,15 @@ function System.Create(config)
             return spaceBeforeX(colorPlus .. "+|r " .. colorWhite .. T("CHAT_SAVED_TO_INSTANCE", "Saved to instance") .. "|r")
         end
 
-        local hasWin = queueMsg:find("victory") or queueMsg:find("win") or queueMsg:find("won")
-        local hasLoss = queueMsg:find("defeat") or queueMsg:find("lose") or queueMsg:find("lost")
-        local isBattle = queueMsg:find("honor") or queueMsg:find("arena") or queueMsg:find("battleground") or queueMsg:find("battle")
-        if (hasWin or hasLoss) and isBattle then
+        -- A battle's result ("Your team lost the battle."): the scoreboard
+        -- already shows it. Whole words only, so "Wintergrasp" or "close"
+        -- don't count.
+        local lower = message:lower()
+        local function HasWord(word) return lower:find("%f[%a]" .. word .. "%f[%A]") ~= nil end
+        local isResult = HasWord("victory") or HasWord("win") or HasWord("won") or HasWord("defeat") or
+            HasWord("lose") or HasWord("lost")
+        local isBattle = HasWord("honor") or HasWord("arena") or HasWord("battleground") or HasWord("battle")
+        if isResult and isBattle then
             return true
         end
 
@@ -475,8 +466,11 @@ function System.Create(config)
         if learned then
             local display = cleanPunctuation(stripBrackets(learned))
             display = display:gsub("^a new item: ", ""):gsub("^a new spell: ", ""):gsub("^a new ability: ", "")
-            if display:match("%b()%s*$") then
-                lastLearnedSkillName = api.NormalizeSkillName(display)
+            -- A profession rank ("Cooking (Apprentice)") is followed by "You have
+            -- gained the Cooking skill.", which says the same.
+            local name, rank = PlainLearnedName(display)
+            if rank ~= "" then
+                lastLearnedSkillName = name
                 lastLearnedSkillTime = GetTime and GetTime() or 0
             end
             if IsRepeatedLearnedLine(frame, display) then
@@ -499,7 +493,7 @@ function System.Create(config)
         if gainedSkill then
             local display = cleanPunctuation(stripBrackets(gainedSkill))
             local now = GetTime and GetTime() or 0
-            if lastLearnedSkillName and api.NormalizeSkillName(display) == lastLearnedSkillName and (now - lastLearnedSkillTime) <= learnedSkillDedupSeconds then
+            if lastLearnedSkillName and PlainLearnedName(display) == lastLearnedSkillName and (now - lastLearnedSkillTime) <= learnedSkillDedupSeconds then
                 return true
             end
             return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_SKILL_LABEL", "Skill:") .. " |r" .. colorPurple .. display .. "|r")
@@ -533,14 +527,16 @@ function System.Create(config)
         if skillInfo and skillInfo.GetNumSkillLines and skillInfo.GetSkillLineInfo then
             for index = 1, skillInfo.GetNumSkillLines() do
                 local info = skillInfo.GetSkillLineInfo(index)
-                if info and not info.isHeader and type(info.name) == "string" and type(info.rank) == "number" then
-                    callback(info.skillID or info.name, info.name, info.rank)
+                local name, rank = info and ReadableString(info.name), info and ReadableNumber(info.rank)
+                if name and rank and not info.isHeader then
+                    callback(info.skillID or name, name, rank)
                 end
             end
         elseif GetNumSkillLines and GetSkillLineInfo then
             for index = 1, GetNumSkillLines() do
                 local name, isHeader, _, rank = GetSkillLineInfo(index)
-                if type(name) == "string" and not isHeader and type(rank) == "number" then
+                name, rank = ReadableString(name), ReadableNumber(rank)
+                if name and rank and not isHeader then
                     callback(name, name, rank)
                 end
             end
@@ -596,8 +592,12 @@ function System.Create(config)
         count = ReadableNumber(count) or 0
         for index = 1, count do
             local ok, status, name = pcall(GetBattlefieldStatus, index)
-            if ok then
-                states[index] = { status = ReadableString(status), name = ReadableString(name) }
+            status = ok and ReadableString(status)
+            if status then
+                states[index] = { status = status, name = ReadableString(name) }
+            else
+                -- While the game hides it, the slot keeps its last known state.
+                states[index] = queueStates and queueStates[index]
             end
         end
         return states
@@ -658,43 +658,6 @@ function System.Create(config)
         end
 
         return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_APPEARANCE_LABEL", "Appearance:") .. " |r" .. display)
-    end
-
-    function api.ApplyLevelUpGlobalStringStyling()
-        if originalLevelUpGlobals then return end
-
-        originalLevelUpGlobals = {
-            LEVEL_UP = _G.LEVEL_UP,
-            LEVEL_UP_HEALTH = _G.LEVEL_UP_HEALTH,
-            LEVEL_UP_HEALTH_MANA = _G.LEVEL_UP_HEALTH_MANA,
-            LEVEL_UP_CHAR_POINTS = _G.LEVEL_UP_CHAR_POINTS,
-            LEVEL_UP_STAT = _G.LEVEL_UP_STAT,
-        }
-
-        local levelColor = colorWhite
-        _G.LEVEL_UP = levelColor .. T("CHAT_REACHED_LEVEL_NO_NAME", "Reached level %d") .. "|r"
-        _G.LEVEL_UP_HEALTH = colorPlus .. "+|r " .. levelColor .. "%d " .. T("CHAT_HIT_POINTS", "Hit Points") .. "|r"
-        _G.LEVEL_UP_HEALTH_MANA = colorPlus .. "+|r " .. levelColor .. "%d " .. T("CHAT_HIT_POINTS", "Hit Points") .. "|r, " .. colorPlus .. "+|r " .. levelColor .. "%d " .. (MANA or T("MANA", "Mana")) .. "|r"
-        _G.LEVEL_UP_CHAR_POINTS = colorPlus .. "+|r " .. levelColor .. "%d " .. T("CHAT_TALENT_POINTS", "Talent Points") .. "|r"
-        _G.LEVEL_UP_STAT = "Your %s increases by %d"
-
-        appliedLevelUpGlobals = {}
-        for key in pairs(originalLevelUpGlobals) do
-            appliedLevelUpGlobals[key] = _G[key]
-        end
-    end
-
-    function api.RestoreLevelUpGlobalStringStyling()
-        if not originalLevelUpGlobals then return end
-
-        for key, original in pairs(originalLevelUpGlobals) do
-            -- Leave the string alone if another addon replaced it after us.
-            if _G[key] == appliedLevelUpGlobals[key] then
-                _G[key] = original
-            end
-        end
-        originalLevelUpGlobals = nil
-        appliedLevelUpGlobals = nil
     end
 
     return api

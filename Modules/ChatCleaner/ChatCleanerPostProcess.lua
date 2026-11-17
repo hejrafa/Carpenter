@@ -38,8 +38,26 @@ do
     end
 end
 
+-- A sender's AFK or DND flag ("<Away>", "<Busy>"), shown as "AFK" or "DND".
+-- The game puts it right before the sender's player link. Chat Cleaner used
+-- to set CHAT_FLAG_AFK and CHAT_FLAG_DND instead, but Blizzard's chat
+-- formatter reads them before it edits the message, and on Retail and
+-- Forever an edit of a hidden message from tainted code is an error.
+local flagReplacements = {}
+for globalName, short in pairs({ CHAT_FLAG_AFK = "AFK ", CHAT_FLAG_DND = "DND " }) do
+    local flag = _G[globalName]
+    if type(flag) == "string" and flag ~= "" then
+        local escaped = flag:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
+        table.insert(flagReplacements, { escaped .. "|Hplayer:", short .. "|Hplayer:" })
+    end
+end
+
 local function ApplyChannelStyling(text)
     if not text or type(text) ~= "string" then return text end
+
+    for _, entry in ipairs(flagReplacements) do
+        text = text:gsub(entry[1], entry[2])
+    end
 
     for _, entry in ipairs(channelReplacements) do
         text = text:gsub(entry[1], entry[2])

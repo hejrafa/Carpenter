@@ -77,6 +77,8 @@ LOOT_ROLL_NEED = "%s has selected Need for: %s"
 LOOT_ROLL_GREED = "%s has selected Greed for: %s"
 LOOT_ROLL_DISENCHANT = "%s has selected Disenchant for: %s"
 LOOT_ROLL_WON = "%s won: %s"
+CHAT_FLAG_AFK = "<Away>"
+CHAT_FLAG_DND = "<Busy>"
 ITEM_QUALITY2_DESC = "Uncommon"
 ITEM_QUALITY4_DESC = "Epic"
 
@@ -571,6 +573,43 @@ local fixtures = {
         expectPlain = "[G] Tester: looking for mats",
         requireColor = "|cff40ff40",
         rejectPlain = "[Guild]",
+    },
+    {
+        name = "an AFK sender's flag is shortened before the name",
+        path = "post",
+        event = "CHAT_MSG_GUILD",
+        message = "|cff40ff40|Hchannel:GUILD|h[Guild]|h <Away>|Hplayer:Bob:1:GUILD|h[Bob]|h: brb|r",
+        expectPlain = "G AFK Bob: brb",
+    },
+    {
+        name = "your level-up line",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Congratulations, you have reached level 12!",
+        expectPlain = "Reached level 12",
+    },
+    {
+        name = "another player's level-up congratulation",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Congratulations to Durlock on reaching level 20!",
+        expectPlain = "Durlock reached level 20",
+    },
+    {
+        name = "hit points and mana on level up",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You have gained 30 hit points and 45 mana.",
+        expectPlain = "+ 30 Hit Points, + 45 Mana",
+    },
+    {
+        name = "a reputation loss loses its brackets too",
+        event = "CHAT_MSG_COMBAT_FACTION_CHANGE",
+        message = "Your reputation with [Booty Bay] has decreased by 25.",
+        expectPlain = "\226\136\146 25 Reputation: Booty Bay",
+    },
+    {
+        name = "a battle about to begin isn't a result",
+        event = "CHAT_MSG_SYSTEM",
+        message = "The battle for Wintergrasp is about to begin!",
+        expectPlain = "The battle for Wintergrasp is about to begin!",
     },
     {
         name = "combat guild prefix post-process compact",
@@ -1399,22 +1438,20 @@ do
     _G.CHAT_FLAG_AFK = "<Away>"
     _G.CHAT_FLAG_DND = "<Busy>"
 
-    local system = ns.Private.ChatCleanerSystem.Create({})
     local lifecycle = ns.Private.ChatCleanerLifecycle.Create({
         FilterImpl = function() return false, "", "" end,
-        ApplyLevelUpGlobalStringStyling = system.ApplyLevelUpGlobalStringStyling,
-        RestoreLevelUpGlobalStringStyling = system.RestoreLevelUpGlobalStringStyling,
     })
 
-    additionalChecks = additionalChecks + 1
-    if _G.CHAT_FLAG_AFK ~= "<Away>" then
-        failures[#failures + 1] = "chat cleaner revert: AFK flag changed before the feature was enabled"
-    end
-
+    -- Blizzard's own strings are never rewritten: its chat formatter reads
+    -- them, and on Retail and Forever that would taint it.
     lifecycle.Enable()
     additionalChecks = additionalChecks + 1
-    if region.texture ~= nil or region.alpha ~= 0 or _G.LEVEL_UP == blizzardLevelUp or _G.CHAT_FLAG_AFK ~= "AFK " then
-        failures[#failures + 1] = "chat cleaner revert: expected enable to restyle edit box, level up and flags"
+    if region.texture ~= nil or region.alpha ~= 0 then
+        failures[#failures + 1] = "chat cleaner revert: expected enable to restyle the edit box"
+    end
+    additionalChecks = additionalChecks + 1
+    if _G.LEVEL_UP ~= blizzardLevelUp or _G.CHAT_FLAG_AFK ~= "<Away>" or _G.CHAT_FLAG_DND ~= "<Busy>" then
+        failures[#failures + 1] = "chat cleaner revert: enable rewrote Blizzard's level-up or AFK/DND strings"
     end
 
     region.coords = { 0, 0, 0, 0, 0, 0, 0, 0 }
@@ -1422,14 +1459,6 @@ do
     additionalChecks = additionalChecks + 1
     if region.texture ~= "Interface\\ChatFrame\\UI-ChatInputBorder-Left" or region.alpha ~= 0.8 or region.coords[5] ~= 0.25 then
         failures[#failures + 1] = "chat cleaner revert: expected edit box texture, alpha and coords restored"
-    end
-    additionalChecks = additionalChecks + 1
-    if _G.LEVEL_UP ~= blizzardLevelUp then
-        failures[#failures + 1] = "chat cleaner revert: expected LEVEL_UP restored got [" .. tostring(_G.LEVEL_UP) .. "]"
-    end
-    additionalChecks = additionalChecks + 1
-    if _G.CHAT_FLAG_AFK ~= "<Away>" or _G.CHAT_FLAG_DND ~= "<Busy>" then
-        failures[#failures + 1] = "chat cleaner revert: expected AFK/DND flags restored"
     end
 
     _G.ChatFrame1EditBox = originalEditBox
