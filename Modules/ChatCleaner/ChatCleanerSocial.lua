@@ -9,7 +9,7 @@ function Social.Create(config)
     config = config or {}
     local getPartyOrRaidMessageColor = config.GetPartyOrRaidMessageColor or function() return "|cfff0f0f0" end
     local colorGreen = config.ColorGreen or "|cff00ff00"
-    local colorRed = config.ColorRed or "|cffff4040"
+    local colorRed = config.ColorRed or "|cffff0000"
     local colorOrange = config.ColorOrange or "|cffff8000"
     local colorDarkorange = config.ColorDarkorange or "|cffff6600"
     local colorWhite = config.ColorWhite or "|cffffffff"

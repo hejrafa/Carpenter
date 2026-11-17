@@ -20,7 +20,8 @@ local ColorGreen      = Colors and Colors.green and Colors.green.colorCode or "|
 local ColorOrange     = Colors and Colors.quest and Colors.quest.orange and Colors.quest.orange.colorCode or "|cffff8000"
 local ColorDarkorange = Colors and Colors.quest and Colors.quest.red and Colors.quest.red.colorCode or "|cffff6600"
 local ColorPalered    = Colors and Colors.palered and Colors.palered.colorCode or "|cffcc8080"
-local ColorRed        = Colors and Colors.red and Colors.red.colorCode or "|cffff4040"
+-- The game's own red, as on its Horde battleground messages (255, 0, 0).
+local ColorRed        = Colors and Colors.red and Colors.red.colorCode or "|cffff0000"
 
 -- Accent colors
 local ColorPurple     = Colors and Colors.xpValue and Colors.xpValue.colorCode or "|cffb794f4"         -- Skill / spell names
@@ -29,7 +30,7 @@ local ColorBluePurple = Colors and Colors.faction and Colors.faction.Alliance an
 local ColorTeal       = Colors and Colors.power and Colors.power.ESSENCE and Colors.power.ESSENCE.colorCode or "|cff00ccaa"        -- Discovery zone
 local ColorQueue      = Colors and Colors.zone and Colors.zone.sanctuary and Colors.zone.sanctuary.colorCode or "|cff80b0ff"       -- BG / queue name
 local ColorCyan       = Colors and Colors.power and Colors.power.MANA and Colors.power.MANA.colorCode or "|cff00ccff"              -- Generic rewards
-local ColorHonor      = Colors and Colors.red and Colors.red.colorCode or "|cffff4040"
+local ColorHonor      = Colors and Colors.red and Colors.red.colorCode or "|cffff0000"
 local ColorAuctionExpired = ColorRed
 local ColorSold           = ColorGray
 local ColorAuctionHouse   = "|cffffb347"   -- Amber for buyer found, auction created

@@ -224,7 +224,7 @@ local fixtures = {
         event = "CHAT_MSG_SYSTEM",
         message = "Gorb Garnsson has left the battle.",
         expectPlain = "Gorb Garnsson left",
-        requireColor = "|cffff4040",
+        requireColor = "|cffff0000",
     },
     {
         name = "batched battleground leaves list",
@@ -232,7 +232,7 @@ local fixtures = {
         event = "CHAT_MSG_SYSTEM",
         message = "2 players have left the battle: Gorb Garnsson, Peti Lucko",
         expectPlain = "Gorb Garnsson, Peti Lucko left",
-        requireColor = "|cffff4040",
+        requireColor = "|cffff0000",
     },
     {
         name = "batched battleground leave count",
@@ -240,7 +240,7 @@ local fixtures = {
         event = "CHAT_MSG_SYSTEM",
         message = "5 players have left the battle.",
         expectPlain = "5 players left",
-        requireColor = "|cffff4040",
+        requireColor = "|cffff0000",
     },
     {
         name = "player links keep original color",
@@ -796,7 +796,7 @@ local fixtures = {
         event = "CHAT_MSG_SYSTEM",
         message = "|cff71d5ff|Hdeath:42|h[You died.]|h",
         expectPlain = "You died",
-        requireColor = "|cffff4040|Hdeath:42|hYou died|h|r",
+        requireColor = "|cffff0000|Hdeath:42|hYou died|h|r",
     },
     {
         name = "a new raid keeps its line",
@@ -2300,7 +2300,7 @@ do
     for _, line in ipairs({ "You have been removed from the group.", "You have been removed from the raid." }) do
         local removed = social.FormatSystemSocialMessage(line)
         additionalChecks = additionalChecks + 1
-        if removed ~= "|cffff4040Removed from the group|r" then
+        if removed ~= "|cffff0000Removed from the group|r" then
             failures[#failures + 1] = "group: being removed should be red, got [" .. tostring(removed) .. "]"
         end
     end
@@ -2442,7 +2442,7 @@ do
         "|cffffffff|Hplayer:Bob:3:SAY|h[Bob]|h says: anyone got 20 honor?|r",
         "|cffff80ff|Hplayer:Bob:4:WHISPER|h[Bob]|h whispers: I need 1500 Honor Points for the shoulders|r",
         "|cffff80ff|HBNplayer:Bob:5:6:BN_WHISPER:Bob|h[Bob]|h whispers: 3 honor points left|r",
-        "|cffff4040Herald yells: The victors earn 300 Honor Points!|r",
+        "|cffff0000Herald yells: The victors earn 300 Honor Points!|r",
         "|cffffffff|Hplayer:Bob:7:SAY|h[Bob]|h says: Foo dies, honorable kill (3 Honor Points)|r",
     }
     for _, line in ipairs(chatLines) do

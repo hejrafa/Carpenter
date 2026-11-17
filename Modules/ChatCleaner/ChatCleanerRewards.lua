@@ -41,11 +41,11 @@ function Rewards.Create(config)
     local colorWhite = config.ColorWhite or "|cffffffff"
     local colorCyan = config.ColorCyan or "|cff00ccff"
     local colorPurple = config.ColorPurple or "|cffb794f4"
-    local colorHonor = config.ColorHonor or "|cffff4040"
+    local colorHonor = config.ColorHonor or "|cffff0000"
     local colorPalered = config.ColorPalered or "|cffcc8080"
     local colorMinus = config.ColorMinus or "|cffc8c8c8"
     local colorAuctionHouse = config.ColorAuctionHouse or "|cffffb347"
-    local colorAuctionExpired = config.ColorAuctionExpired or "|cffff4040"
+    local colorAuctionExpired = config.ColorAuctionExpired or "|cffff0000"
     local merchantFrame = config.MerchantFrame or {}
     local mailTracker = config.MailTracker or {}
     local repairDedupSeconds = config.RepairDedupSeconds or 2

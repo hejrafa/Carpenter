@@ -90,7 +90,7 @@ function PostProcess.Create(config)
     local colorGreen = config.ColorGreen or "|cff00ff00"
     local getChannelMessageColor = config.GetChannelMessageColor or function() return colorLootLiteral end
     local getPlayerNameColor = config.GetPlayerNameColor or function() return nil end
-    local colorRed = config.ColorRed or "|cffff4040"
+    local colorRed = config.ColorRed or "|cffff0000"
     local honorDelay = config.HonorDelay or 3
     local joinDedupDelay = config.JoinDedupDelay or 8
     local L = config.L or (Carpenter and Carpenter.L) or {}
