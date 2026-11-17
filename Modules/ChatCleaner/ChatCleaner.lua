@@ -1,136 +1,125 @@
 --[[ Carpenter - ChatCleaner ]]
 local _, ns = ...
-local L = (Carpenter and Carpenter.L) or (ns and ns.L) or {}
+local L = Carpenter.L
 local IsSecret = Carpenter.Secret.IsSecret
 
--- Shared Carpenter color palette
-local Colors = ns and ns.Private and ns.Private.Colors
+local Utils = ns.Private.ChatCleanerUtils
+local ChatCleanerLoot = ns.Private.ChatCleanerLoot
+local ChatCleanerSessions = ns.Private.ChatCleanerSessions
+local ChatCleanerSystem = ns.Private.ChatCleanerSystem
+local ChatCleanerRewards = ns.Private.ChatCleanerRewards
+local ChatCleanerSocial = ns.Private.ChatCleanerSocial
+local ChatCleanerPostProcess = ns.Private.ChatCleanerPostProcess
+local ChatCleanerLifecycle = ns.Private.ChatCleanerLifecycle
 
--- Muted tones: light grey chrome; soft off-whites and subtle tints so chat isn’t flat or harsh
--- Goldpaw ChatCleaner-style (github.com/GoldpawsStuff/ChatCleaner): gray +/-, offwhite names, white amounts, yellow quest, green cleared, palered losses
-local ColorGray       = Colors and Colors.gray and Colors.gray.colorCode or "|cffc8c8c8"
-local ColorPlus       = ColorGray
-local ColorMinus      = ColorGray
+-- Chat Cleaner's palette, after Goldpaw's ChatCleaner
+-- (github.com/GoldpawsStuff/ChatCleaner): gray + and − signs, white amounts
+-- and labels, and an accent for each kind of thing named.
+local Colors = ns.Private.Colors
+local ColorPlus         = Colors.gray.colorCode        -- "+" and "−" signs, counts
+local ColorMinus        = Colors.gray.colorCode
+local ColorWhite        = Colors.white.colorCode       -- amounts and labels
+local ColorLootLiteral  = Colors.white.colorCode       -- loot and roll words
+local ColorPalered      = Colors.palered.colorCode     -- money lost
+local ColorOffwhite     = "|cfff0f0f0"                 -- group lines with no group color
+local ColorYellow       = "|cffffd200"                 -- quests, friends, the top level
+local ColorGreen        = "|cff00ff00"                 -- joins, bare loot items
+local ColorOrange       = "|cffff8000"
+local ColorDarkorange   = "|cffff6600"
+local ColorRed          = "|cffff0000"                 -- the game's red, as on its Horde battleground lines
+local ColorPurple       = "|cffb794f4"                 -- skill and spell names
+local ColorTransmog     = "|cffff80ff"                 -- Blizzard's appearance collection pink
+local ColorBluePurple   = "|cff9d8cff"                 -- reputation factions
+local ColorTeal         = "|cff00ccaa"                 -- discovered zones
+local ColorQueue        = "|cff80b0ff"                 -- battleground and queue names
+local ColorCyan         = "|cff00ccff"                 -- generic rewards
+local ColorAuctionHouse = "|cffffb347"                 -- buyer found, auction created
+local ColorRestedBar    = "|cff3399ff"                 -- the XP bar's rested and normal blues
+local ColorNormalBar    = "|cff9940ff"
 
-local ColorOffwhite   = Colors and Colors.offwhite and Colors.offwhite.colorCode or "|cfff0f0f0"
-local ColorWhite      = Colors and Colors.white and Colors.white.colorCode or "|cffffffff"
-local ColorLootLiteral= ColorWhite
-local ColorYellow     = "|cffffd200"
-local ColorGreen      = Colors and Colors.green and Colors.green.colorCode or "|cff00ff00"
-local ColorOrange     = Colors and Colors.quest and Colors.quest.orange and Colors.quest.orange.colorCode or "|cffff8000"
-local ColorDarkorange = Colors and Colors.quest and Colors.quest.red and Colors.quest.red.colorCode or "|cffff6600"
-local ColorPalered    = Colors and Colors.palered and Colors.palered.colorCode or "|cffcc8080"
--- The game's own red, as on its Horde battleground messages (255, 0, 0).
-local ColorRed        = Colors and Colors.red and Colors.red.colorCode or "|cffff0000"
+local PREFIX_PLUS = ColorPlus .. "+|r "
+local PREFIX_MINUS = ColorMinus .. Carpenter.MinusSign .. "|r "
 
--- Accent colors
-local ColorPurple     = Colors and Colors.xpValue and Colors.xpValue.colorCode or "|cffb794f4"         -- Skill / spell names
-local ColorTransmog   = "|cffff80ff"                                                        -- Blizzard appearance collection pink
-local ColorBluePurple = Colors and Colors.faction and Colors.faction.Alliance and Colors.faction.Alliance.colorCode or "|cff9d8cff" -- Reputation faction
-local ColorTeal       = Colors and Colors.power and Colors.power.ESSENCE and Colors.power.ESSENCE.colorCode or "|cff00ccaa"        -- Discovery zone
-local ColorQueue      = Colors and Colors.zone and Colors.zone.sanctuary and Colors.zone.sanctuary.colorCode or "|cff80b0ff"       -- BG / queue name
-local ColorCyan       = Colors and Colors.power and Colors.power.MANA and Colors.power.MANA.colorCode or "|cff00ccff"              -- Generic rewards
-local ColorHonor      = Colors and Colors.red and Colors.red.colorCode or "|cffff0000"
-local ColorAuctionExpired = ColorRed
-local ColorSold           = ColorGray
-local ColorAuctionHouse   = "|cffffb347"   -- Amber for buyer found, auction created
-local ColorRepair         = ColorGray
-
--- Same tones as shared XP colors
-local ColorRestedBar = Colors and Colors.restedValue and Colors.restedValue.colorCode or "|cff3399ff"
-local ColorNormalBar = Colors and Colors.xpValue and Colors.xpValue.colorCode or "|cff9940ff"
-
-local ChatCleanerUtils = ns and ns.Private and ns.Private.ChatCleanerUtils or {}
-local ParseRetailMoneyGain = ChatCleanerUtils.ParseRetailMoneyGain
-local StripBrackets = ChatCleanerUtils.StripBrackets
-local CleanPunctuation = ChatCleanerUtils.CleanPunctuation
-local SpaceBeforeX = ChatCleanerUtils.SpaceBeforeX
-local RemoveLinkBrackets = ChatCleanerUtils.RemoveLinkBrackets
-local GetItemLinkFromMessage = ChatCleanerUtils.GetItemLinkFromMessage
-local ChatCleanerLoot = ns and ns.Private and ns.Private.ChatCleanerLoot or {}
-local ChatCleanerSessions = ns and ns.Private and ns.Private.ChatCleanerSessions or {}
-local ChatCleanerSystem = ns and ns.Private and ns.Private.ChatCleanerSystem or {}
-local ChatCleanerRewards = ns and ns.Private and ns.Private.ChatCleanerRewards or {}
-local ChatCleanerSocial = ns and ns.Private and ns.Private.ChatCleanerSocial or {}
-local ChatCleanerPostProcess = ns and ns.Private and ns.Private.ChatCleanerPostProcess or {}
-local ChatCleanerLifecycle = ns and ns.Private and ns.Private.ChatCleanerLifecycle or {}
+local ParseRetailMoneyGain = Utils.ParseRetailMoneyGain
+local StripBrackets = Utils.StripBrackets
+local CleanPunctuation = Utils.CleanPunctuation
+local SpaceBeforeX = Utils.SpaceBeforeX
+local RemoveLinkBrackets = Utils.RemoveLinkBrackets
+local GetItemLinkFromMessage = Utils.GetItemLinkFromMessage
+local GetItemLinkWithQualityColor = Utils.GetItemLinkWithQualityColor
+local ShouldSkipGenericReceive = Utils.ShouldSkipGenericReceive
 
 local function FormatMoney(amount, amountColor)
-    return ChatCleanerUtils.FormatMoney(amount, amountColor or ColorWhite, Carpenter.MoneyIcons)
+    return Utils.FormatMoney(amount, amountColor or ColorWhite, Carpenter.MoneyIcons)
 end
 
-local GetItemLinkWithQualityColor = ChatCleanerUtils.GetItemLinkWithQualityColor or function(itemLink) return itemLink end
-local ShouldSkipGenericReceive = ChatCleanerUtils.ShouldSkipGenericReceive or function() return true end
-
 local function FormatItemCountSuffix(text)
-    return ChatCleanerUtils.FormatItemCountSuffix(text, ColorPlus)
+    return Utils.FormatItemCountSuffix(text, ColorPlus)
 end
 
 local function FormatReceivedDisplay(rawDisplay, sourceMessage)
-    return ChatCleanerUtils.FormatReceivedDisplay(rawDisplay, sourceMessage, { CountColor = ColorPlus })
+    return Utils.FormatReceivedDisplay(rawDisplay, sourceMessage, { CountColor = ColorPlus })
 end
 
--- Blizzard party/raid message color (for system messages like "X joins", "Group leader")
+-- A chat type's color as the player set it, as a color code.
+local function ChatTypeColor(chatType, fallback)
+    local info = ChatTypeInfo and ChatTypeInfo[chatType]
+    if not info or not info.r then return fallback end
+    return Utils.ColorCode(info.r, info.g, info.b)
+end
+
+-- The party or raid chat color, for group lines like "X joins".
 local function GetPartyOrRaidMessageColor()
-    local info = ChatTypeInfo["RAID"] or ChatTypeInfo["PARTY"]
-    if not info then
-        return ColorOffwhite
-    end
-    if IsInRaid() then
-        info = ChatTypeInfo["RAID"]
-    else
-        info = ChatTypeInfo["PARTY"]
-    end
-    if not info or not info.r then
-        return ColorOffwhite
-    end
-    local r = math.floor((info.r or 1) * 255)
-    local g = math.floor((info.g or 1) * 255)
-    local b = math.floor((info.b or 1) * 255)
-    return string.format("|cff%02x%02x%02x", r, g, b)
+    return ChatTypeColor(IsInRaid() and "RAID" or "PARTY", ColorOffwhite)
 end
 
-local function GetChannelMessageColor(event)
-    local chatTypeByEvent = {
-        CHAT_MSG_PARTY = "PARTY",
-        CHAT_MSG_PARTY_LEADER = "PARTY_LEADER",
-        CHAT_MSG_RAID = "RAID",
-        CHAT_MSG_RAID_LEADER = "RAID_LEADER",
-    }
-    local chatType = chatTypeByEvent[event]
-    if not chatType and (event == "CHAT_MSG_LOOT" or event == "CHAT_MSG_SYSTEM") and GetNumGroupMembers and GetNumGroupMembers() > 0 then
-        chatType = IsInRaid and IsInRaid() and "RAID" or "PARTY"
-    end
-    local info = chatType and ChatTypeInfo and ChatTypeInfo[chatType]
-    if not info or not info.r then return ColorLootLiteral end
+local GROUP_CHAT_TYPE_BY_EVENT = {
+    CHAT_MSG_PARTY = "PARTY", CHAT_MSG_PARTY_LEADER = "PARTY_LEADER",
+    CHAT_MSG_RAID = "RAID", CHAT_MSG_RAID_LEADER = "RAID_LEADER",
+}
 
-    local r = math.floor((info.r or 1) * 255)
-    local g = math.floor((info.g or 1) * 255)
-    local b = math.floor((info.b or 1) * 255)
-    return string.format("|cff%02x%02x%02x", r, g, b)
+-- The color of loot and roll lines: the chat's own color in party or raid
+-- chat, the group's color for loot and system lines in a group, else white.
+local function GetChannelMessageColor(event)
+    local chatType = GROUP_CHAT_TYPE_BY_EVENT[event]
+    if not chatType and (event == "CHAT_MSG_LOOT" or event == "CHAT_MSG_SYSTEM") and GetNumGroupMembers() > 0 then
+        chatType = IsInRaid() and "RAID" or "PARTY"
+    end
+    return chatType and ChatTypeColor(chatType, ColorLootLiteral) or ColorLootLiteral
 end
 
 local function GetGuildMessageColor()
-    local info = ChatTypeInfo and ChatTypeInfo["GUILD"]
-    if not info or not info.r then return ColorGreen end
-
-    local r = math.floor((info.r or 1) * 255)
-    local g = math.floor((info.g or 1) * 255)
-    local b = math.floor((info.b or 1) * 255)
-    return string.format("|cff%02x%02x%02x", r, g, b)
+    return ChatTypeColor("GUILD", ColorGreen)
 end
 
-local GroupLootPatterns = ChatCleanerLoot.BuildGroupLootPatterns and ChatCleanerLoot.BuildGroupLootPatterns() or {}
-local RollPatterns = ChatCleanerLoot.BuildRollPatterns and ChatCleanerLoot.BuildRollPatterns() or {}
--- Assigned once the social formatter exists; the loot formatter is built first.
-local GetPlayerClassColor
+local socialFormatter = ChatCleanerSocial.Create({
+    L = L,
+    GetPartyOrRaidMessageColor = GetPartyOrRaidMessageColor,
+    CleanPunctuation = CleanPunctuation,
+    ColorGreen = ColorGreen,
+    ColorRed = ColorRed,
+    ColorOrange = ColorOrange,
+    ColorDarkorange = ColorDarkorange,
+    ColorWhite = ColorWhite,
+    ColorQueue = ColorQueue,
+    ColorRestedBar = ColorRestedBar,
+    ColorNormalBar = ColorNormalBar,
+    ColorFriendNotice = ColorYellow,
+    GetGuildMessageColor = GetGuildMessageColor,
+})
+local FormatBattlegroundAndGroupNotice = socialFormatter.FormatBattlegroundAndGroupNotice
+local FormatSystemSocialMessage = socialFormatter.FormatSystemSocialMessage
+local RememberSenderClass = socialFormatter.RememberSenderClass
+
+local GroupLootPatterns = ChatCleanerLoot.BuildGroupLootPatterns()
+local RollPatterns = ChatCleanerLoot.BuildRollPatterns()
 -- Roll names take their class color only outside a group; in a party or raid
 -- they keep that chat's color, like the rest of the roll line.
 local function GetPlayerNameColor(name)
-    if GetNumGroupMembers and GetNumGroupMembers() > 0 then return nil end
-    return GetPlayerClassColor and GetPlayerClassColor(name)
+    if GetNumGroupMembers() > 0 then return nil end
+    return socialFormatter.GetPlayerClassColor(name)
 end
-local lootFormatter = ChatCleanerLoot.Create and ChatCleanerLoot.Create({
+local lootFormatter = ChatCleanerLoot.Create({
     L = L,
     CleanPunctuation = CleanPunctuation,
     StripBrackets = StripBrackets,
@@ -147,21 +136,18 @@ local lootFormatter = ChatCleanerLoot.Create and ChatCleanerLoot.Create({
     ColorLootLiteral = ColorLootLiteral,
     ColorGreen = ColorGreen,
     GetChannelMessageColor = GetChannelMessageColor,
-}) or {}
+})
 local FormatSelfLootMessage = lootFormatter.FormatSelfLootMessage
 local FormatGroupLootMessage = lootFormatter.FormatGroupLootMessage
 local FormatLootRollMessage = lootFormatter.FormatLootRollMessage
 
-local sessionTracker = ChatCleanerSessions.Create and ChatCleanerSessions.Create({
+local sessionTracker = ChatCleanerSessions.Create({
     FormatMoney = FormatMoney,
     ColorPlus = ColorPlus,
     ColorMinus = ColorMinus,
-}) or {}
-local merchantFrame = sessionTracker.merchantFrame or {}
-local mailTracker = sessionTracker.mailTracker or {}
+})
 
-
-local systemFormatter = ChatCleanerSystem.Create and ChatCleanerSystem.Create({
+local systemFormatter = ChatCleanerSystem.Create({
     L = L,
     CleanPunctuation = CleanPunctuation,
     StripBrackets = StripBrackets,
@@ -180,7 +166,7 @@ local systemFormatter = ChatCleanerSystem.Create and ChatCleanerSystem.Create({
         return Carpenter.Client and Carpenter.Client.isMainline == true
     end,
     LearnedSkillDedupSeconds = 3,
-}) or {}
+})
 local IsLevelUpRewardEvent = systemFormatter.IsLevelUpRewardEvent
 local FormatExperienceMessage = systemFormatter.FormatExperienceMessage
 local FormatQuestProgressMessage = systemFormatter.FormatQuestProgressMessage
@@ -191,7 +177,7 @@ local FormatSkillMessage = systemFormatter.FormatSkillMessage
 local ClaimVisibleSkillRise = systemFormatter.ClaimVisibleSkillRise
 local FormatAppearanceCollectionMessage = systemFormatter.FormatAppearanceCollectionMessage
 
-local rewardFormatter = ChatCleanerRewards.Create and ChatCleanerRewards.Create({
+local rewardFormatter = ChatCleanerRewards.Create({
     L = L,
     CleanPunctuation = CleanPunctuation,
     StripBrackets = StripBrackets,
@@ -204,42 +190,22 @@ local rewardFormatter = ChatCleanerRewards.Create and ChatCleanerRewards.Create(
     ColorWhite = ColorWhite,
     ColorCyan = ColorCyan,
     ColorPurple = ColorPurple,
-    ColorHonor = ColorHonor,
+    ColorHonor = ColorRed,
     ColorPalered = ColorPalered,
     ColorMinus = ColorMinus,
     ColorAuctionHouse = ColorAuctionHouse,
-    ColorAuctionExpired = ColorAuctionExpired,
-    MerchantFrame = merchantFrame,
-    MailTracker = mailTracker,
+    ColorAuctionExpired = ColorRed,
+    MerchantFrame = sessionTracker.merchantFrame,
+    MailTracker = sessionTracker.mailTracker,
     RepairDedupSeconds = 2,
-}) or {}
+})
 local FormatCurrencyMessage = rewardFormatter.FormatCurrencyMessage
 local FormatMoneyMessage = rewardFormatter.FormatMoneyMessage
 local FormatAuctionMessage = rewardFormatter.FormatAuctionMessage
 local FormatRefundMessage = rewardFormatter.FormatRefundMessage
 local FormatGenericReward = rewardFormatter.FormatGenericReward
 
-local socialFormatter = ChatCleanerSocial.Create and ChatCleanerSocial.Create({
-    L = L,
-    GetPartyOrRaidMessageColor = GetPartyOrRaidMessageColor,
-    CleanPunctuation = CleanPunctuation,
-    ColorGreen = ColorGreen,
-    ColorRed = ColorRed,
-    ColorOrange = ColorOrange,
-    ColorDarkorange = ColorDarkorange,
-    ColorWhite = ColorWhite,
-    ColorQueue = ColorQueue,
-    ColorRestedBar = ColorRestedBar,
-    ColorNormalBar = ColorNormalBar,
-    ColorFriendNotice = ColorYellow,
-    GetGuildMessageColor = GetGuildMessageColor,
-}) or {}
-local FormatBattlegroundAndGroupNotice = socialFormatter.FormatBattlegroundAndGroupNotice
-local FormatSystemSocialMessage = socialFormatter.FormatSystemSocialMessage
-local RememberSenderClass = socialFormatter.RememberSenderClass
-GetPlayerClassColor = socialFormatter.GetPlayerClassColor
-
-local postProcessor = ChatCleanerPostProcess.Create and ChatCleanerPostProcess.Create({
+local postProcessor = ChatCleanerPostProcess.Create({
     L = L,
     RemoveLinkBrackets = RemoveLinkBrackets,
     FormatLevelUpRewardMessage = FormatLevelUpRewardMessage,
@@ -254,7 +220,7 @@ local postProcessor = ChatCleanerPostProcess.Create and ChatCleanerPostProcess.C
     ColorRed = ColorRed,
     HonorDelay = 3,
     JoinDedupDelay = 8,
-}) or {}
+})
 local HookChatFrameAddMessage = postProcessor.HookChatFrameAddMessage
 
 local function IsNameByte(byte)
@@ -308,12 +274,47 @@ local PLAYER_CHAT_EVENTS = {
     CHAT_MSG_GUILD = true, CHAT_MSG_OFFICER = true, CHAT_MSG_CHANNEL = true,
     CHAT_MSG_PARTY = true, CHAT_MSG_PARTY_LEADER = true, CHAT_MSG_RAID = true, CHAT_MSG_RAID_LEADER = true,
 }
-local GROUP_CHAT_EVENTS = {
-    CHAT_MSG_PARTY = true, CHAT_MSG_PARTY_LEADER = true, CHAT_MSG_RAID = true, CHAT_MSG_RAID_LEADER = true,
+
+local function StripColorsAndLinks(text)
+    return (text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"))
+end
+
+-- The game's lines, through each formatter in the order they claim them:
+-- each answers true (hide the line), its new text, or nil (not its line).
+-- plain is the line without colors and links.
+local FILTER_STEPS = {
+    function(_, msg, plain) return FormatExperienceMessage(msg, plain, PREFIX_PLUS) end,
+    function(event, _, plain) return FormatBattlegroundAndGroupNotice(event, plain) end,
+    function(event, _, plain)
+        if IsLevelUpRewardEvent(event) then return FormatLevelUpRewardMessage(plain) end
+    end,
+    function(event, msg, plain)
+        if event ~= "CHAT_MSG_SYSTEM" then return nil end
+        return FormatQuestProgressMessage(event, msg, plain, PREFIX_PLUS) or FormatSystemSocialMessage(plain)
+    end,
+    function(_, msg) return FormatReputationMessage(msg) end,
+    function(event, msg) return FormatQueueNotice(msg, event) end,
+    function(event, msg, plain) return FormatAppearanceCollectionMessage(event, msg, plain, PREFIX_PLUS) end,
+    function(_, msg) return FormatAuctionMessage(msg, PREFIX_PLUS, PREFIX_MINUS) end,
+    function(event, msg) return FormatCurrencyMessage(event, msg, PREFIX_PLUS) end,
+    function(event, msg) return FormatMoneyMessage(event, msg, PREFIX_PLUS, PREFIX_MINUS) end,
+    function(_, msg, plain, _, frame) return FormatSkillMessage(msg, plain, PREFIX_PLUS, PREFIX_MINUS, frame) end,
+    function(event, msg) return FormatSelfLootMessage(event, msg, PREFIX_PLUS) end,
+    function(event, msg, _, author) return FormatGroupLootMessage(event, msg, author) end,
+    function(event, msg) return FormatLootRollMessage(event, msg) end,
+    function(_, msg) return FormatRefundMessage(msg) end,
+    function(event, msg) return FormatGenericReward(event, msg, PREFIX_PLUS) end,
 }
 
-local function ChatFilterImpl(self, event, msg, author, ...)
-    if not (Carpenter and Carpenter:IsEnabled("chatCleanerEnabled")) then
+-- Lines that only add noise: channel changes (the prefixes already say
+-- which channel) and Auctionator's own notes.
+local function IsDroppedSystemLine(msg)
+    return msg:find("^Changed Channel:") or msg:find("^Left Channel:") or msg:find("^Auctionator:")
+        or msg:find("^|c%x%x%x%x%x%x%x%xAuctionator:")
+end
+
+local function ChatFilterImpl(frame, event, msg, author, ...)
+    if not Carpenter:IsEnabled("chatCleanerEnabled") then
         return false, msg, author, ...
     end
 
@@ -321,17 +322,17 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     -- inside instances, and don't pass those lines to addon filters at all;
     -- ChatCleanerHiddenLines rewrites them in the chat history instead. Should
     -- one get here anyway, it passes through untouched.
-    if IsSecret(msg) then
+    if IsSecret(msg) or type(msg) ~= "string" then
         return false, msg, author, ...
     end
 
-    if event == "CHAT_MSG_SKILL" and ClaimVisibleSkillRise and type(msg) == "string" then
+    if event == "CHAT_MSG_SKILL" then
         ClaimVisibleSkillRise(msg)
     end
 
     -- Chat events carry the sender's GUID (arg12); remember their class so
     -- later system lines about them, like /roll results, can be colored too.
-    if RememberSenderClass and author and author ~= "" then
+    if author and author ~= "" then
         RememberSenderClass(author, select(10, ...))
     end
 
@@ -339,33 +340,23 @@ local function ChatFilterImpl(self, event, msg, author, ...)
         return false, msg, SafeTextEmoteSender(msg, author), ...
     end
 
-    -- Monster emotes: some locales/strings use format placeholders like "%s" or "%o"
-    -- and Blizzard's MessageFormatter later calls string.format with extra args
-    -- (player/mob links). That combination can throw "bad argument #2 to 'format'"
-    -- if a numeric placeholder like %o is paired with a string argument.
-    --
-    -- For monster emotes, substitute the monster's name into any %s/%o-style
-    -- placeholders ourselves, then escape remaining '%' so Blizzard's formatter
-    -- sees a plain string and never interprets them as format codes.
-    if event == "CHAT_MSG_MONSTER_EMOTE" and type(msg) == "string" then
-        local name = author
-        if not name or name == "" then
-            name = select(1, ...) or ""
+    -- Blizzard formats a monster emote with the monster's name, and a
+    -- numeric placeholder like %o paired with a name throws "bad argument
+    -- #2 to 'format'". The name goes in here, and any other "%" is escaped
+    -- so the formatter sees plain text.
+    if event == "CHAT_MSG_MONSTER_EMOTE" then
+        if author and author ~= "" then
+            msg = msg:gsub("%%[sSoO]", (author:gsub("%%", "%%%%")))
         end
-        if name ~= "" then
-            -- Replace common string/ordinal placeholders with the monster name
-            msg = msg:gsub("%%[sSoO]", name)
-        end
-        -- Neutralize any remaining '%' so later string.format calls are safe
         msg = msg:gsub("%%", "%%%%")
     end
 
-    local prefixPlus = ColorPlus .. "+|r "
-    local prefixMinus = ColorMinus .. Carpenter.MinusSign .. "|r "
-
+    -- A loot-announcing addon yelling your own loot repeats the loot line.
+    -- On Forever the line names you "First Surname", UnitName only "First".
     if event == "CHAT_MSG_YELL" then
-        local playerName = ChatCleanerLoot.GetGroupLootPlayerName and ChatCleanerLoot.GetGroupLootPlayerName(msg, GroupLootPatterns, author)
-        if playerName and (playerName == "You" or playerName == UnitName("player")) then
+        local playerName = ChatCleanerLoot.GetGroupLootPlayerName(msg, GroupLootPatterns, author)
+        local firstWord = playerName and playerName:match("^[^%s%-]+")
+        if firstWord and (firstWord == "You" or firstWord == UnitName("player")) then
             return true
         end
     end
@@ -375,8 +366,8 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     -- "You receive 5 tokens" isn't one. Loot lines posted in party and raid
     -- chat are the exception, styled in the group's color.
     if PLAYER_CHAT_EVENTS[event] then
-        if GROUP_CHAT_EVENTS[event] then
-            local groupLootMessage = FormatGroupLootMessage and FormatGroupLootMessage(event, msg, author)
+        if GROUP_CHAT_TYPE_BY_EVENT[event] then
+            local groupLootMessage = FormatGroupLootMessage(event, msg, author)
             if groupLootMessage then
                 return false, groupLootMessage, author, ...
             end
@@ -384,188 +375,45 @@ local function ChatFilterImpl(self, event, msg, author, ...)
         return false, msg, author, ...
     end
 
-    -- Hide noisy "Changed Channel" notifications now that prefixes are compact
-    if type(msg) == "string" and msg:find("^Changed Channel:") then
-        return true
-    end
-    -- Hide "Left Channel: 1." / "Left Channel: 2." etc.
-    if type(msg) == "string" and msg:find("^Left Channel:") then
+    if IsDroppedSystemLine(msg) then
         return true
     end
 
-    local recapID = type(msg) == "string" and msg:match("|Hdeath:(%d+)|h")
+    local recapID = msg:match("|Hdeath:(%d+)|h")
     if recapID then
         return false, FormatOwnDeath(recapID), author, ...
     end
 
-    -- Hide all Auctionator addon messages (they start with "Auctionator:")
-    if type(msg) == "string" and (msg:find("^Auctionator:") or msg:find("^|c%x%x%x%x%x%x%x%x%xAuctionator:")) then
-        return true
+    local plain = StripColorsAndLinks(msg)
+    for _, step in ipairs(FILTER_STEPS) do
+        local result = step(event, msg, plain, author, frame)
+        if result == true then return true end
+        if result then return false, result, author, ... end
     end
 
-    -- 1. Experience and discovery messages
-    local plainSys = type(msg) == "string" and msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1") or ""
-    local experienceMessage = FormatExperienceMessage and FormatExperienceMessage(msg, plainSys, prefixPlus)
-    if experienceMessage then
-        return false, experienceMessage, author, ...
-    end
-
-    -- 2.1 Battleground/party notices
-    local groupNotice = FormatBattlegroundAndGroupNotice(event, plainSys)
-    if groupNotice then
-        return false, groupNotice, author, ...
-    end
-
-    -- 2.3 Level-up reward messages. These can arrive as SYSTEM, combat XP, or Vanilla combat misc messages.
-    if IsLevelUpRewardEvent(event) then
-        local styledLevelReward = FormatLevelUpRewardMessage(plainSys)
-        if styledLevelReward then
-            return false, styledLevelReward, author, ...
-        end
-    end
-
-    -- 2.5. Quest Acceptance & Completion (check early, before other patterns)
-    -- Only process quest messages from SYSTEM events (your own quests)
-    if event == "CHAT_MSG_SYSTEM" then
-        local plainMsg = msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
-        local questProgressMessage = FormatQuestProgressMessage and FormatQuestProgressMessage(event, msg, plainMsg, prefixPlus)
-        if questProgressMessage == true then
-            return true
-        elseif questProgressMessage then
-            return false, questProgressMessage, author, ...
-        end
-
-        do
-            local systemSocialMessage = FormatSystemSocialMessage and FormatSystemSocialMessage(plainMsg)
-            if systemSocialMessage == true then
-                return true
-            elseif systemSocialMessage then
-                return false, systemSocialMessage, author, ...
-            end
-        end
-    end
-
-    -- 2. Reputation and queue/system notices
-    local reputationMessage = FormatReputationMessage and FormatReputationMessage(msg)
-    if reputationMessage then
-        return false, reputationMessage, author, ...
-    end
-
-    local queueNotice = FormatQueueNotice and FormatQueueNotice(msg, event)
-    if queueNotice == true then
-        return true
-    elseif queueNotice then
-        return false, queueNotice, author, ...
-    end
-
-    -- 2.5 Retail/Forever appearance collection notices
-    local appearanceCollectionMessage = FormatAppearanceCollectionMessage and FormatAppearanceCollectionMessage(event, msg, plainSys, prefixPlus)
-    if appearanceCollectionMessage then
-        return false, appearanceCollectionMessage, author, ...
-    end
-
-    -- 4. Auction Messages
-    local auctionMessage = FormatAuctionMessage and FormatAuctionMessage(msg, prefixPlus, prefixMinus)
-    if auctionMessage == true then
-        return true
-    elseif auctionMessage then
-        return false, auctionMessage, author, ...
-    end
-
-    -- 5. Currency gains
-    local currencyMessage = FormatCurrencyMessage and FormatCurrencyMessage(event, msg, prefixPlus)
-    if currencyMessage then
-        return false, currencyMessage, author, ...
-    end
-
-    -- 5. Money (Gains show +, losses show -; Merchant is handled by direct tracking above)
-    local moneyMessage = FormatMoneyMessage and FormatMoneyMessage(event, msg, prefixPlus, prefixMinus)
-    if moneyMessage == true then
-        return true
-    elseif moneyMessage then
-        return false, moneyMessage, author, ...
-    end
-
-    -- 7. Learning Spells, Recipes, Abilities & Skill Increases
-    local skillMessage = FormatSkillMessage and FormatSkillMessage(msg, plainSys, prefixPlus, prefixMinus, self)
-    if skillMessage == true then
-        return true
-    elseif skillMessage then
-        return false, skillMessage, author, ...
-    end
-
-    -- 6. Item Looting
-    local selfLootMessage = FormatSelfLootMessage and FormatSelfLootMessage(event, msg, prefixPlus)
-    if selfLootMessage then
-        return false, selfLootMessage, author, ...
-    end
-
-    local groupLootMessage = FormatGroupLootMessage and FormatGroupLootMessage(event, msg, author)
-    if groupLootMessage then
-        return false, groupLootMessage, author, ...
-    end
-
-    local lootRollMessage = FormatLootRollMessage and FormatLootRollMessage(event, msg)
-    if lootRollMessage == true then
-        return true
-    elseif lootRollMessage then
-        return false, lootRollMessage, author, ...
-    end
-
-    -- 10. Refunds like \"You are refunded: Item x10.\" → \"Refunded: Item (10)\"
-    do
-        local refundDisplay = FormatRefundMessage and FormatRefundMessage(msg)
-        if refundDisplay then
-            return false, refundDisplay, author, ...
-        end
-    end
-
-    -- 11. Generic rewards (awarded, received, earned, rewarded, badges, marks, tokens, points, etc.)
-    local genericReward = FormatGenericReward(event, msg, prefixPlus)
-    if genericReward then
-        return false, genericReward, author, ...
-    end
-
-    -- 11. Pass through unchanged. If msg still contains Blizzard format placeholders (%s, %d),
-    --     format it with variadic args so we never show literal "%s" in chat (default Blizz text).
-    --     Skip this for monster emotes, which we pre-format above.
-    if event ~= "CHAT_MSG_MONSTER_EMOTE" and type(msg) == "string" and (msg:find("%%s") or msg:find("%%d")) then
-        local n = select("#", ...)
-        local function try_format(...)
-            local ok, res = pcall(string.format, msg, ...)
-            return (ok and type(res) == "string" and not res:find("%%s")) and res or nil
-        end
-        local formatted = (n >= 1 and try_format(...)) or (author and author ~= "" and try_format(author))
-        if formatted then
-            msg = formatted
-        end
-    end
+    -- Blizzard writes some counts with no space before them ("Badgex5").
     return false, SpaceBeforeX(msg), author, ...
 end
 
-local chatCleanerFeature = ChatCleanerLifecycle.Create and ChatCleanerLifecycle.Create({
+local chatCleanerFeature = ChatCleanerLifecycle.Create({
     FilterImpl = ChatFilterImpl,
     HookChatFrameAddMessage = HookChatFrameAddMessage,
     RestoreChatFrameAddMessage = postProcessor.RestoreChatFrameAddMessage,
     ShouldDropBeforeAdd = postProcessor.ShouldDropBeforeAdd,
     ShouldDropChannelNotice = postProcessor.ShouldDropChannelNotice,
     SessionTracker = sessionTracker,
-}) or {}
+})
 
 ns.Private.ChatCleaner = ns.Private.ChatCleaner or {}
 ns.Private.ChatCleaner.FilterImpl = ChatFilterImpl
 ns.Private.ChatCleaner.PostProcessor = postProcessor
 ns.Private.ChatCleaner.SocialFormatter = socialFormatter
 
-if Carpenter and Carpenter.RegisterFeature then
-    Carpenter:RegisterFeature("chatCleanerEnabled", chatCleanerFeature)
-end
+Carpenter:RegisterFeature("chatCleanerEnabled", chatCleanerFeature)
 
 -- The settings sidebar calls this when the input box texture option changes.
 function Carpenter_ApplyChatEditBoxTexture()
-    if chatCleanerFeature.ApplyEditBox then
-        chatCleanerFeature.ApplyEditBox()
-    end
+    chatCleanerFeature.ApplyEditBox()
 end
 
 -- Inside battlegrounds, and in fights in instances, the game hides player

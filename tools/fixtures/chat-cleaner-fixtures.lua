@@ -10,6 +10,12 @@ unpack = unpack or table.unpack
 floor = math.floor
 
 local ns = { Private = {} }
+-- Core's palette (Core/Carpenter.lua), which Chat Cleaner reads at load.
+ns.Private.Colors = {
+    gray = { colorCode = "|cffc8c8c8" },
+    white = { colorCode = "|cffffffff" },
+    palered = { colorCode = "|cffd97a5c" },
+}
 Carpenter = {
     L = {},
     Client = { isMainline = false },
@@ -797,6 +803,12 @@ local fixtures = {
         name = "auctionator hidden",
         event = "CHAT_MSG_SYSTEM",
         message = "Auctionator: scan complete",
+        expectHidden = true,
+    },
+    {
+        name = "a colored Auctionator line is hidden too",
+        event = "CHAT_MSG_SYSTEM",
+        message = "|cff00ccffAuctionator: scan complete|r",
         expectHidden = true,
     },
     {
@@ -1612,6 +1624,16 @@ do
 
     lifecycle.Disable()
     ChatFrame_AddMessageEventFilter, ChatFrame_RemoveMessageEventFilter = realAdd, realRemove
+end
+
+-- A monster emote with no sender keeps its placeholder: the language that
+-- follows the sender among the event's values isn't a name.
+do
+    local _, out = filter(nil, "CHAT_MSG_MONSTER_EMOTE", "%s roars!", "", "Orcish")
+    additionalChecks = additionalChecks + 1
+    if tostring(out):find("Orcish", 1, true) then
+        failures[#failures + 1] = "monster emote: the language was taken for the sender, got [" .. tostring(out) .. "]"
+    end
 end
 
 -- A chat window's history as ScrollingMessageFrame keeps it: entries with the

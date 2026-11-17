@@ -82,6 +82,12 @@ function Utils.SpaceBeforeX(s)
     return (s:gsub("([^%s])x(%d+)", "%1 x%2"))
 end
 
+-- A color code from 0-1 red, green and blue.
+function Utils.ColorCode(r, g, b)
+    return string.format("|cff%02x%02x%02x", math.floor((r or 1) * 255), math.floor((g or 1) * 255),
+        math.floor((b or 1) * 255))
+end
+
 function Utils.RemoveLinkBrackets(text)
     if not text or type(text) ~= "string" then return text end
     return text:gsub("(|H.-|h)%[(.-)%]|h", "%1%2|h")
