@@ -1953,13 +1953,25 @@ do
         ExpectChat(guildLine, "G Sufur: can someone inv me pls", "a hidden guild line is rebuilt as it's added",
             "|Hchannel:GUILD|hG|h |Hplayer:Sufur:7:GUILD|hSufur|h: ")
 
-        -- The game's own decoration of the sender, class color included.
-        ChatFrameUtil = { GetDecoratedSenderName = function(_, _, author) return "|cff3fc7eb" .. author .. "|r" end }
+        -- The sender in their class color, from their hidden ID.
+        UnitClassFromGUID = function() return "Mage", "MAGE", 8 end
+        RAID_CLASS_COLORS.MAGE.colorStr = "ff3fc7eb"
         local leaderLine = frame1:AddChat(HIDDEN, "CHAT_MSG_INSTANCE_CHAT_LEADER", ChatArgs("the tunnel", "Brick", 8))
         hiddenLines.OnHiddenLineAdded(frame1)
-        ExpectChat(leaderLine, "IL Brick: the tunnel", "a hidden instance leader line is rebuilt with the game's sender name",
+        ExpectChat(leaderLine, "IL Brick: the tunnel", "a hidden instance leader line names the sender in class color",
             "|Hplayer:Brick:8:INSTANCE_CHAT|h|cff3fc7ebBrick|r|h")
-        ChatFrameUtil = nil
+
+        -- Not when the chat settings don't color this chat's names by class.
+        ChatFrameUtil = { ShouldColorChatByClass = function() return false end }
+        local realInstanceGet = CHAT_INSTANCE_CHAT_GET
+        CHAT_INSTANCE_CHAT_GET = "|Hchannel:INSTANCE_CHAT|h[Instance]|h %s: "
+        ChatTypeInfo.INSTANCE_CHAT = { r = 1, g = 0.5, b = 0, id = 63 }
+        local plainNameLine = frame1:AddChat(HIDDEN, "CHAT_MSG_INSTANCE_CHAT", ChatArgs("ok", "Brick", 11))
+        hiddenLines.OnHiddenLineAdded(frame1)
+        ExpectChat(plainNameLine, "I Brick: ok", "no class color when chat names aren't colored by class",
+            "|Hplayer:Brick:11:INSTANCE_CHAT|hBrick|h")
+        ChatFrameUtil, UnitClassFromGUID, RAID_CLASS_COLORS.MAGE.colorStr = nil, nil, nil
+        CHAT_INSTANCE_CHAT_GET, ChatTypeInfo.INSTANCE_CHAT = realInstanceGet, nil
 
         -- Found by the next pass when not as it's added.
         local warningLine = frame1:AddChat(HIDDEN, "CHAT_MSG_RAID_WARNING", ChatArgs("inc mid", "Brick", 9))

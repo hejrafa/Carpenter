@@ -588,17 +588,36 @@ local function IsHiddenChatEvent(event)
     return HIDDEN_CHAT_TYPES[event] ~= nil
 end
 
--- The sender as the game shows them: its own decoration (class color, short
--- name) when it takes the hidden values, else the name as sent.
-local function HiddenSenderName(event, args)
-    local util = ChatFrameUtil
-    if util and util.GetDecoratedSenderName then
-        local ok, name = pcall(util.GetDecoratedSenderName, event, unpack(args, 1, args.n or 17))
-        if ok and name then return name end
+-- The class color the game gives a sender's name, when the chat settings
+-- color this chat type's names by class. The sender's ID is hidden too, but
+-- UnitClassFromGUID takes a hidden ID from addons and leaves the class's file
+-- name readable (per its API documentation).
+local function HiddenSenderColor(chatType, guid)
+    if not (guid and type(UnitClassFromGUID) == "function") then return nil end
+    local util, info = ChatFrameUtil, ChatTypeInfo and ChatTypeInfo[chatType]
+    if util and util.ShouldColorChatByClass and info then
+        local ok, colored = pcall(util.ShouldColorChatByClass, info)
+        if ok and not IsSecret(colored) and not colored then return nil end
     end
-    local ok, short = pcall(Ambiguate, args[2], "none")
-    if ok and short then return short end
-    return args[2]
+    local ok, _, classFile = pcall(UnitClassFromGUID, guid)
+    if not ok or IsSecret(classFile) or type(classFile) ~= "string" then return nil end
+    local color = RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile]
+    if not color then return nil end
+    if type(color.colorStr) == "string" then return "|c" .. color.colorStr end
+    return string.format("|cff%02x%02x%02x", math.floor((color.r or 1) * 255), math.floor((color.g or 1) * 255),
+        math.floor((color.b or 1) * 255))
+end
+
+-- The sender as the game shows them: the short name (the realm left out
+-- where the game would) in its class color. The name stays hidden; it is
+-- only joined into the line.
+local function HiddenSenderName(event, chatType, args)
+    local name = args[2]
+    local ok, short = pcall(Ambiguate, name, chatType == "GUILD" and "guild" or "none")
+    if ok and short then name = short end
+    local color = HiddenSenderColor(chatType, args[12])
+    if color then return color .. name .. "|r" end
+    return name
 end
 
 -- The chat timestamp the game puts before each line, when it's switched on.
@@ -618,7 +637,7 @@ local function BuildHiddenChat(event, args)
     local message, author, lineID = args[1], args[2], args[11]
     if not (prefix and message and author) then return nil end
     local link = "|Hplayer:" .. author .. ":" .. (lineID or 0) .. ":" .. types[2] .. "|h"
-        .. HiddenSenderName(event, args) .. "|h"
+        .. HiddenSenderName(event, types[1], args) .. "|h"
     return ChatTimestamp() .. string.format(prefix, link) .. message
 end
 
