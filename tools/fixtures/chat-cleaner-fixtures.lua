@@ -917,6 +917,31 @@ local fixtures = {
         expectPlain = "You receive 5 tokens",
     },
     {
+        name = "a refund names the item and count",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You are refunded: Badge of Justice x10.",
+        expectPlain = "Refunded: Badge of Justice (10)",
+    },
+    {
+        name = "a word starting with a coin name isn't money",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You have received 5 Golden Tokens.",
+        expectPlain = "+ 5 Golden Tokens",
+    },
+    {
+        name = "linked arena points get their own line",
+        event = "CHAT_MSG_CURRENCY",
+        message = "You receive currency: |cffa335ee|Hcurrency:1900:0|h[Arena Points]|h|r x5",
+        expectPlain = "+ Arena Points: 5",
+    },
+    {
+        name = "a cancelled auction's label is white",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Auction cancelled: Linen Cloth",
+        expectPlain = "\226\136\146 Auction cancelled: Linen Cloth",
+        requireColor = "|cffffffffAuction cancelled:",
+    },
+    {
         name = "player chat that reads like a group notice stays chat",
         event = "CHAT_MSG_SAY",
         message = "Party converted to Raid",

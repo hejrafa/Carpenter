@@ -218,11 +218,9 @@ local rewardFormatter = ChatCleanerRewards.Create and ChatCleanerRewards.Create(
     RepairDedupSeconds = 2,
 }) or {}
 local FormatCurrencyMessage = rewardFormatter.FormatCurrencyMessage
-local FormatLootShareMoney = rewardFormatter.FormatLootShareMoney
 local FormatMoneyMessage = rewardFormatter.FormatMoneyMessage
-local FormatQuestMoneyReward = rewardFormatter.FormatQuestMoneyReward
 local FormatAuctionMessage = rewardFormatter.FormatAuctionMessage
-local FormatRefundDisplay = rewardFormatter.FormatRefundDisplay
+local FormatRefundMessage = rewardFormatter.FormatRefundMessage
 local FormatGenericReward = rewardFormatter.FormatGenericReward
 
 local socialFormatter = ChatCleanerSocial.Create and ChatCleanerSocial.Create({
@@ -492,12 +490,6 @@ local function ChatFilterImpl(self, event, msg, author, ...)
         return false, moneyMessage, author, ...
     end
 
-    -- 5b. Loot Share Money (party/raid split)
-    local lootShareMoney = FormatLootShareMoney and FormatLootShareMoney(msg, prefixPlus)
-    if lootShareMoney then
-        return false, lootShareMoney, author, ...
-    end
-
     -- 7. Learning Spells, Recipes, Abilities & Skill Increases
     local skillMessage = FormatSkillMessage and FormatSkillMessage(msg, plainSys, prefixPlus, prefixMinus, self)
     if skillMessage == true then
@@ -524,15 +516,9 @@ local function ChatFilterImpl(self, event, msg, author, ...)
         return false, lootRollMessage, author, ...
     end
 
-    -- 9. Quest Money Rewards - handle separately from generic rewards
-    local questMoneyReward = FormatQuestMoneyReward and FormatQuestMoneyReward(msg, prefixPlus)
-    if questMoneyReward then
-        return false, questMoneyReward, author, ...
-    end
-
     -- 10. Refunds like \"You are refunded: Item x10.\" → \"Refunded: Item (10)\"
     do
-        local refundDisplay = FormatRefundDisplay(msg)
+        local refundDisplay = FormatRefundMessage and FormatRefundMessage(msg)
         if refundDisplay then
             return false, refundDisplay, author, ...
         end

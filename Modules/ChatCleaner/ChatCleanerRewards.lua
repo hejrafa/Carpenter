@@ -62,14 +62,20 @@ function Rewards.Create(config)
         return text
     end
 
+    -- "5 Gold, 2 Silver" as copper. The coin word has to end there, so
+    -- "5 Golden Tokens" isn't money.
     local function ParseMoneyAmount(message)
-        local gold = tonumber(message:match("(%d+) Gold") or message:match("(%d+) gold")) or 0
-        local silver = tonumber(message:match("(%d+) Silver") or message:match("(%d+) silver")) or 0
-        local copper = tonumber(message:match("(%d+) Copper") or message:match("(%d+) copper")) or 0
+        local gold = tonumber(message:match("(%d+) [Gg]old%f[%A]")) or 0
+        local silver = tonumber(message:match("(%d+) [Ss]ilver%f[%A]")) or 0
+        local copper = tonumber(message:match("(%d+) [Cc]opper%f[%A]")) or 0
         return gold * 10000 + silver * 100 + copper
     end
 
-    function api.FormatCurrencyGain(amount, currency)
+    local function StripMarkup(message)
+        return (message:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("[%[%]]", ""))
+    end
+
+    local function FormatCurrencyGain(amount, currency)
         amount = amount and tostring(amount)
         currency = currency and tostring(currency)
         if not amount or amount == "" or not currency or currency == "" then return nil end
@@ -93,20 +99,14 @@ function Rewards.Create(config)
     function api.FormatCurrencyMessage(event, message, prefixPlus)
         if not (event == "CHAT_MSG_SYSTEM" or event == "CHAT_MSG_CURRENCY") or type(message) ~= "string" then return nil end
 
-        if message:find("Arena Points", 1, true) then
-            local clean = message:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h", ""):gsub("[%[%]]", "")
-            local arenaPoints =
-                clean:match("You receive currency:%s*Arena Points%s*x(%d+)") or
-                clean:match("You receive currency:%s*Arena Points%s+(%d+)") or
-                clean:match("Arena Points%s*x(%d+)") or
-                clean:match("(%d+)%s*[Aa]rena%s+[Pp]oints")
-
+        local clean = StripMarkup(message)
+        if clean:find("Arena Points", 1, true) then
+            local arenaPoints = clean:match("Arena Points%s*x?(%d+)") or clean:match("(%d+)%s*Arena Points")
             if arenaPoints then
                 return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_ARENA_POINTS_LABEL", "Arena Points:") .. " |r" .. colorPurple .. arenaPoints .. "|r")
             end
         end
 
-        local clean = message:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("[%[%]]", "")
         local moneyGain = parseRetailMoneyGain(clean)
         if moneyGain and moneyGain > 0 then
             if event == "CHAT_MSG_CURRENCY" then
@@ -115,14 +115,13 @@ function Rewards.Create(config)
             return nil
         end
 
-        local gainedAmount, gainedCurrency = clean:match("^You gained:%s*(.-)%s+x(%d+)%s*%.?$")
-        if not gainedAmount then
-            gainedAmount, gainedCurrency = clean:match("^You gained:%s*x?(%d+)%s*(%D.+)%s*%.?$")
-            if gainedAmount and gainedCurrency then
-                return api.FormatCurrencyGain(gainedAmount, gainedCurrency)
-            end
-        else
-            return api.FormatCurrencyGain(gainedCurrency, gainedAmount)
+        local gainedName, gainedAmount = clean:match("^You gained:%s*(.-)%s+x(%d+)%s*%.?$")
+        if gainedName then
+            return FormatCurrencyGain(gainedAmount, gainedName)
+        end
+        gainedAmount, gainedName = clean:match("^You gained:%s*x?(%d+)%s*(%D.+)%s*%.?$")
+        if gainedAmount then
+            return FormatCurrencyGain(gainedAmount, gainedName)
         end
 
         local currency, currencyAmount = clean:match("You receive currency:%s*(.-)%s+x(%d+)%s*%.?$")
@@ -130,56 +129,22 @@ function Rewards.Create(config)
             currency, currencyAmount = clean:match("You receive currency:%s*(.-)%s+(%d+)%s*%.?$")
         end
         if currency and currencyAmount then
-            return api.FormatCurrencyGain(currencyAmount, currency)
+            return FormatCurrencyGain(currencyAmount, currency)
         elseif clean:find("You receive currency:", 1, true) then
             currency = clean:match("You receive currency:%s*(.-)%s*%.?$")
             currency = currency and cleanPunctuation(currency:gsub("^%s+", ""):gsub("%s+$", ""))
             if currency and currency ~= "" then
                 local name, amount = currency:match("^(.-)%s*x(%d+)$")
                 if name and amount then
-                    return api.FormatCurrencyGain(amount, name)
+                    return FormatCurrencyGain(amount, name)
                 end
 
                 amount, name = currency:match("^x?(%d+)%s*(%D.+)$")
                 if amount and name then
-                    return api.FormatCurrencyGain(amount, name)
+                    return FormatCurrencyGain(amount, name)
                 end
                 return prefixPlus .. colorCyan .. currency .. "|r"
             end
-        end
-
-        return nil
-    end
-
-    function api.FormatLootShareMoney(message, prefixPlus)
-        if not message or type(message) ~= "string" then return nil end
-
-        local shareGold = tonumber(message:match("Your share of the loot is (%d+) gold") or
-            message:match("Your share of the loot is (%d+) Gold") or
-            message:match("Your share: (%d+) gold") or
-            message:match("Your share: (%d+) Gold")) or 0
-        local shareSilver = tonumber(message:match("Your share of the loot is %d+ gold, (%d+) silver") or
-            message:match("Your share of the loot is %d+ Gold, (%d+) Silver") or
-            message:match("Your share: %d+ gold, (%d+) silver") or
-            message:match("Your share: %d+ Gold, (%d+) Silver")) or 0
-        local shareCopper = tonumber(message:match("Your share of the loot is %d+ gold, %d+ silver, (%d+) copper") or
-            message:match("Your share of the loot is %d+ Gold, %d+ Silver, (%d+) Copper") or
-            message:match("Your share: %d+ gold, %d+ silver, (%d+) copper") or
-            message:match("Your share: %d+ Gold, %d+ Silver, (%d+) Copper")) or 0
-
-        local altGold = tonumber(message:match("You receive (%d+) gold.*share") or
-            message:match("You receive (%d+) Gold.*share")) or 0
-        local altSilver = tonumber(message:match("You receive %d+ gold, (%d+) silver.*share") or
-            message:match("You receive %d+ Gold, (%d+) Silver.*share")) or 0
-        local altCopper = tonumber(message:match("You receive %d+ gold, %d+ silver, (%d+) copper.*share") or
-            message:match("You receive %d+ Gold, %d+ Silver, (%d+) Copper.*share")) or 0
-
-        if shareGold > 0 or shareSilver > 0 or shareCopper > 0 then
-            local totalShare = shareGold * 10000 + shareSilver * 100 + shareCopper
-            return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_LOOT_SHARE_LABEL", "Loot Share:") .. " |r" .. formatMoney(totalShare))
-        elseif altGold > 0 or altSilver > 0 or altCopper > 0 then
-            local totalAlt = altGold * 10000 + altSilver * 100 + altCopper
-            return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_LOOT_SHARE_LABEL", "Loot Share:") .. " |r" .. formatMoney(totalAlt))
         end
 
         return nil
@@ -193,15 +158,10 @@ function Rewards.Create(config)
             return true
         end
 
+        -- Retail's "You gained:" receipt repeats Chat Cleaner's own money lines.
         local retailGain = parseRetailMoneyGain(message)
         if retailGain and retailGain > 0 then
             return true
-        end
-
-        local compactGold, compactSilver, compactCopper = message:match("^You gained:%s*(%d+)%D+(%d+)%D+(%d+)%s*%.?$")
-        if compactGold and compactSilver and compactCopper then
-            local total = (tonumber(compactGold) or 0) * 10000 + (tonumber(compactSilver) or 0) * 100 + (tonumber(compactCopper) or 0)
-            if total > 0 then return true end
         end
 
         local total = ParseMoneyAmount(message)
@@ -212,7 +172,7 @@ function Rewards.Create(config)
         end
 
         local isGain = lowerMessage:find("receive") or lowerMessage:find("gain") or lowerMessage:find("reward") or
-            lowerMessage:find("earned") or lowerMessage:find("earn")
+            lowerMessage:find("earn")
         local isLoss = lowerMessage:find("lost") or lowerMessage:find("spent") or lowerMessage:find("paid") or lowerMessage:find("cost")
         local isRepair = lowerMessage:find("repair")
 
@@ -220,37 +180,16 @@ function Rewards.Create(config)
             return spaceBeforeX(prefixPlus .. formatMoney(total))
         end
 
-        if merchantFrame.isOpen then
-            if isRepair then lastRepairAmount, lastRepairTime = total, GetTime() end
-            return true
-        end
         if isRepair then
             lastRepairAmount, lastRepairTime = total, GetTime()
-            return spaceBeforeX(colorMinus .. Carpenter.MinusSign .. "|r " .. formatMoney(total, colorPalered))
-        end
-        if lastRepairAmount and total == lastRepairAmount and (GetTime() - lastRepairTime) < repairDedupSeconds then
+        elseif lastRepairAmount and total == lastRepairAmount and (GetTime() - lastRepairTime) < repairDedupSeconds then
             return true
         end
         return spaceBeforeX(prefixMinus .. formatMoney(total, colorPalered))
     end
 
-    function api.FormatQuestMoneyReward(message, prefixPlus)
-        if not message or type(message) ~= "string" then return nil end
-
-        local total = ParseMoneyAmount(message)
-        if total <= 0 then return nil end
-
-        local lowerMessage = message:lower()
-        local isQuestReward = lowerMessage:find("quest") or lowerMessage:find("reward") or lowerMessage:find("complete") or
-            lowerMessage:find("turn in") or lowerMessage:find("finish")
-        if isQuestReward then
-            return spaceBeforeX(prefixPlus .. formatMoney(total))
-        end
-
-        return nil
-    end
-
-    function api.FormatAuctionDisplay(rawItem, sourceMessage)
+    -- An auction's item: its link in quality color, else the name in white.
+    local function FormatAuctionDisplay(rawItem, sourceMessage)
         local itemLink = getItemLinkFromMessage(sourceMessage or rawItem or "")
         if itemLink then
             return getItemLinkWithQualityColor(itemLink)
@@ -274,11 +213,6 @@ function Rewards.Create(config)
         end
 
         if message == "Buyer found." or message == "Buyer found" then
-            local itemLink = getItemLinkFromMessage(message)
-            if itemLink then
-                local display = getItemLinkWithQualityColor(itemLink)
-                return spaceBeforeX(prefixPlus .. colorAuctionHouse .. T("CHAT_BUYER_FOUND_LABEL", "Buyer found:") .. " |r" .. display)
-            end
             return spaceBeforeX(prefixPlus .. message)
         end
 
@@ -288,7 +222,7 @@ function Rewards.Create(config)
             message:match("A buyer has been found for (.+)")
         if buyerItem then
             buyerItem = buyerItem:gsub("^auction of%s+", ""):gsub("^your auction of%s+", "")
-            local display = api.FormatAuctionDisplay(buyerItem, message)
+            local display = FormatAuctionDisplay(buyerItem, message)
             return spaceBeforeX(prefixPlus .. colorAuctionHouse .. T("CHAT_BUYER_FOUND_LABEL", "Buyer found:") .. " |r" .. display)
         end
 
@@ -303,7 +237,7 @@ function Rewards.Create(config)
             message:match("You have created an auction for (.+)") or
             message:match("You have listed (.+)")
         if createdItem then
-            local display = api.FormatAuctionDisplay(createdItem, message)
+            local display = FormatAuctionDisplay(createdItem, message)
             return spaceBeforeX(prefixPlus .. colorAuctionHouse .. T("CHAT_AUCTION_CREATED_LABEL", "Auction created:") .. " |r" .. display)
         end
 
@@ -313,10 +247,7 @@ function Rewards.Create(config)
             message:match("Auction won: (.+)") or
             message:match("Won auction: (.+)")
         if wonItem then
-            if getItemLinkFromMessage(message) then
-                return spaceBeforeX(prefixPlus .. message)
-            end
-            local display = colorWhite .. cleanPunctuation(stripBrackets(wonItem)) .. "|r"
+            local display = FormatAuctionDisplay(wonItem, message)
             return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_AUCTION_WON_LABEL", "Auction won:") .. " |r" .. display)
         end
 
@@ -325,36 +256,30 @@ function Rewards.Create(config)
             message:match("Your auction of (.+) expired") or
             message:match("Auction for (.+) has expired")
         if expiredItem then
-            local cleanItem = cleanPunctuation(stripBrackets(expiredItem))
-            return spaceBeforeX(prefixMinus .. colorAuctionExpired .. T("CHAT_AUCTION_EXPIRED_LABEL", "Auction expired:") .. " |r" .. colorWhite .. cleanItem .. "|r")
+            local display = FormatAuctionDisplay(expiredItem, message)
+            return spaceBeforeX(prefixMinus .. colorAuctionExpired .. T("CHAT_AUCTION_EXPIRED_LABEL", "Auction expired:") .. " |r" .. display)
         end
 
         local cancelledItem = message:match("You cancelled your auction of (.+)") or
             message:match("Auction cancelled: (.+)") or
             message:match("Cancelled auction: (.+)")
         if cancelledItem then
-            local cleanItem = cleanPunctuation(stripBrackets(cancelledItem))
-            return spaceBeforeX(prefixMinus .. T("CHAT_AUCTION_CANCELLED_LABEL", "Auction cancelled:") .. " |r" .. colorWhite .. cleanItem .. "|r")
+            local display = FormatAuctionDisplay(cancelledItem, message)
+            return spaceBeforeX(prefixMinus .. colorWhite .. T("CHAT_AUCTION_CANCELLED_LABEL", "Auction cancelled:") .. " |r" .. display)
         end
 
         return nil
     end
 
-    function api.FormatRefundDisplay(message)
-        local refundItem, refundCount = message:match("^You are refunded:%s*(.+)%sx(%d+)[%.%s]*$") or
-            message:match("^[Yy]ou are refunded:%s*(.+)%sx(%d+)[%.%s]*$")
-        if not refundItem or not refundCount then return nil end
+    -- "You are refunded: Badge of Justice x10." as "Refunded: Badge of Justice (10)".
+    function api.FormatRefundMessage(message)
+        if type(message) ~= "string" then return nil end
+        local refundItem, refundCount = message:match("^[Yy]ou are refunded:%s*(.+)%sx(%d+)[%.%s]*$")
+        if not refundItem then return nil end
 
-        local count = tonumber(refundCount) or 1
         local itemLink = getItemLinkFromMessage(message)
-        local display
-        if itemLink then
-            display = getItemLinkWithQualityColor(itemLink)
-        else
-            display = cleanPunctuation(stripBrackets(refundItem:gsub("x%d+", "")))
-        end
-        display = spaceBeforeX(display)
-        return spaceBeforeX(colorWhite .. T("CHAT_REFUNDED_LABEL", "Refunded:") .. " |r" .. display .. " " .. colorPlus .. "(" .. count .. ")|r")
+        local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(refundItem))
+        return spaceBeforeX(colorWhite .. T("CHAT_REFUNDED_LABEL", "Refunded:") .. " |r" .. display .. " " .. colorPlus .. "(" .. refundCount .. ")|r")
     end
 
     function api.FormatGenericReward(event, message, prefixPlus)
@@ -369,11 +294,9 @@ function Rewards.Create(config)
 
         if not rewardAmount or not rewardType then return nil end
 
-        local skip = lowerMsg:find("experience") or lowerMsg:find(" gold") or lowerMsg:find(" silver") or
-            lowerMsg:find(" copper") or lowerMsg:find("reputation") or lowerMsg:find("loot:") or
-            rewardType:match("^[Ee]xperience") or rewardType:match("^[Gg]old") or rewardType:match("^[Ss]ilver") or
-            rewardType:match("^[Cc]opper")
-        if skip or #rewardType:gsub("%s", "") <= 0 then return nil end
+        local skip = lowerMsg:find("experience") or lowerMsg:find(" gold%f[%A]") or lowerMsg:find(" silver%f[%A]") or
+            lowerMsg:find(" copper%f[%A]") or lowerMsg:find("reputation") or lowerMsg:find("loot:")
+        if skip or not rewardType:find("%S") then return nil end
 
         local clean = cleanPunctuation(stripBrackets(rewardType))
         if #clean <= 0 then return nil end
