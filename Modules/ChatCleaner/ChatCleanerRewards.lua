@@ -59,7 +59,7 @@ function Rewards.Create(config)
     end
 
     local function StripMarkup(message)
-        return (message:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("[%[%]]", ""))
+        return (Utils.StripColorsAndLinks(message):gsub("[%[%]]", ""))
     end
 
     local function FormatCurrencyGain(amount, currency)
@@ -80,7 +80,7 @@ function Rewards.Create(config)
             currency = trailingName:gsub("^%s+", ""):gsub("%s+$", "")
         end
 
-        return (Palette.gray .. "+|r ") .. Palette.cyan .. currency .. "|r " .. Palette.white .. "x" .. amount .. "|r"
+        return PREFIX_PLUS .. Palette.cyan .. currency .. "|r " .. Palette.white .. "x" .. amount .. "|r"
     end
 
     function api.FormatCurrencyMessage(event, message)

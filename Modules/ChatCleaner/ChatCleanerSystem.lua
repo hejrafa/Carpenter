@@ -30,7 +30,7 @@ function System.Create()
     -- spells with one name have different links), split into the name and a
     -- trailing "(Journeyman)" or "(Rank 2)".
     local function PlainLearnedName(display)
-        local name = display:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
+        local name = Utils.StripColorsAndLinks(display)
         name = name:gsub("[%[%]]", ""):gsub("^%s+", ""):gsub("%s+$", ""):lower()
         local base, rank = name:match("^(.-)%s*(%b())$")
         if base and base ~= "" then
@@ -80,7 +80,7 @@ function System.Create()
 
     local function GainedPoints(amount, one, many)
         local word = tonumber(amount) == 1 and one or many
-        return Palette.gray .. "+|r " .. Palette.white .. amount .. " " .. word .. "|r"
+        return PREFIX_PLUS .. Palette.white .. amount .. " " .. word .. "|r"
     end
 
     -- Level-up lines, yours and other players': the game's LEVEL_UP,
@@ -171,7 +171,7 @@ function System.Create()
                 stats[#stats + 1] = statBy .. " " .. statName
             end
             if #stats > 0 then
-                return Palette.gray .. "+|r " .. levelColor .. table.concat(stats, ", ") .. "|r"
+                return PREFIX_PLUS .. levelColor .. table.concat(stats, ", ") .. "|r"
             end
         end
 
@@ -300,10 +300,10 @@ function System.Create()
         local standing, standingFaction = message:match("You are now (.-) with (.+)")
         if standing and standingFaction then
             local cleanFaction = CleanPunctuation(StripBrackets(standingFaction))
-            return SpaceBeforeX(Palette.gray .. "+|r " .. Palette.white .. standing .. ": |r" .. Palette.bluePurple .. cleanFaction .. "|r")
+            return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. standing .. ": |r" .. Palette.bluePurple .. cleanFaction .. "|r")
         end
 
-        local repMsg = message:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("%[", ""):gsub("%]", "")
+        local repMsg = Utils.StripColorsAndLinks(message):gsub("[%[%]]", "")
         local faction, amount = repMsg:match("Your reputation with (.-) has increased by (%d+)")
         if not faction then faction, amount = repMsg:match("Your (.-) reputation has increased by (%d+)") end
         if not faction then faction, amount = repMsg:match("Your Warband's reputation with (.-) increased by (%d+)") end
@@ -314,7 +314,7 @@ function System.Create()
         end
         if faction and amount then
             faction = CleanPunctuation(StripBrackets(faction))
-            return SpaceBeforeX(Palette.gray .. "+|r " .. Palette.white .. amount .. " " .. T("CHAT_REPUTATION_LABEL") .. " |r" .. Palette.bluePurple .. faction .. "|r")
+            return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. amount .. " " .. T("CHAT_REPUTATION_LABEL") .. " |r" .. Palette.bluePurple .. faction .. "|r")
         end
 
         faction, amount = repMsg:match("Your reputation with (.-) has decreased by (%d+)")
@@ -324,7 +324,7 @@ function System.Create()
         if not faction then faction, amount = repMsg:match("(.-) reputation decreased by (%d+)") end
         if faction and amount then
             faction = CleanPunctuation(StripBrackets(faction))
-            return SpaceBeforeX(Palette.gray .. Carpenter.MinusSign .. "|r " .. Palette.white .. amount .. " " .. T("CHAT_REPUTATION_LABEL") .. " |r" .. Palette.bluePurple .. faction .. "|r")
+            return SpaceBeforeX(PREFIX_MINUS .. Palette.white .. amount .. " " .. T("CHAT_REPUTATION_LABEL") .. " |r" .. Palette.bluePurple .. faction .. "|r")
         end
 
         return nil
@@ -338,14 +338,14 @@ function System.Create()
     end
 
     local function JoinedQueueText(name)
-        return SpaceBeforeX(Palette.gray .. "+|r " .. Palette.white .. T("CHAT_JOINED_QUEUE_LABEL") .. " |r" .. Palette.queue .. name .. "|r")
+        return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. T("CHAT_JOINED_QUEUE_LABEL") .. " |r" .. Palette.queue .. name .. "|r")
     end
 
     local function LeftQueueText(name)
         if not name then
-            return SpaceBeforeX(Palette.gray .. Carpenter.MinusSign .. "|r " .. Palette.white .. T("CHAT_LEFT_QUEUE") .. "|r")
+            return SpaceBeforeX(PREFIX_MINUS .. Palette.white .. T("CHAT_LEFT_QUEUE") .. "|r")
         end
-        return SpaceBeforeX(Palette.gray .. Carpenter.MinusSign .. "|r " .. Palette.white .. T("CHAT_LEFT_QUEUE_LABEL") .. " |r" .. Palette.queue .. name .. "|r")
+        return SpaceBeforeX(PREFIX_MINUS .. Palette.white .. T("CHAT_LEFT_QUEUE_LABEL") .. " |r" .. Palette.queue .. name .. "|r")
     end
 
     -- How far before a queue change its line can come (a probe's log): a
@@ -420,7 +420,7 @@ function System.Create()
         end
 
         if message:match("^You are now saved to this instance%.?$") then
-            return SpaceBeforeX(Palette.gray .. "+|r " .. Palette.white .. T("CHAT_SAVED_TO_INSTANCE") .. "|r")
+            return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. T("CHAT_SAVED_TO_INSTANCE") .. "|r")
         end
 
         -- A battle's result ("Your team lost the battle."): the scoreboard

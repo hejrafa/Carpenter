@@ -74,7 +74,7 @@ end
 
 local function PlainLootText(message)
     if not message or type(message) ~= "string" then return "" end
-    return message:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("%s+", " ")
+    return (Utils.StripColorsAndLinks(message):gsub("%s+", " "))
 end
 
 local function MatchFallbackGroupLoot(text)
@@ -309,7 +309,7 @@ function Loot.Create(config)
         local nameColor = Utils.LootLineColor(event)
         local function StyleGroupLoot(name, display)
             if not name or name == "" or name == "You" then return nil end
-            return SpaceBeforeX(nameColor .. name .. " " .. Palette.gray .. "+|r " .. display)
+            return SpaceBeforeX(nameColor .. name .. " " .. PREFIX_PLUS .. display)
         end
         local plainLoot = PlainLootText(message)
         local lowerPlain = plainLoot:lower()
@@ -358,7 +358,7 @@ function Loot.Create(config)
         if event ~= "CHAT_MSG_LOOT" and event ~= "CHAT_MSG_SYSTEM" then return nil end
 
         local playerName = UnitName("player") or ""
-        local plainRoll = message:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("%s+", " ")
+        local plainRoll = Utils.StripColorsAndLinks(message):gsub("%s+", " ")
         local coreRoll = plainRoll:gsub("^%s*%b[]%s*", "")
         local function CleanRollName(name)
             if not name or type(name) ~= "string" then return "" end

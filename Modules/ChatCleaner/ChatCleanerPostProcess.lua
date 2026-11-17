@@ -171,11 +171,6 @@ function PostProcess.Create(config)
         return (prefix or "") .. nameOut .. " " .. Literal(T("CHAT_WON_LABEL")) .. " " .. item
     end
 
-    local function StripColorCodes(text)
-        if not text or type(text) ~= "string" then return "" end
-        return text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[^:|]*:", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
-    end
-
     local function HasChatChannelPrefix(plainText)
         if not plainText or type(plainText) ~= "string" then return false end
         return plainText:match("^%s*[PGROI!][%s:][^:]+:") ~= nil
@@ -189,14 +184,14 @@ function PostProcess.Create(config)
             text:match("^%s*|c%x%x%x%x%x%x%x%x[Ll]oot:%s*|r%s*(.+)$") or
             text:match("^%s*|c%x%x%x%x%x%x%x%x[Ll]oot|r:%s*(.+)$") or
             text:match("^%s*|c%x%x%x%x%x%x%x%x[Ll]oot:%s*(.+)|r%s*$") or
-            StripColorCodes(text):match("^%s*[Ll]oot:%s*(.+)$")
+            Utils.StripColorsAndLinks(text):match("^%s*[Ll]oot:%s*(.+)$")
     end
 
     local function FormatBareLoot(text)
         if not text or type(text) ~= "string" then return nil end
 
         local item = ExtractBareLootItem(text)
-        if not item or IsRollPayload(StripColorCodes(item)) then return nil end
+        if not item or IsRollPayload(Utils.StripColorsAndLinks(item)) then return nil end
 
         item = Trim(item):gsub("%.+$", "")
         if item == "" then return nil end
@@ -256,7 +251,7 @@ function PostProcess.Create(config)
     local function StyleLootRollNames(text)
         if not text or type(text) ~= "string" then return text end
 
-        local plain = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("%s+", " ")
+        local plain = Utils.StripColorsAndLinks(text):gsub("%s+", " ")
         local lower = plain:lower()
         local isLootRoll = lower:find("has selected") or lower:find("passed on") or lower:find(" won ") or lower:find(" won:") or lower:find(" wins ") or
             plain:find(" by .+%s*$") or lower:find("won by ") or lower:find("winner:") or
@@ -384,7 +379,7 @@ function PostProcess.Create(config)
             return originalAddMessage(frame, message, Unpack(args))
         end
 
-        local plain = StripColorCodes(message)
+        local plain = Utils.StripColorsAndLinks(message)
         local appearanceCollectionMessage = formatAppearanceCollectionMessage("CHAT_MSG_SYSTEM", message, plain)
         if appearanceCollectionMessage then
             return originalAddMessage(frame, appearanceCollectionMessage, Unpack(args))
@@ -397,7 +392,7 @@ function PostProcess.Create(config)
 
         message = StyleLootRollNames(message)
 
-        plain = StripColorCodes(message)
+        plain = Utils.StripColorsAndLinks(message)
         local bareLootMessage = FormatBareLoot(message)
         if bareLootMessage then
             return originalAddMessage(frame, bareLootMessage, Unpack(args))
