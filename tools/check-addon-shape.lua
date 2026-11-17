@@ -23,6 +23,7 @@ local stateKeys = {
     blankLuaErrorTraceLog = true,
     blockedActionLog = true,
     chatGroupProbeLog = true, -- TEMPORARY probe log for Chat Cleaner's raid and loot lines
+    chatHiddenChatProbe = true, -- TEMPORARY probe log for hidden player chat
     damageMeterTabAlpha = true,
     damageMeterTabNumbers = true,
     damageMeterTabSession = true,
