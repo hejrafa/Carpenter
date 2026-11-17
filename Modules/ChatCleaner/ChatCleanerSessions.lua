@@ -10,19 +10,17 @@ ns.Private = ns.Private or {}
 local Sessions = ns.Private.ChatCleanerSessions or {}
 ns.Private.ChatCleanerSessions = Sessions
 
-function Sessions.Create(config)
-    config = config or {}
-    local formatMoney = config.FormatMoney or function(amount) return tostring(amount or 0) end
-    local colorPlus = config.ColorPlus or "|cffc8c8c8"
-    local colorMinus = config.ColorMinus or "|cffc8c8c8"
+local Utils = ns.Private.ChatCleanerUtils
+
+function Sessions.Create()
     -- Auto Sell Junk and Auto Repair note there what they did at this visit.
     local merchantState = Carpenter.MerchantState
 
     local function PrintSummary(amount)
         if amount > 0 then
-            print(colorPlus .. "+|r " .. formatMoney(amount))
+            print(Utils.PREFIX_PLUS .. Carpenter:FormatMoney(amount))
         elseif amount < 0 then
-            print(colorMinus .. Carpenter.MinusSign .. "|r " .. formatMoney(-amount))
+            print(Utils.PREFIX_MINUS .. Carpenter:FormatMoney(-amount))
         end
     end
 

@@ -5,6 +5,17 @@ ns.Private = ns.Private or {}
 local Rewards = ns.Private.ChatCleanerRewards or {}
 ns.Private.ChatCleanerRewards = Rewards
 
+local Utils = ns.Private.ChatCleanerUtils
+local Palette = Utils.Palette
+local PREFIX_PLUS, PREFIX_MINUS = Utils.PREFIX_PLUS, Utils.PREFIX_MINUS
+local T = Utils.T
+local CleanPunctuation, StripBrackets, SpaceBeforeX = Utils.CleanPunctuation, Utils.StripBrackets, Utils.SpaceBeforeX
+local GetItemLinkFromMessage = Utils.GetItemLinkFromMessage
+local GetItemLinkWithQualityColor = Utils.GetItemLinkWithQualityColor
+
+-- A repair line within this long of the repair Auto Repair reported is that one.
+local REPAIR_DEDUP_SECONDS = 2
+
 -- The chat filter also sees what players say, so only the game's own lines count,
 -- and only from the start of the line.
 local GENERIC_REWARD_EVENTS = {
@@ -30,37 +41,13 @@ local GENERIC_REWARD_PATTERNS = {
 
 function Rewards.Create(config)
     config = config or {}
-    local cleanPunctuation = config.CleanPunctuation or function(text) return text end
-    local stripBrackets = config.StripBrackets or function(text) return text end
-    local spaceBeforeX = config.SpaceBeforeX or function(text) return text end
-    local getItemLinkFromMessage = config.GetItemLinkFromMessage or function() return nil end
-    local getItemLinkWithQualityColor = config.GetItemLinkWithQualityColor or function(link) return link end
-    local parseRetailMoneyGain = config.ParseRetailMoneyGain or function() return nil end
-    local formatMoney = config.FormatMoney or function(amount) return tostring(amount or 0) end
-    local colorPlus = config.ColorPlus or "|cffc8c8c8"
-    local colorWhite = config.ColorWhite or "|cffffffff"
-    local colorCyan = config.ColorCyan or "|cff00ccff"
-    local colorPurple = config.ColorPurple or "|cffb794f4"
-    local colorHonor = config.ColorHonor or "|cffff0000"
-    local colorPalered = config.ColorPalered or "|cffcc8080"
-    local colorMinus = config.ColorMinus or "|cffc8c8c8"
-    local colorAuctionHouse = config.ColorAuctionHouse or "|cffffb347"
-    local colorAuctionExpired = config.ColorAuctionExpired or "|cffff0000"
+    -- Money lines stay hidden while a merchant or the mailbox is open; each
+    -- visit sums up its own (ChatCleanerSessions).
     local merchantFrame = config.MerchantFrame or {}
     local mailTracker = config.MailTracker or {}
-    local repairDedupSeconds = config.RepairDedupSeconds or 2
-    local L = config.L or (Carpenter and Carpenter.L) or {}
     local lastRepairAmount, lastRepairTime = nil, 0
 
     local api = {}
-
-    local function T(key, fallback, ...)
-        local text = L[key] or fallback or key
-        if select("#", ...) > 0 then
-            return string.format(text, ...)
-        end
-        return text
-    end
 
     -- "5 Gold, 2 Silver" as copper. The coin word has to end there, so
     -- "5 Golden Tokens" isn't money.
@@ -80,7 +67,7 @@ function Rewards.Create(config)
         currency = currency and tostring(currency)
         if not amount or amount == "" or not currency or currency == "" then return nil end
 
-        currency = cleanPunctuation(currency:gsub("^%s+", ""):gsub("%s+$", ""))
+        currency = CleanPunctuation(currency:gsub("^%s+", ""):gsub("%s+$", ""))
         local leadingAmount, leadingName = currency:match("^x?(%d+)%s*(%D.+)$")
         if leadingAmount and leadingName then
             amount = leadingAmount
@@ -93,24 +80,24 @@ function Rewards.Create(config)
             currency = trailingName:gsub("^%s+", ""):gsub("%s+$", "")
         end
 
-        return (colorPlus .. "+|r ") .. colorCyan .. currency .. "|r " .. colorWhite .. "x" .. amount .. "|r"
+        return (Palette.gray .. "+|r ") .. Palette.cyan .. currency .. "|r " .. Palette.white .. "x" .. amount .. "|r"
     end
 
-    function api.FormatCurrencyMessage(event, message, prefixPlus)
+    function api.FormatCurrencyMessage(event, message)
         if not (event == "CHAT_MSG_SYSTEM" or event == "CHAT_MSG_CURRENCY") or type(message) ~= "string" then return nil end
 
         local clean = StripMarkup(message)
         if clean:find("Arena Points", 1, true) then
             local arenaPoints = clean:match("Arena Points%s*x?(%d+)") or clean:match("(%d+)%s*Arena Points")
             if arenaPoints then
-                return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_ARENA_POINTS_LABEL", "Arena Points:") .. " |r" .. colorPurple .. arenaPoints .. "|r")
+                return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. T("CHAT_ARENA_POINTS_LABEL") .. " |r" .. Palette.purple .. arenaPoints .. "|r")
             end
         end
 
-        local moneyGain = parseRetailMoneyGain(clean)
+        local moneyGain = Utils.ParseRetailMoneyGain(clean)
         if moneyGain and moneyGain > 0 then
             if event == "CHAT_MSG_CURRENCY" then
-                return spaceBeforeX(prefixPlus .. formatMoney(moneyGain))
+                return SpaceBeforeX(PREFIX_PLUS .. Carpenter:FormatMoney(moneyGain))
             end
             return nil
         end
@@ -132,7 +119,7 @@ function Rewards.Create(config)
             return FormatCurrencyGain(currencyAmount, currency)
         elseif clean:find("You receive currency:", 1, true) then
             currency = clean:match("You receive currency:%s*(.-)%s*%.?$")
-            currency = currency and cleanPunctuation(currency:gsub("^%s+", ""):gsub("%s+$", ""))
+            currency = currency and CleanPunctuation(currency:gsub("^%s+", ""):gsub("%s+$", ""))
             if currency and currency ~= "" then
                 local name, amount = currency:match("^(.-)%s*x(%d+)$")
                 if name and amount then
@@ -143,23 +130,23 @@ function Rewards.Create(config)
                 if amount and name then
                     return FormatCurrencyGain(amount, name)
                 end
-                return prefixPlus .. colorCyan .. currency .. "|r"
+                return PREFIX_PLUS .. Palette.cyan .. currency .. "|r"
             end
         end
 
         return nil
     end
 
-    function api.FormatMoneyMessage(event, message, prefixPlus, prefixMinus)
+    function api.FormatMoneyMessage(event, message)
         if not (event == "CHAT_MSG_MONEY" or event == "CHAT_MSG_SYSTEM") or type(message) ~= "string" then return nil end
 
         local lowerMessage = message:lower()
-        if lowerMessage:find("repaired") and lowerMessage:find("item") and lastRepairAmount and (GetTime() - lastRepairTime) < repairDedupSeconds then
+        if lowerMessage:find("repaired") and lowerMessage:find("item") and lastRepairAmount and (GetTime() - lastRepairTime) < REPAIR_DEDUP_SECONDS then
             return true
         end
 
         -- Retail's "You gained:" receipt repeats Chat Cleaner's own money lines.
-        local retailGain = parseRetailMoneyGain(message)
+        local retailGain = Utils.ParseRetailMoneyGain(message)
         if retailGain and retailGain > 0 then
             return true
         end
@@ -177,35 +164,35 @@ function Rewards.Create(config)
         local isRepair = lowerMessage:find("repair")
 
         if isGain or not isLoss then
-            return spaceBeforeX(prefixPlus .. formatMoney(total))
+            return SpaceBeforeX(PREFIX_PLUS .. Carpenter:FormatMoney(total))
         end
 
         if isRepair then
             lastRepairAmount, lastRepairTime = total, GetTime()
-        elseif lastRepairAmount and total == lastRepairAmount and (GetTime() - lastRepairTime) < repairDedupSeconds then
+        elseif lastRepairAmount and total == lastRepairAmount and (GetTime() - lastRepairTime) < REPAIR_DEDUP_SECONDS then
             return true
         end
-        return spaceBeforeX(prefixMinus .. formatMoney(total, colorPalered))
+        return SpaceBeforeX(PREFIX_MINUS .. Carpenter:FormatMoney(total, Palette.palered))
     end
 
     -- An auction's item: its link in quality color, else the name in white.
     local function FormatAuctionDisplay(rawItem, sourceMessage)
-        local itemLink = getItemLinkFromMessage(sourceMessage or rawItem or "")
+        local itemLink = GetItemLinkFromMessage(sourceMessage or rawItem or "")
         if itemLink then
-            return getItemLinkWithQualityColor(itemLink)
+            return GetItemLinkWithQualityColor(itemLink)
         end
 
         local display = rawItem
         if display and display:find("|Hitem:") then
-            return getItemLinkWithQualityColor(display)
+            return GetItemLinkWithQualityColor(display)
         end
         if not display or not display:find("|H") then
-            return colorWhite .. cleanPunctuation(stripBrackets(display or "")) .. "|r"
+            return Palette.white .. CleanPunctuation(StripBrackets(display or "")) .. "|r"
         end
         return display
     end
 
-    function api.FormatAuctionMessage(message, prefixPlus, prefixMinus)
+    function api.FormatAuctionMessage(message)
         if not message or type(message) ~= "string" then return nil end
 
         if message:lower():find("bid accepted") then
@@ -213,7 +200,7 @@ function Rewards.Create(config)
         end
 
         if message == "Buyer found." or message == "Buyer found" then
-            return spaceBeforeX(prefixPlus .. message)
+            return SpaceBeforeX(PREFIX_PLUS .. message)
         end
 
         local buyerItem = message:match("A buyer has been found for your (.+)") or
@@ -223,7 +210,7 @@ function Rewards.Create(config)
         if buyerItem then
             buyerItem = buyerItem:gsub("^auction of%s+", ""):gsub("^your auction of%s+", "")
             local display = FormatAuctionDisplay(buyerItem, message)
-            return spaceBeforeX(prefixPlus .. colorAuctionHouse .. T("CHAT_BUYER_FOUND_LABEL", "Buyer found:") .. " |r" .. display)
+            return SpaceBeforeX(PREFIX_PLUS .. Palette.auctionHouse .. T("CHAT_BUYER_FOUND_LABEL") .. " |r" .. display)
         end
 
         if message == "Auction created." or message == "Auction created" then
@@ -238,7 +225,7 @@ function Rewards.Create(config)
             message:match("You have listed (.+)")
         if createdItem then
             local display = FormatAuctionDisplay(createdItem, message)
-            return spaceBeforeX(prefixPlus .. colorAuctionHouse .. T("CHAT_AUCTION_CREATED_LABEL", "Auction created:") .. " |r" .. display)
+            return SpaceBeforeX(PREFIX_PLUS .. Palette.auctionHouse .. T("CHAT_AUCTION_CREATED_LABEL") .. " |r" .. display)
         end
 
         local wonItem = message:match("You won an auction for (.+)") or
@@ -248,7 +235,7 @@ function Rewards.Create(config)
             message:match("Won auction: (.+)")
         if wonItem then
             local display = FormatAuctionDisplay(wonItem, message)
-            return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_AUCTION_WON_LABEL", "Auction won:") .. " |r" .. display)
+            return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. T("CHAT_AUCTION_WON_LABEL") .. " |r" .. display)
         end
 
         local expiredItem = message:match("Your auction of (.+) has expired") or
@@ -257,7 +244,7 @@ function Rewards.Create(config)
             message:match("Auction for (.+) has expired")
         if expiredItem then
             local display = FormatAuctionDisplay(expiredItem, message)
-            return spaceBeforeX(prefixMinus .. colorAuctionExpired .. T("CHAT_AUCTION_EXPIRED_LABEL", "Auction expired:") .. " |r" .. display)
+            return SpaceBeforeX(PREFIX_MINUS .. Palette.red .. T("CHAT_AUCTION_EXPIRED_LABEL") .. " |r" .. display)
         end
 
         local cancelledItem = message:match("You cancelled your auction of (.+)") or
@@ -265,7 +252,7 @@ function Rewards.Create(config)
             message:match("Cancelled auction: (.+)")
         if cancelledItem then
             local display = FormatAuctionDisplay(cancelledItem, message)
-            return spaceBeforeX(prefixMinus .. colorWhite .. T("CHAT_AUCTION_CANCELLED_LABEL", "Auction cancelled:") .. " |r" .. display)
+            return SpaceBeforeX(PREFIX_MINUS .. Palette.white .. T("CHAT_AUCTION_CANCELLED_LABEL") .. " |r" .. display)
         end
 
         return nil
@@ -277,12 +264,12 @@ function Rewards.Create(config)
         local refundItem, refundCount = message:match("^[Yy]ou are refunded:%s*(.+)%sx(%d+)[%.%s]*$")
         if not refundItem then return nil end
 
-        local itemLink = getItemLinkFromMessage(message)
-        local display = itemLink and getItemLinkWithQualityColor(itemLink) or cleanPunctuation(stripBrackets(refundItem))
-        return spaceBeforeX(colorWhite .. T("CHAT_REFUNDED_LABEL", "Refunded:") .. " |r" .. display .. " " .. colorPlus .. "(" .. refundCount .. ")|r")
+        local itemLink = GetItemLinkFromMessage(message)
+        local display = itemLink and GetItemLinkWithQualityColor(itemLink) or CleanPunctuation(StripBrackets(refundItem))
+        return SpaceBeforeX(Palette.white .. T("CHAT_REFUNDED_LABEL") .. " |r" .. display .. " " .. Palette.gray .. "(" .. refundCount .. ")|r")
     end
 
-    function api.FormatGenericReward(event, message, prefixPlus)
+    function api.FormatGenericReward(event, message)
         if not GENERIC_REWARD_EVENTS[event] then return nil end
 
         local lowerMsg = message:lower()
@@ -298,16 +285,16 @@ function Rewards.Create(config)
             lowerMsg:find(" copper%f[%A]") or lowerMsg:find("reputation") or lowerMsg:find("loot:")
         if skip or not rewardType:find("%S") then return nil end
 
-        local clean = cleanPunctuation(stripBrackets(rewardType))
+        local clean = CleanPunctuation(StripBrackets(rewardType))
         if #clean <= 0 then return nil end
 
         local lowerClean = clean:lower()
         local isHonor = lowerClean == "honor" or lowerClean:find("^honor points?$")
         local isRankPoints = lowerClean:find("^rank points?$")
-        local color = isHonor and colorHonor or isRankPoints and colorWhite or colorCyan
-        local display = isHonor and T("CHAT_HONOR_POINTS", "Honor Points") or
-            isRankPoints and T("CHAT_RANK_POINTS", "Rank Points") or clean
-        return spaceBeforeX(prefixPlus .. colorWhite .. rewardAmount .. " |r" .. color .. display .. "|r")
+        local color = isHonor and Palette.red or isRankPoints and Palette.white or Palette.cyan
+        local display = isHonor and T("CHAT_HONOR_POINTS") or
+            isRankPoints and T("CHAT_RANK_POINTS") or clean
+        return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. rewardAmount .. " |r" .. color .. display .. "|r")
     end
 
     return api

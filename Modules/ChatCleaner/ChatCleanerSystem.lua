@@ -5,38 +5,22 @@ ns.Private = ns.Private or {}
 local System = ns.Private.ChatCleanerSystem or {}
 ns.Private.ChatCleanerSystem = System
 
+local Utils = ns.Private.ChatCleanerUtils
+local Palette = Utils.Palette
+local PREFIX_PLUS, PREFIX_MINUS = Utils.PREFIX_PLUS, Utils.PREFIX_MINUS
+local T = Utils.T
+local CleanPunctuation, StripBrackets, SpaceBeforeX = Utils.CleanPunctuation, Utils.StripBrackets, Utils.SpaceBeforeX
+local GetItemLinkFromMessage = Utils.GetItemLinkFromMessage
 local ReadableNumber = Carpenter.Secret.ReadableNumber
 local ReadableString = Carpenter.Secret.ReadableString
 
-function System.Create(config)
-    config = config or {}
-    local cleanPunctuation = config.CleanPunctuation or function(text) return text end
-    local stripBrackets = config.StripBrackets or function(text) return text end
-    local spaceBeforeX = config.SpaceBeforeX or function(text) return text end
-    local colorPlus = config.ColorPlus or "|cffc8c8c8"
-    local colorMinus = config.ColorMinus or "|cffc8c8c8"
-    local colorWhite = config.ColorWhite or "|cffffffff"
-    local colorBluePurple = config.ColorBluePurple or "|cff9d8cff"
-    local colorQueue = config.ColorQueue or "|cff80b0ff"
-    local colorPurple = config.ColorPurple or "|cffb794f4"
-    local colorTransmog = config.ColorTransmog or "|cffff80ff"
-    local colorTeal = config.ColorTeal or "|cff00ccaa"
-    local colorYellow = config.ColorYellow or "|cffffd200"
-    local getItemLinkFromMessage = config.GetItemLinkFromMessage or function() return nil end
-    local isMainlineClient = config.IsMainlineClient or function() return false end
-    local L = config.L or (Carpenter and Carpenter.L) or {}
+-- A second "Learned" line for the same thing within this long is a repeat.
+local LEARNED_SKILL_DEDUP_SECONDS = 3
 
-    local function T(key, fallback, ...)
-        local text = L[key] or fallback or key
-        if select("#", ...) > 0 then
-            return string.format(text, ...)
-        end
-        return text
-    end
+function System.Create()
 
     local api = {}
     local lastLearnedSkillName, lastLearnedSkillTime = nil, 0
-    local learnedSkillDedupSeconds = config.LearnedSkillDedupSeconds or 3
     -- The last "Learned" line each chat frame showed. The filter runs once per
     -- frame for the same message, so the lines are tracked per frame.
     local lastLearnedLines = setmetatable({}, { __mode = "k" })
@@ -64,7 +48,7 @@ function System.Create(config)
         local name, rank = PlainLearnedName(display)
         local now = GetTime and GetTime() or 0
         local last = lastLearnedLines[key]
-        if last and last.name == name and (now - last.time) <= learnedSkillDedupSeconds
+        if last and last.name == name and (now - last.time) <= LEARNED_SKILL_DEDUP_SECONDS
             and (last.rank == rank or last.rank == "" or rank == "") then
             last.time = now
             return true
@@ -96,7 +80,7 @@ function System.Create(config)
 
     local function GainedPoints(amount, one, many)
         local word = tonumber(amount) == 1 and one or many
-        return colorPlus .. "+|r " .. colorWhite .. amount .. " " .. word .. "|r"
+        return Palette.gray .. "+|r " .. Palette.white .. amount .. " " .. word .. "|r"
     end
 
     -- Level-up lines, yours and other players': the game's LEVEL_UP,
@@ -107,14 +91,14 @@ function System.Create(config)
 
         -- Forever links the level: "you have reached [Level 12]!".
         plainText = plainText:gsub("[%[%]]", "")
-        local levelColor = colorWhite
+        local levelColor = Palette.white
 
         local selfLevel = plainText:match("^%s*[Cc]ongratulations,?%s+you%s+have%s+reached%s+[Ll]evel%s+(%d+)") or
             plainText:match("^%s*[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$") or
             plainText:match("^%s*[Yy]ou%s+[Hh]ave%s+[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$") or
             plainText:match("^%s*[Yy]ou%s+[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
         if selfLevel then
-            return levelColor .. T("CHAT_REACHED_LEVEL_NO_NAME", "Reached level %s", selfLevel) .. "|r"
+            return levelColor .. T("CHAT_REACHED_LEVEL_NO_NAME", selfLevel) .. "|r"
         end
 
         local function TrimName(name)
@@ -136,10 +120,10 @@ function System.Create(config)
             end
 
             if tonumber(levelNum) == MaxPlayerLevel() then
-                return colorYellow .. T("CHAT_REACHED_LEVEL", "%s reached level %s", name, levelNum) .. "|r"
+                return Palette.yellow .. T("CHAT_REACHED_LEVEL", name, levelNum) .. "|r"
             end
 
-            return levelColor .. T("CHAT_REACHED_LEVEL", "%s reached level %s", name, levelNum) .. "|r"
+            return levelColor .. T("CHAT_REACHED_LEVEL", name, levelNum) .. "|r"
         end
 
         local otherName, otherLevel = plainText:match("^%s*(.-)%s+[Hh]as%s+[Rr]eached%s+[Ll]evel%s+(%d+)%s*[%!%.,]?%s*$")
@@ -159,7 +143,7 @@ function System.Create(config)
         styledOther = FormatOtherPlayerLevel(otherName, otherLevel)
         if styledOther then return styledOther end
 
-        local hitPoint, hitPoints = T("CHAT_HIT_POINT", "Hit Point"), T("CHAT_HIT_POINTS", "Hit Points")
+        local hitPoint, hitPoints = T("CHAT_HIT_POINT"), T("CHAT_HIT_POINTS")
         local healthAmount, manaAmount = plainText:match("[Gg]ained%s+(%d+)%s+[Hh]it [Pp]oints?%s+and%s+(%d+)%s+[Mm]ana")
         if healthAmount then
             local mana = _G.MANA or "Mana"
@@ -173,7 +157,7 @@ function System.Create(config)
 
         local talentAmount = plainText:match("[Gg]ained%s*:?.-%s*(%d+)%s+[Tt]alent [Pp]oint")
         if talentAmount then
-            return GainedPoints(talentAmount, T("CHAT_TALENT_POINT", "Talent Point"), T("CHAT_TALENT_POINTS", "Talent Points"))
+            return GainedPoints(talentAmount, T("CHAT_TALENT_POINT"), T("CHAT_TALENT_POINTS"))
         end
 
         if plainText:match("[Yy]our%s+%w+%s+increases%s+by%s+%d+") or plainText:match("[Ii]ncreases:%s*%w+%s+by%s+%d+") then
@@ -187,20 +171,20 @@ function System.Create(config)
                 stats[#stats + 1] = statBy .. " " .. statName
             end
             if #stats > 0 then
-                return colorPlus .. "+|r " .. levelColor .. table.concat(stats, ", ") .. "|r"
+                return Palette.gray .. "+|r " .. levelColor .. table.concat(stats, ", ") .. "|r"
             end
         end
 
         return nil
     end
 
-    function api.FormatExperienceMessage(message, plainText, prefixPlus)
+    function api.FormatExperienceMessage(message, plainText)
         if not message or type(message) ~= "string" then return nil end
         plainText = (type(plainText) == "string" and plainText) or message
 
         local discoveredZone, discoveredXP = message:match("Discovered (.+): (%d+) experience gained")
         if discoveredZone and discoveredXP then
-            return spaceBeforeX(prefixPlus .. colorWhite .. discoveredXP .. " EXP: " .. "|r" .. colorTeal .. discoveredZone .. "|r")
+            return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. discoveredXP .. " EXP: " .. "|r" .. Palette.teal .. discoveredZone .. "|r")
         end
 
         local exploredZone = plainText:match("^%s*[Ee]xploring a new zone:%s*(.+)$") or
@@ -208,12 +192,12 @@ function System.Create(config)
             plainText:match("^%s*[Dd]iscovered:%s*(.+)$")
         if exploredZone and exploredZone ~= "" then
             exploredZone = exploredZone:gsub("^%s+", ""):gsub("%s+$", "")
-            return spaceBeforeX(colorWhite .. T("CHAT_EXPLORING_ZONE", "Exploring a new zone: %s", exploredZone) .. "|r")
+            return SpaceBeforeX(Palette.white .. T("CHAT_EXPLORING_ZONE", exploredZone) .. "|r")
         end
 
         local xp = message:match("You gain (%d+) experience") or message:match("Experience gained: (%d+)")
         if xp then
-            return spaceBeforeX(prefixPlus .. colorWhite .. xp .. " |r" .. colorWhite .. "EXP|r")
+            return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. xp .. " |r" .. Palette.white .. "EXP|r")
         end
 
         return nil
@@ -239,27 +223,27 @@ function System.Create(config)
 
     -- The set's name alone, in the appearance color: its link keeps working
     -- but loses its brackets and the color the game gave it.
-    local function FormatCompletedSet(setName, prefixPlus)
-        local display = cleanPunctuation(setName)
+    local function FormatCompletedSet(setName)
+        local display = CleanPunctuation(setName)
         display = display:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
         display = display:gsub("|h%[(.-)%]|h", "|h%1|h")
-        display = stripBrackets(display):gsub("^%s+", ""):gsub("%s+$", "")
+        display = StripBrackets(display):gsub("^%s+", ""):gsub("%s+$", "")
         if display == "" then return nil end
-        return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_COMPLETED_LABEL", "Completed:") .. " |r" .. colorTransmog .. display .. "|r")
+        return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. T("CHAT_COMPLETED_LABEL") .. " |r" .. Palette.transmog .. display .. "|r")
     end
 
-    function api.FormatQuestProgressMessage(event, message, plainText, prefixPlus)
+    function api.FormatQuestProgressMessage(event, message, plainText)
         if event ~= "CHAT_MSG_SYSTEM" or not message or type(message) ~= "string" then return nil end
         plainText = (type(plainText) == "string" and plainText) or message
 
         local function IsGenericCompletionTitle(title)
             if not title or type(title) ~= "string" then return false end
-            local normalized = cleanPunctuation(stripBrackets(title)):lower():gsub("^%s+", ""):gsub("%s+$", "")
+            local normalized = CleanPunctuation(StripBrackets(title)):lower():gsub("^%s+", ""):gsub("%s+$", "")
             return normalized == "that quest" or normalized == "the quest" or normalized == "quest"
         end
 
         local function CleanQuestTitle(title)
-            title = cleanPunctuation(stripBrackets(title))
+            title = CleanPunctuation(StripBrackets(title))
             if type(title) ~= "string" then return nil end
             title = title:gsub("^%s+", ""):gsub("%s+$", "")
             if title == "" or IsGenericCompletionTitle(title) then return nil end
@@ -267,7 +251,7 @@ function System.Create(config)
         end
 
         local function CompletedLabel()
-            return (T("CHAT_COMPLETED_LABEL", "Completed:"):gsub("%s*:%s*$", ""))
+            return (T("CHAT_COMPLETED_LABEL"):gsub("%s*:%s*$", ""))
         end
 
         local lowerPlainText = plainText:lower()
@@ -280,7 +264,7 @@ function System.Create(config)
         -- "Completed: <set>" without "the set".
         local completedSet = message:match(GetCompletedSetPattern())
         if completedSet then
-            local formatted = FormatCompletedSet(completedSet, prefixPlus)
+            local formatted = FormatCompletedSet(completedSet)
             if formatted then return formatted end
         end
 
@@ -294,17 +278,17 @@ function System.Create(config)
                 return true
             end
             local cleanQuest = CleanQuestTitle(questAccepted)
-            return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_ACCEPTED_LABEL", "Accepted:") .. " |r" .. colorYellow .. (cleanQuest or cleanPunctuation(stripBrackets(questAccepted))) .. "|r")
+            return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. T("CHAT_ACCEPTED_LABEL") .. " |r" .. Palette.yellow .. (cleanQuest or CleanPunctuation(StripBrackets(questAccepted))) .. "|r")
         elseif questCompleted then
             if IsGenericCompletionTitle(questCompleted) then
-                return spaceBeforeX(prefixPlus .. colorWhite .. CompletedLabel() .. "|r")
+                return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. CompletedLabel() .. "|r")
             end
 
             local cleanQuest = CleanQuestTitle(questCompleted)
             if not cleanQuest then
                 return nil
             end
-            return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_COMPLETED_LABEL", "Completed:") .. " |r" .. colorYellow .. cleanQuest .. "|r")
+            return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. T("CHAT_COMPLETED_LABEL") .. " |r" .. Palette.yellow .. cleanQuest .. "|r")
         end
 
         return nil
@@ -315,8 +299,8 @@ function System.Create(config)
 
         local standing, standingFaction = message:match("You are now (.-) with (.+)")
         if standing and standingFaction then
-            local cleanFaction = cleanPunctuation(stripBrackets(standingFaction))
-            return spaceBeforeX(colorPlus .. "+|r " .. colorWhite .. standing .. ": |r" .. colorBluePurple .. cleanFaction .. "|r")
+            local cleanFaction = CleanPunctuation(StripBrackets(standingFaction))
+            return SpaceBeforeX(Palette.gray .. "+|r " .. Palette.white .. standing .. ": |r" .. Palette.bluePurple .. cleanFaction .. "|r")
         end
 
         local repMsg = message:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("%[", ""):gsub("%]", "")
@@ -329,8 +313,8 @@ function System.Create(config)
             faction, amount = repMsg:match("^(.-)%s+judges your Warband more worthy%.?%s*(%d+)%s+reputation gained")
         end
         if faction and amount then
-            faction = cleanPunctuation(stripBrackets(faction))
-            return spaceBeforeX(colorPlus .. "+|r " .. colorWhite .. amount .. " " .. T("CHAT_REPUTATION_LABEL", "Reputation:") .. " |r" .. colorBluePurple .. faction .. "|r")
+            faction = CleanPunctuation(StripBrackets(faction))
+            return SpaceBeforeX(Palette.gray .. "+|r " .. Palette.white .. amount .. " " .. T("CHAT_REPUTATION_LABEL") .. " |r" .. Palette.bluePurple .. faction .. "|r")
         end
 
         faction, amount = repMsg:match("Your reputation with (.-) has decreased by (%d+)")
@@ -339,8 +323,8 @@ function System.Create(config)
         if not faction then amount, faction = repMsg:match("(%d+) reputation with (.-) lost") end
         if not faction then faction, amount = repMsg:match("(.-) reputation decreased by (%d+)") end
         if faction and amount then
-            faction = cleanPunctuation(stripBrackets(faction))
-            return spaceBeforeX(colorMinus .. Carpenter.MinusSign .. "|r " .. colorWhite .. amount .. " " .. T("CHAT_REPUTATION_LABEL", "Reputation:") .. " |r" .. colorBluePurple .. faction .. "|r")
+            faction = CleanPunctuation(StripBrackets(faction))
+            return SpaceBeforeX(Palette.gray .. Carpenter.MinusSign .. "|r " .. Palette.white .. amount .. " " .. T("CHAT_REPUTATION_LABEL") .. " |r" .. Palette.bluePurple .. faction .. "|r")
         end
 
         return nil
@@ -354,14 +338,14 @@ function System.Create(config)
     end
 
     local function JoinedQueueText(name)
-        return spaceBeforeX(colorPlus .. "+|r " .. colorWhite .. T("CHAT_JOINED_QUEUE_LABEL", "Joined the queue:") .. " |r" .. colorQueue .. name .. "|r")
+        return SpaceBeforeX(Palette.gray .. "+|r " .. Palette.white .. T("CHAT_JOINED_QUEUE_LABEL") .. " |r" .. Palette.queue .. name .. "|r")
     end
 
     local function LeftQueueText(name)
         if not name then
-            return spaceBeforeX(colorMinus .. Carpenter.MinusSign .. "|r " .. colorWhite .. T("CHAT_LEFT_QUEUE", "Left the queue") .. "|r")
+            return SpaceBeforeX(Palette.gray .. Carpenter.MinusSign .. "|r " .. Palette.white .. T("CHAT_LEFT_QUEUE") .. "|r")
         end
-        return spaceBeforeX(colorMinus .. Carpenter.MinusSign .. "|r " .. colorWhite .. T("CHAT_LEFT_QUEUE_LABEL", "Left the queue:") .. " |r" .. colorQueue .. name .. "|r")
+        return SpaceBeforeX(Palette.gray .. Carpenter.MinusSign .. "|r " .. Palette.white .. T("CHAT_LEFT_QUEUE_LABEL") .. " |r" .. Palette.queue .. name .. "|r")
     end
 
     -- How far before a queue change its line can come (a probe's log): a
@@ -436,7 +420,7 @@ function System.Create(config)
         end
 
         if message:match("^You are now saved to this instance%.?$") then
-            return spaceBeforeX(colorPlus .. "+|r " .. colorWhite .. T("CHAT_SAVED_TO_INSTANCE", "Saved to instance") .. "|r")
+            return SpaceBeforeX(Palette.gray .. "+|r " .. Palette.white .. T("CHAT_SAVED_TO_INSTANCE") .. "|r")
         end
 
         -- A battle's result ("Your team lost the battle."): the scoreboard
@@ -454,7 +438,7 @@ function System.Create(config)
         return nil
     end
 
-    function api.FormatSkillMessage(message, plainText, prefixPlus, prefixMinus, frame)
+    function api.FormatSkillMessage(message, plainText, frame)
         if not message or type(message) ~= "string" then return nil end
         plainText = (type(plainText) == "string" and plainText) or message
 
@@ -464,7 +448,7 @@ function System.Create(config)
             message:match("Recipe learned: (.+)") or message:match("You have learned a new ability: (.+)") or
             message:match("You have learned the ability: (.+)") or message:match("Ability learned: (.+)")
         if learned then
-            local display = cleanPunctuation(stripBrackets(learned))
+            local display = CleanPunctuation(StripBrackets(learned))
             display = display:gsub("^a new item: ", ""):gsub("^a new spell: ", ""):gsub("^a new ability: ", "")
             -- A profession rank ("Cooking (Apprentice)") is followed by "You have
             -- gained the Cooking skill.", which says the same.
@@ -476,7 +460,7 @@ function System.Create(config)
             if IsRepeatedLearnedLine(frame, display) then
                 return true
             end
-            return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_LEARNED_LABEL", "Learned:") .. " |r" .. colorPurple .. display .. "|r")
+            return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. T("CHAT_LEARNED_LABEL") .. " |r" .. Palette.purple .. display .. "|r")
         end
 
         local unlearned = message:match("You have unlearned: (.+)") or message:match("You have unlearned (.+)") or
@@ -484,32 +468,32 @@ function System.Create(config)
             message:match("You have forgotten (.+)") or message:match("Spell unlearned: (.+)") or
             message:match("Ability unlearned: (.+)")
         if unlearned then
-            local display = cleanPunctuation(stripBrackets(unlearned))
+            local display = CleanPunctuation(StripBrackets(unlearned))
             display = display:gsub("^a new item: ", ""):gsub("^a new spell: ", ""):gsub("^a new ability: ", "")
-            return spaceBeforeX(prefixMinus .. colorWhite .. T("CHAT_UNLEARNED_LABEL", "Unlearned:") .. " |r" .. colorPurple .. display .. "|r")
+            return SpaceBeforeX(PREFIX_MINUS .. Palette.white .. T("CHAT_UNLEARNED_LABEL") .. " |r" .. Palette.purple .. display .. "|r")
         end
 
         local gainedSkill = plainText:match("[Yy]ou have gained the (.-) skill[%.,!]?%s*$")
         if gainedSkill then
-            local display = cleanPunctuation(stripBrackets(gainedSkill))
+            local display = CleanPunctuation(StripBrackets(gainedSkill))
             local now = GetTime and GetTime() or 0
-            if lastLearnedSkillName and PlainLearnedName(display) == lastLearnedSkillName and (now - lastLearnedSkillTime) <= learnedSkillDedupSeconds then
+            if lastLearnedSkillName and PlainLearnedName(display) == lastLearnedSkillName and (now - lastLearnedSkillTime) <= LEARNED_SKILL_DEDUP_SECONDS then
                 return true
             end
-            return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_SKILL_LABEL", "Skill:") .. " |r" .. colorPurple .. display .. "|r")
+            return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. T("CHAT_SKILL_LABEL") .. " |r" .. Palette.purple .. display .. "|r")
         end
 
         local skill, skillRank = message:match("Your skill in (.-) has increased to (%d+)")
         if skill and skillRank then
-            return api.FormatSkillRise({ name = skill, rank = skillRank }, prefixPlus)
+            return api.FormatSkillRise({ name = skill, rank = skillRank })
         end
 
         return nil
     end
 
-    function api.FormatSkillRise(rise, prefixPlus)
-        return spaceBeforeX(prefixPlus .. colorWhite .. rise.rank .. " " .. T("CHAT_SKILL_LABEL", "Skill:") .. " |r" ..
-            colorPurple .. rise.name .. "|r")
+    function api.FormatSkillRise(rise)
+        return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. rise.rank .. " " .. T("CHAT_SKILL_LABEL") .. " |r" ..
+            Palette.purple .. rise.name .. "|r")
     end
 
     -- WoW Forever hides skill-up text from addons during chat messaging
@@ -640,24 +624,24 @@ function System.Create(config)
         return LeftQueueText(change.name)
     end
 
-    function api.FormatAppearanceCollectionMessage(event, message, plainText, prefixPlus)
-        if event ~= "CHAT_MSG_SYSTEM" or not isMainlineClient() then return nil end
+    function api.FormatAppearanceCollectionMessage(event, message, plainText)
+        if event ~= "CHAT_MSG_SYSTEM" or not Carpenter.Client.isMainline then return nil end
         if not message or type(message) ~= "string" then return nil end
         plainText = (type(plainText) == "string" and plainText) or message
 
         local appearance = plainText:match("^%s*(.-)%s+has been added to your appearance collection%.?%s*$")
         if not appearance or appearance == "" then return nil end
 
-        local itemLink = getItemLinkFromMessage(message)
+        local itemLink = GetItemLinkFromMessage(message)
         local display
         if itemLink then
             itemLink = itemLink:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
-            display = colorTransmog .. itemLink .. "|r"
+            display = Palette.transmog .. itemLink .. "|r"
         else
-            display = colorTransmog .. cleanPunctuation(stripBrackets(appearance)) .. "|r"
+            display = Palette.transmog .. CleanPunctuation(StripBrackets(appearance)) .. "|r"
         end
 
-        return spaceBeforeX(prefixPlus .. colorWhite .. T("CHAT_APPEARANCE_LABEL", "Appearance:") .. " |r" .. display)
+        return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. T("CHAT_APPEARANCE_LABEL") .. " |r" .. display)
     end
 
     return api

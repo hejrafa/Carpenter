@@ -6,7 +6,14 @@ local PostProcess = ns.Private.ChatCleanerPostProcess or {}
 ns.Private.ChatCleanerPostProcess = PostProcess
 
 local Utils = ns.Private.ChatCleanerUtils
+local Palette = Utils.Palette
+local T, Trim, SpaceBeforeX = Utils.T, Utils.Trim, Utils.SpaceBeforeX
+
+-- A repeat of a join or honor line within this long is the same one.
+local JOIN_DEDUP_DELAY = 8
+local HONOR_DELAY = 3
 local IsRollPayload = ns.Private.ChatCleanerLoot.IsRollPayload
+local RollTypeLabel = ns.Private.ChatCleanerLoot.RollTypeLabel
 local IsSecret = Carpenter.Secret.IsSecret
 
 -- Chat prefixes shortened: "[Party Leader]" to "PL", "[Raid Warning]" to a
@@ -84,20 +91,9 @@ end
 function PostProcess.Create(config)
     config = config or {}
     local applyChannelStyling = ApplyChannelStyling
-    local removeLinkBrackets = config.RemoveLinkBrackets or function(text) return text end
     local formatLevelUpRewardMessage = config.FormatLevelUpRewardMessage or function() return nil end
     local formatAppearanceCollectionMessage = config.FormatAppearanceCollectionMessage or function() return nil end
-    local parseRetailMoneyGain = config.ParseRetailMoneyGain or function() return nil end
-    local spaceBeforeX = config.SpaceBeforeX or function(text) return text end
-    local colorPlus = config.ColorPlus or "|cffc8c8c8"
-    local colorLootLiteral = config.ColorLootLiteral or "|cffc8c8c8"
-    local colorGreen = config.ColorGreen or "|cff00ff00"
-    local getChannelMessageColor = config.GetChannelMessageColor or function() return colorLootLiteral end
     local getPlayerNameColor = config.GetPlayerNameColor or function() return nil end
-    local colorRed = config.ColorRed or "|cffff0000"
-    local honorDelay = config.HonorDelay or 3
-    local joinDedupDelay = config.JoinDedupDelay or 8
-    local L = config.L or (Carpenter and Carpenter.L) or {}
 
     -- Each chat window gets its own copy of a line, so repeats are told apart
     -- per window.
@@ -106,61 +102,49 @@ function PostProcess.Create(config)
 
     local api = {}
 
-    local function T(key, fallback, ...)
-        local text = L[key] or fallback or key
-        if select("#", ...) > 0 then
-            return string.format(text, ...)
-        end
-        return text
-    end
-
-    local function Trim(text)
-        return (text and text:gsub("^%s+", ""):gsub("%s+$", "") or "")
-    end
-
     -- For the first minute of a battleground, Blizzard collects joins and
     -- leaves and prints them as one line straight to the chat frame, so no
     -- chat filter ever sees them.
     local function FormatBattleRosterLine(plain)
         local joinedList = plain:match("^%s*%d+%s+players have joined the battle:%s*(.-)%.?%s*$")
         if joinedList and Trim(joinedList) ~= "" then
-            return colorGreen .. T("CHAT_PLAYER_JOINED", "%s joined", Trim(joinedList)) .. "|r"
+            return Palette.green .. T("CHAT_PLAYER_JOINED", Trim(joinedList)) .. "|r"
         end
         local leftList = plain:match("^%s*%d+%s+players have left the battle:%s*(.-)%.?%s*$")
         if leftList and Trim(leftList) ~= "" then
-            return colorRed .. T("CHAT_PLAYER_LEFT", "%s left", Trim(leftList)) .. "|r"
+            return Palette.red .. T("CHAT_PLAYER_LEFT", Trim(leftList)) .. "|r"
         end
         local joinedCount = plain:match("^%s*(%d+)%s+players have joined the battle%.?%s*$")
         if joinedCount then
-            return colorGreen .. T("CHAT_PLAYERS_JOINED", "%s players joined", joinedCount) .. "|r"
+            return Palette.green .. T("CHAT_PLAYERS_JOINED", joinedCount) .. "|r"
         end
         local leftCount = plain:match("^%s*(%d+)%s+players have left the battle%.?%s*$")
         if leftCount then
-            return colorRed .. T("CHAT_PLAYERS_LEFT", "%s players left", leftCount) .. "|r"
+            return Palette.red .. T("CHAT_PLAYERS_LEFT", leftCount) .. "|r"
         end
         local joinedName = plain:match("^%s*(.-)%s+has joined the battle%.?%s*$")
         if joinedName and Trim(joinedName) ~= "" then
-            return colorGreen .. T("CHAT_PLAYER_JOINED", "%s joined", Trim(joinedName)) .. "|r"
+            return Palette.green .. T("CHAT_PLAYER_JOINED", Trim(joinedName)) .. "|r"
         end
         local leftName = plain:match("^%s*(.-)%s+has left the battle%.?%s*$")
         if leftName and Trim(leftName) ~= "" then
-            return colorRed .. T("CHAT_PLAYER_LEFT", "%s left", Trim(leftName)) .. "|r"
+            return Palette.red .. T("CHAT_PLAYER_LEFT", Trim(leftName)) .. "|r"
         end
         return nil
     end
 
     local function StyleBareLootItem(item)
         if not item or item == "" or item:find("|Hitem:", 1, true) then return item end
-        return colorGreen .. item .. "|r"
+        return Palette.green .. item .. "|r"
     end
 
     local function StyledLootName(name)
         name = Trim(name):gsub("^Loot:%s*", ""):gsub("^[:;]+%s*", ""):gsub("%-.*$", "")
         if name == "" or name == "Loot" then return nil end
         if name == "You" then
-            return colorLootLiteral .. (L.CHAT_YOU or "You") .. "|r"
+            return Palette.white .. T("CHAT_YOU") .. "|r"
         end
-        return colorLootLiteral .. name .. "|r"
+        return Palette.white .. name .. "|r"
     end
 
     local function Literal(text)
@@ -168,7 +152,7 @@ function PostProcess.Create(config)
             text = text:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%s*:%s*$", "")
         end
         if not text or text == "" then return "" end
-        return colorLootLiteral .. text .. "|r"
+        return Palette.white .. text .. "|r"
     end
 
     local function FormatDirectLootWin(text)
@@ -184,7 +168,7 @@ function PostProcess.Create(config)
         item = Trim(item):gsub("%s+[Ll]oot%s*$", "")
         if item == "" then return nil end
 
-        return (prefix or "") .. nameOut .. " " .. Literal(T("CHAT_WON_LABEL", "won:")) .. " " .. item
+        return (prefix or "") .. nameOut .. " " .. Literal(T("CHAT_WON_LABEL")) .. " " .. item
     end
 
     local function StripColorCodes(text)
@@ -217,8 +201,8 @@ function PostProcess.Create(config)
         item = Trim(item):gsub("%.+$", "")
         if item == "" then return nil end
 
-        local lootLabelColor = getChannelMessageColor("CHAT_MSG_LOOT") or colorLootLiteral
-        return lootLabelColor .. "Loot|r " .. colorPlus .. "+|r " .. StyleBareLootItem(item)
+        local lootLabelColor = Utils.LootLineColor("CHAT_MSG_LOOT")
+        return lootLabelColor .. "Loot|r " .. Utils.PREFIX_PLUS .. StyleBareLootItem(item)
     end
 
     local function FormatHardcoreDeathMessage(plainText)
@@ -231,42 +215,42 @@ function PostProcess.Create(config)
         local lowerCause = cause:lower()
         local causeLabel = nil
         if lowerCause:find("drowned to death", 1, true) then
-            causeLabel = T("CHAT_HARDCORE_DEATH_DROWNED", "drowned")
+            causeLabel = T("CHAT_HARDCORE_DEATH_DROWNED")
         elseif lowerCause:find("fell to death", 1, true) or
             lowerCause:find("fell to their death", 1, true) or
             lowerCause:find("fell to his death", 1, true) or
             lowerCause:find("fell to her death", 1, true) then
-            causeLabel = T("CHAT_HARDCORE_DEATH_FELL", "fell")
+            causeLabel = T("CHAT_HARDCORE_DEATH_FELL")
         elseif lowerCause:find("burned to death", 1, true) or
             lowerCause:find("burnt to death", 1, true) or
             lowerCause:find("burned to a crisp", 1, true) or
             lowerCause:find("burnt to a crisp", 1, true) then
-            causeLabel = T("CHAT_HARDCORE_DEATH_BURNED", "burned")
+            causeLabel = T("CHAT_HARDCORE_DEATH_BURNED")
         elseif lowerCause:find("died from fatigue", 1, true) or
             lowerCause:find("died to fatigue", 1, true) or
             lowerCause:find("died of fatigue", 1, true) then
-            causeLabel = T("CHAT_HARDCORE_DEATH_FATIGUE", "died from fatigue")
+            causeLabel = T("CHAT_HARDCORE_DEATH_FATIGUE")
         elseif lowerCause:find("has been slain", 1, true) or lowerCause:find("was slain", 1, true) then
             local killer = cause:match("[Hh]as been slain by%s+(.+)$") or cause:match("[Ww]as slain by%s+(.+)$")
             if killer then
                 killer = Trim(killer):gsub("%s+in%s+.+$", "")
             end
-            causeLabel = killer and killer ~= "" and T("CHAT_HARDCORE_DEATH_SLAIN_BY", "was slain by %s", killer) or T("CHAT_HARDCORE_DEATH_SLAIN", "slain")
+            causeLabel = killer and killer ~= "" and T("CHAT_HARDCORE_DEATH_SLAIN_BY", killer) or T("CHAT_HARDCORE_DEATH_SLAIN")
         elseif lowerCause:find("was killed", 1, true) or lowerCause:find("died to", 1, true) or
             lowerCause:find("died from", 1, true) or lowerCause:find("died in", 1, true) then
-            causeLabel = T("CHAT_HARDCORE_DEATH_DIED", "died")
+            causeLabel = T("CHAT_HARDCORE_DEATH_DIED")
         end
         if not causeLabel then return nil end
 
         playerName = Trim(playerName):gsub("%-.*$", "")
         if playerName == "" then return nil end
 
-        return colorRed .. T("CHAT_HARDCORE_DEATH", "%s %s! Level %s", playerName, causeLabel, level) .. "|r"
+        return Palette.red .. T("CHAT_HARDCORE_DEATH", playerName, causeLabel, level) .. "|r"
     end
 
     -- Rollers get their class color, like names in say and party chat.
     local function RollNameColor(name)
-        return getPlayerNameColor(name) or colorLootLiteral
+        return getPlayerNameColor(name) or Palette.white
     end
 
     local function StyleLootRollNames(text)
@@ -290,42 +274,42 @@ function PostProcess.Create(config)
         text = text:gsub("^(|c%x%x%x%x%x%x%x%x)?%s*([^|%[%]%s]+)(%s+receives loot:%s*)(.-)$", function(prefix, name, literal, tail)
             local short = Trim(name):gsub("%-.*$", "")
             if short ~= "" and short ~= "You" and short ~= "Loot" then
-                return (prefix or "") .. colorLootLiteral .. short .. "|r" .. literal .. tail
+                return (prefix or "") .. Palette.white .. short .. "|r" .. literal .. tail
             end
             return (prefix or "") .. short .. literal .. tail
         end)
         text = text:gsub("^(|c%x%x%x%x%x%x%x%x)?%s*([^|%[%]%s]+)(%s+receives item:%s*)(.-)$", function(prefix, name, literal, tail)
             local short = Trim(name):gsub("%-.*$", "")
             if short ~= "" and short ~= "You" and short ~= "Loot" then
-                return (prefix or "") .. colorLootLiteral .. short .. "|r" .. literal .. tail
+                return (prefix or "") .. Palette.white .. short .. "|r" .. literal .. tail
             end
             return (prefix or "") .. short .. literal .. tail
         end)
         text = text:gsub("^(|c%x%x%x%x%x%x%x%x)?%s*([^|%[%]%s]+)(%s+creates:%s*)(.-)$", function(prefix, name, literal, tail)
             local short = Trim(name):gsub("%-.*$", "")
             if short ~= "" and short ~= "You" and short ~= "Loot" then
-                return (prefix or "") .. colorLootLiteral .. short .. "|r" .. literal .. tail
+                return (prefix or "") .. Palette.white .. short .. "|r" .. literal .. tail
             end
             return (prefix or "") .. short .. literal .. tail
         end)
         text = text:gsub("^(.-)%s+has selected%s+(%w+)%s*:%s*(.+)$", function(name, typeWord, item)
             local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
-            if short ~= "" and short ~= "Loot" and typeWord then
-                return colorLootLiteral .. short .. "|r " .. Literal(T("CHAT_ROLL_" .. typeWord:upper(), typeWord)) .. " " .. item
+            local roll = RollTypeLabel(typeWord)
+            if short ~= "" and short ~= "Loot" and roll then
+                return Palette.white .. short .. "|r " .. Literal(roll) .. " " .. item
             end
-            return name .. " " .. typeWord .. ": " .. item
         end)
         text = text:gsub("^(.-)%s+passed on[:%s]+(.+)$", function(name, item)
             local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
             if short ~= "" and short ~= "Loot" then
-                return colorLootLiteral .. short .. "|r " .. Literal(T("CHAT_PASSED_LABEL", "passed:")) .. " " .. item
+                return Palette.white .. short .. "|r " .. Literal(T("CHAT_PASSED_LABEL")) .. " " .. item
             end
             return name .. " passed: " .. item
         end)
         text = text:gsub("^(.-)%s+[Ww]on:%s*(.+)$", function(name, item)
             local nameOut = StyledLootName(name)
             if nameOut then
-                return nameOut .. " " .. Literal(T("CHAT_WON_LABEL", "won:")) .. " " .. item
+                return nameOut .. " " .. Literal(T("CHAT_WON_LABEL")) .. " " .. item
             end
             return name .. " won: " .. item
         end)
@@ -333,7 +317,7 @@ function PostProcess.Create(config)
             local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
             if short ~= "" and short ~= "Loot" then
                 if short == "You" then
-                    return colorLootLiteral .. (L.CHAT_YOU or "You") .. "|r " .. Literal("roll " .. rollNumber .. ":") .. " " .. item
+                    return Palette.white .. T("CHAT_YOU") .. "|r " .. Literal(T("CHAT_ROLL_LABEL", rollNumber)) .. " " .. item
                 end
                 return RollNameColor(short) .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber .. ":") .. " " .. item
             end
@@ -343,7 +327,7 @@ function PostProcess.Create(config)
             local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
             if short ~= "" and short ~= "Loot" then
                 if short == "You" then
-                    return colorLootLiteral .. (L.CHAT_YOU or "You") .. "|r " .. Literal("roll " .. rollNumber .. " " .. rangeText)
+                    return Palette.white .. T("CHAT_YOU") .. "|r " .. Literal("roll " .. rollNumber .. " " .. rangeText)
                 end
                 return RollNameColor(short) .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber .. " " .. rangeText)
             end
@@ -353,7 +337,7 @@ function PostProcess.Create(config)
             local short = Trim(name):gsub("^Loot:%s*", ""):gsub("%-.*$", "")
             if short ~= "" and short ~= "Loot" then
                 if short == "You" then
-                    return colorLootLiteral .. (L.CHAT_YOU or "You") .. "|r " .. Literal("roll " .. rollNumber)
+                    return Palette.white .. T("CHAT_YOU") .. "|r " .. Literal("roll " .. rollNumber)
                 end
                 return RollNameColor(short) .. short .. "|r " .. Literal(rollWord .. " " .. rollNumber)
             end
@@ -395,13 +379,13 @@ function PostProcess.Create(config)
     -- of AddMessage's values, packed with their count in n.
     function api.ProcessMessage(frame, originalAddMessage, message, args, keepLine)
         message = applyChannelStyling(tostring(message))
-        message = removeLinkBrackets(message)
+        message = Utils.RemoveLinkBrackets(message)
         if IsPlayerChatLine(args) then
             return originalAddMessage(frame, message, Unpack(args))
         end
 
         local plain = StripColorCodes(message)
-        local appearanceCollectionMessage = formatAppearanceCollectionMessage("CHAT_MSG_SYSTEM", message, plain, colorPlus .. "+|r ")
+        local appearanceCollectionMessage = formatAppearanceCollectionMessage("CHAT_MSG_SYSTEM", message, plain)
         if appearanceCollectionMessage then
             return originalAddMessage(frame, appearanceCollectionMessage, Unpack(args))
         end
@@ -435,7 +419,7 @@ function PostProcess.Create(config)
         -- which repeats Chat Cleaner's own money lines, and other lines that are
         -- always hidden. A line already in the chat frame can't be removed
         -- without tainting it, so it is emptied instead.
-        if parseRetailMoneyGain(plain) or plain:find("^Changed Channel:") or plain:find("^Left Channel:") or plain:find("^Auctionator:") then
+        if Utils.ParseRetailMoneyGain(plain) or plain:find("^Changed Channel:") or plain:find("^Left Channel:") or plain:find("^Auctionator:") then
             if keepLine then
                 return originalAddMessage(frame, "", Unpack(args))
             end
@@ -450,7 +434,7 @@ function PostProcess.Create(config)
         local joinKey = joinPlayers and ("players:" .. joinPlayers) or (joinName and joinName ~= "" and joinName:lower())
         if joinKey then
             local last = lastJoinByFrame[frame]
-            if not keepLine and last and last.key == joinKey and (GetTime() - last.time) < joinDedupDelay then
+            if not keepLine and last and last.key == joinKey and (GetTime() - last.time) < JOIN_DEDUP_DELAY then
                 return
             end
             lastJoinByFrame[frame] = { key = joinKey, time = GetTime() }
@@ -467,12 +451,12 @@ function PostProcess.Create(config)
             -- gain. Two lines of one kind are two gains, and each chat frame gets
             -- its own copy of the lines.
             local last = lastHonorByFrame[frame]
-            if not keepLine and last and last.kind ~= honorKind and last.amount == honor and (GetTime() - last.time) < honorDelay then
+            if not keepLine and last and last.kind ~= honorKind and last.amount == honor and (GetTime() - last.time) < HONOR_DELAY then
                 lastHonorByFrame[frame] = nil
                 return
             end
             lastHonorByFrame[frame] = { kind = honorKind, amount = honor, time = GetTime() }
-            local styled = spaceBeforeX(colorPlus .. "+|r " .. "|cffffffff" .. honor .. " |r|cffffffffHonor Points|r")
+            local styled = SpaceBeforeX(Utils.PREFIX_PLUS .. Palette.white .. honor .. " " .. T("CHAT_HONOR_POINTS") .. "|r")
             return originalAddMessage(frame, styled, Unpack(args))
         end
 
@@ -571,7 +555,7 @@ function PostProcess.Create(config)
     -- styled as the post-processor styles the line: "|Hchannel:GUILD|hG|h %s: ".
     function api.StyleChatPrefix(format)
         if type(format) ~= "string" then return nil end
-        return (removeLinkBrackets(applyChannelStyling(format)))
+        return (Utils.RemoveLinkBrackets(applyChannelStyling(format)))
     end
 
     function api.SetHiddenLineHandler(handler)

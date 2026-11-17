@@ -28,6 +28,15 @@ Carpenter = {
         Copper = "|A:coin-copper:10:10:2:0|a",
     },
     MinusSign = "\226\136\146",
+    -- Core's money formatter (Core/Carpenter.lua), which Chat Cleaner uses.
+    FormatMoney = function(self, amount, amountColor)
+        amountColor = amountColor or "|cffffffff"
+        local gold, silver, copper = math.floor(amount / 10000), math.floor((amount % 10000) / 100), amount % 100
+        local text = ""
+        if gold > 0 then text = text .. amountColor .. gold .. "|r" .. self.MoneyIcons.Gold .. " " end
+        if silver > 0 or gold > 0 then text = text .. amountColor .. silver .. "|r" .. self.MoneyIcons.Silver .. " " end
+        return text .. amountColor .. copper .. "|r" .. self.MoneyIcons.Copper
+    end,
     MerchantState = {},
     IsEnabled = function(_, key) return key == "chatCleanerEnabled" end,
     RegisterFeature = function(_, key, feature)
@@ -1213,28 +1222,9 @@ do
     LOOT_ITEM_SELF = "Erhalten: %s."
     LOOT_ITEM_SELF_MULTIPLE = "Erhalten: %sx%d."
 
-    local utils = ns.Private.ChatCleanerUtils
     local loot = ns.Private.ChatCleanerLoot
     local countColor = "|cffc8c8c8"
-    local localizedFormatter = loot.Create({
-        CleanPunctuation = utils.CleanPunctuation,
-        StripBrackets = utils.StripBrackets,
-        SpaceBeforeX = utils.SpaceBeforeX,
-        GetItemLinkFromMessage = utils.GetItemLinkFromMessage,
-        GetItemLinkWithQualityColor = utils.GetItemLinkWithQualityColor,
-        FormatItemCountSuffix = function(text) return utils.FormatItemCountSuffix(text, countColor) end,
-        FormatReceivedDisplay = function(rawDisplay, sourceMessage)
-            return utils.FormatReceivedDisplay(rawDisplay, sourceMessage, { CountColor = countColor })
-        end,
-        ShouldSkipGenericReceive = utils.ShouldSkipGenericReceive,
-        SelfLootPatterns = loot.BuildSelfLootPatterns(),
-        GroupLootPatterns = loot.BuildGroupLootPatterns(),
-        RollPatterns = {},
-        ColorPlus = countColor,
-        ColorLootLiteral = "|cffffffff",
-        ColorGreen = "|cff00ff00",
-        GetChannelMessageColor = function() return "|cffffffff" end,
-    })
+    local localizedFormatter = loot.Create()
 
     local groupOut = localizedFormatter.FormatGroupLootMessage("CHAT_MSG_LOOT", "Beute: Seidenstoff fuer Malagas.", "")
     additionalChecks = additionalChecks + 1
@@ -1248,7 +1238,7 @@ do
         failures[#failures + 1] = "localized group loot stack format: expected [Malagas + Seidenstoff (3)] got [" .. tostring(plain(groupStackOut)) .. "]"
     end
 
-    local selfOut = localizedFormatter.FormatSelfLootMessage("CHAT_MSG_LOOT", "Erhalten: Malachitx3.", countColor .. "+|r ")
+    local selfOut = localizedFormatter.FormatSelfLootMessage("CHAT_MSG_LOOT", "Erhalten: Malachitx3.")
     additionalChecks = additionalChecks + 1
     if plain(selfOut) ~= "+ Malachit (3)" then
         failures[#failures + 1] = "localized self loot stack format: expected [+ Malachit (3)] got [" .. tostring(plain(selfOut)) .. "]"
@@ -1256,6 +1246,17 @@ do
 
     for _, key in ipairs(keys) do
         _G[key] = saved[key]
+    end
+end
+
+-- "You have selected" is a roll only when a roll type follows; the mount
+-- journal's line once came out as "You CHAT_ROLL_NO this area".
+do
+    local message = "You have selected no favorite mounts appropriate for this area."
+    local hide, out = filter(nil, "CHAT_MSG_SYSTEM", message, "", "", "", "", "", 0, 0, "", 0, 1, "")
+    additionalChecks = additionalChecks + 1
+    if hide or out ~= message then
+        failures[#failures + 1] = "selected without a roll type: expected the line untouched, got [" .. tostring(out) .. "]"
     end
 end
 
@@ -1271,17 +1272,8 @@ do
     LOOT_ROLL_DISENCHANT = "%s hat 'Entzauberung' für: %s ausgewählt"
     LOOT_ROLL_WON = "%s gewinnt: %s"
 
-    local utils = ns.Private.ChatCleanerUtils
     local loot = ns.Private.ChatCleanerLoot
-    local localizedFormatter = loot.Create({
-        CleanPunctuation = utils.CleanPunctuation,
-        StripBrackets = utils.StripBrackets,
-        SpaceBeforeX = utils.SpaceBeforeX,
-        GetItemLinkFromMessage = utils.GetItemLinkFromMessage,
-        GetItemLinkWithQualityColor = utils.GetItemLinkWithQualityColor,
-        RollPatterns = loot.BuildRollPatterns(),
-        ColorLootLiteral = "|cffffffff",
-    })
+    local localizedFormatter = loot.Create()
 
     local cases = {
         { "Malagas hat 'Bedarf' für: [Seidenstoff] ausgewählt", "Malagas Need Seidenstoff" },
@@ -1400,11 +1392,7 @@ do
         printed[#printed + 1] = tostring(message)
     end
 
-    local session = ns.Private.ChatCleanerSessions.Create({
-        FormatMoney = function(amount) return tostring(amount or 0) end,
-        ColorPlus = "|cffffffff",
-        ColorMinus = "|cffffffff",
-    })
+    local session = ns.Private.ChatCleanerSessions.Create()
     local onMerchantEvent = session.merchantFrame._scripts.OnEvent
     if type(onMerchantEvent) == "function" then
         currentMoney = 10000
@@ -1431,11 +1419,7 @@ do
         printed[#printed + 1] = tostring(message)
     end
 
-    local session = ns.Private.ChatCleanerSessions.Create({
-        FormatMoney = function(amount) return tostring(amount or 0) end,
-        ColorPlus = "|cffffffff",
-        ColorMinus = "|cffffffff",
-    })
+    local session = ns.Private.ChatCleanerSessions.Create()
     local onMerchantEvent = session.merchantFrame._scripts.OnEvent
     if type(onMerchantEvent) == "function" then
         currentMoney = 10000
@@ -1452,8 +1436,8 @@ do
     additionalChecks = additionalChecks + 1
     if type(onMerchantEvent) == "function" and #printed ~= 1 then
         failures[#failures + 1] = "merchant double close: expected 1 summary got " .. tostring(#printed)
-    elseif type(onMerchantEvent) == "function" and plain(printed[1]) ~= "+ 2500" then
-        failures[#failures + 1] = "merchant double close: expected [+ 2500] got [" .. tostring(plain(printed[1])) .. "]"
+    elseif type(onMerchantEvent) == "function" and plain(printed[1]) ~= "+ 25 0" then
+        failures[#failures + 1] = "merchant double close: expected [+ 25 0] got [" .. tostring(plain(printed[1])) .. "]"
     end
 end
 
@@ -1464,11 +1448,7 @@ do
     local originalPrint = print
     print = function(message) printed[#printed + 1] = plain(tostring(message)) end
 
-    local session = ns.Private.ChatCleanerSessions.Create({
-        FormatMoney = function(amount) return tostring(amount or 0) end,
-        ColorPlus = "|cffffffff",
-        ColorMinus = "|cffffffff",
-    })
+    local session = ns.Private.ChatCleanerSessions.Create()
     local onMerchantEvent = session.merchantFrame._scripts.OnEvent
     currentMoney = 10000
     onMerchantEvent(session.merchantFrame, "MERCHANT_SHOW")
@@ -1486,8 +1466,8 @@ do
     print = originalPrint
 
     additionalChecks = additionalChecks + 1
-    if table.concat(printed, " / ") ~= "\226\136\146 6000 / + 700" then
-        failures[#failures + 1] = "sessions: expected [\226\136\146 6000 / + 700] got [" .. table.concat(printed, " / ") .. "]"
+    if table.concat(printed, " / ") ~= "\226\136\146 60 0 / + 7 0" then
+        failures[#failures + 1] = "sessions: expected [\226\136\146 60 0 / + 7 0] got [" .. table.concat(printed, " / ") .. "]"
     end
 end
 
@@ -2650,7 +2630,7 @@ do
         postProcessor.ProcessMessage({}, function(_, text) captured = text end, filtered, {})
         return captured
     end
-    local warriorColor, mageColor = "|cffc79c6e", "|cff40c7eb"
+    local warriorColor, mageColor = "|cffc69b6d", "|cff3fc6ea"
 
     -- Your own roll reads "You roll", which keeps the plain roll color.
     local out = Roll("Tester rolls 29 (1-100)")
@@ -2680,12 +2660,12 @@ do
     end
     out = Roll("Koji Kurosawa rolls 29 (1-100)")
     additionalChecks = additionalChecks + 1
-    if plain(out) ~= "Koji Kurosawa rolls 29 (1-100)" or not out:find("|cfffff569Koji Kurosawa|r", 1, true) then
+    if plain(out) ~= "Koji Kurosawa rolls 29 (1-100)" or not out:find("|cfffff468Koji Kurosawa|r", 1, true) then
         failures[#failures + 1] = "roll: Forever surnames should still find your class, got [" .. tostring(out) .. "]"
     end
     -- The class lookup itself also finds party members by their full name.
     groupMembers = 1
-    local social = ns.Private.ChatCleanerSocial.Create({})
+    local social = ns.Private.ChatCleanerSocial.Create()
     additionalChecks = additionalChecks + 1
     if social.GetPlayerClassColor("Merrek Grimaldus") ~= "|cffffffff" then
         failures[#failures + 1] = "roll: Forever surnames should find a party member's class, got " .. tostring(social.GetPlayerClassColor("Merrek Grimaldus"))
@@ -2705,13 +2685,13 @@ do
     groupMembers = 2
     out = Roll("Koji Kurosawa rolls 29 (1-100)")
     additionalChecks = additionalChecks + 1
-    if not out or out:find("|cfffff569", 1, true) or not out:find("|cffaaaaffKoji Kurosawa|r", 1, true) then
+    if not out or out:find("|cfffff468", 1, true) or not out:find("|cffaaaaffKoji Kurosawa|r", 1, true) then
         failures[#failures + 1] = "roll: in a party the roller should use the party color, got [" .. tostring(out) .. "]"
     end
     inRaid = true
     out = Roll("Koji Kurosawa rolls 29 (1-100)")
     additionalChecks = additionalChecks + 1
-    if not out or out:find("|cfffff569", 1, true) or not out:find("|cffff7f00Koji Kurosawa|r", 1, true) then
+    if not out or out:find("|cfffff468", 1, true) or not out:find("|cffff7f00Koji Kurosawa|r", 1, true) then
         failures[#failures + 1] = "roll: in a raid the roller should use the raid color, got [" .. tostring(out) .. "]"
     end
     inRaid = false
