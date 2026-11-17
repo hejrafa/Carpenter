@@ -12,6 +12,9 @@
 --     gets the name; battlegrounds send two lines per change, and the other,
 --     or Blizzard's batched line landing beside it, is emptied.
 --   * a group member's death, when exactly one death and one line meet.
+--   * your own death, the game's "[You died.]" Death Recap link, from
+--     PLAYER_DEAD: the one hidden line near it, among combat info lines or
+--     else system lines.
 --   * joining or leaving a battleground queue, from the queue that starts or
 --     ends right after it: the game sends the line, then the queue. The
 --     queues the game drops and adds back as you enter a battleground (a
@@ -76,6 +79,7 @@ function HiddenLines.Create(config)
     local pendingByFrame = setmetatable({}, { __mode = "k" })
     local doneByFrame = setmetatable({}, { __mode = "k" })
     local battle = {}
+    local ownDeath
     local order = 0
 
     local function Now()
@@ -86,7 +90,8 @@ function HiddenLines.Create(config)
     local function TypeIDs()
         local system = ChatTypeInfo and ChatTypeInfo.SYSTEM
         local skill = ChatTypeInfo and ChatTypeInfo.SKILL
-        return { system = system and system.id, skill = skill and skill.id }
+        local misc = ChatTypeInfo and ChatTypeInfo.COMBAT_MISC_INFO
+        return { system = system and system.id, skill = skill and skill.id, misc = misc and misc.id }
     end
 
     local function GetElements(frame)
@@ -95,7 +100,7 @@ function HiddenLines.Create(config)
         if type(elements) == "table" then return elements end
     end
 
-    -- "system" or "skill" for a recent hidden line of either kind.
+    -- "system", "skill" or "misc" (combat info) for a recent hidden line.
     local function HiddenLineKind(entry, typeIDs, now)
         local time, extra = entry.timestamp, entry.extraData
         if type(time) ~= "number" or IsSecret(time) or now - time > LINE_MAX_AGE then return nil end
@@ -270,6 +275,30 @@ function HiddenLines.Create(config)
         end
     end
 
+    -- Your death takes the one hidden line near it, a combat info line if
+    -- there are any, else a system line; with two or more, none.
+    local function ResolveOwnDeath(frame, systemLines, miscLines, Apply)
+        local death = ownDeath
+        if not death or not config.FormatOwnDeath or Claims(death, frame) > 0 then return end
+        if Now() - death.time > LINE_MAX_AGE then return end
+        local function Single(lines)
+            local found, count = nil, 0
+            for _, line in ipairs(lines) do
+                if not line.resolved and math.abs(line.time - death.time) <= DEATH_WINDOW then
+                    found, count = line, count + 1
+                end
+            end
+            return found, count
+        end
+        local line, count = Single(miscLines)
+        if count == 0 then line, count = Single(systemLines) end
+        if count ~= 1 then return end
+        local text = config.FormatOwnDeath()
+        if not text then return end
+        death.claims[frame] = 1
+        Apply(line, text)
+    end
+
     local function ClaimDeath(line, lines, changes)
         local match
         for _, change in ipairs(changes) do
@@ -337,13 +366,14 @@ function HiddenLines.Create(config)
             pcall(Rewrite, line, text)
         end
 
-        local systemLines, skillLines = {}, {}
+        local systemLines, skillLines, miscLines = {}, {}, {}
         for _, line in ipairs(lines) do
-            local kindLines = line.kind == "skill" and skillLines or systemLines
+            local kindLines = (line.kind == "skill" and skillLines) or (line.kind == "misc" and miscLines) or systemLines
             kindLines[#kindLines + 1] = line
         end
 
         ResolveSkillLines(frame, skillLines, Apply)
+        ResolveOwnDeath(frame, systemLines, miscLines, Apply)
         ResolveGroupSetup(frame, systemLines, Apply)
         ResolveQueueChanges(frame, systemLines, queueChanges, Apply)
         ResolveRosterChanges(frame, systemLines, changes, Apply)
@@ -457,6 +487,10 @@ function HiddenLines.Create(config)
         local entered, now = battle.enteredAt, Now()
         if not entered or now - entered > GROUP_SETUP_WINDOW then return end
         battle.groupSetup = { time = now, texts = texts }
+    end
+
+    function api.PlayerDied()
+        ownDeath = { time = Now() }
     end
 
     function api.BattleBegan()

@@ -284,6 +284,30 @@ local function SafeTextEmoteSender(msg, author)
     return ok and safeAuthor or author
 end
 
+-- "[You died.]" is the game's Death Recap link. It reads "You died" in red,
+-- as other deaths do, and still opens the recap when clicked.
+local function FormatOwnDeath(recapID)
+    local text = type(DEATH_RECAP_TEXT) == "string" and DEATH_RECAP_TEXT ~= "" and DEATH_RECAP_TEXT or "You died."
+    text = text:gsub("%.%s*$", "")
+    if recapID then
+        return ColorRed .. "|Hdeath:" .. recapID .. "|h" .. text .. "|h|r"
+    end
+    return ColorRed .. text .. "|r"
+end
+
+-- The hidden "[You died.]" line rewritten: the latest recap's link when the
+-- game gives it, else the words alone.
+local function OwnDeathLine()
+    local recapID
+    if C_DeathRecap and C_DeathRecap.GetRecapLink then
+        local ok, link = pcall(C_DeathRecap.GetRecapLink)
+        if ok and not IsSecret(link) and type(link) == "string" then
+            recapID = link:match("|Hdeath:(%d+)|h")
+        end
+    end
+    return FormatOwnDeath(recapID)
+end
+
 local function ChatFilterImpl(self, event, msg, author, ...)
     if not (Carpenter and Carpenter:IsEnabled("chatCleanerEnabled")) then
         return false, msg, author, ...
@@ -339,6 +363,11 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     -- Hide "Left Channel: 1." / "Left Channel: 2." etc.
     if type(msg) == "string" and msg:find("^Left Channel:") then
         return true
+    end
+
+    local recapID = type(msg) == "string" and msg:match("|Hdeath:(%d+)|h")
+    if recapID then
+        return false, FormatOwnDeath(recapID), author, ...
     end
 
     -- Hide all Auctionator addon messages (they start with "Auctionator:")
@@ -571,6 +600,7 @@ local hiddenLines = HiddenLines and HiddenLines.Create({
     IsForever = function()
         return Carpenter ~= nil and Carpenter.Client ~= nil and Carpenter.Client.isForever == true
     end,
+    FormatOwnDeath = OwnDeathLine,
 })
 ns.Private.ChatCleaner.HiddenLines = hiddenLines
 
@@ -717,6 +747,13 @@ groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
             hiddenLines.BattleBegan()
         end
         return
+    elseif event == "PLAYER_DEAD" then
+        if hiddenLines then hiddenLines.PlayerDied() end
+        UpdateHiddenLines()
+        UpdateHiddenLines(0)
+        UpdateHiddenLines(0.5)
+        UpdateHiddenLines(1.1)
+        return
     elseif event == "GROUP_JOINED" then
         if hiddenLines then hiddenLines.GroupJoined(GroupSetupLines()) end
         UpdateHiddenLines()
@@ -772,19 +809,22 @@ local groupProbeFrame = CreateFrame("Frame")
 for _, event in ipairs({
     "CHAT_MSG_SYSTEM", "GROUP_ROSTER_UPDATE", "PARTY_LOOT_METHOD_CHANGED", "PARTY_LEADER_CHANGED", "GROUP_JOINED",
     "GROUP_FORMED", "GROUP_LEFT", "PLAYER_ENTERING_WORLD", "PLAYER_ENTERING_BATTLEGROUND", "UPDATE_BATTLEFIELD_STATUS",
+    "PLAYER_DEAD", "CHAT_MSG_COMBAT_MISC_INFO",
 }) do
     pcall(groupProbeFrame.RegisterEvent, groupProbeFrame, event)
 end
 groupProbeFrame:SetScript("OnEvent", function(_, event, arg1)
-    if event == "PLAYER_ENTERING_WORLD" then
+    if event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_DEAD" then
         groupProbeUntil = (GetTime and GetTime() or 0) + GROUP_PROBE_SECONDS
     end
-    if event ~= "CHAT_MSG_SYSTEM" then
+    if event == "CHAT_MSG_COMBAT_MISC_INFO" then
+        GroupProbe(IsSecret(arg1) and "combat info line hidden" or ("combat info line readable: " .. tostring(arg1)))
+    elseif event ~= "CHAT_MSG_SYSTEM" then
         GroupProbe(event)
     elseif IsSecret(arg1) then
         GroupProbe("system line hidden")
     elseif type(arg1) == "string" and (arg1:find("[Ll]oot") or arg1:find("[Rr]aid") or arg1:find("[Pp]arty")
-        or arg1:find("[Gg]roup")) then
+        or arg1:find("[Gg]roup") or arg1:find("Hdeath", 1, true)) then
         GroupProbe("system line readable: " .. arg1)
     end
 end)
@@ -807,6 +847,7 @@ if Carpenter and Carpenter.RegisterFeature then
                 groupNoticeFrame:RegisterEvent("CHAT_MSG_BG_SYSTEM_NEUTRAL")
                 groupNoticeFrame:RegisterEvent("PLAYER_ENTERING_BATTLEGROUND")
                 groupNoticeFrame:RegisterEvent("GROUP_JOINED")
+                groupNoticeFrame:RegisterEvent("PLAYER_DEAD")
                 socialFormatter.NoteGroupRoster(true)
             end
             if systemFormatter.RefreshQueues then

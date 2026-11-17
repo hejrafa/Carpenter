@@ -792,6 +792,13 @@ local fixtures = {
         expectPlain = "+ Joined the queue: Alterac Valley",
     },
     {
+        name = "your death reads like other deaths and keeps the recap link",
+        event = "CHAT_MSG_SYSTEM",
+        message = "|cff71d5ff|Hdeath:42|h[You died.]|h",
+        expectPlain = "You died",
+        requireColor = "|cffff4040|Hdeath:42|hYou died|h|r",
+    },
+    {
         name = "a new raid keeps its line",
         event = "CHAT_MSG_SYSTEM",
         message = "Party converted to Raid",
@@ -1480,6 +1487,8 @@ do
     Carpenter.Client.isForever = true
     local realSystemInfo = ChatTypeInfo.SYSTEM
     ChatTypeInfo.SYSTEM = { r = 1, g = 1, b = 0, id = 1 }
+    local MISC_ID = 3
+    ChatTypeInfo.COMBAT_MISC_INFO = { r = 0.5, g = 0.5, b = 1, id = MISC_ID }
 
     local frame1, frame2 = NewHistoryChatFrame(), NewHistoryChatFrame()
     local realChatFrame1, realChatFrame2, realWindows = ChatFrame1, ChatFrame2, NUM_CHAT_WINDOWS
@@ -1870,12 +1879,48 @@ do
         queues[1] = { "none", "" }
         Fire("UPDATE_BATTLEFIELD_STATUS", 1)
         ExpectBoth(earlier, "\226\136\146 Left the queue", "an earlier leave line keeps its text")
+
+        -- Your own death: the game's hidden "[You died.]" Death Recap link,
+        -- matched to PLAYER_DEAD, keeps the latest recap's link.
+        inLockdown = true
+        hiddenLines.LeftBattleground()
+        C_DeathRecap = { GetRecapLink = function() return "|cff71d5ff|Hdeath:7|h[You died.]|h" end }
+        At(250)
+        Fire("PLAYER_DEAD")
+        local diedInfo = { frame1:Add(HIDDEN, MISC_ID), frame2:Add(HIDDEN, MISC_ID) }
+        hiddenLines.Update()
+        ExpectBoth(diedInfo, "You died", "your death on a combat info line is named")
+        additionalChecks = additionalChecks + 1
+        if not tostring(frame1:Text(diedInfo[1])):find("|Hdeath:7|h", 1, true) then
+            failures[#failures + 1] = "hidden lines: your death keeps the recap link, got [" .. tostring(frame1:Text(diedInfo[1])) .. "]"
+        end
+
+        -- On a system line, a moment after PLAYER_DEAD.
+        At(254)
+        Fire("PLAYER_DEAD")
+        At(254.1)
+        local diedSystem = Hidden()
+        hiddenLines.Update()
+        ExpectBoth(diedSystem, "You died", "your death on a system line is named")
+
+        -- Two lines by your death: no telling which.
+        At(258)
+        Fire("PLAYER_DEAD")
+        local nearA, nearB = Hidden(), Hidden()
+        hiddenLines.Update()
+        At(259)
+        hiddenLines.Update()
+        ExpectBoth(nearA, "<hidden>", "with two lines by your death the first stays")
+        ExpectBoth(nearB, "<hidden>", "with two lines by your death the second stays")
+        C_DeathRecap = nil
+        inLockdown = false
     end
 
     feature.Disable()
     inRaid, groupMembers = false, 0
     GetMaxBattlefieldID, GetBattlefieldStatus = nil, nil
     Enum, C_PartyInfo, GetLootThreshold = realEnum, nil, nil
+    ChatTypeInfo.COMBAT_MISC_INFO = nil
     UnitName, UnitIsUnit, UnitIsDeadOrGhost = realUnitName, nil, nil
     ChatFrame1, ChatFrame2, NUM_CHAT_WINDOWS = realChatFrame1, realChatFrame2, realWindows
     ChatTypeInfo.SYSTEM = realSystemInfo
