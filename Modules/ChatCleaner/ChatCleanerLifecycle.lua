@@ -17,12 +17,6 @@ local chatEvents = {
     "CHAT_MSG_BG_SYSTEM_ALLIANCE",
     "CHAT_MSG_BG_SYSTEM_HORDE",
     "CHAT_MSG_BG_SYSTEM_NEUTRAL",
-    "CHAT_MSG_AUCTION_LISTED",
-    "CHAT_MSG_AUCTION_REMOVED",
-    "CHAT_MSG_AUCTION_WON",
-    "CHAT_MSG_AUCTION_OUTBIDDED",
-    "CHAT_MSG_AUCTION_EXPIRED",
-    "CHAT_MSG_AUCTION_CANCELLED",
     "CHAT_MSG_CURRENCY",
     "CHAT_MSG_MONSTER_EMOTE",
     "CHAT_MSG_TEXT_EMOTE",
@@ -43,11 +37,10 @@ local originalEditBoxTextures = {}
 
 local function ForEachEditBoxTexture(callback)
     for i = 1, NUM_CHAT_WINDOWS do
-        local eb = _G["ChatFrame" .. i .. "EditBox"]
-        if eb and eb.GetRegions then
-            for regionIndex = 1, select("#", eb:GetRegions()) do
-                local region = select(regionIndex, eb:GetRegions())
-                if region and region.IsObjectType and region:IsObjectType("Texture") then
+        local editBox = _G["ChatFrame" .. i .. "EditBox"]
+        if editBox and editBox.GetRegions then
+            for _, region in ipairs({ editBox:GetRegions() }) do
+                if region.IsObjectType and region:IsObjectType("Texture") then
                     callback(region)
                 end
             end
@@ -94,10 +87,11 @@ local function ApplyEditBox()
     end
 end
 
-function Lifecycle.Create(options)
-    options = options or {}
+-- config: FilterImpl, ShouldDropBeforeAdd, ShouldDropChannelNotice,
+-- HookChatFrameAddMessage, RestoreChatFrameAddMessage, SessionTracker.
+function Lifecycle.Create(config)
+    config = config or {}
     local filtersRegistered = false
-    local initializedHooks = false
     local featureEnabled = false
 
     local function ForEachChatFrame(callback)
@@ -110,54 +104,41 @@ function Lifecycle.Create(options)
     local function HookChatFrames()
         if not featureEnabled then return end
         ForEachChatFrame(function(chatFrame)
-            if options.HookChatFrameAddMessage then
-                options.HookChatFrameAddMessage(chatFrame)
+            if config.HookChatFrameAddMessage then
+                config.HookChatFrameAddMessage(chatFrame)
             end
         end)
     end
 
     local function RestoreChatFrames()
         ForEachChatFrame(function(chatFrame)
-            if options.RestoreChatFrameAddMessage then
-                options.RestoreChatFrameAddMessage(chatFrame)
+            if config.RestoreChatFrameAddMessage then
+                config.RestoreChatFrameAddMessage(chatFrame)
             end
         end)
     end
 
-    local function ChatFilter(self, event, msg, author, ...)
-        local function RunFilter(...)
-            return pcall(options.FilterImpl, ...)
+    -- The filter's answer as the chat frame takes it: true hides the line;
+    -- false and the values shows them, nils kept where they were. Where
+    -- lines are only restyled after they are added, the ones that should go
+    -- are dropped here instead. An error shows the line as it came.
+    local function Finish(frame, event, ok, hide, ...)
+        if not ok then return false end
+        if hide == true then return true end
+        if config.ShouldDropBeforeAdd then
+            local checked, drop = pcall(config.ShouldDropBeforeAdd, frame, event, (...))
+            if checked and drop then return true end
         end
-        local results
-        if Carpenter and Carpenter.Profile then
-            results = { Carpenter:Profile("ChatCleaner:Filter", RunFilter, self, event, msg, author, ...) }
-        else
-            results = { RunFilter(self, event, msg, author, ...) }
-        end
-        local ok = results[1]
-        if not ok then
-            return false, (msg or ""), (author or ""), ...
-        end
-        table.remove(results, 1)
-        for i = 1, #results do
-            if results[i] == nil then
-                results[i] = ""
-            end
-        end
-        -- Where lines are only restyled after they are added, the ones that
-        -- should go are dropped here instead.
-        if results[1] ~= true and options.ShouldDropBeforeAdd then
-            local checked, drop = pcall(options.ShouldDropBeforeAdd, self, event, results[2])
-            if checked and drop then
-                return true
-            end
-        end
-        return unpack(results)
+        return false, ...
     end
 
-    local function ChannelNoticeFilter(self, event, notice)
-        if options.ShouldDropChannelNotice then
-            local checked, drop = pcall(options.ShouldDropChannelNotice, self, notice)
+    local function ChatFilter(frame, event, ...)
+        return Finish(frame, event, Carpenter:Profile("ChatCleaner:Filter", pcall, config.FilterImpl, frame, event, ...))
+    end
+
+    local function ChannelNoticeFilter(frame, event, notice)
+        if config.ShouldDropChannelNotice then
+            local checked, drop = pcall(config.ShouldDropChannelNotice, frame, notice)
             if checked and drop then
                 return true
             end
@@ -175,7 +156,7 @@ function Lifecycle.Create(options)
     end
 
     local function UnregisterChatFilters()
-        if not filtersRegistered or not ChatFrame_RemoveMessageEventFilter then return end
+        if not filtersRegistered then return end
         filtersRegistered = false
         for _, event in ipairs(chatEvents) do
             ChatFrame_RemoveMessageEventFilter(event, ChatFilter)
@@ -183,25 +164,13 @@ function Lifecycle.Create(options)
         ChatFrame_RemoveMessageEventFilter("CHAT_MSG_CHANNEL_NOTICE", ChannelNoticeFilter)
     end
 
-    local function InitializeHooks()
-        if initializedHooks then return end
-        initializedHooks = true
-
-        if C_Timer and C_Timer.After then
-            C_Timer.After(0, HookChatFrames)
-        else
-            HookChatFrames()
-        end
-    end
-
     local function Enable()
         featureEnabled = true
-        InitializeHooks()
         HookChatFrames()
         RegisterChatFilters()
         ApplyEditBox()
-        if options.SessionTracker and options.SessionTracker.Enable then
-            options.SessionTracker:Enable()
+        if config.SessionTracker and config.SessionTracker.Enable then
+            config.SessionTracker:Enable()
         end
     end
 
@@ -210,21 +179,10 @@ function Lifecycle.Create(options)
         UnregisterChatFilters()
         RestoreChatFrames()
         RestoreEditBox()
-        if options.SessionTracker and options.SessionTracker.Disable then
-            options.SessionTracker:Disable()
+        if config.SessionTracker and config.SessionTracker.Disable then
+            config.SessionTracker:Disable()
         end
     end
-
-    local loader = CreateFrame("Frame")
-    loader:RegisterEvent("VARIABLES_LOADED")
-    loader:SetScript("OnEvent", function(_, event)
-        InitializeHooks()
-        if Carpenter and Carpenter.RefreshFeature then
-            Carpenter:RefreshFeature("chatCleanerEnabled")
-        elseif Carpenter and Carpenter:IsEnabled("chatCleanerEnabled") then
-            Enable()
-        end
-    end)
 
     return {
         Enable = Enable,

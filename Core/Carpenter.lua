@@ -556,7 +556,8 @@ function Carpenter:Profile(label, callback, ...)
     end
 
     local start = debugprofilestop()
-    local results = { callback(...) }
+    -- Packed with their count, so a nil among the results keeps the rest.
+    local results = (function(...) return { n = select("#", ...), ... } end)(callback(...))
     local elapsed = debugprofilestop() - start
     local bucket = self.Perf.data[label]
     if not bucket then
@@ -566,7 +567,7 @@ function Carpenter:Profile(label, callback, ...)
     bucket.calls = bucket.calls + 1
     bucket.total = bucket.total + elapsed
     if elapsed > bucket.max then bucket.max = elapsed end
-    return unpack(results)
+    return unpack(results, 1, results.n)
 end
 
 local function ResetPerf()

@@ -1578,6 +1578,42 @@ do
     end
 end
 
+-- The filter wrapper hands the filter's answer to the chat frame as it came:
+-- a nil among the values stays nil (it used to become ""), a hidden line is
+-- hidden, and an error shows the line untouched.
+do
+    local registered = {}
+    local realAdd, realRemove = ChatFrame_AddMessageEventFilter, ChatFrame_RemoveMessageEventFilter
+    ChatFrame_AddMessageEventFilter = function(event, filterFunc) registered[event] = filterFunc end
+    ChatFrame_RemoveMessageEventFilter = function() end
+    local answer
+    local lifecycle = ns.Private.ChatCleanerLifecycle.Create({ FilterImpl = function() return answer() end })
+    lifecycle.Enable()
+    local chatFilter = registered.CHAT_MSG_SYSTEM
+
+    answer = function() return false, "text", nil, "language" end
+    local hide, text, second, third = chatFilter({}, "CHAT_MSG_SYSTEM", "text", nil, "language")
+    additionalChecks = additionalChecks + 1
+    if hide ~= false or text ~= "text" or second ~= nil or third ~= "language" then
+        failures[#failures + 1] = "filter wrapper: values should pass through, nils included"
+    end
+
+    answer = function() return true end
+    additionalChecks = additionalChecks + 1
+    if chatFilter({}, "CHAT_MSG_SYSTEM", "text") ~= true then
+        failures[#failures + 1] = "filter wrapper: a hidden line should stay hidden"
+    end
+
+    answer = function() error("boom") end
+    additionalChecks = additionalChecks + 1
+    if select("#", chatFilter({}, "CHAT_MSG_SYSTEM", "text")) ~= 1 then
+        failures[#failures + 1] = "filter wrapper: an error should show the line untouched"
+    end
+
+    lifecycle.Disable()
+    ChatFrame_AddMessageEventFilter, ChatFrame_RemoveMessageEventFilter = realAdd, realRemove
+end
+
 -- A chat window's history as ScrollingMessageFrame keeps it: entries with the
 -- message, color, chat type id and time, rewritten in place by
 -- TransformMessages.
