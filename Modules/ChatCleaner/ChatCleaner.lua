@@ -592,6 +592,65 @@ local function NameShownQueueLines()
     end
 end
 
+-- The lines the game sends as it forms a battleground's group, in its order
+-- (a probe's log): "Party converted to Raid" for a raid, then the loot method
+-- and the loot threshold, styled as the chat filter styles them. Nil when the
+-- loot settings can't be read.
+local LOOT_METHOD_STRINGS = {
+    freeforall = { "Freeforall", "ERR_SET_LOOT_FREEFORALL", "Looting set to Free for All." },
+    roundrobin = { "Roundrobin", "ERR_SET_LOOT_ROUNDROBIN", "Looting set to Round Robin." },
+    master = { "Masterlooter", "ERR_SET_LOOT_MASTER", "Looting set to Master Looter." },
+    group = { "Group", "ERR_SET_LOOT_GROUP", "Looting set to Group Loot." },
+    needbeforegreed = { "Needbeforegreed", "ERR_SET_LOOT_NBG", "Looting set to Need Before Greed." },
+    personalloot = { "Personal", "ERR_SET_LOOT_PERSONAL", "Looting set to Personal." },
+}
+
+local function GameText(key, fallback)
+    local text = _G[key]
+    if type(text) == "string" and text ~= "" then return text end
+    return fallback
+end
+
+-- The game's "Looting set to ..." line for the group's loot method, which
+-- Retail-based clients give as an Enum.LootMethod value and Classic as a name.
+local function LootMethodLine()
+    local getter = C_PartyInfo and C_PartyInfo.GetLootMethod or _G.GetLootMethod
+    if type(getter) ~= "function" then return nil end
+    local ok, method = pcall(getter)
+    if not ok or IsSecret(method) then return nil end
+    for name, strings in pairs(LOOT_METHOD_STRINGS) do
+        local enumValue = Enum and Enum.LootMethod and Enum.LootMethod[strings[1]]
+        if method == name or (enumValue ~= nil and method == enumValue) then
+            return GameText(strings[2], strings[3])
+        end
+    end
+end
+
+local function LootThresholdLine()
+    if type(GetLootThreshold) ~= "function" then return nil end
+    local ok, quality = pcall(GetLootThreshold)
+    if not ok or IsSecret(quality) or type(quality) ~= "number" then return nil end
+    local name = _G["ITEM_QUALITY" .. quality .. "_DESC"]
+    if type(name) ~= "string" then return nil end
+    return GameText("ERR_SET_LOOT_THRESHOLD_S", "Loot threshold set to %s."):format(name)
+end
+
+local function GroupSetupLines()
+    local method, threshold = LootMethodLine(), LootThresholdLine()
+    if not (method and threshold) then return nil end
+    local texts = {}
+    if IsInRaid() then
+        texts[1] = FormatBattlegroundAndGroupNotice("CHAT_MSG_SYSTEM",
+            GameText("ERR_PARTY_CONVERTED_TO_RAID", "Party converted to Raid"))
+    end
+    texts[#texts + 1] = FormatSystemSocialMessage and FormatSystemSocialMessage(method)
+    texts[#texts + 1] = FormatSystemSocialMessage and FormatSystemSocialMessage(threshold)
+    for index = 1, (IsInRaid() and 3 or 2) do
+        if type(texts[index]) ~= "string" then return nil end
+    end
+    return texts
+end
+
 -- The chat windows handle an event before Carpenter does, so a hidden line is
 -- already in their history here and is rewritten before they redraw. A later
 -- pass catches what has to wait.
@@ -657,6 +716,10 @@ groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
             and socialFormatter.IsBattleStartAnnouncement(arg1) then
             hiddenLines.BattleBegan()
         end
+        return
+    elseif event == "GROUP_JOINED" then
+        if hiddenLines then hiddenLines.GroupJoined(GroupSetupLines()) end
+        UpdateHiddenLines()
         return
     elseif event == "UPDATE_BATTLEFIELD_STATUS" then
         if systemFormatter.RefreshQueues then systemFormatter.RefreshQueues() end
@@ -743,6 +806,7 @@ if Carpenter and Carpenter.RegisterFeature then
                 groupNoticeFrame:RegisterEvent("CHAT_MSG_SYSTEM")
                 groupNoticeFrame:RegisterEvent("CHAT_MSG_BG_SYSTEM_NEUTRAL")
                 groupNoticeFrame:RegisterEvent("PLAYER_ENTERING_BATTLEGROUND")
+                groupNoticeFrame:RegisterEvent("GROUP_JOINED")
                 socialFormatter.NoteGroupRoster(true)
             end
             if systemFormatter.RefreshQueues then

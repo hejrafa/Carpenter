@@ -17,8 +17,14 @@
 --     queues the game drops and adds back as you enter a battleground (a
 --     probe's log): the drop has no line, and each one added back has its own
 --     "You have joined the queue for ..." just before it.
+--   * the battleground's group forming as you enter: "Party converted to
+--     Raid", the loot method and the loot threshold, three lines in a row
+--     just before GROUP_JOINED (a probe's log), in the same moment. They are
+--     told by their place, as the loot settings may not change.
 --   * "Notify system has been disabled/enabled": the first hidden line right
---     after entering a battleground, and right after it begins.
+--     after entering a battleground, once the group's lines have had the
+--     moment to claim theirs (it doesn't always come), and right after the
+--     battle begins.
 --   * Blizzard's batched "has joined the battle" lines in a battleground's
 --     first minute, which repeat joins already shown. They come from its
 --     battleground chat filter, whose call stack stays readable (the chat
@@ -46,6 +52,8 @@ local SKILL_WINDOW = 1.5
 local ENTER_NOTICE_WINDOW = 1.5
 local START_NOTICE_WINDOW = 5
 local START_NOTICE_GRACE = HiddenLines.START_NOTICE_GRACE
+local SAME_MOMENT = 0.2
+local GROUP_SETUP_WINDOW = 10
 local BATCH_SLACK = 0.5
 local BATCH_GRACE = HiddenLines.BATCH_GRACE
 
@@ -179,6 +187,27 @@ function HiddenLines.Create(config)
         end
     end
 
+    -- The group's lines are the newest ones in the history when GROUP_JOINED
+    -- came, in the same moment, as many as there are texts; with fewer, none
+    -- are touched.
+    local function ResolveGroupSetup(frame, lines, Apply)
+        local setup = battle.groupSetup
+        if not setup or not setup.seenOrder or Claims(setup, frame) > 0 then return end
+        local candidates = {}
+        for _, line in ipairs(lines) do
+            if not line.resolved and line.order <= setup.seenOrder
+                and math.abs(setup.time - line.time) <= SAME_MOMENT then
+                candidates[#candidates + 1] = line
+            end
+        end
+        local count = #setup.texts
+        if #candidates < count then return end
+        setup.claims[frame] = 1
+        for index = 1, count do
+            Apply(candidates[#candidates - count + index], setup.texts[index])
+        end
+    end
+
     -- Each queue that starts or ends takes a line that was already in the
     -- history when the change was first seen, and came within the change's
     -- window before it; a line added after the change belongs to something
@@ -274,7 +303,7 @@ function HiddenLines.Create(config)
     local function ClaimBattleNotice(line, done, now)
         if not (config.IsForever and config.IsForever()) then return nil end
         local entered, started = battle.enteredAt, battle.startedAt
-        if entered and not done.enter then
+        if entered and not done.enter and now - line.time >= START_NOTICE_GRACE then
             local since = line.time - entered
             if since >= -0.2 and since <= ENTER_NOTICE_WINDOW then
                 done.enter = true
@@ -315,6 +344,7 @@ function HiddenLines.Create(config)
         end
 
         ResolveSkillLines(frame, skillLines, Apply)
+        ResolveGroupSetup(frame, systemLines, Apply)
         ResolveQueueChanges(frame, systemLines, queueChanges, Apply)
         ResolveRosterChanges(frame, systemLines, changes, Apply)
         for _, line in ipairs(systemLines) do
@@ -346,6 +376,9 @@ function HiddenLines.Create(config)
         local queueChanges = config.GetQueueChanges and config.GetQueueChanges() or {}
         for _, change in ipairs(queueChanges) do
             change.seenOrder = change.seenOrder or order
+        end
+        if battle.groupSetup then
+            battle.groupSetup.seenOrder = battle.groupSetup.seenOrder or order
         end
         for frame, lines in pairs(pendingByFrame) do
             if lines[1] then Resolve(frame, lines, changes, queueChanges, now) end
@@ -414,6 +447,16 @@ function HiddenLines.Create(config)
     function api.EnteredBattleground()
         battle = { enteredAt = Now() }
         doneByFrame = setmetatable({}, { __mode = "k" })
+    end
+
+    -- Called on GROUP_JOINED with the lines the game sent as it formed the
+    -- group, styled, in its order; nil when one of them can't be told.
+    function api.GroupJoined(texts)
+        if type(texts) ~= "table" or not texts[1] then return end
+        if not (config.IsForever and config.IsForever()) then return end
+        local entered, now = battle.enteredAt, Now()
+        if not entered or now - entered > GROUP_SETUP_WINDOW then return end
+        battle.groupSetup = { time = now, texts = texts }
     end
 
     function api.BattleBegan()

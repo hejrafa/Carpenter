@@ -1516,6 +1516,12 @@ do
     local queues = { { "none", "" }, { "none", "" } }
     GetMaxBattlefieldID = function() return #queues end
     GetBattlefieldStatus = function(index) return queues[index][1], queues[index][2] end
+    -- The group's loot settings, as Retail-based clients give them.
+    local realEnum = Enum
+    Enum = { LootMethod = { Freeforall = 0, Roundrobin = 1, Masterlooter = 2, Group = 3, Needbeforegreed = 4, Personal = 5 } }
+    local lootMethod, lootThreshold = 3, 2
+    C_PartyInfo = { GetLootMethod = function() return lootMethod end }
+    GetLootThreshold = function() return lootThreshold end
 
     local feature = registeredChatFeatures[#registeredChatFeatures].feature
     feature.Enable()
@@ -1544,17 +1550,21 @@ do
         Fire("PLAYER_ENTERING_BATTLEGROUND")
         local notifyOff = Hidden()
         -- The battleground raid replaces the party at once, with its own lines;
-        -- that's no one joining.
+        -- that's no one joining. "Party converted to Raid", the loot method and
+        -- the loot threshold come just before GROUP_JOINED (a probe's log).
         At(0.37)
         members.party1 = nil
         members.raid1, members.raid2, members.raid3, members.raid4 =
             { "Tester", "" }, { "Tahlya", "Dawnsorrow" }, { "Fufel", "Shmerz" }, { "Gorb", "Garnsson" }
         inRaid, groupMembers = true, 4
-        local formed = Hidden()
+        local formed, formedLoot, formedThreshold = Hidden(), Hidden(), Hidden()
+        Fire("GROUP_JOINED")
         Fire("GROUP_ROSTER_UPDATE")
         hiddenLines.Update()
         Expect(notifyOff, "", "the notify line on zoning in is emptied")
-        Expect(formed, "<hidden>", "lines that come with the raid forming stay")
+        Expect(formed, "Party converted to Raid", "the raid forming names its line")
+        Expect(formedLoot, "Loot: Group Loot", "the group's loot method names its line")
+        Expect(formedThreshold, "Loot threshold: Uncommon", "the group's loot threshold names its line")
 
         -- A join under a second later takes its own line, not the burst's
         -- (seen in game: the name landed on a burst line).
@@ -1565,7 +1575,7 @@ do
         Fire("GROUP_ROSTER_UPDATE")
         hiddenLines.Update()
         Expect(firstJoin, "Damoz Lifesong joined", "a join right after zoning in gets its own line")
-        Expect(formed, "<hidden>", "a join right after zoning in leaves the burst alone")
+        Expect(formed, "Party converted to Raid", "a join right after zoning in leaves the burst alone")
 
         -- A join: the line comes a moment before the roster has the player.
         At(2.69)
@@ -1736,16 +1746,54 @@ do
         hiddenLines.Update()
         local converted, looting, threshold = Hidden(), Hidden(), Hidden()
         hiddenLines.Update()
+        Fire("GROUP_JOINED")
         local requeued = Hidden()
         queues[1] = { "queued", "Darkspear Islands" }
         Fire("UPDATE_BATTLEFIELD_STATUS", 1)
         queues[2] = { "active", "Arathi Basin" }
         Fire("UPDATE_BATTLEFIELD_STATUS", 2)
+        At(216.7)
+        hiddenLines.Update()
         Expect(enterNotify, "", "the notify line on entering isn't taken for a dropped queue")
-        Expect(converted, "<hidden>", "the raid line on entering stays")
-        Expect(looting, "<hidden>", "the loot method line on entering stays")
-        Expect(threshold, "<hidden>", "the loot threshold line on entering stays")
+        Expect(converted, "Party converted to Raid", "the raid line on entering is named")
+        Expect(looting, "Loot: Group Loot", "the loot method line on entering is named")
+        Expect(threshold, "Loot threshold: Uncommon", "the loot threshold line on entering is named")
         Expect(requeued, "+ Joined the queue: Darkspear Islands", "a queue added back on entering names its own line")
+
+        -- Entering solo, as a probe logged it: no notify line, and a third of a
+        -- second after the loading screen the group's three lines, each first
+        -- looked at as the next comes, then GROUP_JOINED. The first isn't
+        -- taken for the notify line.
+        At(218)
+        Fire("PLAYER_ENTERING_WORLD")
+        Fire("PLAYER_ENTERING_BATTLEGROUND")
+        At(218.31)
+        local soloRaid = Hidden()
+        hiddenLines.Update()
+        local soloLoot = Hidden()
+        hiddenLines.Update()
+        local soloThreshold = Hidden()
+        hiddenLines.Update()
+        Fire("GROUP_JOINED")
+        At(219)
+        hiddenLines.Update()
+        Expect(soloRaid, "Party converted to Raid", "entering solo, the raid line isn't taken for the notify line")
+        Expect(soloLoot, "Loot: Group Loot", "entering solo, the loot method line is named")
+        Expect(soloThreshold, "Loot threshold: Uncommon", "entering solo, the loot threshold line is named")
+
+        -- With fewer lines than the group sends when GROUP_JOINED comes, none
+        -- are named, and a line after it isn't taken for one.
+        At(219.2)
+        Fire("PLAYER_ENTERING_WORLD")
+        Fire("PLAYER_ENTERING_BATTLEGROUND")
+        At(219.5)
+        local _, shortLoot = Hidden(), Hidden()
+        hiddenLines.Update()
+        Fire("GROUP_JOINED")
+        local afterJoined = Hidden()
+        hiddenLines.Update()
+        Expect(shortLoot, "<hidden>", "too few group lines are left alone")
+        Expect(afterJoined, "<hidden>", "a line after GROUP_JOINED isn't taken for the group's")
 
         -- Out of lockdown, nothing is touched.
         inLockdown = false
@@ -1827,6 +1875,7 @@ do
     feature.Disable()
     inRaid, groupMembers = false, 0
     GetMaxBattlefieldID, GetBattlefieldStatus = nil, nil
+    Enum, C_PartyInfo, GetLootThreshold = realEnum, nil, nil
     UnitName, UnitIsUnit, UnitIsDeadOrGhost = realUnitName, nil, nil
     ChatFrame1, ChatFrame2, NUM_CHAT_WINDOWS = realChatFrame1, realChatFrame2, realWindows
     ChatTypeInfo.SYSTEM = realSystemInfo
