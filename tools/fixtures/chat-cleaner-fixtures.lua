@@ -1638,13 +1638,14 @@ do
 
         -- Queueing for another battleground from inside one (seen in game:
         -- "You have joined the queue for Warsong Gulch." stayed as written).
+        -- The game sends the line, then the queue.
         At(205)
         local queuedGulch = Hidden()
         queues[1] = { "queued", "Warsong Gulch" }
         Fire("UPDATE_BATTLEFIELD_STATUS", 1)
         Expect(queuedGulch, "+ Joined the queue: Warsong Gulch", "a queue line is named from the queue")
 
-        -- The line can come a moment before the queue shows.
+        -- A queue that shows a moment after its line still names it.
         At(207)
         local queuedIslands = Hidden()
         hiddenLines.Update()
@@ -1654,16 +1655,17 @@ do
         Fire("UPDATE_BATTLEFIELD_STATUS", 2)
         Expect(queuedIslands, "+ Joined the queue: Darkspear Islands", "a queue that shows a moment later names its line")
 
-        -- Leaving a queue as a player joins: the join doesn't take the
-        -- queue's line.
+        -- Leaving a queue as a player joins: each keeps its own line.
         At(209)
-        local leftQueue, joinedThen = Hidden(), Hidden()
+        local leftQueue = Hidden()
         queues[1] = { "none", "" }
+        Fire("UPDATE_BATTLEFIELD_STATUS", 1)
+        local joinedThen = Hidden()
         members.raid7 = { "Quill", "Ashmantle" }
         groupMembers = 7
         Fire("GROUP_ROSTER_UPDATE")
         Expect(leftQueue, "\226\136\146 Left the queue", "leaving a queue names its line")
-        Expect(joinedThen, "Quill Ashmantle joined", "a join at the same moment leaves the queue its line")
+        Expect(joinedThen, "Quill Ashmantle joined", "a join right after a queue line keeps its own line")
 
         -- A queue that pops isn't left.
         At(211)
@@ -1675,6 +1677,38 @@ do
         At(215)
         hiddenLines.Update()
         Expect(popped, "<hidden>", "a queue that pops doesn't name a line")
+
+        -- Entering a battleground while queued for another, as a probe logged
+        -- it: the notify line on zoning in; a moment later the game drops
+        -- both queues with no line, then sends the raid and loot lines and
+        -- "You have joined the queue for Darkspear Islands." just before that
+        -- queue comes back.
+        At(215.5)
+        queues[1] = { "queued", "Darkspear Islands" }
+        queues[2] = { "confirm", "Arathi Basin" }
+        Fire("UPDATE_BATTLEFIELD_STATUS", 1)
+        At(216)
+        Fire("PLAYER_ENTERING_WORLD")
+        Fire("PLAYER_ENTERING_BATTLEGROUND")
+        -- The window adds the line after Carpenter hears of it, so it's first
+        -- looked at with the next line, when the queues drop.
+        local enterNotify = Hidden()
+        At(216.31)
+        queues[1] = { "none", "" }
+        queues[2] = { "none", "" }
+        hiddenLines.Update()
+        local converted, looting, threshold = Hidden(), Hidden(), Hidden()
+        hiddenLines.Update()
+        local requeued = Hidden()
+        queues[1] = { "queued", "Darkspear Islands" }
+        Fire("UPDATE_BATTLEFIELD_STATUS", 1)
+        queues[2] = { "active", "Arathi Basin" }
+        Fire("UPDATE_BATTLEFIELD_STATUS", 2)
+        Expect(enterNotify, "", "the notify line on entering isn't taken for a dropped queue")
+        Expect(converted, "<hidden>", "the raid line on entering stays")
+        Expect(looting, "<hidden>", "the loot method line on entering stays")
+        Expect(threshold, "<hidden>", "the loot threshold line on entering stays")
+        Expect(requeued, "+ Joined the queue: Darkspear Islands", "a queue added back on entering names its own line")
 
         -- Out of lockdown, nothing is touched.
         inLockdown = false

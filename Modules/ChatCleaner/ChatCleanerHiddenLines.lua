@@ -13,7 +13,10 @@
 --     or Blizzard's batched line landing beside it, is emptied.
 --   * a group member's death, when exactly one death and one line meet.
 --   * joining or leaving a battleground queue, from the queue that starts or
---     ends within a moment of it. The nearest line gets it.
+--     ends right after it: the game sends the line, then the queue. The
+--     queues the game drops and adds back as you enter a battleground (a
+--     probe's log): the drop has no line, and each one added back has its own
+--     "You have joined the queue for ..." just before it.
 --   * "Notify system has been disabled/enabled": the first hidden line right
 --     after entering a battleground, and right after it begins.
 --   * Blizzard's batched "has joined the battle" lines in a battleground's
@@ -40,7 +43,7 @@ local LINE_BEFORE_CHANGE = 0.5
 local LINE_AFTER_CHANGE = 0.3
 local DEATH_WINDOW = 1.0
 local SKILL_WINDOW = 1.5
-local QUEUE_WINDOW = 1.0
+local QUEUE_WINDOW = 0.2
 local ENTER_NOTICE_WINDOW = 1.5
 local START_NOTICE_WINDOW = 5
 local START_NOTICE_GRACE = HiddenLines.START_NOTICE_GRACE
@@ -173,23 +176,28 @@ function HiddenLines.Create(config)
         end
     end
 
-    -- Each queue that starts or ends takes the line nearest to it. These go
-    -- before roster changes, so a player joining at that moment can't take
-    -- the queue's line.
-    local function ResolveQueueChanges(frame, lines, Apply)
-        if not lines[1] or not (config.GetQueueChanges and config.FormatQueueChange) then return end
-        for _, change in ipairs(config.GetQueueChanges() or {}) do
+    -- Each queue that starts or ends takes the newest line that was already
+    -- in the history when the change was first seen, if it came within a
+    -- moment before. Entering a battleground brings the raid and loot lines in
+    -- the same moment, so the newest, not the oldest, is the queue's; a line
+    -- added after the change belongs to something else. These go before
+    -- roster changes, so a player joining at that moment can't take the
+    -- queue's line.
+    local function ResolveQueueChanges(frame, lines, queueChanges, Apply)
+        if not (lines[1] and config.FormatQueueChange) then return end
+        for _, change in ipairs(queueChanges) do
             if Claims(change, frame) == 0 then
-                local nearest, distance
+                local newest
                 for _, line in ipairs(lines) do
-                    local gap = math.abs(change.time - line.time)
-                    if not line.resolved and gap <= QUEUE_WINDOW and (not distance or gap < distance) then
-                        nearest, distance = line, gap
+                    if not line.resolved and line.order <= change.seenOrder
+                        and math.abs(change.time - line.time) <= QUEUE_WINDOW
+                        and (not newest or line.order > newest.order) then
+                        newest = line
                     end
                 end
-                if nearest then
+                if newest then
                     change.claims[frame] = 1
-                    Apply(nearest, config.FormatQueueChange(change),
+                    Apply(newest, config.FormatQueueChange(change),
                         string.format("queue %s at %.2f", change.kind, change.time))
                 end
             end
@@ -277,7 +285,7 @@ function HiddenLines.Create(config)
         end
     end
 
-    local function Resolve(frame, lines, changes, now)
+    local function Resolve(frame, lines, changes, queueChanges, now)
         table.sort(lines, function(a, b)
             if a.time ~= b.time then return a.time < b.time end
             return a.order < b.order
@@ -299,7 +307,7 @@ function HiddenLines.Create(config)
         end
 
         ResolveSkillLines(frame, skillLines, Apply)
-        ResolveQueueChanges(frame, systemLines, Apply)
+        ResolveQueueChanges(frame, systemLines, queueChanges, Apply)
         ResolveRosterChanges(frame, systemLines, changes, Apply)
         for _, line in ipairs(systemLines) do
             if not line.resolved then Apply(line, ClaimBattleNotice(line, done, now), "notice") end
@@ -327,8 +335,14 @@ function HiddenLines.Create(config)
         local now = Now()
         Collect(now)
         local changes = config.GetChanges and config.GetChanges() or {}
+        -- A queue change can only take a line the history held when it was
+        -- first seen.
+        local queueChanges = config.GetQueueChanges and config.GetQueueChanges() or {}
+        for _, change in ipairs(queueChanges) do
+            change.seenOrder = change.seenOrder or order
+        end
         for frame, lines in pairs(pendingByFrame) do
-            if lines[1] then Resolve(frame, lines, changes, now) end
+            if lines[1] then Resolve(frame, lines, changes, queueChanges, now) end
         end
     end
 
