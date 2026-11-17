@@ -917,6 +917,25 @@ local fixtures = {
         expectPlain = "You receive 5 tokens",
     },
     {
+        name = "player chat that reads like a group notice stays chat",
+        event = "CHAT_MSG_SAY",
+        message = "Party converted to Raid",
+        expectPlain = "Party converted to Raid",
+        rejectColor = "|cff",
+    },
+    {
+        name = "player chat that reads like a hidden notice still shows",
+        event = "CHAT_MSG_GUILD",
+        message = "Joined Channel: lol",
+        expectPlain = "Joined Channel: lol",
+    },
+    {
+        name = "player chat keeps its spacing and percent signs",
+        event = "CHAT_MSG_WHISPER",
+        message = "need 2x5 linen, 100%s sure",
+        expectPlain = "need 2x5 linen, 100%s sure",
+    },
+    {
         name = "generic reward: party chat stays chat",
         event = "CHAT_MSG_PARTY",
         message = "You have been awarded 5 tokens",

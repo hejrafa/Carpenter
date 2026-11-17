@@ -309,6 +309,15 @@ local function OwnDeathLine()
     return FormatOwnDeath(recapID)
 end
 
+local PLAYER_CHAT_EVENTS = {
+    CHAT_MSG_SAY = true, CHAT_MSG_YELL = true, CHAT_MSG_WHISPER = true, CHAT_MSG_BN_WHISPER = true,
+    CHAT_MSG_GUILD = true, CHAT_MSG_OFFICER = true, CHAT_MSG_CHANNEL = true,
+    CHAT_MSG_PARTY = true, CHAT_MSG_PARTY_LEADER = true, CHAT_MSG_RAID = true, CHAT_MSG_RAID_LEADER = true,
+}
+local GROUP_CHAT_EVENTS = {
+    CHAT_MSG_PARTY = true, CHAT_MSG_PARTY_LEADER = true, CHAT_MSG_RAID = true, CHAT_MSG_RAID_LEADER = true,
+}
+
 local function ChatFilterImpl(self, event, msg, author, ...)
     if not (Carpenter and Carpenter:IsEnabled("chatCleanerEnabled")) then
         return false, msg, author, ...
@@ -357,6 +366,30 @@ local function ChatFilterImpl(self, event, msg, author, ...)
         msg = msg:gsub("%%", "%%%%")
     end
 
+    local prefixPlus = ColorPlus .. "+|r "
+    local prefixMinus = ColorMinus .. Carpenter.MinusSign .. "|r "
+
+    if event == "CHAT_MSG_YELL" then
+        local playerName = ChatCleanerLoot.GetGroupLootPlayerName and ChatCleanerLoot.GetGroupLootPlayerName(msg, GroupLootPatterns, author)
+        if playerName and (playerName == "You" or playerName == UnitName("player")) then
+            return true
+        end
+    end
+
+    -- Players' own words stay as they typed them: the formatters below are
+    -- for the game's lines, and a player saying "Party converted to Raid" or
+    -- "You receive 5 tokens" isn't one. Loot lines posted in party and raid
+    -- chat are the exception, styled in the group's color.
+    if PLAYER_CHAT_EVENTS[event] then
+        if GROUP_CHAT_EVENTS[event] then
+            local groupLootMessage = FormatGroupLootMessage and FormatGroupLootMessage(event, msg, author)
+            if groupLootMessage then
+                return false, groupLootMessage, author, ...
+            end
+        end
+        return false, msg, author, ...
+    end
+
     -- Hide noisy "Changed Channel" notifications now that prefixes are compact
     if type(msg) == "string" and msg:find("^Changed Channel:") then
         return true
@@ -374,16 +407,6 @@ local function ChatFilterImpl(self, event, msg, author, ...)
     -- Hide all Auctionator addon messages (they start with "Auctionator:")
     if type(msg) == "string" and (msg:find("^Auctionator:") or msg:find("^|c%x%x%x%x%x%x%x%x%xAuctionator:")) then
         return true
-    end
-
-    local prefixPlus = ColorPlus .. "+|r "
-    local prefixMinus = ColorMinus .. Carpenter.MinusSign .. "|r "
-
-    if event == "CHAT_MSG_YELL" then
-        local playerName = ChatCleanerLoot.GetGroupLootPlayerName and ChatCleanerLoot.GetGroupLootPlayerName(msg, GroupLootPatterns, author)
-        if playerName and (playerName == "You" or playerName == UnitName("player")) then
-            return true
-        end
     end
 
     -- 1. Experience and discovery messages
