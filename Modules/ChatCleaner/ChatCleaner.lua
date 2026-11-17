@@ -679,9 +679,13 @@ end)
 -- Logs, in the order they come, system lines (hidden, or readable ones
 -- about the group or loot) and the group, loot and battleground events, each
 -- with the group's state: in a raid, members, loot method and threshold. To
--- CarpenterDB.chatGroupProbeLog. Remove once the raid and loot lines are
--- styled inside a battleground.
+-- CarpenterDB.chatGroupProbeLog. Only the first 15 seconds after each loading
+-- screen are logged, and the newest 300 lines kept, so a whole evening of
+-- battlegrounds still holds the last entries. Remove once the raid and loot
+-- lines are styled inside a battleground.
+local GROUP_PROBE_SECONDS = 15
 local groupProbeLog = {}
+local groupProbeUntil = 0
 local function Readable(func, ...)
     if type(func) ~= "function" then return "-" end
     local ok, value = pcall(func, ...)
@@ -695,8 +699,9 @@ local function GroupState()
         Readable(GetNumGroupMembers), Readable(method), Readable(_G.GetLootThreshold))
 end
 local function GroupProbe(text)
-    if #groupProbeLog >= 300 then return end
     local now = GetTime and GetTime() or 0
+    if now > groupProbeUntil then return end
+    if #groupProbeLog >= 300 then table.remove(groupProbeLog, 1) end
     groupProbeLog[#groupProbeLog + 1] = string.format("%.2f %s | %s", now, (tostring(text):gsub("|", "||")), GroupState())
     if CarpenterDB then CarpenterDB.chatGroupProbeLog = groupProbeLog end
 end
@@ -708,6 +713,9 @@ for _, event in ipairs({
     pcall(groupProbeFrame.RegisterEvent, groupProbeFrame, event)
 end
 groupProbeFrame:SetScript("OnEvent", function(_, event, arg1)
+    if event == "PLAYER_ENTERING_WORLD" then
+        groupProbeUntil = (GetTime and GetTime() or 0) + GROUP_PROBE_SECONDS
+    end
     if event ~= "CHAT_MSG_SYSTEM" then
         GroupProbe(event)
     elseif IsSecret(arg1) then
