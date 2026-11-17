@@ -109,9 +109,6 @@ local currentMoney = 0
 local groupMembers = 0
 local inRaid = false
 local inCombatLockdown = false
-local fixtureFriends = {
-    { name = "Dreadwarden", className = "Mage", connected = true },
-}
 local fixtureGuildMembers = {
     { name = "Wightwalker", className = "Rogue", classFileName = "ROGUE", online = false },
 }
@@ -121,12 +118,6 @@ function GetLocale() return "enUS" end
 function IsInRaid() return inRaid end
 function GetNumGroupMembers() return groupMembers end
 function InCombatLockdown() return inCombatLockdown end
-function GetNumFriends() return #fixtureFriends end
-function GetFriendInfo(index)
-    local friend = fixtureFriends[index]
-    if not friend then return nil end
-    return friend.name, 60, friend.className, "Stormwind", friend.connected
-end
 function GetNumGuildMembers() return #fixtureGuildMembers end
 function GetGuildRosterInfo(index)
     local member = fixtureGuildMembers[index]

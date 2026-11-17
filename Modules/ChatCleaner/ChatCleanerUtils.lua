@@ -71,7 +71,7 @@ end
 
 function Utils.EscapePattern(text)
     if not text or type(text) ~= "string" then return text end
-    return text:gsub(PATTERN_MAGIC, "%%%1")
+    return (text:gsub(PATTERN_MAGIC, "%%%1"))
 end
 
 -- The copper in the game's money receipt, "You gained: <money>"
@@ -132,7 +132,7 @@ end
 
 function Utils.CleanPunctuation(text)
     if not text or type(text) ~= "string" then return text end
-    return text:gsub("%.+$", "")
+    return (text:gsub("%.+$", ""))
 end
 
 -- "Linen Clothx5" as "Linen Cloth x5".
@@ -190,7 +190,7 @@ end
 
 function Utils.RemoveLinkBrackets(text)
     if not text or type(text) ~= "string" then return text end
-    return text:gsub("(|H.-|h)%[(.-)%]|h", "%1%2|h")
+    return (text:gsub("(|H.-|h)%[(.-)%]|h", "%1%2|h"))
 end
 
 function Utils.GetItemLinkFromMessage(text)

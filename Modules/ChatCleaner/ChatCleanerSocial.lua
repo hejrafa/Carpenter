@@ -9,61 +9,101 @@ local Utils = ns.Private.ChatCleanerUtils
 local Palette = Utils.Palette
 local T, Trim, GameText = Utils.T, Utils.Trim, Utils.GameText
 local CleanPunctuation = Utils.CleanPunctuation
+local IsSecret = Carpenter.Secret.IsSecret
+local ReadableBool = Carpenter.Secret.ReadableBool
+
+local function Line(color, text)
+    return color .. text .. "|r"
+end
+
+-- A player named in a system line, without the realm.
+local function NoRealm(name)
+    return (Trim(name):gsub("%-.*$", ""))
+end
+
+local LOOT_METHOD_NAMES = {
+    ["free for all"] = GameText("FREE_FOR_ALL", "Free for all"),
+    ["round robin"] = GameText("ROUND_ROBIN", "Round robin"),
+    ["master looter"] = GameText("MASTER_LOOTER", "Master looter"),
+    ["group loot"] = GameText("GROUP_LOOT", "Group Loot"),
+    ["need before greed"] = GameText("NEED_BEFORE_GREED", "Need Before Greed"),
+    ["personal loot"] = GameText("PERSONAL_LOOT", "Personal Loot"),
+}
+
+-- The loot method as the game names it in its menus.
+local function LootMethodDisplay(method)
+    method = Trim(method):gsub("%.?%s*$", "")
+    local key = Trim(method:lower():gsub("[_%-%s]+", " "))
+    return LOOT_METHOD_NAMES[key] or method
+end
+
+-- "Loot threshold set to Uncommon." (ERR_SET_LOOT_THRESHOLD_S), as a
+-- pattern that takes the quality's name.
+local LOOT_THRESHOLD_PATTERN = "^" .. Utils.EscapePattern(GameText("ERR_SET_LOOT_THRESHOLD_S", "Loot threshold set to %s."))
+    :gsub("%%%%s", "(.-)") .. "$"
+
+-- The color of the item quality with that name, as on its items.
+local function QualityColor(name)
+    for quality = 0, 8 do
+        local color = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality]
+        if color and _G["ITEM_QUALITY" .. quality .. "_DESC"] == name then
+            return Utils.ColorCode(color.r, color.g, color.b)
+        end
+    end
+end
+
+local ROLE_KEYS = { tank = "CHAT_ROLE_TANK", healer = "CHAT_ROLE_HEALER", damage = "CHAT_ROLE_DAMAGE" }
+
+local BG_SYSTEM_EVENTS = {
+    CHAT_MSG_BG_SYSTEM_ALLIANCE = true, CHAT_MSG_BG_SYSTEM_HORDE = true, CHAT_MSG_BG_SYSTEM_NEUTRAL = true,
+}
+
+-- The battleground announcer's countdown and start, each battleground in its
+-- own words: "The battle for Warsong Gulch begins in 30 seconds. Prepare
+-- yourselves!" becomes "Warsong Gulch begins in 30 seconds".
+local BATTLE_COUNTDOWN_PATTERNS = {
+    "^[Tt]he [Bb]attle for (.-) begins in (%d+ %a+)",
+    "^[Tt]he [Bb]attle for (.-) will begin in (%d+ %a+)",
+}
+local BATTLE_START_PATTERNS = {
+    "^[Ll]et the [Bb]attle for (.-) begin",
+    "^[Tt]he [Bb]attle for (.-) has begun",
+}
+
+local function FormatBattleAnnouncement(plainSys)
+    local name, wait
+    for _, pattern in ipairs(BATTLE_COUNTDOWN_PATTERNS) do
+        name, wait = plainSys:match(pattern)
+        if name then break end
+    end
+    if not name then
+        wait, name = plainSys:match("^(%d+ %a+) until the [Bb]attle for (.-) begins")
+    end
+    if name and name ~= "" then
+        local battle = Line(Palette.queue, name) .. Palette.white
+        return Line(Palette.white, T("CHAT_BATTLE_BEGINS_IN", battle, wait))
+    end
+
+    for _, pattern in ipairs(BATTLE_START_PATTERNS) do
+        name = plainSys:match(pattern)
+        if name and name ~= "" then
+            return Line(Palette.white, T("CHAT_BATTLE_BEGUN", Line(Palette.queue, name) .. Palette.white))
+        end
+    end
+    return nil
+end
 
 function Social.Create()
-
     local api = {}
 
-    local lootMethodNames = {
-        ["free for all"] = GameText("FREE_FOR_ALL", "Free for all"),
-        ["round robin"] = GameText("ROUND_ROBIN", "Round robin"),
-        ["master looter"] = GameText("MASTER_LOOTER", "Master looter"),
-        ["group loot"] = GameText("GROUP_LOOT", "Group Loot"),
-        ["need before greed"] = GameText("NEED_BEFORE_GREED", "Need Before Greed"),
-        ["personal loot"] = GameText("PERSONAL_LOOT", "Personal Loot"),
-    }
-
-    local function NormalizeLootMethodDisplay(method)
-        method = Trim(method):gsub("%.?%s*$", "")
-        local key = method:lower():gsub("[_%-%s]+", " "):gsub("^%s+", ""):gsub("%s+$", "")
-        return lootMethodNames[key] or method
-    end
-
-    -- "Loot threshold set to Uncommon." (ERR_SET_LOOT_THRESHOLD_S), as a
-    -- pattern that takes the quality's name.
-    local function LootThresholdName(plainMsg)
-        local format = GameText("ERR_SET_LOOT_THRESHOLD_S", "Loot threshold set to %s.")
-        local pattern = format:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1"):gsub("%%%%s", "(.-)")
-        local name = Trim(plainMsg):match("^" .. pattern .. "$")
-        if name and name ~= "" then return name end
-    end
-
-    -- The color of the item quality with that name, as on its items.
-    local function QualityColor(name)
-        for quality = 0, 8 do
-            local color = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality]
-            if color and _G["ITEM_QUALITY" .. quality .. "_DESC"] == name then
-                return string.format("|cff%02x%02x%02x", math.floor((color.r or 1) * 255),
-                    math.floor((color.g or 1) * 255), math.floor((color.b or 1) * 255))
-            end
-        end
-    end
-
     local function ShortPlayerName(name)
-        if not name or type(name) ~= "string" then return "" end
-        name = name:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
-        name = name:gsub("|Hplayer:[^|]+|h%[(.-)%]|h", "%1")
-        name = name:gsub("|Hplayer:[^|]+|h(.-)|h", "%1")
-        name = Trim(name):gsub("^%[(.-)%]$", "%1")
-
-        if Ambiguate then
-            local ok, short = pcall(Ambiguate, name, "short")
-            if ok and short and short ~= "" then
-                name = short
-            end
+        if type(name) ~= "string" then return "" end
+        name = Trim(Utils.StripColorsAndLinks(name)):gsub("^%[(.-)%]$", "%1")
+        local ok, short = pcall(Ambiguate, name, "short")
+        if ok and type(short) == "string" and short ~= "" then
+            name = short
         end
-
-        return Trim(name):gsub("%-.*$", "")
+        return NoRealm(name)
     end
 
     local function PlayerKey(name)
@@ -72,12 +112,26 @@ function Social.Create()
         return name:lower()
     end
 
+    -- The death line uses the first name; join and leave lines use the full
+    -- name, which on WoW Forever includes the surname: UnitName gives it as
+    -- a second value, but system lines write "First Surname".
+    local function GetMemberNames(unit)
+        if not UnitName then return nil end
+        local ok, name, surname = pcall(UnitName, unit)
+        if not ok or IsSecret(name) or IsSecret(surname) then return nil end
+        if type(name) ~= "string" or name == "" or name == UNKNOWNOBJECT then return nil end
+        local fullName = name
+        if Carpenter.Client.isForever and type(surname) == "string" and surname ~= "" then
+            local consts = Constants and Constants.CharacterNameSeparatorConsts
+            fullName = name .. (consts and consts.CHARACTERNAME_SURNAME_SEPARATOR or " ") .. surname
+        end
+        return fullName, name
+    end
+
     -- System lines like /roll results only carry a name, so Blizzard never
     -- class-colors it the way it does chat senders. Look the class up on the
     -- units we can see, then on players who spoke in chat this session.
     local senderClasses = {}
-
-    local IsSecret = Carpenter.Secret.IsSecret
 
     function api.RememberSenderClass(name, guid)
         if not GetPlayerInfoByGUID or IsSecret(name) or IsSecret(guid) then return end
@@ -91,34 +145,22 @@ function Social.Create()
     end
 
     local function GetUnitClassToken(unit, key)
-        local ok, classToken = pcall(function()
-            if UnitIsPlayer and not UnitIsPlayer(unit) then return nil end
-            local name, surname = UnitName(unit)
-            if not name then return nil end
-            -- WoW Forever returns the surname as UnitName's second value but
-            -- writes system lines with the full "First Surname".
-            local fullName = name
-            local client = Carpenter and Carpenter.Client
-            if client and client.isForever and type(surname) == "string" and surname ~= "" then
-                local consts = Constants and Constants.CharacterNameSeparatorConsts
-                fullName = name .. (consts and consts.CHARACTERNAME_SURNAME_SEPARATOR or " ") .. surname
-            end
-            if PlayerKey(fullName) ~= key and PlayerKey(name) ~= key then return nil end
-            local _, token = UnitClass(unit)
+        if ReadableBool(UnitIsPlayer, unit) == false then return nil end
+        local fullName, name = GetMemberNames(unit)
+        if not fullName or (PlayerKey(fullName) ~= key and PlayerKey(name) ~= key) then return nil end
+        local ok, _, token = pcall(UnitClass, unit)
+        if ok and type(token) == "string" and not IsSecret(token) then
             return token
-        end)
-        if ok and type(classToken) == "string" and not IsSecret(classToken) then
-            return classToken
         end
     end
 
     function api.GetPlayerClassColor(name)
         local key = PlayerKey(name)
-        if not key or not UnitName or not UnitClass then return nil end
+        if not key or not UnitClass then return nil end
 
         local units = { "player", "target", "focus", "mouseover" }
-        local groupPrefix = (IsInRaid and IsInRaid()) and "raid" or "party"
-        for i = 1, (GetNumGroupMembers and GetNumGroupMembers() or 0) do
+        local groupPrefix = IsInRaid() and "raid" or "party"
+        for i = 1, GetNumGroupMembers() do
             units[#units + 1] = groupPrefix .. i
         end
 
@@ -128,7 +170,6 @@ function Social.Create()
             if classToken then break end
         end
         classToken = classToken or senderClasses[key]
-
         return classToken and Utils.ClassColorCode(classToken)
     end
 
@@ -138,44 +179,23 @@ function Social.Create()
     -- noted with its time, for ChatCleanerHiddenLines to match the hidden line
     -- that came with it.
     local CHANGE_WINDOW = 10
+    local MAX_JOINS_AT_ONCE = 3
     local groupChanges = {}
     local deadMembers = {}
     local rosterNames = {}
     local rosterInRaid = false
-    local MAX_JOINS_AT_ONCE = 3
-
-    local function Now()
-        return GetTime and GetTime() or 0
-    end
-
-    -- The death line uses the first name; join and leave lines use the full
-    -- name, which on WoW Forever includes the surname.
-    local function GetMemberNames(unit)
-        if not UnitName then return nil end
-        local ok, name, surname = pcall(UnitName, unit)
-        if not ok or IsSecret(name) or IsSecret(surname) then return nil end
-        if type(name) ~= "string" or name == "" or name == UNKNOWNOBJECT then return nil end
-        local fullName = name
-        local client = Carpenter and Carpenter.Client
-        if client and client.isForever and type(surname) == "string" and surname ~= "" then
-            local consts = Constants and Constants.CharacterNameSeparatorConsts
-            fullName = name .. (consts and consts.CHARACTERNAME_SURNAME_SEPARATOR or " ") .. surname
-        end
-        return fullName, name
-    end
 
     -- Your own death has its own line, so you are never a tracked member.
     -- Unit comparisons can be hidden too, so the name decides as well.
     local function IsSelf(unit, fullName)
-        local okSelf, isSelf = pcall(UnitIsUnit, unit, "player")
-        if okSelf and not IsSecret(isSelf) and isSelf then return true end
+        if ReadableBool(UnitIsUnit, unit, "player") then return true end
         return fullName ~= nil and fullName == GetMemberNames("player")
     end
 
     local function ForEachGroupMember(callback)
-        local inRaid = IsInRaid and IsInRaid()
+        local inRaid = IsInRaid()
         local prefix = inRaid and "raid" or "party"
-        local count = GetNumGroupMembers and GetNumGroupMembers() or 0
+        local count = GetNumGroupMembers()
         if not inRaid then count = count - 1 end
         for i = 1, count do
             local unit = prefix .. i
@@ -186,40 +206,31 @@ function Social.Create()
         end
     end
 
-    local function PruneTimes(list, window, now)
-        while list[1] do
-            local first = list[1]
-            local time = type(first) == "table" and first.time or first
-            if now - time <= window then return end
-            table.remove(list, 1)
+    local function PruneChanges(now)
+        while groupChanges[1] and now - groupChanges[1].time > CHANGE_WINDOW do
+            table.remove(groupChanges, 1)
         end
     end
 
-    local function AddNotice(kind, name, now)
-        PruneTimes(groupChanges, CHANGE_WINDOW, now)
-        groupChanges[#groupChanges + 1] = { kind = kind, name = name, time = now, lines = 0 }
+    local function AddChange(kind, name, now)
+        PruneChanges(now)
+        groupChanges[#groupChanges + 1] = { kind = kind, name = name, time = now }
     end
 
     -- True when a new death was noted for a hidden line to take. announce
     -- says whether lines are hidden; when it's left out, that's checked only
     -- for a new death, since health events come for every unit.
     local function NoteMemberDeath(unit, fullName, firstName, now, announce)
-        local ok, dead = pcall(UnitIsDeadOrGhost, unit)
-        if not ok or IsSecret(dead) then return false end
-        dead = dead == true
-        local noted = dead and not deadMembers[fullName] and (announce == nil and Utils.InChatLockdown() or announce)
+        local dead = ReadableBool(UnitIsDeadOrGhost, unit)
+        if dead == nil then return false end
+        local noted = dead and not deadMembers[fullName]
+        if noted and announce == nil then announce = Utils.InChatLockdown() end
+        noted = noted and announce == true
         if noted then
-            AddNotice("died", firstName, now)
+            AddChange("died", firstName, now)
         end
         deadMembers[fullName] = dead or nil
-        return noted == true
-    end
-
-    local function NoteDeaths(now, announce)
-        if not UnitIsDeadOrGhost then return end
-        ForEachGroupMember(function(unit, fullName, firstName)
-            NoteMemberDeath(unit, fullName, firstName, now, announce)
-        end)
+        return noted
     end
 
     local BYTE_R, BYTE_P = ("r"):byte(), ("p"):byte()
@@ -227,13 +238,13 @@ function Social.Create()
     -- Health events fire for every nameplate too, so only group tokens get
     -- past the first byte.
     function api.NoteGroupMemberHealth(unit)
-        if type(unit) ~= "string" or not UnitIsDeadOrGhost then return end
+        if type(unit) ~= "string" then return false end
         local first = unit:byte(1)
-        if first ~= BYTE_R and first ~= BYTE_P then return end
-        if not (unit:match("^raid%d+$") or unit:match("^party%d$")) then return end
+        if first ~= BYTE_R and first ~= BYTE_P then return false end
+        if not (unit:match("^raid%d+$") or unit:match("^party%d$")) then return false end
         local fullName, firstName = GetMemberNames(unit)
         if fullName and not IsSelf(unit, fullName) then
-            return NoteMemberDeath(unit, fullName, firstName, Now())
+            return NoteMemberDeath(unit, fullName, firstName, GetTime())
         end
         return false
     end
@@ -242,8 +253,8 @@ function Social.Create()
     -- after a loading screen. A group that forms or turns into another, like a
     -- battleground raid filling in at once from your party, is a snapshot too.
     function api.NoteGroupRoster(reset)
-        local now = Now()
-        local inRaid = (IsInRaid and IsInRaid()) and true or false
+        local now = GetTime()
+        local inRaid = IsInRaid() and true or false
         local current, added = {}, {}
         ForEachGroupMember(function(_, fullName)
             current[fullName] = true
@@ -255,11 +266,11 @@ function Social.Create()
             and #added <= MAX_JOINS_AT_ONCE and Utils.InChatLockdown()
         if announce then
             for _, fullName in ipairs(added) do
-                AddNotice("joined", fullName, now)
+                AddChange("joined", fullName, now)
             end
             for fullName in pairs(rosterNames) do
                 if not current[fullName] then
-                    AddNotice("left", fullName, now)
+                    AddChange("left", fullName, now)
                 end
             end
         end
@@ -272,138 +283,44 @@ function Social.Create()
         if reset then
             groupChanges = {}
         end
-        NoteDeaths(now, not reset and Utils.InChatLockdown())
+        local deathsHidden = not reset and Utils.InChatLockdown()
+        ForEachGroupMember(function(unit, fullName, firstName)
+            NoteMemberDeath(unit, fullName, firstName, now, deathsHidden)
+        end)
     end
 
-    local function FormatNotice(notice)
-        if notice.kind == "died" then
-            return Palette.red .. T("CHAT_PLAYER_DIED", notice.name) .. "|r"
-        elseif notice.kind == "left" then
-            return Palette.red .. T("CHAT_PLAYER_LEFT", notice.name) .. "|r"
-        end
-        return Palette.green .. T("CHAT_PLAYER_JOINED", notice.name) .. "|r"
-    end
-
-    -- Recent joins, departures and deaths, oldest first. The hidden line
-    -- matcher counts the lines it gives each one in change.lines.
+    -- Recent joins, departures and deaths, oldest first.
     function api.GetGroupChanges()
-        PruneTimes(groupChanges, CHANGE_WINDOW, Now())
+        PruneChanges(GetTime())
         return groupChanges
     end
 
     function api.FormatGroupChange(change)
-        return FormatNotice(change)
-    end
-
-    local function GetFriendCount()
-        if C_FriendList and C_FriendList.GetNumFriends then
-            local ok, count = pcall(C_FriendList.GetNumFriends)
-            if ok and count then return count end
+        if change.kind == "died" then
+            return Line(Palette.red, T("CHAT_PLAYER_DIED", change.name))
+        elseif change.kind == "left" then
+            return Line(Palette.red, T("CHAT_PLAYER_LEFT", change.name))
         end
-        if GetNumFriends then
-            local ok, count = pcall(GetNumFriends)
-            if ok and count then return count end
+        return Line(Palette.green, T("CHAT_PLAYER_JOINED", change.name))
+    end
+
+    local function IsGuildMember(key)
+        if not (GetNumGuildMembers and GetGuildRosterInfo) then return false end
+        local ok, count = pcall(GetNumGuildMembers)
+        for i = 1, ok and tonumber(count) or 0 do
+            local found, name = pcall(GetGuildRosterInfo, i)
+            if found and PlayerKey(name) == key then return true end
         end
-        return 0
+        return false
     end
 
-    local function GetFriendRecord(targetKey)
-        if not targetKey then return nil end
-
-        for i = 1, GetFriendCount() do
-            if C_FriendList and C_FriendList.GetFriendInfoByIndex then
-                local ok, info = pcall(C_FriendList.GetFriendInfoByIndex, i)
-                if ok and type(info) == "table" and PlayerKey(info.name) == targetKey then
-                    return { source = "friend" }
-                end
-            elseif GetFriendInfo then
-                local ok, name = pcall(GetFriendInfo, i)
-                if ok and PlayerKey(name) == targetKey then
-                    return { source = "friend" }
-                end
-            end
-        end
-
-        return nil
-    end
-
-    local function GetGuildCount()
-        if not GetNumGuildMembers then return 0 end
-
-        local ok, count = pcall(GetNumGuildMembers, true)
-        if ok and count then return count end
-
-        ok, count = pcall(GetNumGuildMembers)
-        if ok and count then return count end
-
-        return 0
-    end
-
-    local function GetGuildRecord(targetKey)
-        if not targetKey or not GetGuildRosterInfo then return nil end
-
-        for i = 1, GetGuildCount() do
-            local ok, name = pcall(GetGuildRosterInfo, i)
-            if ok and PlayerKey(name) == targetKey then
-                return { source = "guild" }
-            end
-        end
-
-        return nil
-    end
-
-    local function GetSocialNoticeRecord(name)
-        local targetKey = PlayerKey(name)
-        if not targetKey then return nil end
-
-        return GetGuildRecord(targetKey) or GetFriendRecord(targetKey) or { source = "friend" }
-    end
-
-    local function FormatSocialNotice(name, actionKey)
+    -- "X has come online": guild members in the guild chat's color, friends
+    -- in yellow.
+    local function FormatOnlineNotice(name, actionKey)
         local shortName = ShortPlayerName(name)
         if shortName == "" then return nil end
-
-        local record = GetSocialNoticeRecord(shortName) or { source = "friend" }
-        local isGuild = record.source == "guild"
-        local lineColor = isGuild and Utils.GuildColor() or Palette.yellow
-
-        return lineColor .. shortName .. " " .. T(actionKey) .. "|r"
-    end
-
-    -- The battleground announcer's countdown and start, each battleground in its
-    -- own words: "The battle for Warsong Gulch begins in 30 seconds. Prepare
-    -- yourselves!" becomes "Warsong Gulch begins in 30 seconds".
-    local BATTLE_COUNTDOWN_PATTERNS = {
-        "^[Tt]he [Bb]attle for (.-) begins in (%d+ %a+)",
-        "^[Tt]he [Bb]attle for (.-) will begin in (%d+ %a+)",
-    }
-    local BATTLE_START_PATTERNS = {
-        "^[Ll]et the [Bb]attle for (.-) begin",
-        "^[Tt]he [Bb]attle for (.-) has begun",
-    }
-
-    local function FormatBattleAnnouncement(plainSys)
-        local name, wait
-        for _, pattern in ipairs(BATTLE_COUNTDOWN_PATTERNS) do
-            name, wait = plainSys:match(pattern)
-            if name then break end
-        end
-        if not name then
-            wait, name = plainSys:match("^(%d+ %a+) until the [Bb]attle for (.-) begins")
-        end
-        if name and name ~= "" then
-            local battle = Palette.queue .. name .. "|r" .. Palette.white
-            return Palette.white .. T("CHAT_BATTLE_BEGINS_IN", battle, wait) .. "|r"
-        end
-
-        for _, pattern in ipairs(BATTLE_START_PATTERNS) do
-            name = plainSys:match(pattern)
-            if name and name ~= "" then
-                local battle = Palette.queue .. name .. "|r" .. Palette.white
-                return Palette.white .. T("CHAT_BATTLE_BEGUN", battle) .. "|r"
-            end
-        end
-        return nil
+        local color = IsGuildMember(shortName:lower()) and Utils.GuildColor() or Palette.yellow
+        return Line(color, shortName .. " " .. T(actionKey))
     end
 
     function api.IsBattleStartAnnouncement(text)
@@ -415,287 +332,209 @@ function Social.Create()
     end
 
     function api.FormatBattlegroundAndGroupNotice(event, plainSys)
-        if not plainSys or type(plainSys) ~= "string" then return nil end
+        if type(plainSys) ~= "string" then return nil end
 
-        if event == "CHAT_MSG_BG_SYSTEM_ALLIANCE" or event == "CHAT_MSG_BG_SYSTEM_HORDE" or event == "CHAT_MSG_BG_SYSTEM_NEUTRAL" then
-            local numPlayersJoin = plainSys:match("^(%d+)%s+players have joined the battle%.?%s*$")
-            if numPlayersJoin then
-                return Palette.green .. T("CHAT_PLAYERS_JOINED", numPlayersJoin) .. "|r"
+        if BG_SYSTEM_EVENTS[event] then
+            local count = plainSys:match("^(%d+)%s+players have joined the battle%.?%s*$")
+            if count then
+                return Line(Palette.green, T("CHAT_PLAYERS_JOINED", count))
             end
-
-            local bgJoin = plainSys:match("^%s*(.-)%s+has joined the battle%.?%s*$")
-            if bgJoin and bgJoin ~= "" then
-                bgJoin = bgJoin:gsub("^%s+", ""):gsub("%s+$", "")
-                if bgJoin ~= "" then
-                    return Palette.green .. T("CHAT_PLAYER_JOINED", bgJoin) .. "|r"
-                end
+            local joined = plainSys:match("^%s*(.-)%s+has joined the battle%.?%s*$")
+            if joined and joined ~= "" then
+                return Line(Palette.green, T("CHAT_PLAYER_JOINED", joined))
             end
-
-            local bgLeave = plainSys:match("^%s*(.-)%s+has left the battle%.?%s*$")
-            if bgLeave and bgLeave ~= "" then
-                bgLeave = bgLeave:gsub("^%s+", ""):gsub("%s+$", "")
-                if bgLeave ~= "" then
-                    return Palette.red .. T("CHAT_PLAYER_LEFT", bgLeave) .. "|r"
-                end
+            local left = plainSys:match("^%s*(.-)%s+has left the battle%.?%s*$")
+            if left and left ~= "" then
+                return Line(Palette.red, T("CHAT_PLAYER_LEFT", left))
             end
-
             local announcement = FormatBattleAnnouncement(plainSys)
             if announcement then return announcement end
         end
 
-        local plainLower = plainSys:lower()
-        if plainLower:find("flag") and plainLower:find("has been reset") then
-            return Palette.orange .. T("CHAT_FLAG_RESET") .. "|r"
+        local lower = plainSys:lower()
+        if lower:find("flag", 1, true) and lower:find("has been reset", 1, true) then
+            return Line(Palette.orange, T("CHAT_FLAG_RESET"))
         end
 
         local groupColor = Utils.GroupColor()
-        if plainSys:find("Party converted to Raid") then
-            return groupColor .. T("CHAT_PARTY_CONVERTED_TO_RAID") .. "|r"
+        if plainSys:find("Party converted to Raid", 1, true) then
+            return Line(groupColor, T("CHAT_PARTY_CONVERTED_TO_RAID"))
         end
-        if plainSys:find("Raid converted to Party") then
-            return groupColor .. T("CHAT_RAID_CONVERTED_TO_PARTY") .. "|r"
+        if plainSys:find("Raid converted to Party", 1, true) then
+            return Line(groupColor, T("CHAT_RAID_CONVERTED_TO_PARTY"))
         end
-
         local raidJoin = plainSys:match("^%s*(.-)%s+has joined the raid group%.?%s*$")
         if raidJoin and raidJoin ~= "" then
-            raidJoin = raidJoin:gsub("^%s+", ""):gsub("%s+$", "")
-            return groupColor .. T("CHAT_JOINED_RAID", raidJoin) .. "|r"
+            return Line(groupColor, T("CHAT_JOINED_RAID", raidJoin))
         end
-
         local raidLeave = plainSys:match("^%s*(.-)%s+has left the raid group%.?%s*$")
         if raidLeave and raidLeave ~= "" then
-            raidLeave = raidLeave:gsub("^%s+", ""):gsub("%s+$", "")
-            return groupColor .. T("CHAT_LEFT_RAID", raidLeave) .. "|r"
+            return Line(groupColor, T("CHAT_LEFT_RAID", raidLeave))
         end
-
-        if plainSys:find("You are in both a party and a battleground group") then
-            return groupColor .. T("CHAT_PARTY_AND_BG_GROUP") .. "|r"
+        if plainSys:find("You are in both a party and a battleground group", 1, true) then
+            return Line(groupColor, T("CHAT_PARTY_AND_BG_GROUP"))
         end
-        if plainSys:find("You may communicate with your party") and plainSys:find("/p") and plainSys:find("/bg") then
-            return groupColor .. T("CHAT_PARTY_BG_COMMANDS") .. "|r"
+        if plainSys:find("You may communicate with your party", 1, true) and plainSys:find("/p", 1, true)
+            and plainSys:find("/bg", 1, true) then
+            return Line(groupColor, T("CHAT_PARTY_BG_COMMANDS"))
         end
-        if plainSys:find("The battle has ended") and (plainSys:find("battleground will close") or plainSys:find("close in")) then
-            return Palette.white .. T("CHAT_BATTLE_ENDED") .. "|r"
+        if plainSys:find("The battle has ended", 1, true)
+            and (plainSys:find("battleground will close", 1, true) or plainSys:find("close in", 1, true)) then
+            return Line(Palette.white, T("CHAT_BATTLE_ENDED"))
         end
-
         return nil
     end
 
+    -- The game's system lines about you, your friends and your group, in
+    -- the order they are tried. true hides the line.
     function api.FormatSystemSocialMessage(plainMsg)
-        if not plainMsg or type(plainMsg) ~= "string" then return nil end
+        if type(plainMsg) ~= "string" then return nil end
+        local text = Trim(plainMsg)
+        local lower = text:lower()
 
-        if _G.CLEARED_AFK and plainMsg == _G.CLEARED_AFK then
-            return Palette.green .. T("CHAT_BACK") .. "|r"
+        if text == _G.CLEARED_AFK then return Line(Palette.green, T("CHAT_BACK")) end
+        if text == _G.CLEARED_DND then return Line(Palette.green, T("CHAT_AVAILABLE")) end
+        local online = text:match("^(.-)%s+has come online%.?$")
+        if online and online ~= "" then return FormatOnlineNotice(online, "CHAT_CAME_ONLINE") end
+        local offline = text:match("^(.-)%s+has gone offline%.?$")
+        if offline and offline ~= "" then return FormatOnlineNotice(offline, "CHAT_WENT_OFFLINE") end
+        if text == _G.MARKED_AFK then return Line(Palette.orange, T("CHAT_AFK")) end
+        local away = text:match("^You are now Away: (.+)$") or text:match("^You are now AFK: (.+)$")
+        if away then
+            away = Trim(away)
+            if away == "" or away:lower() == "afk" then return Line(Palette.orange, T("CHAT_AFK")) end
+            return Line(Palette.orange, T("CHAT_AFK_WITH_MESSAGE", away))
         end
-        if _G.CLEARED_DND and plainMsg == _G.CLEARED_DND then
-            return Palette.green .. T("CHAT_AVAILABLE") .. "|r"
-        end
-        local onlineName = plainMsg:match("^%s*(.-)%s+has come online%.?%s*$")
-        if onlineName and onlineName ~= "" then
-            return FormatSocialNotice(onlineName, "CHAT_CAME_ONLINE")
-        end
-        local offlineName = plainMsg:match("^%s*(.-)%s+has gone offline%.?%s*$")
-        if offlineName and offlineName ~= "" then
-            return FormatSocialNotice(offlineName, "CHAT_WENT_OFFLINE")
-        end
-        if _G.MARKED_AFK and plainMsg == _G.MARKED_AFK then
-            return Palette.orange .. T("CHAT_AFK") .. "|r"
-        end
-        local afkCustom = plainMsg:match("^You are now Away: (.+)$") or plainMsg:match("^You are now AFK: (.+)$")
-        if afkCustom and afkCustom ~= "" then
-            afkCustom = afkCustom:gsub("^%s+", ""):gsub("%s+$", "")
-            if afkCustom == "" or afkCustom:lower() == "afk" then
-                return Palette.orange .. T("CHAT_AFK") .. "|r"
-            end
-            return Palette.orange .. T("CHAT_AFK_WITH_MESSAGE", afkCustom) .. "|r"
-        end
-        if _G.MARKED_DND and plainMsg:match("^You are now Busy") then
-            return Palette.darkorange .. T("CHAT_BUSY") .. "|r"
-        end
-        if plainMsg:match("^You are now flagged for PvP combat") then
-            return Palette.red .. T("CHAT_FLAGGED_PVP") .. "|r"
-        end
-        if plainMsg:match("^You feel rested%.?%s*$") or (plainMsg:lower():find("feel rested") and plainMsg:lower():find("you")) then
-            return Palette.restedBar .. T("CHAT_RESTED") .. "|r"
+        if text:find("^You are now Busy") then return Line(Palette.darkorange, T("CHAT_BUSY")) end
+        if text:find("^You are now flagged for PvP combat") then return Line(Palette.red, T("CHAT_FLAGGED_PVP")) end
+        if lower:find("feel rested", 1, true) and lower:find("you", 1, true) then
+            return Line(Palette.restedBar, T("CHAT_RESTED"))
         end
         -- WoW Forever says "You are no longer rested." where the other clients
         -- say "You feel normal."
-        if plainMsg:match("^You feel normal%.?%s*$") or (plainMsg:lower():find("feel normal") and plainMsg:lower():find("you"))
-            or plainMsg:match("^You are no longer rested%.?%s*$") then
-            return Palette.normalBar .. T("CHAT_NORMAL") .. "|r"
+        if (lower:find("feel normal", 1, true) and lower:find("you", 1, true)) or text:find("^You are no longer rested%.?$") then
+            return Line(Palette.normalBar, T("CHAT_NORMAL"))
         end
-        local homeLocation = plainMsg:match("^(.+) is now your home%.?%s*$")
-        if homeLocation and homeLocation ~= "" then
-            return Palette.white .. T("CHAT_HOME_LABEL") .. " |r" .. Palette.queue .. CleanPunctuation(homeLocation) .. "|r"
-        end
-
-        if plainMsg:find("Ready Check") and plainMsg:find("failed") then
-            return Palette.red .. T("CHAT_READY_CHECK_FAILED") .. "|r"
-        end
-        local notReadyName = plainMsg:match("^%s*(.-)%s+is not ready%.?%s*$")
-        if notReadyName and notReadyName ~= "" then
-            local short = notReadyName:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
-            return Palette.red .. T("CHAT_NOT_READY", short) .. "|r"
-        end
-        local alreadyInGroup = plainMsg:match("^%s*(.-)%s+is already in a group%.?%s*$")
-        if alreadyInGroup and alreadyInGroup ~= "" then
-            local short = alreadyInGroup:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
-            return Palette.red .. T("CHAT_ALREADY_IN_GROUP", short) .. "|r"
-        end
-        if plainMsg:match("^%s*[Yy]ou aren't in a party%.?%s*$") or plainMsg:match("^%s*[Yy]ou are not in a party%.?%s*$") then
-            return Palette.red .. T("CHAT_NOT_IN_PARTY") .. "|r"
-        end
-        local lootMaster = plainMsg:match("^%s*(.-)%s+is now the loot master%.?%s*$")
-        if lootMaster and lootMaster ~= "" then
-            local short = lootMaster:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
-            return Palette.orange .. T("CHAT_LOOT_MASTER", short) .. "|r"
-        end
-        if plainMsg:find("ready check") and plainMsg:find("initiated") and plainMsg:find("queued") then
-            return Palette.orange .. T("CHAT_READY_CHECK") .. "|r"
-        end
-        local rcName = plainMsg:match("^%s*(.-)%s+has initiated a ready check%.?%s*$")
-        if rcName and rcName ~= "" then
-            local short = rcName:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
-            return Palette.orange .. short .. " " .. T("CHAT_INITIATED_READY_CHECK") .. "|r"
-        end
-        local roleName, roleWord = plainMsg:match("^%s*(.-)%s+is now%s+([%a]+)%.?%s*$")
-        if roleName and roleWord then
-            local short = roleName:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
-            local lowerRole = roleWord:lower()
-            if lowerRole == "tank" or lowerRole == "healer" or lowerRole == "damage" then
-                local prettyRole = (lowerRole == "tank" and T("CHAT_ROLE_TANK")) or (lowerRole == "healer" and T("CHAT_ROLE_HEALER")) or T("CHAT_ROLE_DAMAGE")
-                return Palette.orange .. short .. " " .. prettyRole .. "|r"
-            end
+        local home = text:match("^(.+) is now your home%.?$")
+        if home then
+            return Palette.white .. T("CHAT_HOME_LABEL") .. " |r" .. Line(Palette.queue, CleanPunctuation(home))
         end
 
-        local remainingDaily = plainMsg:match("^%s*You can only complete%s+(%d+)%s+more daily quests today%.?%s*$")
-        local doneDaily = plainMsg:match("^%s*You have already completed%s+(%d+)%s+daily quests today%.?%s*$")
-        if remainingDaily or doneDaily then
+        if text:find("Ready Check", 1, true) and text:find("failed", 1, true) then
+            return Line(Palette.red, T("CHAT_READY_CHECK_FAILED"))
+        end
+        local notReady = text:match("^(.-)%s+is not ready%.?$")
+        if notReady and notReady ~= "" then return Line(Palette.red, T("CHAT_NOT_READY", NoRealm(notReady))) end
+        local inGroup = text:match("^(.-)%s+is already in a group%.?$")
+        if inGroup and inGroup ~= "" then return Line(Palette.red, T("CHAT_ALREADY_IN_GROUP", NoRealm(inGroup))) end
+        if text:find("^[Yy]ou aren't in a party%.?$") or text:find("^[Yy]ou are not in a party%.?$") then
+            return Line(Palette.red, T("CHAT_NOT_IN_PARTY"))
+        end
+        local lootMaster = text:match("^(.-)%s+is now the loot master%.?$")
+        if lootMaster and lootMaster ~= "" then return Line(Palette.orange, T("CHAT_LOOT_MASTER", NoRealm(lootMaster))) end
+        if text:find("ready check", 1, true) and text:find("initiated", 1, true) and text:find("queued", 1, true) then
+            return Line(Palette.orange, T("CHAT_READY_CHECK"))
+        end
+        local readyChecker = text:match("^(.-)%s+has initiated a ready check%.?$")
+        if readyChecker and readyChecker ~= "" then
+            return Line(Palette.orange, NoRealm(readyChecker) .. " " .. T("CHAT_INITIATED_READY_CHECK"))
+        end
+        local roleName, role = text:match("^(.-)%s+is now%s+(%a+)%.?$")
+        local roleKey = role and ROLE_KEYS[role:lower()]
+        if roleKey then return Line(Palette.orange, NoRealm(roleName) .. " " .. T(roleKey)) end
+
+        local remaining = text:match("^You can only complete%s+(%d+)%s+more daily quests today%.?$")
+        local done = text:match("^You have already completed%s+(%d+)%s+daily quests today%.?$")
+        if remaining or done then
             local total = 25
-            local done = doneDaily and (tonumber(doneDaily) or 0) or (total - (tonumber(remainingDaily) or 0))
-            if done < 0 then done = 0 end
-            if done > total then done = total end
-            return Palette.restedBar .. done .. "/" .. total .. "|r " .. Palette.white .. T("CHAT_DAILY_QUESTS_TODAY") .. "|r"
+            done = done and tonumber(done) or total - tonumber(remaining)
+            done = math.max(0, math.min(total, done))
+            return Line(Palette.restedBar, done .. "/" .. total) .. " " .. Line(Palette.white, T("CHAT_DAILY_QUESTS_TODAY"))
         end
 
-        local tradeTarget = plainMsg:match("^You have requested to trade with%s+(.+)%.$") or plainMsg:match("^You have requested to trade with%s+(.+)$")
+        local tradeTarget = text:match("^You have requested to trade with%s+(.-)%.?$")
         if tradeTarget and tradeTarget ~= "" then
-            local short = tradeTarget:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
-            return Palette.green .. T("CHAT_REQUESTED_TRADE", short) .. "|r"
+            return Line(Palette.green, T("CHAT_REQUESTED_TRADE", NoRealm(tradeTarget)))
         end
 
-        local instJoin = plainMsg:match("^%s*(.-)%s+has joined the instance group%.?%s*$")
-        if instJoin and instJoin ~= "" then
-            return Palette.green .. T("CHAT_PLAYER_JOINED", instJoin:gsub("^%s+", ""):gsub("%s+$", "")) .. "|r"
+        local instanceJoin = text:match("^(.-)%s+has joined the instance group%.?$")
+        if instanceJoin and instanceJoin ~= "" then return Line(Palette.green, T("CHAT_PLAYER_JOINED", instanceJoin)) end
+        local instanceLeave = text:match("^(.-)%s+has left the instance group%.?$")
+        if instanceLeave and instanceLeave ~= "" then return Line(Palette.red, T("CHAT_PLAYER_LEFT", instanceLeave)) end
+        local guildJoiner = text:match("^(.-)%s+has joined the guild%.?$")
+        if guildJoiner and NoRealm(guildJoiner) ~= "" then
+            return Line(Palette.green, NoRealm(guildJoiner) .. " " .. T("CHAT_JOINED_GUILD"))
         end
-        local instLeave = plainMsg:match("^%s*(.-)%s+has left the instance group%.?%s*$")
-        if instLeave and instLeave ~= "" then
-            return Palette.red .. T("CHAT_PLAYER_LEFT", instLeave:gsub("^%s+", ""):gsub("%s+$", "")) .. "|r"
+        local guildLeaver = text:match("^(.-)%s+has left the guild%.?$")
+        if guildLeaver and NoRealm(guildLeaver) ~= "" then
+            return Line(Palette.red, NoRealm(guildLeaver) .. " " .. T("CHAT_LEFT_GUILD"))
         end
-        local guildJoiner = plainMsg:match("^%s*(.-)%s+has joined the guild%.?%s*$")
-        if guildJoiner and guildJoiner ~= "" then
-            local short = guildJoiner:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
-            if short ~= "" then
-                return Palette.green .. short .. " " .. T("CHAT_JOINED_GUILD") .. "|r"
-            end
-        end
-        local guildLeaver = plainMsg:match("^%s*(.-)%s+has left the guild%.?%s*$")
-        if guildLeaver and guildLeaver ~= "" then
-            local short = guildLeaver:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%-.*$", "")
-            if short ~= "" then
-                return Palette.red .. short .. " " .. T("CHAT_LEFT_GUILD") .. "|r"
-            end
-        end
-        local numPlayers = plainMsg:match("^(%d+)%s+players have joined the battle%.?%s*$")
-        if numPlayers then
-            return Palette.green .. T("CHAT_PLAYERS_JOINED", numPlayers) .. "|r"
-        end
-        if plainMsg:match("^Notify system has been enabled%.?%s*$") or plainMsg:match("^Notify system has been disabled%.?%s*$") then
+        local players = text:match("^(%d+)%s+players have joined the battle%.?$")
+        if players then return Line(Palette.green, T("CHAT_PLAYERS_JOINED", players)) end
+        if text:find("^Notify system has been enabled%.?$") or text:find("^Notify system has been disabled%.?$") then
             return true
         end
 
         local groupColor = Utils.GroupColor()
-        local inviter = plainMsg:match("^%s*(.-)%s+has invited you to join a group%.?%s*$") or
-            plainMsg:match("^%s*(.-)%s+invites you to a group%.?%s*$") or
-            plainMsg:match("^%s*(.-)%s+invites you to group%.?%s*$") or
-            plainMsg:match("^%s*(.-)%s+invites you to join a group%.?%s*$")
-        local bracketInviter = plainMsg:match("%[([^%]]+)%]%s*invited you") or plainMsg:match("^%s*%[([^%]]+)%]%s*invited you")
-        local inviteName = inviter or bracketInviter
-        if inviteName and inviteName ~= "" then
-            inviteName = inviteName:gsub("^%s+", ""):gsub("%s+$", ""):gsub("^%[(.-)%]$", "%1")
-            if inviteName ~= "" then
-                return Palette.green .. T("CHAT_PLAYER_INVITED_YOU", inviteName) .. "|r"
-            end
+        local inviter = text:match("^(.-)%s+has invited you to join a group%.?$")
+            or text:match("^(.-)%s+invites you to a group%.?$")
+            or text:match("^(.-)%s+invites you to group%.?$")
+            or text:match("^(.-)%s+invites you to join a group%.?$")
+            or text:match("%[([^%]]+)%]%s*invited you")
+        if inviter then
+            inviter = Trim(inviter):gsub("^%[(.-)%]$", "%1")
+            if inviter ~= "" then return Line(Palette.green, T("CHAT_PLAYER_INVITED_YOU", inviter)) end
         end
-
-        local youInvited = plainMsg:match("^%s*You have invited%s+(.-)%s+to join your group%.?%s*$")
-        if youInvited and youInvited ~= "" then
-            return Palette.green .. T("CHAT_INVITED_PLAYER", youInvited:gsub("^%s+", ""):gsub("%s+$", "")) .. "|r"
-        end
+        local invited = text:match("^You have invited%s+(.-)%s+to join your group%.?$")
+        if invited and invited ~= "" then return Line(Palette.green, T("CHAT_INVITED_PLAYER", invited)) end
         -- A group member who isn't the leader suggests an invite instead.
-        local youSuggested = plainMsg:match("^%s*You have suggested that%s+(.-)%s+join your group%.?%s*$")
-        if youSuggested and youSuggested ~= "" then
-            return Palette.green .. T("CHAT_SUGGESTED_PLAYER", youSuggested:gsub("^%s+", ""):gsub("%s+$", "")) .. "|r"
-        end
-        local decliner = plainMsg:match("^%s*(.-)%s+declines your group invitation%.?%s*$") or plainMsg:match("^%s*(.-)%s+declines%.?%s*$")
-        if decliner and decliner ~= "" then
-            return Palette.red .. T("CHAT_PLAYER_DECLINES", decliner:gsub("^%s+", ""):gsub("%s+$", "")) .. "|r"
-        end
-        if plainMsg:match("^%s*Your group has been disbanded%.?%s*$") then
-            return Palette.red .. T("CHAT_GROUP_DISBANDED") .. "|r"
-        end
-        if plainMsg:match("^%s*You leave the group%.?%s*$") or plainMsg:match("^%s*You left the group%.?%s*$") or
-           plainMsg:match("^%s*You have left the group%.?%s*$") or plainMsg:match("^%s*You leave the raid%.?%s*$") or
-           plainMsg:match("^%s*You left the raid%.?%s*$") or plainMsg:match("^%s*You have left the raid%.?%s*$") then
-            return Palette.red .. (plainMsg:lower():find("raid") and T("CHAT_LEFT_RAID_SELF") or T("CHAT_LEFT_PARTY_SELF")) .. "|r"
+        local suggested = text:match("^You have suggested that%s+(.-)%s+join your group%.?$")
+        if suggested and suggested ~= "" then return Line(Palette.green, T("CHAT_SUGGESTED_PLAYER", suggested)) end
+        local decliner = text:match("^(.-)%s+declines your group invitation%.?$") or text:match("^(.-)%s+declines%.?$")
+        if decliner and decliner ~= "" then return Line(Palette.red, T("CHAT_PLAYER_DECLINES", decliner)) end
+        if text:find("^Your group has been disbanded%.?$") then return Line(Palette.red, T("CHAT_GROUP_DISBANDED")) end
+        local leftGroup = text:match("^You leave the (%a+)%.?$") or text:match("^You left the (%a+)%.?$")
+            or text:match("^You have left the (%a+)%.?$")
+        if leftGroup == "group" or leftGroup == "raid" then
+            return Line(Palette.red, T(leftGroup == "raid" and "CHAT_LEFT_RAID_SELF" or "CHAT_LEFT_PARTY_SELF"))
         end
 
-        local dungeonDifficultyLabel = _G.DUNGEON_DIFFICULTY or "Dungeon Difficulty"
-        if plainMsg:find(dungeonDifficultyLabel, 1, true) then
-            local difficulty = plainMsg:match("set to (%w+)") or plainMsg:match(dungeonDifficultyLabel:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1") .. ":%s*(%w+)")
+        local difficultyLabel = GameText("DUNGEON_DIFFICULTY", "Dungeon Difficulty")
+        if text:find(difficultyLabel, 1, true) then
+            local difficulty = text:match("set to (%w+)") or text:match(Utils.EscapePattern(difficultyLabel) .. ":%s*(%w+)")
             if difficulty then
-                difficulty = difficulty:gsub("^%s+", ""):gsub("%s+$", "")
-                local diffColor = (difficulty:lower() == "heroic") and Palette.orange or Palette.white
-                return groupColor .. dungeonDifficultyLabel .. ": |r" .. diffColor .. difficulty .. "|r"
+                local color = difficulty:lower() == "heroic" and Palette.orange or Palette.white
+                return groupColor .. difficultyLabel .. ": |r" .. Line(color, difficulty)
             end
         end
-        if plainMsg:match("^%s*You have been removed from the group%.?%s*$") or plainMsg:match("^%s*You have been removed from the raid%.?%s*$") then
-            return Palette.red .. T("CHAT_REMOVED_FROM_GROUP") .. "|r"
+        if text:find("^You have been removed from the group%.?$") or text:find("^You have been removed from the raid%.?$") then
+            return Line(Palette.red, T("CHAT_REMOVED_FROM_GROUP"))
         end
 
-        local joiner = plainMsg:match("^%s*(.-)%s+joins the party%.?%s*$") or plainMsg:match("^%s*(.-)%s+joins the raid%.?%s*$")
-        if joiner and joiner ~= "" then
-            joiner = joiner:gsub("^%s+", ""):gsub("%s+$", "")
-            return Palette.green .. T("CHAT_PLAYER_JOINS", joiner) .. "|r"
+        local joiner = text:match("^(.-)%s+joins the party%.?$") or text:match("^(.-)%s+joins the raid%.?$")
+        if joiner and joiner ~= "" then return Line(Palette.green, T("CHAT_PLAYER_JOINS", joiner)) end
+        local leader = text:match("^(.-)%s+is now the group leader%.?$") or text:match("^(.-)%s+is now the raid leader%.?$")
+        if leader and leader ~= "" then return Line(groupColor, T("CHAT_PLAYER_NOW_GROUP_LEADER", leader)) end
+        if text:find("^You are now the group leader%.?$") or text:find("^You are now the raid leader%.?$") then
+            return Line(groupColor, T("CHAT_YOU_ARE_GROUP_LEADER"))
         end
-        local newLeader = plainMsg:match("^%s*(.-)%s+is now the group leader%.?%s*$") or plainMsg:match("^%s*(.-)%s+is now the raid leader%.?%s*$")
-        if newLeader and newLeader ~= "" then
-            return groupColor .. T("CHAT_PLAYER_NOW_GROUP_LEADER", newLeader:gsub("^%s+", ""):gsub("%s+$", "")) .. "|r"
+        local lootMethod = text:match("^[Ll]ooting set to%s+(.+)$")
+            or text:match("[Ll]ooting changed to%s+(.+)$")
+            or text:match("[Ll]oot method set to%s+(.+)$")
+            or text:match("[Ll]oot method changed to%s+(.+)$")
+            or text:match("[Ll]oot%s+changed to%s+(.+)$")
+        if lootMethod then
+            return Palette.white .. T("CHAT_LOOT_LABEL") .. " |r" .. Line(groupColor, LootMethodDisplay(lootMethod))
         end
-        if plainMsg:match("^%s*You are now the group leader%.?%s*$") or plainMsg:match("^%s*You are now the raid leader%.?%s*$") then
-            return groupColor .. T("CHAT_YOU_ARE_GROUP_LEADER") .. "|r"
+        local threshold = text:match(LOOT_THRESHOLD_PATTERN)
+        if threshold and threshold ~= "" then
+            return Palette.white .. T("CHAT_LOOT_THRESHOLD_LABEL") .. " |r" .. Line(QualityColor(threshold) or groupColor, threshold)
         end
-        local lootMethod = plainMsg:match("^%s*[Ll]ooting set to%s+(.+)$") or
-            plainMsg:match("[Ll]ooting changed to%s+(.+)$") or plainMsg:match("[Ll]oot method set to%s+(.+)$") or
-            plainMsg:match("[Ll]oot method changed to%s+(.+)$") or plainMsg:match("[Ll]oot%s+changed to%s+(.+)$")
-        if lootMethod and lootMethod ~= "" then
-            lootMethod = NormalizeLootMethodDisplay(lootMethod)
-            return Palette.white .. T("CHAT_LOOT_LABEL") .. " |r" .. groupColor .. lootMethod .. "|r"
-        end
-        local threshold = LootThresholdName(plainMsg)
-        if threshold then
-            return Palette.white .. T("CHAT_LOOT_THRESHOLD_LABEL") .. " |r" ..
-                (QualityColor(threshold) or groupColor) .. threshold .. "|r"
-        end
-        local died = plainMsg:match("^%s*(.-)%s+has died%.?%s*$")
-        if died and died ~= "" then
-            return Palette.red .. T("CHAT_PLAYER_DIED", died:gsub("^%s+", ""):gsub("%s+$", "")) .. "|r"
-        end
-        local leaver = plainMsg:match("^%s*(.-)%s+leaves the party%.?%s*$") or plainMsg:match("^%s*(.-)%s+leaves the raid%.?%s*$")
-        if leaver and leaver ~= "" then
-            leaver = leaver:gsub("^%s+", ""):gsub("%s+$", "")
-            local text = plainMsg:lower():find("leaves the raid") and T("CHAT_PLAYER_LEAVES_RAID", leaver) or T("CHAT_PLAYER_LEAVES_PARTY", leaver)
-            return Palette.red .. text .. "|r"
+        local died = text:match("^(.-)%s+has died%.?$")
+        if died and died ~= "" then return Line(Palette.red, T("CHAT_PLAYER_DIED", died)) end
+        local leaver, from = text:match("^(.-)%s+leaves the (%a+)%.?$")
+        if leaver and leaver ~= "" and (from == "party" or from == "raid") then
+            return Line(Palette.red, T(from == "raid" and "CHAT_PLAYER_LEAVES_RAID" or "CHAT_PLAYER_LEAVES_PARTY", leaver))
         end
 
         return nil
