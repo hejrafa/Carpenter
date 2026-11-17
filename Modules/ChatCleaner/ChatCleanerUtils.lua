@@ -15,8 +15,11 @@ function Utils.EscapePattern(text)
     return text:gsub(PATTERN_MAGIC, "%%%1")
 end
 
+-- The copper in the game's money receipt, "You gained: <money>"
+-- (GENERIC_MONEY_GAINED_RECEIPT), written with coin icons, coin words or
+-- letters, or bare amounts; nil for any other line, a currency included.
 function Utils.ParseRetailMoneyGain(message)
-    if not message or type(message) ~= "string" then return nil end
+    if type(message) ~= "string" or not message:find("You gained:", 1, true) then return nil end
 
     local text = message
         :gsub("|T.-UI%-GoldIcon.-|t", " gold")
@@ -25,20 +28,25 @@ function Utils.ParseRetailMoneyGain(message)
         :gsub("|A:coin%-gold.-|a", " gold")
         :gsub("|A:coin%-silver.-|a", " silver")
         :gsub("|A:coin%-copper.-|a", " copper")
+        :gsub("|T.-|t", ""):gsub("|A.-|a", "")
         :gsub("|c%x%x%x%x%x%x%x%x", "")
         :gsub("|r", "")
 
     local body = text:match("^You gained:%s*(.-)%s*%.?$")
     if not body or body == "" then return nil end
+    -- "1,234 gold": thousands separators go, so the whole amount is read.
+    body = body:gsub("(%d)[,%.](%d%d%d)%f[%D]", "%1%2"):gsub("(%d)[,%.](%d%d%d)%f[%D]", "%1%2")
 
-    local gold = tonumber(body:match("(%d+)%s*[Gg]old") or body:match("(%d+)%s*g")) or 0
-    local silver = tonumber(body:match("(%d+)%s*[Ss]ilver") or body:match("(%d+)%s*s")) or 0
-    local copper = tonumber(body:match("(%d+)%s*[Cc]opper") or body:match("(%d+)%s*c")) or 0
+    local gold = tonumber(body:match("(%d+)%s*[Gg]old%f[%A]") or body:match("(%d+)%s*g%f[%A]")) or 0
+    local silver = tonumber(body:match("(%d+)%s*[Ss]ilver%f[%A]") or body:match("(%d+)%s*s%f[%A]")) or 0
+    local copper = tonumber(body:match("(%d+)%s*[Cc]opper%f[%A]") or body:match("(%d+)%s*c%f[%A]")) or 0
 
     if gold > 0 or silver > 0 or copper > 0 then
         return gold * 10000 + silver * 100 + copper
     end
 
+    -- Bare amounts ("1 23 45") only when the receipt holds nothing else.
+    if not body:find("^[%d%s]+$") then return nil end
     local numbers = {}
     for value in body:gmatch("(%d+)") do
         numbers[#numbers + 1] = tonumber(value) or 0
@@ -68,9 +76,10 @@ function Utils.CleanPunctuation(text)
     return text:gsub("%.+$", "")
 end
 
+-- "Linen Clothx5" as "Linen Cloth x5".
 function Utils.SpaceBeforeX(s)
     if not s or type(s) ~= "string" then return s end
-    return s:gsub("(|r)x(%d+)", "%1 x%2"):gsub("([^%s])x(%d+)", "%1 x%2")
+    return (s:gsub("([^%s])x(%d+)", "%1 x%2"))
 end
 
 function Utils.RemoveLinkBrackets(text)
@@ -150,7 +159,6 @@ function Utils.ShouldSkipGenericReceive(text)
         lower:find(" gold") or
         lower:find(" silver") or
         lower:find(" copper") or
-        lower:find("your share") or
         lower:find(" share")
 end
 

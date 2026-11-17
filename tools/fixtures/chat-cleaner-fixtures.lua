@@ -974,6 +974,18 @@ local fixtures = {
         expectPlain = "Malagas + Linen Cloth (5)",
     },
     {
+        name = "a currency in the money receipt's wording isn't money",
+        event = "CHAT_MSG_CURRENCY",
+        message = "You gained: Honor x5",
+        expectPlain = "+ Honor x5",
+    },
+    {
+        name = "a money receipt with a thousands separator",
+        event = "CHAT_MSG_CURRENCY",
+        message = "You gained: 1,234 gold",
+        expectPlain = "+ 1234 0 0",
+    },
+    {
         name = "a refund names the item and count",
         event = "CHAT_MSG_SYSTEM",
         message = "You are refunded: Badge of Justice x10.",
