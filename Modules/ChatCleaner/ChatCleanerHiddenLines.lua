@@ -65,7 +65,6 @@ function HiddenLines.Create(config)
     config = config or {}
     local api = {}
     local probe = config.Probe or function() end -- TEMPORARY queue probe
-    local queueWindow = config.QueueWindow or 0.2
     local seen = setmetatable({}, { __mode = "k" })
     local pendingByFrame = setmetatable({}, { __mode = "k" })
     local doneByFrame = setmetatable({}, { __mode = "k" })
@@ -183,13 +182,15 @@ function HiddenLines.Create(config)
         end
     end
 
-    -- Each queue that starts or ends takes the newest line that was already
-    -- in the history when the change was first seen, if it came within a
-    -- moment before. Entering a battleground brings the raid and loot lines in
-    -- the same moment, so the newest, not the oldest, is the queue's; a line
-    -- added after the change belongs to something else. These go before
-    -- roster changes, so a player joining at that moment can't take the
-    -- queue's line.
+    -- Each queue that starts or ends takes a line that was already in the
+    -- history when the change was first seen, and came within the change's
+    -- window before it; a line added after the change belongs to something
+    -- else. A join takes the newest: entering a battleground brings the raid
+    -- and loot lines in the same moment, just before the queue's. A leave
+    -- takes the oldest, since its line comes a moment before the queue goes:
+    -- leaving two queues, the first line is the first queue's. These go
+    -- before roster changes, so a player joining at that moment can't take
+    -- the queue's line.
     local function ResolveQueueChanges(frame, lines, queueChanges, Apply)
         if not (lines[1] and config.FormatQueueChange) then return end
         local entered = battle.enteredAt
@@ -198,17 +199,19 @@ function HiddenLines.Create(config)
             local dropped = change.kind == "left" and entered
                 and change.time >= entered and change.time - entered <= ENTER_NOTICE_WINDOW
             if not dropped and Claims(change, frame) == 0 then
-                local newest
+                local oldestFirst = change.kind == "left"
+                local pick
                 for _, line in ipairs(lines) do
                     if not line.resolved and line.order <= change.seenOrder
-                        and math.abs(change.time - line.time) <= queueWindow
-                        and (not newest or line.order > newest.order) then
-                        newest = line
+                        and math.abs(change.time - line.time) <= (change.window or 0)
+                        and (not pick or (oldestFirst and line.order < pick.order)
+                            or (not oldestFirst and line.order > pick.order)) then
+                        pick = line
                     end
                 end
-                if newest then
+                if pick then
                     change.claims[frame] = 1
-                    Apply(newest, config.FormatQueueChange(change),
+                    Apply(pick, config.FormatQueueChange(change),
                         string.format("queue %s at %.2f", change.kind, change.time))
                 end
             end
@@ -386,26 +389,29 @@ function HiddenLines.Create(config)
         end
     end
 
-    -- Rewrites, in each chat window, the newest shown line that reads
+    -- Rewrites, in each chat window, the oldest shown line that reads
     -- `expected` and was added at or after `since`: a line the chat filter
-    -- styled before its cause was known.
+    -- styled before its cause was known. True when a window had one.
     function api.RenameShownLine(expected, text, since)
-        if not config.GetFrames then return end
+        if not config.GetFrames then return false end
+        local renamed = false
         for _, frame in ipairs(config.GetFrames()) do
-            local newest, newestTime
+            local oldest, oldestTime
             for _, entry in ipairs(GetElements(frame) or {}) do
                 local time = type(entry) == "table" and entry.timestamp
                 if type(time) == "number" and not IsSecret(time) and time >= since
                     and not IsSecret(entry.message) and entry.message == expected
-                    and (not newestTime or time >= newestTime) then
-                    newest, newestTime = entry, time
+                    and (not oldestTime or time < oldestTime) then
+                    oldest, oldestTime = entry, time
                 end
             end
-            if newest then
-                probe(string.format("shown line at %.2f renamed: %s", newestTime, text))
-                pcall(RewriteEntry, frame, newest, text, expected)
+            if oldest then
+                probe(string.format("shown line at %.2f renamed: %s", oldestTime, text))
+                local ok, rewritten = pcall(RewriteEntry, frame, oldest, text, expected)
+                renamed = renamed or (ok and rewritten)
             end
         end
+        return renamed
     end
 
     function api.HasPending()

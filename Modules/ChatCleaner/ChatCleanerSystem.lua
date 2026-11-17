@@ -356,22 +356,25 @@ function System.Create(config)
         return spaceBeforeX(colorMinus .. Carpenter.MinusSign .. "|r " .. colorWhite .. T("CHAT_LEFT_QUEUE_LABEL", "Left the queue:") .. " |r" .. colorQueue .. name .. "|r")
     end
 
-    -- A queue's line and the queue starting or ending come in the same
-    -- moment. Each change is kept a few seconds, for a line that comes after
-    -- it (here, or hidden in ChatCleanerHiddenLines).
+    -- How far before a queue change its line can come (a probe's log): a
+    -- join's line comes in the same moment as the queue; leaving, the game
+    -- answers with the line and the queue goes about a quarter second later
+    -- (0.25 to 0.3 s, three times). Each change carries its window and is
+    -- kept a few seconds, for a line that comes after it.
     local QUEUE_CHANGE_WINDOW_SECONDS = 3
-    api.QUEUE_LINE_WINDOW = 0.2
+    local SAME_MOMENT_SECONDS = 0.2
+    local LEAVE_LINE_SECONDS = 1
     local queueChanges = {}
 
-    -- "You are no longer queued." doesn't say which queue. When the queue
-    -- has already gone, it's named here; when the line comes first,
-    -- ChatCleaner names the shown line once the queue goes.
+    -- "You are no longer queued." doesn't say which queue. It comes before
+    -- its queue goes, so ChatCleaner names the shown line once the queue has;
+    -- should the queue go first, the line is named here.
     local function LeftQueueName()
         local now = GetTime and GetTime() or 0
         for index = #queueChanges, 1, -1 do
             local change = queueChanges[index]
-            if now - change.time > api.QUEUE_LINE_WINDOW then return nil end
-            if change.kind == "left" then return change.name end
+            if now - change.time > SAME_MOMENT_SECONDS then return nil end
+            if change.kind == "left" and not change.named then return change.name end
         end
     end
 
@@ -623,11 +626,15 @@ function System.Create(config)
             for index, state in pairs(states) do
                 local was = queueStates[index] and queueStates[index].status
                 if state.status == "queued" and was == "none" and state.name then
-                    queueChanges[#queueChanges + 1] = { kind = "joined", name = state.name, time = now }
+                    queueChanges[#queueChanges + 1] = {
+                        kind = "joined", name = state.name, time = now, window = SAME_MOMENT_SECONDS,
+                    }
                     probe("queue change joined " .. state.name .. " slot " .. index)
                 elseif state.status == "none" and (was == "queued" or was == "confirm") then
                     local name = queueStates[index].name
-                    queueChanges[#queueChanges + 1] = { kind = "left", name = name, time = now }
+                    queueChanges[#queueChanges + 1] = {
+                        kind = "left", name = name, time = now, window = LEAVE_LINE_SECONDS,
+                    }
                     probe("queue change left " .. tostring(name) .. " slot " .. index)
                 end
             end
@@ -635,7 +642,9 @@ function System.Create(config)
         queueStates = states
     end
 
-    -- Recent queue changes, oldest first: { kind = "joined" or "left", name, time }.
+    -- Recent queue changes, oldest first: { kind = "joined" or "left", name,
+    -- time, window }, where window is how long before the change its line
+    -- can come.
     function api.GetQueueChanges()
         api.RefreshQueues()
         return queueChanges

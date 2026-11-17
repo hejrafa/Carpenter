@@ -582,7 +582,6 @@ local hiddenLines = HiddenLines and HiddenLines.Create({
     end,
     GetQueueChanges = systemFormatter.GetQueueChanges,
     FormatQueueChange = systemFormatter.FormatQueueChange,
-    QueueWindow = systemFormatter.QUEUE_LINE_WINDOW,
     IsActive = function()
         return Carpenter ~= nil and Carpenter:IsEnabled("chatCleanerEnabled") and InChatMessagingLockdown()
     end,
@@ -597,7 +596,7 @@ if hiddenLines and postProcessor and postProcessor.SetHiddenLineHandler then
     postProcessor.SetHiddenLineHandler(hiddenLines.OnHiddenLineAdded)
 end
 
--- "You are no longer queued." doesn't say which queue, and can come a moment
+-- "You are no longer queued." doesn't say which queue, and comes a moment
 -- before the queue goes. Once it has, the line shown as "− Left the queue"
 -- gets the queue's name.
 local function NameShownQueueLines()
@@ -605,8 +604,8 @@ local function NameShownQueueLines()
     for _, change in ipairs(systemFormatter.GetQueueChanges()) do
         if change.kind == "left" and change.name and not change.shownChecked then
             change.shownChecked = true
-            hiddenLines.RenameShownLine(systemFormatter.LeftQueueText(), systemFormatter.FormatQueueChange(change),
-                change.time - systemFormatter.QUEUE_LINE_WINDOW)
+            change.named = hiddenLines.RenameShownLine(systemFormatter.LeftQueueText(),
+                systemFormatter.FormatQueueChange(change), change.time - change.window)
         end
     end
 end

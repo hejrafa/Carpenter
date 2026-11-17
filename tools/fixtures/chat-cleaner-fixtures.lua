@@ -1655,9 +1655,12 @@ do
         Fire("UPDATE_BATTLEFIELD_STATUS", 2)
         Expect(queuedIslands, "+ Joined the queue: Darkspear Islands", "a queue that shows a moment later names its line")
 
-        -- Leaving a queue as a player joins: each keeps its own line.
+        -- Leaving a queue as a player joins: each keeps its own line. The
+        -- queue goes about a quarter second after its line (a probe's log).
         At(209)
         local leftQueue = Hidden()
+        hiddenLines.Update()
+        At(209.28)
         queues[1] = { "none", "" }
         Fire("UPDATE_BATTLEFIELD_STATUS", 1)
         local joinedThen = Hidden()
@@ -1740,10 +1743,12 @@ do
         queues[2] = { "queued", "Warsong Gulch" }
         Fire("UPDATE_BATTLEFIELD_STATUS", 2)
 
-        -- The line comes first, then the queue goes: the shown line gets its name.
+        -- The line comes first, and the queue goes about a quarter second
+        -- later (a probe's log): the shown line gets its name.
         At(232)
         local leftFirst = ShowSystem("You are no longer queued.")
         ExpectBoth(leftFirst, "\226\136\146 Left the queue", "a leave line waits for its queue")
+        At(232.28)
         queues[2] = { "none", "" }
         Fire("UPDATE_BATTLEFIELD_STATUS", 2)
         ExpectBoth(leftFirst, "\226\136\146 Left the queue: Warsong Gulch", "a shown leave line is named once its queue goes")
@@ -1755,13 +1760,31 @@ do
         local leftAfter = ShowSystem("You are no longer queued.")
         ExpectBoth(leftAfter, "\226\136\146 Left the queue: Darkspear Islands", "a leave line after its queue went is named")
 
+        -- Leaving two queues quickly: the first line is the first queue's.
+        At(237)
+        queues[1] = { "queued", "Arathi Basin" }
+        queues[2] = { "queued", "Warsong Gulch" }
+        Fire("UPDATE_BATTLEFIELD_STATUS", 2)
+        At(238)
+        local leftBasin = ShowSystem("You are no longer queued.")
+        At(238.1)
+        local leftGulch = ShowSystem("You are no longer queued.")
+        At(238.3)
+        queues[1] = { "none", "" }
+        Fire("UPDATE_BATTLEFIELD_STATUS", 1)
+        At(238.4)
+        queues[2] = { "none", "" }
+        Fire("UPDATE_BATTLEFIELD_STATUS", 2)
+        ExpectBoth(leftBasin, "\226\136\146 Left the queue: Arathi Basin", "the first of two leave lines is the first queue's")
+        ExpectBoth(leftGulch, "\226\136\146 Left the queue: Warsong Gulch", "the second of two leave lines is the second queue's")
+
         -- A leave line from earlier isn't renamed by a later queue.
         At(240)
         local earlier = ShowSystem("You are no longer queued.")
         At(241)
         queues[1] = { "queued", "Arathi Basin" }
         Fire("UPDATE_BATTLEFIELD_STATUS", 1)
-        At(243)
+        At(243.5)
         queues[1] = { "none", "" }
         Fire("UPDATE_BATTLEFIELD_STATUS", 1)
         ExpectBoth(earlier, "\226\136\146 Left the queue", "an earlier leave line keeps its text")
