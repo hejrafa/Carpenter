@@ -77,6 +77,8 @@ LOOT_ROLL_NEED = "%s has selected Need for: %s"
 LOOT_ROLL_GREED = "%s has selected Greed for: %s"
 LOOT_ROLL_DISENCHANT = "%s has selected Disenchant for: %s"
 LOOT_ROLL_WON = "%s won: %s"
+ITEM_QUALITY2_DESC = "Uncommon"
+ITEM_QUALITY4_DESC = "Epic"
 
 NUM_CHAT_WINDOWS = 1
 _G.ChatFrame1 = { AddMessage = function() end }
@@ -788,6 +790,38 @@ local fixtures = {
         event = "CHAT_MSG_SYSTEM",
         message = "You have joined the queue for Alterac Valley as Healer.",
         expectPlain = "+ Joined the queue: Alterac Valley",
+    },
+    {
+        name = "a new raid keeps its line",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Party converted to Raid",
+        expectPlain = "Party converted to Raid",
+    },
+    {
+        name = "the loot method set on a new group",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Looting set to Group Loot.",
+        expectPlain = "Loot: Group Loot",
+    },
+    {
+        name = "another loot method",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Looting set to Need Before Greed.",
+        expectPlain = "Loot: Need Before Greed",
+    },
+    {
+        name = "the loot threshold in its quality's color",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Loot threshold set to Uncommon.",
+        expectPlain = "Loot threshold: Uncommon",
+        requireColor = "|cff1eff00Uncommon|r",
+    },
+    {
+        name = "a higher loot threshold",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Loot threshold set to Epic.",
+        expectPlain = "Loot threshold: Epic",
+        requireColor = "|cffa335edEpic|r",
     },
     {
         name = "left the queue uses the minus sign",

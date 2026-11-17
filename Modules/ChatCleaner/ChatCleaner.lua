@@ -673,6 +673,51 @@ groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
     UpdateHiddenLines()
 end)
 
+-- =========================
+-- TEMPORARY probe: raid and loot lines on entering a battleground
+-- =========================
+-- Logs, in the order they come, system lines (hidden, or readable ones
+-- about the group or loot) and the group, loot and battleground events, each
+-- with the group's state: in a raid, members, loot method and threshold. To
+-- CarpenterDB.chatGroupProbeLog. Remove once the raid and loot lines are
+-- styled inside a battleground.
+local groupProbeLog = {}
+local function Readable(func, ...)
+    if type(func) ~= "function" then return "-" end
+    local ok, value = pcall(func, ...)
+    if not ok then return "error" end
+    if IsSecret(value) then return "secret" end
+    return tostring(value)
+end
+local function GroupState()
+    local method = C_PartyInfo and C_PartyInfo.GetLootMethod or _G.GetLootMethod
+    return string.format("raid=%s group=%s n=%s method=%s threshold=%s", Readable(IsInRaid), Readable(IsInGroup),
+        Readable(GetNumGroupMembers), Readable(method), Readable(_G.GetLootThreshold))
+end
+local function GroupProbe(text)
+    if #groupProbeLog >= 300 then return end
+    local now = GetTime and GetTime() or 0
+    groupProbeLog[#groupProbeLog + 1] = string.format("%.2f %s | %s", now, (tostring(text):gsub("|", "||")), GroupState())
+    if CarpenterDB then CarpenterDB.chatGroupProbeLog = groupProbeLog end
+end
+local groupProbeFrame = CreateFrame("Frame")
+for _, event in ipairs({
+    "CHAT_MSG_SYSTEM", "GROUP_ROSTER_UPDATE", "PARTY_LOOT_METHOD_CHANGED", "PARTY_LEADER_CHANGED", "GROUP_JOINED",
+    "GROUP_FORMED", "GROUP_LEFT", "PLAYER_ENTERING_WORLD", "PLAYER_ENTERING_BATTLEGROUND", "UPDATE_BATTLEFIELD_STATUS",
+}) do
+    pcall(groupProbeFrame.RegisterEvent, groupProbeFrame, event)
+end
+groupProbeFrame:SetScript("OnEvent", function(_, event, arg1)
+    if event ~= "CHAT_MSG_SYSTEM" then
+        GroupProbe(event)
+    elseif IsSecret(arg1) then
+        GroupProbe("system line hidden")
+    elseif type(arg1) == "string" and (arg1:find("[Ll]oot") or arg1:find("[Rr]aid") or arg1:find("[Pp]arty")
+        or arg1:find("[Gg]roup")) then
+        GroupProbe("system line readable: " .. arg1)
+    end
+end)
+
 if Carpenter and Carpenter.RegisterFeature then
     Carpenter:RegisterFeature("chatCleanerEnabled", {
         Enable = function()

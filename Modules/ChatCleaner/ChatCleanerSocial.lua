@@ -58,6 +58,26 @@ function Social.Create(config)
         return lootMethodNames[key] or method
     end
 
+    -- "Loot threshold set to Uncommon." (ERR_SET_LOOT_THRESHOLD_S), as a
+    -- pattern that takes the quality's name.
+    local function LootThresholdName(plainMsg)
+        local format = GlobalText("ERR_SET_LOOT_THRESHOLD_S", "Loot threshold set to %s.")
+        local pattern = format:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1"):gsub("%%%%s", "(.-)")
+        local name = Trim(plainMsg):match("^" .. pattern .. "$")
+        if name and name ~= "" then return name end
+    end
+
+    -- The color of the item quality with that name, as on its items.
+    local function QualityColor(name)
+        for quality = 0, 8 do
+            local color = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality]
+            if color and _G["ITEM_QUALITY" .. quality .. "_DESC"] == name then
+                return string.format("|cff%02x%02x%02x", math.floor((color.r or 1) * 255),
+                    math.floor((color.g or 1) * 255), math.floor((color.b or 1) * 255))
+            end
+        end
+    end
+
     local function ShortPlayerName(name)
         if not name or type(name) ~= "string" then return "" end
         name = name:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
@@ -691,11 +711,17 @@ function Social.Create(config)
         if plainMsg:match("^%s*You are now the group leader%.?%s*$") or plainMsg:match("^%s*You are now the raid leader%.?%s*$") then
             return groupColor .. T("CHAT_YOU_ARE_GROUP_LEADER", "You are now group leader") .. "|r"
         end
-        local lootMethod = plainMsg:match("[Ll]ooting changed to%s+(.+)$") or plainMsg:match("[Ll]oot method set to%s+(.+)$") or
+        local lootMethod = plainMsg:match("^%s*[Ll]ooting set to%s+(.+)$") or
+            plainMsg:match("[Ll]ooting changed to%s+(.+)$") or plainMsg:match("[Ll]oot method set to%s+(.+)$") or
             plainMsg:match("[Ll]oot method changed to%s+(.+)$") or plainMsg:match("[Ll]oot%s+changed to%s+(.+)$")
         if lootMethod and lootMethod ~= "" then
             lootMethod = NormalizeLootMethodDisplay(lootMethod)
             return colorWhite .. T("CHAT_LOOT_LABEL", "Loot:") .. " |r" .. groupColor .. lootMethod .. "|r"
+        end
+        local threshold = LootThresholdName(plainMsg)
+        if threshold then
+            return colorWhite .. T("CHAT_LOOT_THRESHOLD_LABEL", "Loot threshold:") .. " |r" ..
+                (QualityColor(threshold) or groupColor) .. threshold .. "|r"
         end
         local died = plainMsg:match("^%s*(.-)%s+has died%.?%s*$")
         if died and died ~= "" then
