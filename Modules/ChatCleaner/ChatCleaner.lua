@@ -535,9 +535,9 @@ function Carpenter_ApplyChatEditBoxTexture()
     end
 end
 
--- Keeps group deaths, the roster and skill ranks current, so hidden death,
--- join, leave and skill-up lines can be rewritten from them in the chat
--- history.
+-- Keeps group deaths, the roster, skill ranks and battleground queues
+-- current, so hidden death, join, leave, skill-up and queue lines can be
+-- rewritten from them in the chat history.
 local HiddenLines = ns.Private.ChatCleanerHiddenLines
 
 local function InChatMessagingLockdown()
@@ -563,6 +563,8 @@ local hiddenLines = HiddenLines and HiddenLines.Create({
     FormatSkillRise = systemFormatter.FormatSkillRise and function(rise)
         return systemFormatter.FormatSkillRise(rise, ColorPlus .. "+|r ")
     end,
+    GetQueueChanges = systemFormatter.GetQueueChanges,
+    FormatQueueChange = systemFormatter.FormatQueueChange,
     IsActive = function()
         return Carpenter ~= nil and Carpenter:IsEnabled("chatCleanerEnabled") and InChatMessagingLockdown()
     end,
@@ -642,6 +644,10 @@ groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
             hiddenLines.BattleBegan()
         end
         return
+    elseif event == "UPDATE_BATTLEFIELD_STATUS" then
+        if systemFormatter.RefreshQueues then systemFormatter.RefreshQueues() end
+        UpdateHiddenLines()
+        return
     end
     if event == "PLAYER_ENTERING_WORLD" and hiddenLines then
         hiddenLines.LeftBattleground()
@@ -670,6 +676,10 @@ if Carpenter and Carpenter.RegisterFeature then
                 groupNoticeFrame:RegisterEvent("CHAT_MSG_BG_SYSTEM_NEUTRAL")
                 groupNoticeFrame:RegisterEvent("PLAYER_ENTERING_BATTLEGROUND")
                 socialFormatter.NoteGroupRoster(true)
+            end
+            if systemFormatter.RefreshQueues then
+                groupNoticeFrame:RegisterEvent("UPDATE_BATTLEFIELD_STATUS")
+                systemFormatter.RefreshQueues()
             end
         end,
         Disable = function()

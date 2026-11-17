@@ -765,6 +765,31 @@ local fixtures = {
         expectHidden = true,
     },
     {
+        name = "joined the queue names the battleground",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You have joined the queue for Warsong Gulch.",
+        expectPlain = "+ Joined the queue: Warsong Gulch",
+        requireColor = "|cff80b0ffWarsong Gulch|r",
+    },
+    {
+        name = "joined the queue names a battleground the old list didn't know",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You have joined the queue for Darkspear Islands.",
+        expectPlain = "+ Joined the queue: Darkspear Islands",
+    },
+    {
+        name = "a group joining the queue reads the same",
+        event = "CHAT_MSG_SYSTEM",
+        message = "Your group has joined the queue for Arathi Basin.",
+        expectPlain = "+ Joined the queue: Arathi Basin",
+    },
+    {
+        name = "joining the queue with a role names the battleground only",
+        event = "CHAT_MSG_SYSTEM",
+        message = "You have joined the queue for Alterac Valley as Healer.",
+        expectPlain = "+ Joined the queue: Alterac Valley",
+    },
+    {
         name = "left the queue uses the minus sign",
         event = "CHAT_MSG_SYSTEM",
         message = "You are no longer queued.",
@@ -1453,6 +1478,10 @@ do
     end
     UnitIsUnit = function(a, b) return a == b or (a == "raid1" and b == "player") end
     UnitIsDeadOrGhost = function(unit) return dead[unit] == true end
+    -- Battleground queue slots: status and battleground name.
+    local queues = { { "none", "" }, { "none", "" } }
+    GetMaxBattlefieldID = function() return #queues end
+    GetBattlefieldStatus = function(index) return queues[index][1], queues[index][2] end
 
     local feature = registeredChatFeatures[#registeredChatFeatures].feature
     feature.Enable()
@@ -1607,6 +1636,46 @@ do
         hiddenLines.Update()
         Expect(unknown, "<hidden>", "an unexplained line stays")
 
+        -- Queueing for another battleground from inside one (seen in game:
+        -- "You have joined the queue for Warsong Gulch." stayed as written).
+        At(205)
+        local queuedGulch = Hidden()
+        queues[1] = { "queued", "Warsong Gulch" }
+        Fire("UPDATE_BATTLEFIELD_STATUS", 1)
+        Expect(queuedGulch, "+ Joined the queue: Warsong Gulch", "a queue line is named from the queue")
+
+        -- The line can come a moment before the queue shows.
+        At(207)
+        local queuedIslands = Hidden()
+        hiddenLines.Update()
+        Expect(queuedIslands, "<hidden>", "a queue line waits for its queue")
+        At(207.1)
+        queues[2] = { "queued", "Darkspear Islands" }
+        Fire("UPDATE_BATTLEFIELD_STATUS", 2)
+        Expect(queuedIslands, "+ Joined the queue: Darkspear Islands", "a queue that shows a moment later names its line")
+
+        -- Leaving a queue as a player joins: the join doesn't take the
+        -- queue's line.
+        At(209)
+        local leftQueue, joinedThen = Hidden(), Hidden()
+        queues[1] = { "none", "" }
+        members.raid7 = { "Quill", "Ashmantle" }
+        groupMembers = 7
+        Fire("GROUP_ROSTER_UPDATE")
+        Expect(leftQueue, "\226\136\146 Left the queue", "leaving a queue names its line")
+        Expect(joinedThen, "Quill Ashmantle joined", "a join at the same moment leaves the queue its line")
+
+        -- A queue that pops isn't left.
+        At(211)
+        queues[2] = { "confirm", "Darkspear Islands" }
+        Fire("UPDATE_BATTLEFIELD_STATUS", 2)
+        At(211.2)
+        local popped = Hidden()
+        hiddenLines.Update()
+        At(215)
+        hiddenLines.Update()
+        Expect(popped, "<hidden>", "a queue that pops doesn't name a line")
+
         -- Out of lockdown, nothing is touched.
         inLockdown = false
         At(220)
@@ -1620,6 +1689,7 @@ do
 
     feature.Disable()
     inRaid, groupMembers = false, 0
+    GetMaxBattlefieldID, GetBattlefieldStatus = nil, nil
     UnitName, UnitIsUnit, UnitIsDeadOrGhost = realUnitName, nil, nil
     ChatFrame1, ChatFrame2, NUM_CHAT_WINDOWS = realChatFrame1, realChatFrame2, realWindows
     ChatTypeInfo.SYSTEM = realSystemInfo

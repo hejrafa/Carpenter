@@ -12,6 +12,8 @@
 --     gets the name; battlegrounds send two lines per change, and the other,
 --     or Blizzard's batched line landing beside it, is emptied.
 --   * a group member's death, when exactly one death and one line meet.
+--   * joining or leaving a battleground queue, from the queue that starts or
+--     ends within a moment of it. The nearest line gets it.
 --   * "Notify system has been disabled/enabled": the first hidden line right
 --     after entering a battleground, and right after it begins.
 --   * Blizzard's batched "has joined the battle" lines in a battleground's
@@ -38,6 +40,7 @@ local LINE_BEFORE_CHANGE = 0.5
 local LINE_AFTER_CHANGE = 0.3
 local DEATH_WINDOW = 1.0
 local SKILL_WINDOW = 1.5
+local QUEUE_WINDOW = 1.0
 local ENTER_NOTICE_WINDOW = 1.5
 local START_NOTICE_WINDOW = 5
 local START_NOTICE_GRACE = HiddenLines.START_NOTICE_GRACE
@@ -52,6 +55,8 @@ local IsSecret = Carpenter.Secret.IsSecret
 --   FormatChange(change)
 --   GetSkillRises()     recent skill rank rises { name, rank, time }, oldest first
 --   FormatSkillRise(rise)
+--   GetQueueChanges()   recent battleground queue changes { kind, name, time }, oldest first
+--   FormatQueueChange(change)
 --   IsActive()          true while lines can be hidden
 --   IsForever()         battleground rules only apply on WoW Forever
 function HiddenLines.Create(config)
@@ -165,6 +170,28 @@ function HiddenLines.Create(config)
         end
     end
 
+    -- Each queue that starts or ends takes the line nearest to it. These go
+    -- before roster changes, so a player joining at that moment can't take
+    -- the queue's line.
+    local function ResolveQueueChanges(frame, lines, Apply)
+        if not lines[1] or not (config.GetQueueChanges and config.FormatQueueChange) then return end
+        for _, change in ipairs(config.GetQueueChanges() or {}) do
+            if Claims(change, frame) == 0 then
+                local nearest, distance
+                for _, line in ipairs(lines) do
+                    local gap = math.abs(change.time - line.time)
+                    if not line.resolved and gap <= QUEUE_WINDOW and (not distance or gap < distance) then
+                        nearest, distance = line, gap
+                    end
+                end
+                if nearest then
+                    change.claims[frame] = 1
+                    Apply(nearest, config.FormatQueueChange(change))
+                end
+            end
+        end
+    end
+
     -- Each change takes the lines nearest to it: the first gets the name, a
     -- second is emptied.
     local function ResolveRosterChanges(frame, lines, changes, Apply)
@@ -266,6 +293,7 @@ function HiddenLines.Create(config)
         end
 
         ResolveSkillLines(frame, skillLines, Apply)
+        ResolveQueueChanges(frame, systemLines, Apply)
         ResolveRosterChanges(frame, systemLines, changes, Apply)
         for _, line in ipairs(systemLines) do
             if not line.resolved then Apply(line, ClaimBattleNotice(line, done, now)) end

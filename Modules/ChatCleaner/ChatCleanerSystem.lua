@@ -5,6 +5,9 @@ ns.Private = ns.Private or {}
 local System = ns.Private.ChatCleanerSystem or {}
 ns.Private.ChatCleanerSystem = System
 
+local ReadableNumber = Carpenter.Secret.ReadableNumber
+local ReadableString = Carpenter.Secret.ReadableString
+
 function System.Create(config)
     config = config or {}
     local cleanPunctuation = config.CleanPunctuation or function(text) return text end
@@ -341,9 +344,53 @@ function System.Create(config)
             event == "CHAT_MSG_BG_SYSTEM_NEUTRAL"
     end
 
+    local function JoinedQueueText(name)
+        return spaceBeforeX(colorPlus .. "+|r " .. colorWhite .. T("CHAT_JOINED_QUEUE_LABEL", "Joined the queue:") .. " |r" .. colorQueue .. name .. "|r")
+    end
+
+    local function LeftQueueText()
+        return spaceBeforeX(colorMinus .. Carpenter.MinusSign .. "|r " .. colorWhite .. T("CHAT_LEFT_QUEUE", "Left the queue") .. "|r")
+    end
+
+    -- "You have joined the queue for %s." and its kin, as patterns that take
+    -- the battleground's name, so one the list below doesn't know (Darkspear
+    -- Islands) is still named. The English wording backs up the game's.
+    local QUEUE_JOIN_STRINGS = {
+        "ERR_SOLO_JOIN_BATTLEGROUND_SPEC_S", "ERR_SOLO_JOIN_BATTLEGROUND_S", "ERR_GROUP_JOIN_BATTLEGROUND_S",
+        "ERR_JOIN_SINGLE_SCENARIO_S", "ERR_SOLO_JOIN_TRAINING_GROUND",
+    }
+    local QUEUE_JOIN_FALLBACKS = {
+        "You have joined the queue for %s as %s.", "You have joined the queue for %s.",
+        "Your group has joined the queue for %s.",
+    }
+    local queueJoinPatterns
+
+    local function QueueJoinPatterns()
+        if queueJoinPatterns then return queueJoinPatterns end
+        queueJoinPatterns = {}
+        local function Add(format)
+            if type(format) ~= "string" or not format:find("%s", 1, true) then return end
+            local pattern = format:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1"):gsub("%%%%s", "(.-)")
+            queueJoinPatterns[#queueJoinPatterns + 1] = "^" .. pattern .. "$"
+        end
+        for _, key in ipairs(QUEUE_JOIN_STRINGS) do Add(_G[key]) end
+        for _, format in ipairs(QUEUE_JOIN_FALLBACKS) do Add(format) end
+        return queueJoinPatterns
+    end
+
+    local function QueuedName(message)
+        for _, pattern in ipairs(QueueJoinPatterns()) do
+            local name = message:match(pattern)
+            if name and name ~= "" then return name end
+        end
+    end
+
     function api.FormatQueueNotice(message, event)
         if not message or type(message) ~= "string" then return nil end
         if not IsQueueNoticeEvent(event) then return nil end
+
+        local queuedName = QueuedName(message)
+        if queuedName then return JoinedQueueText(queuedName) end
 
         local queueMsg = message:lower()
         if queueMsg:find("joined the queue") or queueMsg:find("joined queue") or
@@ -365,11 +412,11 @@ function System.Create(config)
             elseif queueMsg:find("arena", 1, true) or queueMsg:find("2v2", 1, true) or queueMsg:find("3v3", 1, true) or queueMsg:find("5v5", 1, true) then
                 bgType = T("CHAT_ARENA", "Arena")
             end
-            return spaceBeforeX(colorPlus .. "+|r " .. colorWhite .. T("CHAT_JOINED_QUEUE_LABEL", "Joined the queue:") .. " |r" .. colorQueue .. bgType .. "|r")
+            return JoinedQueueText(bgType)
         end
 
         if message:match("^You are no longer queued%.?$") then
-            return spaceBeforeX(colorMinus .. Carpenter.MinusSign .. "|r " .. colorWhite .. T("CHAT_LEFT_QUEUE", "Left the queue") .. "|r")
+            return LeftQueueText()
         end
 
         if message:match("^You are now saved to this instance%.?$") then
@@ -501,6 +548,61 @@ function System.Create(config)
     function api.GetSkillRises()
         api.RefreshSkillRanks()
         return skillRises
+    end
+
+    -- WoW Forever hides system lines from addons inside battlegrounds, so
+    -- "You have joined the queue for Warsong Gulch." asked for from there
+    -- can't be read. The queues stay readable: each one that starts or ends
+    -- is kept a few seconds, so ChatCleanerHiddenLines can rewrite its line.
+    local QUEUE_CHANGE_WINDOW_SECONDS = 3
+    local queueStates
+    local queueChanges = {}
+
+    -- Each queue slot's status ("none", "queued", "confirm", "active") and
+    -- battleground name; either is nil while the game hides it.
+    local function ReadQueues()
+        local states = {}
+        if type(GetBattlefieldStatus) ~= "function" then return states end
+        local count = type(GetMaxBattlefieldID) == "function" and GetMaxBattlefieldID() or MAX_BATTLEFIELD_QUEUES or 3
+        count = ReadableNumber(count) or 0
+        for index = 1, count do
+            local ok, status, name = pcall(GetBattlefieldStatus, index)
+            if ok then
+                states[index] = { status = ReadableString(status), name = ReadableString(name) }
+            end
+        end
+        return states
+    end
+
+    function api.RefreshQueues()
+        local now = GetTime and GetTime() or 0
+        while queueChanges[1] and now - queueChanges[1].time > QUEUE_CHANGE_WINDOW_SECONDS do
+            table.remove(queueChanges, 1)
+        end
+
+        local states = ReadQueues()
+        if queueStates then
+            for index, state in pairs(states) do
+                local was = queueStates[index] and queueStates[index].status
+                if state.status == "queued" and was == "none" and state.name then
+                    queueChanges[#queueChanges + 1] = { kind = "joined", name = state.name, time = now }
+                elseif state.status == "none" and was == "queued" then
+                    queueChanges[#queueChanges + 1] = { kind = "left", time = now }
+                end
+            end
+        end
+        queueStates = states
+    end
+
+    -- Recent queue changes, oldest first: { kind = "joined" or "left", name, time }.
+    function api.GetQueueChanges()
+        api.RefreshQueues()
+        return queueChanges
+    end
+
+    function api.FormatQueueChange(change)
+        if change.kind == "joined" then return JoinedQueueText(change.name) end
+        return LeftQueueText()
     end
 
     function api.FormatAppearanceCollectionMessage(event, message, plainText, prefixPlus)
