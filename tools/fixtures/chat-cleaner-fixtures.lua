@@ -81,6 +81,7 @@ LOOT_ITEM = "%s receives loot: %s."
 LOOT_ITEM_MULTIPLE = "%s receives loot: %sx%d."
 LOOT_ITEM_PUSHED = "%s receives item: %s."
 LOOT_ITEM_PUSHED_MULTIPLE = "%s receives item: %sx%d."
+LOOT_ITEM_BONUS_ROLL = "%s receives bonus loot: %s."
 LOOT_ITEM_SELF = "You receive loot: %s."
 LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %sx%d."
 LOOT_ITEM_PUSHED_SELF = "You receive item: %s."
@@ -298,6 +299,14 @@ local fixtures = {
         name = "system battle loss stays hidden",
         event = "CHAT_MSG_SYSTEM",
         message = "Your team lost the battle.",
+        expectHidden = true,
+    },
+    {
+        -- Read with the game's own loot strings, which a locale words its own way.
+        name = "a loot addon's yell of your own bonus roll is hidden",
+        event = "CHAT_MSG_YELL",
+        message = "Tester receives bonus loot: [Ruby].",
+        author = "Tester",
         expectHidden = true,
     },
     {

@@ -198,6 +198,11 @@ function Loot.Create(config)
 
     local api = {}
 
+    -- Who a group loot line, or an addon's yell of one, says got the item.
+    function api.GroupLootPlayerName(message, author)
+        return Loot.GetGroupLootPlayerName(message, groupLootPatterns, author)
+    end
+
     local function StyleBareLootDisplay(display)
         if not display or display == "" or display:find("|Hitem:", 1, true) then return display end
         return Palette.green .. display .. "|r"

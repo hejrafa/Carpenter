@@ -93,6 +93,41 @@ local function FormatBattleAnnouncement(plainSys)
     return nil
 end
 
+-- The game's own words for each loot method, by its Classic name, its
+-- Enum.LootMethod key, and the global that says it.
+local LOOT_METHOD_STRINGS = {
+    freeforall = { "Freeforall", "ERR_SET_LOOT_FREEFORALL", "Looting set to Free for All." },
+    roundrobin = { "Roundrobin", "ERR_SET_LOOT_ROUNDROBIN", "Looting set to Round Robin." },
+    master = { "Masterlooter", "ERR_SET_LOOT_MASTER", "Looting set to Master Looter." },
+    group = { "Group", "ERR_SET_LOOT_GROUP", "Looting set to Group Loot." },
+    needbeforegreed = { "Needbeforegreed", "ERR_SET_LOOT_NBG", "Looting set to Need Before Greed." },
+    personalloot = { "Personal", "ERR_SET_LOOT_PERSONAL", "Looting set to Personal." },
+}
+
+-- The game's "Looting set to ..." line for the group's loot method, which
+-- Retail-based clients give as an Enum.LootMethod value and Classic as a name.
+local function LootMethodLine()
+    local getter = C_PartyInfo and C_PartyInfo.GetLootMethod or _G.GetLootMethod
+    if type(getter) ~= "function" then return nil end
+    local ok, method = pcall(getter)
+    if not ok or IsSecret(method) then return nil end
+    for name, strings in pairs(LOOT_METHOD_STRINGS) do
+        local enumValue = Enum and Enum.LootMethod and Enum.LootMethod[strings[1]]
+        if method == name or (enumValue ~= nil and method == enumValue) then
+            return GameText(strings[2], strings[3])
+        end
+    end
+end
+
+local function LootThresholdLine()
+    if type(GetLootThreshold) ~= "function" then return nil end
+    local ok, quality = pcall(GetLootThreshold)
+    if not ok or IsSecret(quality) or type(quality) ~= "number" then return nil end
+    local name = _G["ITEM_QUALITY" .. quality .. "_DESC"]
+    if type(name) ~= "string" then return nil end
+    return GameText("ERR_SET_LOOT_THRESHOLD_S", "Loot threshold set to %s."):format(name)
+end
+
 function Social.Create()
     local api = {}
 
@@ -538,6 +573,26 @@ function Social.Create()
         end
 
         return nil
+    end
+
+    -- The lines the game sends as it forms a battleground's group, in its
+    -- order (a probe's log): "Party converted to Raid" for a raid, then the
+    -- loot method and the loot threshold, styled as the chat filter styles
+    -- them. Nil when the loot settings can't be read.
+    function api.GroupSetupLines()
+        local method, threshold = LootMethodLine(), LootThresholdLine()
+        if not (method and threshold) then return nil end
+        local texts = {}
+        if IsInRaid() then
+            texts[1] = api.FormatBattlegroundAndGroupNotice("CHAT_MSG_SYSTEM",
+                GameText("ERR_PARTY_CONVERTED_TO_RAID", "Party converted to Raid"))
+        end
+        texts[#texts + 1] = api.FormatSystemSocialMessage(method)
+        texts[#texts + 1] = api.FormatSystemSocialMessage(threshold)
+        for index = 1, (IsInRaid() and 3 or 2) do
+            if type(texts[index]) ~= "string" then return nil end
+        end
+        return texts
     end
 
     return api

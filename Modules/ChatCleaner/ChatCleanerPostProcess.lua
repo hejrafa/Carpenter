@@ -88,6 +88,62 @@ local function ParseHonorLine(plainText)
     return nil
 end
 
+-- Inside battlegrounds, and in fights in instances, the game hides player
+-- chat from addons. The chat window still keeps each line's event and its
+-- values, and addon code may join hidden text into new text, so the line is
+-- rebuilt as the post-processor styles a shown one: the short channel tag,
+-- the sender as a player link, and the message. Event: chat type and the
+-- player link's chat group.
+local HIDDEN_CHAT_TYPES = {
+    CHAT_MSG_GUILD = { "GUILD", "GUILD" },
+    CHAT_MSG_OFFICER = { "OFFICER", "OFFICER" },
+    CHAT_MSG_PARTY = { "PARTY", "PARTY" },
+    CHAT_MSG_PARTY_LEADER = { "PARTY_LEADER", "PARTY" },
+    CHAT_MSG_RAID = { "RAID", "RAID" },
+    CHAT_MSG_RAID_LEADER = { "RAID_LEADER", "RAID" },
+    CHAT_MSG_RAID_WARNING = { "RAID_WARNING", "RAID" },
+    CHAT_MSG_INSTANCE_CHAT = { "INSTANCE_CHAT", "INSTANCE_CHAT" },
+    CHAT_MSG_INSTANCE_CHAT_LEADER = { "INSTANCE_CHAT_LEADER", "INSTANCE_CHAT" },
+}
+
+-- The class color the game gives a sender's name, when the chat settings
+-- color this chat type's names by class. The sender's ID is hidden too, but
+-- UnitClassFromGUID takes a hidden ID from addons and leaves the class's file
+-- name readable (per its API documentation).
+local function HiddenSenderColor(chatType, guid)
+    if not (guid and type(UnitClassFromGUID) == "function") then return nil end
+    local util, info = ChatFrameUtil, ChatTypeInfo and ChatTypeInfo[chatType]
+    if util and util.ShouldColorChatByClass and info then
+        local ok, colored = pcall(util.ShouldColorChatByClass, info)
+        if ok and not IsSecret(colored) and not colored then return nil end
+    end
+    local ok, _, classFile = pcall(UnitClassFromGUID, guid)
+    if not ok or IsSecret(classFile) or type(classFile) ~= "string" then return nil end
+    return Utils.ClassColorCode(classFile)
+end
+
+-- The sender as the game shows them: the short name (the realm left out
+-- where the game would) in its class color. The name stays hidden; it is
+-- only joined into the line.
+local function HiddenSenderName(chatType, args)
+    local name = args[2]
+    local ok, short = pcall(Ambiguate, name, chatType == "GUILD" and "guild" or "none")
+    if ok and short then name = short end
+    local color = HiddenSenderColor(chatType, args[12])
+    if color then return color .. name .. "|r" end
+    return name
+end
+
+-- The chat timestamp the game puts before each line, when it's switched on.
+local function ChatTimestamp()
+    local util = ChatFrameUtil
+    if not (util and util.GetTimestampFormat and TimeUtil and TimeUtil.BetterDate) then return "" end
+    local ok, format = pcall(util.GetTimestampFormat)
+    if not ok or not format then return "" end
+    local okDate, stamp = pcall(TimeUtil.BetterDate, format, type(time) == "function" and time() or nil)
+    return okDate and type(stamp) == "string" and stamp or ""
+end
+
 function PostProcess.Create(config)
     config = config or {}
     local applyChannelStyling = ApplyChannelStyling
@@ -555,6 +611,27 @@ function PostProcess.Create(config)
 
     function api.SetHiddenLineHandler(handler)
         hiddenLineHandler = handler
+    end
+
+    local function BuildHiddenChat(event, args)
+        local types = HIDDEN_CHAT_TYPES[event]
+        if not types or type(args) ~= "table" then return nil end
+        local prefix = api.StyleChatPrefix(_G["CHAT_" .. types[1] .. "_GET"])
+        local message, author, lineID = args[1], args[2], args[11]
+        if not (prefix and message and author) then return nil end
+        local link = "|Hplayer:" .. author .. ":" .. (lineID or 0) .. ":" .. types[2] .. "|h"
+            .. HiddenSenderName(types[1], args) .. "|h"
+        return ChatTimestamp() .. string.format(prefix, link) .. message
+    end
+
+    function api.IsHiddenChatEvent(event)
+        return HIDDEN_CHAT_TYPES[event] ~= nil
+    end
+
+    -- A hidden party, raid, guild or instance chat line rebuilt, or nil.
+    function api.FormatHiddenChat(event, args)
+        local ok, text = pcall(BuildHiddenChat, event, args)
+        if ok then return text end
     end
 
     local function OnLineAdded(frame, message, ...)

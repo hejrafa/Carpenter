@@ -644,5 +644,28 @@ function System.Create()
         return SpaceBeforeX(PREFIX_PLUS .. Palette.white .. T("CHAT_APPEARANCE_LABEL") .. " |r" .. display)
     end
 
+    -- "[You died.]" is the game's Death Recap link. It reads "You died" in red,
+    -- as other deaths do, and still opens the recap when clicked.
+    function api.FormatOwnDeath(recapID)
+        local text = Utils.GameText("DEATH_RECAP_TEXT", "You died."):gsub("%.%s*$", "")
+        if recapID then
+            return Palette.red .. "|Hdeath:" .. recapID .. "|h" .. text .. "|h|r"
+        end
+        return Palette.red .. text .. "|r"
+    end
+
+    -- The hidden "[You died.]" line rewritten: the latest recap's link when the
+    -- game gives it, else the words alone.
+    function api.OwnDeathLine()
+        local recapID
+        if C_DeathRecap and C_DeathRecap.GetRecapLink then
+            local ok, link = pcall(C_DeathRecap.GetRecapLink)
+            if ok and ReadableString(link) then
+                recapID = link:match("|Hdeath:(%d+)|h")
+            end
+        end
+        return api.FormatOwnDeath(recapID)
+    end
+
     return api
 end
