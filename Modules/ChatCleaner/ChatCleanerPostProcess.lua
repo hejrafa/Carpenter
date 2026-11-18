@@ -104,7 +104,32 @@ local HIDDEN_CHAT_TYPES = {
     CHAT_MSG_RAID_WARNING = { "RAID_WARNING", "RAID" },
     CHAT_MSG_INSTANCE_CHAT = { "INSTANCE_CHAT", "INSTANCE_CHAT" },
     CHAT_MSG_INSTANCE_CHAT_LEADER = { "INSTANCE_CHAT_LEADER", "INSTANCE_CHAT" },
+    CHAT_MSG_SAY = { "SAY", "SAY" },
+    CHAT_MSG_YELL = { "YELL", "YELL" },
+    CHAT_MSG_EMOTE = { "EMOTE", "EMOTE" },
+    CHAT_MSG_WHISPER = { "WHISPER", "WHISPER" },
+    CHAT_MSG_WHISPER_INFORM = { "WHISPER_INFORM", "WHISPER" },
+    CHAT_MSG_CHANNEL = { "CHANNEL", "CHANNEL" },
 }
+
+-- "[Orcish] " before words in a language other than yours, as the game
+-- writes it: say and yell are measured against the language you speak to
+-- everyone, the rest against your own. nil when the language is hidden.
+local function LanguageHeader(chatType, language)
+    if language == nil or language == "" then return "" end
+    if IsSecret(language) or type(language) ~= "string" then return nil end
+    local getDefault = (chatType == "SAY" or chatType == "YELL") and GetAlternativeDefaultLanguage or GetDefaultLanguage
+    local ok, default = pcall(getDefault)
+    if ok and language == default then return "" end
+    return "[" .. language .. "] "
+end
+
+-- A channel line's number, as the post-processor shortens "[2. Trade]":
+-- "2." linking to the channel. nil when the number is hidden.
+local function ChannelTag(number)
+    if IsSecret(number) or type(number) ~= "number" then return nil end
+    return "|Hchannel:channel:" .. number .. "|h" .. number .. ".|h "
+end
 
 -- The class color the game gives a sender's name, when the chat settings
 -- color this chat type's names by class. The sender's ID is hidden too, but
@@ -616,12 +641,23 @@ function PostProcess.Create(config)
     local function BuildHiddenChat(event, args)
         local types = HIDDEN_CHAT_TYPES[event]
         if not types or type(args) ~= "table" then return nil end
-        local prefix = api.StyleChatPrefix(_G["CHAT_" .. types[1] .. "_GET"])
+        local chatType = types[1]
+        local prefix = api.StyleChatPrefix(_G["CHAT_" .. chatType .. "_GET"])
         local message, author, lineID = args[1], args[2], args[11]
-        if not (prefix and message and author) then return nil end
+        -- A hidden language leaves out the header, except in say and yell,
+        -- where the other faction speaks its own: those lines stay as written.
+        local language = LanguageHeader(chatType, args[3])
+        if not language and chatType ~= "SAY" and chatType ~= "YELL" then language = "" end
+        local channel = ""
+        if chatType == "CHANNEL" then
+            channel = ChannelTag(args[8])
+            -- Each channel has its own chat settings, class colors included.
+            chatType = channel and "CHANNEL" .. args[8]
+        end
+        if not (prefix and message and author and language and channel) then return nil end
         local link = "|Hplayer:" .. author .. ":" .. (lineID or 0) .. ":" .. types[2] .. "|h"
-            .. HiddenSenderName(types[1], args) .. "|h"
-        return ChatTimestamp() .. string.format(prefix, link) .. message
+            .. HiddenSenderName(chatType, args) .. "|h"
+        return ChatTimestamp() .. channel .. string.format(prefix, link) .. language .. message
     end
 
     function api.IsHiddenChatEvent(event)

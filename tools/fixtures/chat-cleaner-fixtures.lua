@@ -936,6 +936,158 @@ local fixtures = {
         expectPlain = "Arathi Basin has begun",
     },
     {
+        name = "battle start: a battleground that doesn't name itself",
+        event = "CHAT_MSG_BG_SYSTEM_NEUTRAL",
+        message = "Let the battle begin!",
+        expectPlain = "The battle has begun",
+    },
+    {
+        name = "battle countdown: a battleground that doesn't name itself",
+        event = "CHAT_MSG_BG_SYSTEM_NEUTRAL",
+        message = "The battle begins in 2 minutes!",
+        expectPlain = "Battle begins in 2 minutes",
+    },
+    {
+        name = "battle countdown: Strand of the Ancients' second round",
+        event = "CHAT_MSG_BG_SYSTEM_NEUTRAL",
+        message = "Round 2 of the Battle for the Strand of the Ancients begins in 1 minute.",
+        expectPlain = "Round 2 begins in 1 minute",
+    },
+    {
+        name = "battle countdown: the second round's last seconds",
+        event = "CHAT_MSG_BG_SYSTEM_NEUTRAL",
+        message = "Round 2 begins in 30 seconds.  Prepare yourselves!",
+        expectPlain = "Round 2 begins in 30 seconds",
+    },
+    {
+        name = "flag: taken, Forever and Eye of the Storm",
+        event = "CHAT_MSG_BG_SYSTEM_HORDE",
+        message = "Tynande Timpa has taken the flag!",
+        expectPlain = "Tynande Timpa took the flag",
+        -- No color of its own: the line keeps the announcer's for that side.
+        rejectColor = "|c",
+    },
+    {
+        name = "flag: dropped, Forever and Eye of the Storm",
+        event = "CHAT_MSG_BG_SYSTEM_ALLIANCE",
+        message = "The flag has been dropped!",
+        expectPlain = "Flag dropped",
+    },
+    {
+        name = "flag: captured by a player, Forever",
+        event = "CHAT_MSG_BG_SYSTEM_HORDE",
+        message = "Tynande Timpa has captured the flag!",
+        expectPlain = "Tynande Timpa captured the flag",
+    },
+    {
+        name = "flag: captured by a side, Eye of the Storm",
+        event = "CHAT_MSG_BG_SYSTEM_ALLIANCE",
+        message = "The Alliance have captured the flag!",
+        expectPlain = "Alliance captured the flag",
+    },
+    {
+        name = "flag: picked up, Warsong Gulch",
+        event = "CHAT_MSG_BG_SYSTEM_ALLIANCE",
+        message = "The Horde Flag was picked up by Koji-Draenor!",
+        expectPlain = "Koji took the Horde flag",
+    },
+    {
+        name = "flag: dropped by a player, Warsong Gulch",
+        event = "CHAT_MSG_BG_SYSTEM_ALLIANCE",
+        message = "The Alliance Flag was dropped by Koji!",
+        expectPlain = "Koji dropped the Alliance flag",
+    },
+    {
+        name = "flag: returned, Warsong Gulch",
+        event = "CHAT_MSG_BG_SYSTEM_HORDE",
+        message = "The Horde Flag was returned to its base by Koji!",
+        expectPlain = "Koji returned the Horde flag",
+    },
+    {
+        name = "flag: captured, Warsong Gulch",
+        event = "CHAT_MSG_BG_SYSTEM_ALLIANCE",
+        message = "Koji captured the Horde Flag!",
+        expectPlain = "Koji captured the Horde flag",
+    },
+    {
+        name = "flag: both back, Warsong Gulch",
+        event = "CHAT_MSG_BG_SYSTEM_NEUTRAL",
+        message = "The flags are now placed at their bases.",
+        expectPlain = "Flags back at their bases",
+    },
+    {
+        name = "base: assaulted, Arathi Basin",
+        event = "CHAT_MSG_BG_SYSTEM_HORDE",
+        message = "Koji has assaulted the stables!",
+        expectPlain = "Koji assaulted the stables",
+    },
+    {
+        name = "base: defended, Arathi Basin",
+        event = "CHAT_MSG_BG_SYSTEM_HORDE",
+        message = "Koji has defended the farm!",
+        expectPlain = "Koji defended the farm",
+    },
+    {
+        name = "base: claimed, without the warning after it",
+        event = "CHAT_MSG_BG_SYSTEM_HORDE",
+        message = "Koji claims the mine!  If left unchallenged, the Horde will control it in 1 minute!",
+        expectPlain = "Koji claimed the mine",
+    },
+    {
+        name = "base: taken by a side, Arathi Basin",
+        event = "CHAT_MSG_BG_SYSTEM_ALLIANCE",
+        message = "The Alliance has taken the blacksmith!",
+        expectPlain = "Alliance took the blacksmith",
+    },
+    {
+        name = "base: taken, Eye of the Storm",
+        event = "CHAT_MSG_BG_SYSTEM_HORDE",
+        message = "The Horde has taken control of the Mage Tower!",
+        expectPlain = "Horde took the Mage Tower",
+    },
+    {
+        name = "base: lost, Eye of the Storm",
+        event = "CHAT_MSG_BG_SYSTEM_ALLIANCE",
+        message = "The Alliance has lost control of the Draenei Ruins!",
+        expectPlain = "Alliance lost the Draenei Ruins",
+    },
+    {
+        name = "score: near victory",
+        event = "CHAT_MSG_BG_SYSTEM_NEUTRAL",
+        message = "The Horde has gathered 1600 resources, and is near victory!",
+        expectPlain = "Horde is near victory: 1600 resources",
+    },
+    {
+        name = "score: Alterac Valley's reinforcements",
+        event = "CHAT_MSG_BG_SYSTEM_ALLIANCE",
+        message = "The Alliance team is running out of reinforcements!",
+        expectPlain = "Alliance is running out of reinforcements",
+    },
+    {
+        name = "score: the winner",
+        event = "CHAT_MSG_BG_SYSTEM_NEUTRAL",
+        message = "The Horde wins!",
+        expectPlain = "Horde wins",
+    },
+    {
+        name = "gate destroyed, Isle of Conquest",
+        event = "CHAT_MSG_BG_SYSTEM_NEUTRAL",
+        message = "The front gate of the Alliance keep has been destroyed!",
+        expectPlain = "Front gate of the Alliance keep destroyed",
+    },
+    {
+        name = "titan portal, Strand of the Ancients",
+        event = "CHAT_MSG_BG_SYSTEM_HORDE",
+        message = "The Horde captured the titan portal!",
+        expectPlain = "Horde captured the titan portal",
+    },
+    {
+        name = "flag: a player saying it isn't the announcer",
+        event = "CHAT_MSG_SAY",
+        message = "Koji has taken the flag!",
+        expectPlain = "Koji has taken the flag!",
+    },
+    {
         name = "battle start: only the announcer is restyled",
         event = "CHAT_MSG_SAY",
         message = "Let the battle for Warsong Gulch begin!",
@@ -1861,6 +2013,10 @@ do
         -- but only once no roster change claims it.
         At(112.70)
         Fire("CHAT_MSG_BG_SYSTEM_NEUTRAL", "Let the battle for Warsong Gulch begin!")
+        additionalChecks = additionalChecks + 1
+        if not social.IsBattleStartAnnouncement("Let the battle begin!") then
+            failures[#failures + 1] = "hidden lines: a start that doesn't name the battleground still starts it"
+        end
         At(115.34)
         local notifyOn = Hidden()
         hiddenLines.Update()
@@ -2238,7 +2394,85 @@ do
         local bareLine = frame1:AddChat(HIDDEN, "CHAT_MSG_GUILD", nil)
         hiddenLines.OnHiddenLineAdded(frame1)
         ExpectChat(bareLine, "<hidden>", "a hidden chat line without values stays")
+
+        -- Whispers, say, yell, emotes and channels are rebuilt the same way.
+        local realChatGets = {
+            CHAT_WHISPER_GET, CHAT_WHISPER_INFORM_GET, CHAT_SAY_GET, CHAT_EMOTE_GET, CHAT_CHANNEL_GET,
+        }
+        CHAT_WHISPER_GET, CHAT_WHISPER_INFORM_GET = "%s whispers: ", "To %s: "
+        CHAT_SAY_GET, CHAT_EMOTE_GET, CHAT_CHANNEL_GET = "%s says: ", "%s ", "%s: "
+        GetDefaultLanguage = function() return "Orcish" end
+        GetAlternativeDefaultLanguage = function() return "Orcish" end
+        local function AddHiddenChat(event, text, extra)
+            local args = ChatArgs(text, "Brick", 12)
+            for index, value in pairs(extra or {}) do args[index] = value end
+            local line = frame1:AddChat(HIDDEN, event, args)
+            hiddenLines.OnHiddenLineAdded(frame1)
+            return line
+        end
+        ExpectChat(AddHiddenChat("CHAT_MSG_WHISPER", "you there?"), "Brick whispers: you there?",
+            "a hidden whisper is rebuilt", "|Hplayer:Brick:12:WHISPER|hBrick|h whispers: ")
+        ExpectChat(AddHiddenChat("CHAT_MSG_WHISPER_INFORM", "yes"), "To Brick: yes",
+            "a hidden whisper you sent is rebuilt")
+        ExpectChat(AddHiddenChat("CHAT_MSG_SAY", "for the horde", { [3] = "Orcish" }), "Brick says: for the horde",
+            "hidden say in your own language has no language tag")
+        ExpectChat(AddHiddenChat("CHAT_MSG_SAY", "Lo ver nud", { [3] = "Common" }), "Brick says: [Common] Lo ver nud",
+            "hidden say in another language is tagged with it")
+        ExpectChat(AddHiddenChat("CHAT_MSG_SAY", "Lo ver nud", { [3] = HIDDEN }), "<hidden>",
+            "hidden say whose language is hidden too stays as written")
+        ExpectChat(AddHiddenChat("CHAT_MSG_GUILD", "back", { [3] = HIDDEN }), "G Brick: back",
+            "a guild line whose language is hidden is still rebuilt")
+        ExpectChat(AddHiddenChat("CHAT_MSG_EMOTE", "waves at the gate"), "Brick waves at the gate",
+            "a hidden emote is rebuilt")
+        ExpectChat(AddHiddenChat("CHAT_MSG_CHANNEL", "lfg deadmines", { [8] = 2 }), "2. Brick: lfg deadmines",
+            "a hidden channel line is rebuilt with the channel's number", "|Hchannel:channel:2|h2.|h ")
+        ExpectChat(AddHiddenChat("CHAT_MSG_CHANNEL", "lfg", { [8] = HIDDEN }), "<hidden>",
+            "a hidden channel line whose number is hidden stays")
+        CHAT_WHISPER_GET, CHAT_WHISPER_INFORM_GET = realChatGets[1], realChatGets[2]
+        CHAT_SAY_GET, CHAT_EMOTE_GET, CHAT_CHANNEL_GET = realChatGets[3], realChatGets[4], realChatGets[5]
+        GetDefaultLanguage, GetAlternativeDefaultLanguage = nil, nil
         CHAT_GUILD_GET, CHAT_INSTANCE_CHAT_LEADER_GET = realGuildGet, realInstanceLeaderGet
+
+        -- A far-off member's health comes less often, so their death is seen
+        -- after its line (seen in game: "Pivo has died." stayed as written).
+        -- A near death in between keeps its own line.
+        At(300)
+        local farDeath = Hidden()
+        hiddenLines.Update()
+        At(301.5)
+        dead.raid5 = true
+        Fire("UNIT_HEALTH", "raid5")
+        At(301.6)
+        local nearDeath = Hidden()
+        hiddenLines.Update()
+        Expect(nearDeath, "Peti died", "a near death keeps its own line beside a waiting one")
+        Expect(farDeath, "<hidden>", "a line waits for a far-off death")
+        At(302.0)
+        dead.raid6 = true
+        Fire("UNIT_HEALTH", "raid6")
+        Expect(farDeath, "<hidden>", "a late death waits until its own line would have come")
+        At(303.1)
+        hiddenLines.Update()
+        Expect(farDeath, "Rathica died", "a death seen late names the line waiting from before it")
+
+        -- A new leader names the one line that comes with it.
+        local leaderUnit = "raid2"
+        UnitIsGroupLeader = function(unit)
+            return unit == leaderUnit or (unit == "player" and leaderUnit == "raid1")
+        end
+        At(310)
+        Fire("GROUP_ROSTER_UPDATE")
+        At(312)
+        local newLeader = Hidden()
+        leaderUnit = "raid5"
+        Fire("PARTY_LEADER_CHANGED")
+        Expect(newLeader, "Peti Lucko is now group leader", "a new leader names its line")
+        At(314)
+        local youLead = Hidden()
+        leaderUnit = "raid1"
+        Fire("PARTY_LEADER_CHANGED")
+        Expect(youLead, "You are now group leader", "becoming the leader names its line")
+        UnitIsGroupLeader = nil
         inLockdown = false
     end
 

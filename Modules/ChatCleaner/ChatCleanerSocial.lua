@@ -69,6 +69,78 @@ local BATTLE_START_PATTERNS = {
     "^[Ll]et the [Bb]attle for (.-) begin",
     "^[Tt]he [Bb]attle for (.-) has begun",
 }
+-- The same, from battlegrounds whose announcer doesn't name them.
+local UNNAMED_COUNTDOWN_PATTERN = "^[Tt]he [Bb]attle begins in (%d+ %a+)"
+local ROUND_COUNTDOWN_PATTERNS = {
+    "^[Rr]ound (%d+) of the [Bb]attle for .- begins in (%d+ %a+)",
+    "^[Rr]ound (%d+) begins in (%d+ %a+)",
+}
+local UNNAMED_START_PATTERNS = {
+    "^[Ll]et the [Bb]attle begin",
+    "^[Tt]he [Bb]attle has begun",
+}
+
+-- The announcer's lines about flags, bases, gates and the score, in each
+-- battleground's words: Warsong Gulch, Arathi Basin, Eye of the Storm,
+-- Alterac Valley, Isle of Conquest, Strand of the Ancients and WoW Forever's
+-- own. Most take who did it, then what; "passive" takes the side, then
+-- who ("The Horde Flag was picked up by X"); "bare" takes nothing, "side"
+-- only the side, "score" the side and its resources, "place" what was
+-- destroyed. The first that matches wins.
+local BATTLE_EVENT_PATTERNS = {
+    { "^The flag has been dropped$", "CHAT_BG_FLAG_DROPPED", "bare" },
+    { "^The flags are now placed at their bases$", "CHAT_BG_FLAGS_PLACED", "bare" },
+    { "^The (.-) [Ff]lag was picked up by (.+)$", "CHAT_BG_TOOK", "passive" },
+    { "^The (.-) [Ff]lag was dropped by (.+)$", "CHAT_BG_DROPPED", "passive" },
+    { "^The (.-) [Ff]lag was returned to its base by (.+)$", "CHAT_BG_RETURNED", "passive" },
+    { "^(.-) has taken control of the (.+)$", "CHAT_BG_TOOK" },
+    { "^(.-) has lost control of the (.+)$", "CHAT_BG_LOST" },
+    { "^(.-) has taken the (.+)$", "CHAT_BG_TOOK" },
+    { "^(.-) has dropped the (.+)$", "CHAT_BG_DROPPED" },
+    { "^(.-) ha[sv]e? captured the (.+)$", "CHAT_BG_CAPTURED" },
+    { "^(.-) captured the (.+)$", "CHAT_BG_CAPTURED" },
+    { "^(.-) has assaulted the (.+)$", "CHAT_BG_ASSAULTED" },
+    { "^(.-) has defended the (.+)$", "CHAT_BG_DEFENDED" },
+    -- "X claims the mine!  If left unchallenged, the Horde will control it
+    -- in 1 minute!"
+    { "^(.-) claims the (.-)!", "CHAT_BG_CLAIMED" },
+    { "^The (%a+) has gathered (%d+) resources, and is near victory$", "CHAT_BG_NEAR_VICTORY", "score" },
+    { "^The (%a+) team is running out of reinforcements$", "CHAT_BG_LOW_REINFORCEMENTS", "side" },
+    { "^The (%a+) wins$", "CHAT_BG_WINS", "side" },
+    { "^The (.-) has been destroyed$", "CHAT_BG_DESTROYED", "place" },
+}
+
+-- Who an announcer line names: a side without its "The", or a player
+-- without the brackets of a link or a realm.
+local function BattleActor(text)
+    text = Trim(text):gsub("^%[(.-)%]$", "%1")
+    local side = text:match("^[Tt]he (%a+)$")
+    if side then return side end
+    return NoRealm(text)
+end
+
+-- What it names: a place as written, a flag lowercased ("the Horde flag").
+local function BattleTarget(text)
+    return (Trim(text):gsub("[Ff]lag$", "flag"))
+end
+
+-- Without a color of its own, the line keeps the announcer's: the side's
+-- color for what a side does.
+local function FormatBattleEvent(plainSys)
+    local text = Trim(plainSys):gsub("[%s!%.]+$", "")
+    for _, entry in ipairs(BATTLE_EVENT_PATTERNS) do
+        local key, kind = entry[2], entry[3]
+        local first, second = text:match(entry[1])
+        if first then
+            if kind == "bare" then return T(key) end
+            if kind == "passive" then return T(key, BattleActor(second), BattleTarget(first .. " flag")) end
+            if kind == "side" then return T(key, first) end
+            if kind == "score" then return T(key, first, second) end
+            if kind == "place" then return T(key, (first:gsub("^%l", string.upper))) end
+            return T(key, BattleActor(first), BattleTarget(second))
+        end
+    end
+end
 
 local function FormatBattleAnnouncement(plainSys)
     local name, wait
@@ -83,6 +155,13 @@ local function FormatBattleAnnouncement(plainSys)
         local battle = Line(Palette.queue, name) .. Palette.white
         return Line(Palette.white, T("CHAT_BATTLE_BEGINS_IN", battle, wait))
     end
+    wait = plainSys:match(UNNAMED_COUNTDOWN_PATTERN)
+    if wait then return Line(Palette.white, T("CHAT_BATTLE_STARTS_IN", wait)) end
+    for _, pattern in ipairs(ROUND_COUNTDOWN_PATTERNS) do
+        local round
+        round, wait = plainSys:match(pattern)
+        if round then return Line(Palette.white, T("CHAT_BATTLE_ROUND_BEGINS_IN", round, wait)) end
+    end
 
     for _, pattern in ipairs(BATTLE_START_PATTERNS) do
         name = plainSys:match(pattern)
@@ -90,7 +169,10 @@ local function FormatBattleAnnouncement(plainSys)
             return Line(Palette.white, T("CHAT_BATTLE_BEGUN", Line(Palette.queue, name) .. Palette.white))
         end
     end
-    return nil
+    for _, pattern in ipairs(UNNAMED_START_PATTERNS) do
+        if plainSys:find(pattern) then return Line(Palette.white, T("CHAT_BATTLE_HAS_BEGUN")) end
+    end
+    return FormatBattleEvent(plainSys)
 end
 
 -- The game's own words for each loot method, by its Classic name, its
@@ -228,6 +310,8 @@ function Social.Create()
     local rosterInRaid = false
     -- When each member still without a name came, oldest first.
     local unnamedSince = {}
+    -- Who led the group at the last snapshot: true for you, else a full name.
+    local rosterLeader
 
     -- Your own death has its own line, so you are never a tracked member.
     -- Unit comparisons can be hidden too, so the name decides as well.
@@ -260,6 +344,17 @@ function Social.Create()
         while groupChanges[1] and now - groupChanges[1].time > CHANGE_WINDOW do
             table.remove(groupChanges, 1)
         end
+    end
+
+    -- Who leads the group: true for you, a member's full name, or nil when
+    -- that can't be read.
+    local function GroupLeader()
+        if ReadableBool(UnitIsGroupLeader, "player") then return true end
+        local leader
+        ForEachGroupMember(function(unit, fullName)
+            if not leader and ReadableBool(UnitIsGroupLeader, unit) then leader = fullName end
+        end)
+        return leader
     end
 
     -- since: when a member who joined without a name came.
@@ -342,6 +437,16 @@ function Social.Create()
                 end
             end
         end
+        -- A new leader ("You are now the group leader."); name is nil for you.
+        local leader = GroupLeader()
+        if fresh then
+            rosterLeader = leader
+        elseif leader ~= nil then
+            if rosterLeader ~= nil and leader ~= rosterLeader and Utils.InChatLockdown() then
+                AddChange("leader", leader ~= true and leader or nil, now)
+            end
+            rosterLeader = leader
+        end
         rosterNames, rosterInRaid = current, inRaid
         for fullName in pairs(deadMembers) do
             if not current[fullName] then
@@ -376,6 +481,9 @@ function Social.Create()
             return Line(Palette.red, T("CHAT_PLAYER_DIED", change.name))
         elseif change.kind == "left" then
             return Line(Palette.red, T("CHAT_PLAYER_LEFT", change.name))
+        elseif change.kind == "leader" then
+            if not change.name then return Line(Utils.GroupColor(), T("CHAT_YOU_ARE_GROUP_LEADER")) end
+            return Line(Utils.GroupColor(), T("CHAT_PLAYER_NOW_GROUP_LEADER", change.name))
         end
         return Line(Palette.green, T("CHAT_PLAYER_JOINED", change.name))
     end
@@ -403,6 +511,9 @@ function Social.Create()
         if IsSecret(text) or type(text) ~= "string" then return false end
         for _, pattern in ipairs(BATTLE_START_PATTERNS) do
             if text:match(pattern) then return true end
+        end
+        for _, pattern in ipairs(UNNAMED_START_PATTERNS) do
+            if text:find(pattern) then return true end
         end
         return false
     end

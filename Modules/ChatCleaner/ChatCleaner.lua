@@ -310,6 +310,7 @@ groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
         -- explain a waiting line.
         if socialFormatter.NoteGroupMemberHealth(arg1) and hiddenLines.HasPending() then
             UpdateHiddenLines()
+            UpdateHiddenLines(HiddenLines.DEATH_SETTLE_DELAY)
         end
     elseif event == "UNIT_NAME_UPDATE" then
         -- A player who joined before the game had their name.
@@ -348,8 +349,8 @@ groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
         NameShownQueueLines()
         UpdateHiddenLines()
     else
-        -- PLAYER_ENTERING_WORLD and GROUP_ROSTER_UPDATE: a loading screen
-        -- starts the roster afresh.
+        -- PLAYER_ENTERING_WORLD, GROUP_ROSTER_UPDATE and PARTY_LEADER_CHANGED:
+        -- a loading screen starts the roster afresh.
         if event == "PLAYER_ENTERING_WORLD" then
             hiddenLines.LeftBattleground()
         end
@@ -359,7 +360,8 @@ groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
 end)
 
 local GROUP_NOTICE_EVENTS = {
-    "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDATE", "UNIT_HEALTH", "UNIT_FLAGS", "UNIT_NAME_UPDATE", "CHAT_MSG_SYSTEM",
+    "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDATE", "PARTY_LEADER_CHANGED", "UNIT_HEALTH", "UNIT_FLAGS",
+    "UNIT_NAME_UPDATE", "CHAT_MSG_SYSTEM",
     "CHAT_MSG_BG_SYSTEM_NEUTRAL", "PLAYER_ENTERING_BATTLEGROUND", "GROUP_JOINED", "PLAYER_DEAD",
     "UPDATE_BATTLEFIELD_STATUS",
 }

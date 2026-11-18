@@ -28,8 +28,11 @@
 --      names its nearest line; battlegrounds send two lines per change, so
 --      there each then empties its next nearest. A player who joins before
 --      the game has their name is a change once the name comes, reaching
---      back to when they joined.
---   7. A group member's death, when exactly one death and one line meet.
+--      back to when they joined. A new group leader names one line the same
+--      way.
+--   7. A group member's death, when exactly one death and one line meet
+--      within a second; or a death seen up to 2.5 s after the one line
+--      still waiting, as a far-off member's health comes less often.
 --   8. On Forever, in a battleground: "Notify system has been
 --      disabled/enabled", the first hidden line right after entering (it
 --      doesn't always come) and right after the battle begins; and
@@ -51,10 +54,15 @@ HiddenLines.START_NOTICE_GRACE = 0.35
 HiddenLines.BATCH_GRACE = 0.6
 HiddenLines.BATCH_TIMES = { 30, 35, 40, 45, 50, 55, 60 }
 
-local LINE_MAX_AGE = 3
+local LINE_MAX_AGE = 4
 local LINE_BEFORE_CHANGE = 0.5
 local LINE_AFTER_CHANGE = 0.3
 local DEATH_WINDOW = 1.0
+-- The game sends a far-off member's health less often than a near one's,
+-- so their death can be seen well after its line.
+local LATE_DEATH_WINDOW = 2.5
+-- A late death is matched once its own line, had it one, would have come.
+HiddenLines.DEATH_SETTLE_DELAY = DEATH_WINDOW + 0.05
 local SKILL_WINDOW = 1.5
 local ENTER_NOTICE_WINDOW = 1.5
 local START_NOTICE_WINDOW = 5
@@ -73,7 +81,8 @@ local IsSecret = Carpenter.Secret.IsSecret
 
 -- config:
 --   GetFrames()         chat windows whose lines may be edited
---   GetChanges()        recent group changes { kind, name, time, since }, oldest first
+--   GetChanges()        recent group changes { kind, name, time, since }, oldest
+--                       first; kind is joined, left, died or leader
 --   FormatChange(change)
 --   GetSkillRises()     recent skill rank rises { name, rank, time }, oldest first
 --   FormatSkillRise(rise)
@@ -311,15 +320,17 @@ function HiddenLines.Create(config)
     end
 
     -- Every change first names the line nearest to it; then, in a
-    -- battleground, which sends two lines per change, each empties the next
-    -- nearest. Naming all of them first keeps two joins at once from both
-    -- going to the first.
+    -- battleground, which sends two lines per join or departure, each of
+    -- those empties the next nearest. A new leader has one line. Naming all
+    -- of them first keeps two joins at once from both going to the first.
+    local ROSTER_KINDS = { joined = true, left = true, leader = true }
     local function ResolveRosterChanges(frame, lines, changes, Apply)
         if not config.FormatChange then return end
         local lineCount = battle.enteredAt and 2 or 1
         for claim = 1, lineCount do
             for _, change in ipairs(changes) do
-                if (change.kind == "joined" or change.kind == "left") and Claims(change, frame) == claim - 1 then
+                local counts = ROSTER_KINDS[change.kind] and (claim == 1 or change.kind ~= "leader")
+                if counts and Claims(change, frame) == claim - 1 then
                     local line = NearestRosterLine(lines, change)
                     if line then
                         change.claims[frame] = claim
@@ -356,24 +367,39 @@ function HiddenLines.Create(config)
         Apply(line, text)
     end
 
-    local function ClaimDeath(line, lines, changes)
-        local match
-        for _, change in ipairs(changes) do
-            if change.kind == "died" and math.abs(change.time - line.time) <= DEATH_WINDOW
-                and Claims(change, line.frame) == 0 then
-                if match then return nil end
-                match = change
+    -- Whether a death could be a line's: within a second of it, or (late)
+    -- seen up to LATE_DEATH_WINDOW after it.
+    local function DeathFits(change, line, late)
+        local delta = change.time - line.time
+        if late then return delta > DEATH_WINDOW and delta <= LATE_DEATH_WINDOW end
+        return math.abs(delta) <= DEATH_WINDOW
+    end
+
+    -- A line takes the one death near it. Failing that, a death seen late
+    -- takes the one line still waiting from before it, once the death is old
+    -- enough that its own line would have come.
+    local function ClaimDeath(line, lines, changes, now)
+        for _, late in ipairs({ false, true }) do
+            local match
+            for _, change in ipairs(changes) do
+                if change.kind == "died" and Claims(change, line.frame) == 0 and DeathFits(change, line, late)
+                    and (not late or now - change.time >= DEATH_WINDOW) then
+                    if match then return nil end
+                    match = change
+                end
+            end
+            if match then
+                -- Another unexplained line that fits the death could be its line.
+                for _, other in ipairs(lines) do
+                    if other ~= line and not other.resolved
+                        and (DeathFits(match, other, false) or DeathFits(match, other, late)) then
+                        return nil
+                    end
+                end
+                match.claims[line.frame] = 1
+                return config.FormatChange(match)
             end
         end
-        if not match then return nil end
-        -- Another unexplained line as close to the death could be its line.
-        for _, other in ipairs(lines) do
-            if other ~= line and not other.resolved and math.abs(match.time - other.time) <= DEATH_WINDOW then
-                return nil
-            end
-        end
-        match.claims[line.frame] = 1
-        return config.FormatChange(match)
     end
 
     local function IsBatchTime(line)
@@ -438,7 +464,7 @@ function HiddenLines.Create(config)
         ResolveQueueChanges(frame, systemLines, queueChanges, Apply)
         ResolveRosterChanges(frame, systemLines, changes, Apply)
         for _, line in ipairs(systemLines) do
-            if not line.resolved then Apply(line, ClaimDeath(line, systemLines, changes)) end
+            if not line.resolved then Apply(line, ClaimDeath(line, systemLines, changes, now)) end
         end
         for _, line in ipairs(systemLines) do
             if not line.resolved then Apply(line, ClaimBattleNotice(line, done, now)) end
