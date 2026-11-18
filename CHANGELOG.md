@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.9.2
+
+- Chat Cleaner now shortens every battleground announcement: flags ("Tynande Timpa took the flag", "Flag dropped", "Koji returned the Horde flag"), bases ("Koji assaulted the stables", "Koji claimed the mine", "Alliance took the Mage Tower"), gates and the score ("Horde is near victory: 1600 resources", "Horde wins"). A side's line keeps the game's color for that side.
+- Inside battlegrounds, where Retail and WoW Forever hide most chat from addons, Chat Cleaner now also tidies queue lines, the raid and loot lines as you enter, your own death, new group leaders, and players who join before the game knows their name or die far away. Guild, party, raid and instance chat, whispers, say, yell, emotes and channels look the same as outside, with the sender in class color.
+- Battleground queue lines name the battleground: "+ Joined the queue: Warsong Gulch" and "− Left the queue: Darkspear Islands", also when you leave two at once.
+- Loot settings read "Loot: Group Loot" and "Loot threshold: Uncommon", with the quality in its item color.
+- Your own death reads "You died" in red and still opens the Death Recap. Every red line in Chat Cleaner now uses the game's own red.
+- Looted stacks keep their count ("+ [Linen Cloth] x5"), refunds read "Refunded: Badge of Justice (10)", and "Congratulations, you have reached level 12!" reads "Reached level 12" with the mana gain kept on the level-up line.
+- A merchant visit where you spend more than you have left now shows its summary too.
+- Players' own words are no longer restyled when they read like a game line, and a cross-realm player saying "I roll 100" in party chat no longer comes out mangled.
+- On WoW Forever, chat from an AFK or DND player in a battleground no longer goes missing.
+- Lines that came out wrong: "The battle for Wintergrasp is about to begin!" and about 20 others were hidden as battle results, "5 Golden Tokens" counted as gold, "You gained: Honor x5" as copper, "You have selected no favorite mounts appropriate for this area." as a roll, and a monster emote with no sender as "Orcish roars!".
+
 ## 1.9.1
 
 - New in the Automations settings for rogues on WoW Forever: Quick Lockpick. Right-click a locked lockbox in your bags, or the one another player puts in the trade window's bottom slot, to cast Pick Lock on it. While you hover the box, the cursor shows the glowing hand, and a left-click still picks the box up.
