@@ -98,6 +98,7 @@ CHAT_FLAG_AFK = "<Away>"
 CHAT_FLAG_DND = "<Busy>"
 ITEM_QUALITY2_DESC = "Uncommon"
 ITEM_QUALITY4_DESC = "Epic"
+UNKNOWNOBJECT = "Unknown"
 
 NUM_CHAT_WINDOWS = 1
 _G.ChatFrame1 = { AddMessage = function() end }
@@ -1899,6 +1900,44 @@ do
         hiddenLines.Update()
         Expect(deathA, "<hidden>", "two deaths at once leave the first line alone")
         Expect(deathB, "<hidden>", "two deaths at once leave the second line alone")
+
+        -- A player who joins before the game has their name: the roster says
+        -- "Unknown" until the name comes with UNIT_NAME_UPDATE (seen in game:
+        -- both lines stayed as written).
+        At(180.0)
+        local joinBattle, joinGroup = Hidden(), Hidden()
+        At(180.1)
+        members.raid7 = { UNKNOWNOBJECT, "" }
+        groupMembers = 7
+        Fire("GROUP_ROSTER_UPDATE")
+        Expect(joinBattle, "<hidden>", "a join without a name waits for it")
+        At(180.8)
+        members.raid7 = { "Jet", "Killer" }
+        Fire("UNIT_NAME_UPDATE", "raid7")
+        Expect(joinBattle, "Jet Killer joined", "a join is named once the name comes")
+        Expect(joinGroup, "", "the other line of a join that waited for its name is emptied")
+
+        -- A name that comes only with the next change, a departure, joins
+        -- too late to have lines; the departure keeps both of its own (seen
+        -- in game: the late join took the departure's line).
+        At(185.0)
+        local lateJoin = Hidden()
+        At(185.1)
+        members.raid8 = { UNKNOWNOBJECT, "" }
+        groupMembers = 8
+        Fire("GROUP_ROSTER_UPDATE")
+        At(190.0)
+        local departed, departedAgain = Hidden(), Hidden()
+        members.raid7, members.raid8 = { "Ani", "Raache" }, nil
+        groupMembers = 7
+        Fire("GROUP_ROSTER_UPDATE")
+        Expect(departed, "Jet Killer left", "a departure keeps its line from a join named late")
+        Expect(departedAgain, "", "a departure keeps its second line from a join named late")
+        Expect(lateJoin, "<hidden>", "a join named too late leaves its old line alone")
+        At(195)
+        members.raid7 = nil
+        groupMembers = 6
+        Fire("GROUP_ROSTER_UPDATE")
 
         -- A line with no known cause stays as the game wrote it.
         At(200)

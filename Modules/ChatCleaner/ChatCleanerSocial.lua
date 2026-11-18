@@ -215,10 +215,19 @@ function Social.Create()
     -- that came with it.
     local CHANGE_WINDOW = 10
     local MAX_JOINS_AT_ONCE = 3
+    -- A player can join before the game has their name: UnitName says
+    -- "Unknown" until UNIT_NAME_UPDATE. Their join then counts from when they
+    -- came. A name that takes longer than this has no hidden line left
+    -- waiting, and would only take the lines of whatever changed as it came.
+    local NAME_WAIT_MAX = 3
+    -- Members already there at a fresh snapshot never count as joining.
+    local AT_SNAPSHOT = -math.huge
     local groupChanges = {}
     local deadMembers = {}
     local rosterNames = {}
     local rosterInRaid = false
+    -- When each member still without a name came, oldest first.
+    local unnamedSince = {}
 
     -- Your own death has its own line, so you are never a tracked member.
     -- Unit comparisons can be hidden too, so the name decides as well.
@@ -227,18 +236,24 @@ function Social.Create()
         return fullName ~= nil and fullName == GetMemberNames("player")
     end
 
+    -- Calls back for every other member with a name; returns how many have
+    -- none yet.
     local function ForEachGroupMember(callback)
         local inRaid = IsInRaid()
         local prefix = inRaid and "raid" or "party"
         local count = GetNumGroupMembers()
         if not inRaid then count = count - 1 end
+        local unnamed = 0
         for i = 1, count do
             local unit = prefix .. i
             local fullName, firstName = GetMemberNames(unit)
-            if fullName and not IsSelf(unit, fullName) then
+            if not fullName then
+                unnamed = unnamed + 1
+            elseif not IsSelf(unit, fullName) then
                 callback(unit, fullName, firstName)
             end
         end
+        return unnamed
     end
 
     local function PruneChanges(now)
@@ -247,9 +262,10 @@ function Social.Create()
         end
     end
 
-    local function AddChange(kind, name, now)
+    -- since: when a member who joined without a name came.
+    local function AddChange(kind, name, now, since)
         PruneChanges(now)
-        groupChanges[#groupChanges + 1] = { kind = kind, name = name, time = now }
+        groupChanges[#groupChanges + 1] = { kind = kind, name = name, time = now, since = since }
     end
 
     -- True when a new death was noted for a hidden line to take. announce
@@ -270,13 +286,17 @@ function Social.Create()
 
     local BYTE_R, BYTE_P = ("r"):byte(), ("p"):byte()
 
-    -- Health events fire for every nameplate too, so only group tokens get
+    -- Unit events fire for every nameplate too, so only group tokens get
     -- past the first byte.
-    function api.NoteGroupMemberHealth(unit)
+    local function IsGroupUnit(unit)
         if type(unit) ~= "string" then return false end
         local first = unit:byte(1)
         if first ~= BYTE_R and first ~= BYTE_P then return false end
-        if not (unit:match("^raid%d+$") or unit:match("^party%d$")) then return false end
+        return unit:match("^raid%d+$") ~= nil or unit:match("^party%d$") ~= nil
+    end
+
+    function api.NoteGroupMemberHealth(unit)
+        if not IsGroupUnit(unit) then return false end
         local fullName, firstName = GetMemberNames(unit)
         if fullName and not IsSelf(unit, fullName) then
             return NoteMemberDeath(unit, fullName, firstName, GetTime())
@@ -291,17 +311,30 @@ function Social.Create()
         local now = GetTime()
         local inRaid = IsInRaid() and true or false
         local current, added = {}, {}
-        ForEachGroupMember(function(_, fullName)
+        local unnamed = ForEachGroupMember(function(_, fullName)
             current[fullName] = true
             if not rosterNames[fullName] then
                 added[#added + 1] = fullName
             end
         end)
-        local announce = not reset and next(rosterNames) ~= nil and inRaid == rosterInRaid
-            and #added <= MAX_JOINS_AT_ONCE and Utils.InChatLockdown()
+        local fresh = reset or next(rosterNames) == nil or inRaid ~= rosterInRaid
+        -- Members whose names came (or who left before they had one) give up
+        -- the oldest waiting times; new ones wait from now.
+        if fresh then unnamedSince = {} end
+        local cameAt = {}
+        while #unnamedSince > unnamed do
+            cameAt[#cameAt + 1] = table.remove(unnamedSince, 1)
+        end
+        while #unnamedSince < unnamed do
+            unnamedSince[#unnamedSince + 1] = fresh and AT_SNAPSHOT or now
+        end
+        local announce = not fresh and #added <= MAX_JOINS_AT_ONCE and Utils.InChatLockdown()
         if announce then
-            for _, fullName in ipairs(added) do
-                AddChange("joined", fullName, now)
+            for index, fullName in ipairs(added) do
+                local since = cameAt[index]
+                if not since or now - since <= NAME_WAIT_MAX then
+                    AddChange("joined", fullName, now, since)
+                end
             end
             for fullName in pairs(rosterNames) do
                 if not current[fullName] then
@@ -322,6 +355,14 @@ function Social.Create()
         ForEachGroupMember(function(unit, fullName, firstName)
             NoteMemberDeath(unit, fullName, firstName, now, deathsHidden)
         end)
+    end
+
+    -- A name that came after its player joined. True when the roster was
+    -- taken again for it.
+    function api.NoteMemberName(unit)
+        if not unnamedSince[1] or not IsGroupUnit(unit) then return false end
+        api.NoteGroupRoster()
+        return true
     end
 
     -- Recent joins, departures and deaths, oldest first.

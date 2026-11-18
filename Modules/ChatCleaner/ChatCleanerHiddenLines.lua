@@ -26,7 +26,9 @@
 --   6. A join or departure, from the roster change it comes with (at most a
 --      quarter second before it in three battleground logs). Each change
 --      names its nearest line; battlegrounds send two lines per change, so
---      there each then empties its next nearest.
+--      there each then empties its next nearest. A player who joins before
+--      the game has their name is a change once the name comes, reaching
+--      back to when they joined.
 --   7. A group member's death, when exactly one death and one line meet.
 --   8. On Forever, in a battleground: "Notify system has been
 --      disabled/enabled", the first hidden line right after entering (it
@@ -71,7 +73,7 @@ local IsSecret = Carpenter.Secret.IsSecret
 
 -- config:
 --   GetFrames()         chat windows whose lines may be edited
---   GetChanges()        recent group changes { kind, name, time }, oldest first
+--   GetChanges()        recent group changes { kind, name, time, since }, oldest first
 --   FormatChange(change)
 --   GetSkillRises()     recent skill rank rises { name, rank, time }, oldest first
 --   FormatSkillRise(rise)
@@ -291,13 +293,15 @@ function HiddenLines.Create(config)
         end
     end
 
-    -- The unclaimed line nearest to a roster change, in its window.
+    -- The unclaimed line nearest to a roster change, in its window. A join
+    -- that waited for the player's name reaches back to when they came.
     local function NearestRosterLine(lines, change)
+        local from = change.since or change.time
         local best, bestDistance
         for _, line in ipairs(lines) do
-            local delta = change.time - line.time
-            if not line.resolved and delta >= -LINE_AFTER_CHANGE and delta <= LINE_BEFORE_CHANGE then
-                local distance = math.abs(delta)
+            local before, after = from - line.time, line.time - change.time
+            if not line.resolved and before <= LINE_BEFORE_CHANGE and after <= LINE_AFTER_CHANGE then
+                local distance = math.max(before, after, 0)
                 if not best or distance < bestDistance or (distance == bestDistance and line.order < best.order) then
                     best, bestDistance = line, distance
                 end

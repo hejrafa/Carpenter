@@ -311,6 +311,11 @@ groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
         if socialFormatter.NoteGroupMemberHealth(arg1) and hiddenLines.HasPending() then
             UpdateHiddenLines()
         end
+    elseif event == "UNIT_NAME_UPDATE" then
+        -- A player who joined before the game had their name.
+        if socialFormatter.NoteMemberName(arg1) then
+            UpdateHiddenLines()
+        end
     elseif event == "CHAT_MSG_SYSTEM" then
         if IsSecret(arg1) then
             UpdateHiddenLines()
@@ -354,7 +359,7 @@ groupNoticeFrame:SetScript("OnEvent", function(_, event, arg1)
 end)
 
 local GROUP_NOTICE_EVENTS = {
-    "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDATE", "UNIT_HEALTH", "UNIT_FLAGS", "CHAT_MSG_SYSTEM",
+    "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDATE", "UNIT_HEALTH", "UNIT_FLAGS", "UNIT_NAME_UPDATE", "CHAT_MSG_SYSTEM",
     "CHAT_MSG_BG_SYSTEM_NEUTRAL", "PLAYER_ENTERING_BATTLEGROUND", "GROUP_JOINED", "PLAYER_DEAD",
     "UPDATE_BATTLEFIELD_STATUS",
 }
