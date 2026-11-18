@@ -2417,6 +2417,50 @@ do
         ExpectChat(unknownLine, "G Sufur: brb", "a sender with no known class stays uncolored",
             "|Hplayer:Sufur:13:GUILD|hSufur|h")
 
+        -- The chat line knows its sender's class, though the ID is hidden.
+        PlayerLocation = { CreateFromChatLineID = function(_, lineID) return { lineID = lineID } end }
+        C_PlayerInfo = { GetClass = function(location)
+            if location.lineID == 14 then return "Mage", "MAGE", 8 end
+        end }
+        local lineArgs = ChatArgs("on it", "Brick", 14)
+        lineArgs[12] = HIDDEN
+        local chatLineLine = frame1:AddChat(HIDDEN, "CHAT_MSG_GUILD", lineArgs)
+        hiddenLines.OnHiddenLineAdded(frame1)
+        ExpectChat(chatLineLine, "G Brick: on it", "a hidden sender's class comes from their chat line",
+            "|Hplayer:Brick:14:GUILD|h|cff3fc6eaBrick|r|h")
+        PlayerLocation, C_PlayerInfo = nil, nil
+
+        -- In battlegrounds the class comes back hidden too. The game's own
+        -- class color and markup take it and give back hidden text, which
+        -- joins the hidden line.
+        local realIsSecret = issecretvalue
+        issecretvalue = function(value)
+            return value == HIDDEN or (type(value) == "string" and value:find("^SECRET") ~= nil)
+        end
+        UnitClassFromGUID = function(guid) if guid == HIDDEN then return HIDDEN, HIDDEN, HIDDEN end end
+        C_ClassColor = { GetClassColor = function(classFile) if classFile == HIDDEN then return { hidden = true } end end }
+        C_ColorUtil = { WrapTextInColor = function(text, color)
+            if color and color.hidden then return "SECRET:" .. text end
+        end }
+        local hiddenClassArgs = ChatArgs("go flag", "Brick", 15)
+        hiddenClassArgs[12] = HIDDEN
+        local hiddenClassLine = frame1:AddChat(HIDDEN, "CHAT_MSG_GUILD", hiddenClassArgs)
+        hiddenLines.OnHiddenLineAdded(frame1)
+        ExpectChat(hiddenClassLine, "G SECRET:Brick: go flag", "a hidden class colors a hidden sender",
+            "|Hplayer:Brick:15:GUILD|hSECRET:Brick|h")
+
+        -- A line addons can read never takes hidden text.
+        local captured
+        C_ChatInfo.GetChatLineSenderGUID = function() return HIDDEN end
+        postProcessor.ProcessMessage({}, function(_, text) captured = text end,
+            "|Hplayer:Brick:16:PARTY|h[Brick]|h: hi", { n = 4, 1, 1, 1, 2 })
+        additionalChecks = additionalChecks + 1
+        if not tostring(captured):find("|Hplayer:Brick:16:PARTY|hBrick|h: hi", 1, true) then
+            failures[#failures + 1] = "hidden chat: a readable line took a hidden class color, got [" .. tostring(captured) .. "]"
+        end
+        C_ChatInfo.GetChatLineSenderGUID = nil
+        issecretvalue, UnitClassFromGUID, C_ClassColor, C_ColorUtil = realIsSecret, nil, nil, nil
+
         -- Found by the next pass when not as it's added.
         local warningLine = frame1:AddChat(HIDDEN, "CHAT_MSG_RAID_WARNING", ChatArgs("inc mid", "Brick", 9))
         hiddenLines.Update()

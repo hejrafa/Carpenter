@@ -131,35 +131,66 @@ local function ChannelTag(number)
     return "|Hchannel:channel:" .. number .. "|h" .. number .. ".|h "
 end
 
-local function ClassFileFrom(lookup, guid)
-    if type(lookup) ~= "function" then return nil end
-    local ok, _, classFile = pcall(lookup, guid)
-    if ok and not IsSecret(classFile) and type(classFile) == "string" then return classFile end
+-- Where a chat sender's class comes from: their chat line, whose number
+-- addons can always read, then their ID. In battlegrounds the game hides the
+-- ID from addons, and the class it gives comes back hidden too.
+local function ClassFromChatLine(lineID)
+    return select(2, C_PlayerInfo.GetClass(PlayerLocation:CreateFromChatLineID(lineID)))
 end
 
--- A chat sender's class color, from their ID. Chat Cleaner colors every
--- sender by class, as it does names in loot lines, whatever the game's chat
--- settings say: their class colors are off by default on the classic clients
--- and Forever. GetPlayerInfoByGUID is what the game's chat asks. In
--- battlegrounds the ID is hidden, but UnitClassFromGUID takes a hidden ID
--- from addons and leaves the class's file name readable (per its API
--- documentation).
-local function SenderClassColor(guid)
-    if not IsSecret(guid) and (type(guid) ~= "string" or guid == "") then return nil end
-    local classFile = ClassFileFrom(GetPlayerInfoByGUID, guid) or ClassFileFrom(UnitClassFromGUID, guid)
-    return classFile and Utils.ClassColorCode(classFile)
+local function ClassFromUnitGUID(_, guid)
+    return select(2, UnitClassFromGUID(guid))
+end
+
+local function ClassFromPlayerInfo(_, guid)
+    return select(2, GetPlayerInfoByGUID(guid))
+end
+
+local CLASS_SOURCES = { ClassFromChatLine, ClassFromUnitGUID, ClassFromPlayerInfo }
+
+-- A name in its class's color. A hidden class goes through the game's own
+-- class color and color markup, which take hidden values from addons and
+-- give back hidden text, as Class Colored Health colors its bars.
+local function WrapInClassColor(name, source, lineID, guid)
+    local classFile = source(lineID, guid)
+    if IsSecret(classFile) then
+        return C_ColorUtil.WrapTextInColor(name, C_ClassColor.GetClassColor(classFile))
+    end
+    local color = type(classFile) == "string" and Utils.ClassColorCode(classFile)
+    if color then return color .. name .. "|r" end
+end
+
+-- A chat sender's name in their class color, whatever the game's chat
+-- settings say: Chat Cleaner colors every sender, as it does names in loot
+-- lines, and the game leaves names uncolored by default on Forever and the
+-- classic clients. true and the name, or false when no source knows the
+-- class. hiddenLine: the line is hidden already, so hidden text may join it.
+local function ClassColoredSender(name, lineID, guid, hiddenLine)
+    for _, source in ipairs(CLASS_SOURCES) do
+        local ok, colored = pcall(WrapInClassColor, name, source, lineID, guid)
+        if ok then
+            if IsSecret(colored) then
+                if hiddenLine then return true, colored end
+            elseif type(colored) == "string" then
+                return true, colored
+            end
+        end
+    end
+    return false
 end
 
 -- Sender links the game left uncolored, in the sender's class color. The
--- link names its chat line, and the line knows the sender's ID. A name the
--- game colored already keeps its color.
+-- link names its chat line. A name the game colored already keeps its color.
 local function ColorSenderNames(text)
-    local chatInfo = C_ChatInfo
-    if not (chatInfo and chatInfo.GetChatLineSenderGUID) then return text end
     return (text:gsub("(|Hplayer:[^:|]*:(%d+)[^|]*|h)([^|]+)|h", function(link, lineID, name)
-        local ok, guid = pcall(chatInfo.GetChatLineSenderGUID, tonumber(lineID))
-        local color = ok and SenderClassColor(guid)
-        if color then return link .. color .. name .. "|r|h" end
+        lineID = tonumber(lineID)
+        local chatInfo, guid = C_ChatInfo, nil
+        if chatInfo and chatInfo.GetChatLineSenderGUID then
+            local ok, value = pcall(chatInfo.GetChatLineSenderGUID, lineID)
+            if ok then guid = value end
+        end
+        local found, colored = ClassColoredSender(name, lineID, guid, false)
+        if found then return link .. colored .. "|h" end
     end))
 end
 
@@ -170,8 +201,8 @@ local function HiddenSenderName(chatType, args)
     local name = args[2]
     local ok, short = pcall(Ambiguate, name, chatType == "GUILD" and "guild" or "none")
     if ok and short then name = short end
-    local color = SenderClassColor(args[12])
-    if color then return color .. name .. "|r" end
+    local found, colored = ClassColoredSender(name, args[11], args[12], true)
+    if found then return colored end
     return name
 end
 
