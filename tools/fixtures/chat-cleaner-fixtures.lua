@@ -1730,6 +1730,7 @@ end
 do
     local realPartyID = ChatTypeInfo.PARTY.id
     ChatTypeInfo.PARTY.id = 2
+    ChatTypeInfo.TEXT_EMOTE = { r = 1, g = 0.5, b = 0.25, id = 13 }
     local captured
     postProcessor.ProcessMessage({}, function(_, text) captured = text end,
         "|Hchannel:PARTY|h[Party]|h |Hplayer:Bob-Realm:5:PARTY|h[Bob-Realm]|h: I roll 100",
@@ -1738,6 +1739,38 @@ do
     if plain(captured) ~= "P Bob-Realm: I roll 100" or not tostring(captured):find("|Hplayer:Bob-Realm:5:PARTY|h", 1, true) then
         failures[#failures + 1] = "post-process: a player's party line should keep its words and link, got [" .. tostring(captured) .. "]"
     end
+
+    -- Senders take their class color from their chat line, whatever the
+    -- game's chat settings say; a name the game colored keeps its color.
+    C_ChatInfo = { GetChatLineSenderGUID = function(lineID)
+        return ({ [5] = "Player-1-BOB", [6] = "Player-1-STRANGER" })[lineID]
+    end }
+    GetPlayerInfoByGUID = function(guid)
+        if guid == "Player-1-BOB" then return "Mage", "MAGE" end
+    end
+    local mage = "|cff3fc6ea"
+    local function PlayerLine(text, typeID)
+        local out
+        postProcessor.ProcessMessage({}, function(_, line) out = line end, text, { n = 4, 1, 1, 1, typeID })
+        return out
+    end
+    local senderChecks = {
+        { "|Hchannel:PARTY|h[Party]|h |Hplayer:Bob-Realm:5:PARTY|h[Bob-Realm]|h: inc",
+            "|Hplayer:Bob-Realm:5:PARTY|h" .. mage .. "Bob-Realm|r|h: inc", "a party sender in class color" },
+        { "|Hplayer:Bob:5:TEXT_EMOTE|hBob|h cheers at Friday!", "|Hplayer:Bob:5:TEXT_EMOTE|h" .. mage .. "Bob|r|h cheers",
+            "a text emote's sender in class color", 13 },
+        { "|Hplayer:Bob:5:PARTY|h[|cffaabbccBob|r]|h: hi", "|Hplayer:Bob:5:PARTY|h|cffaabbccBob|r|h: hi",
+            "a name the game colored keeps its color" },
+        { "|Hplayer:Odd:6:PARTY|h[Odd]|h: hi", "|Hplayer:Odd:6:PARTY|hOdd|h: hi", "a sender with no known class stays" },
+    }
+    for _, check in ipairs(senderChecks) do
+        local out = PlayerLine(check[1], check[4] or 2)
+        additionalChecks = additionalChecks + 1
+        if not tostring(out):find(check[2], 1, true) then
+            failures[#failures + 1] = "post-process: " .. check[3] .. ", got [" .. tostring(out) .. "]"
+        end
+    end
+    C_ChatInfo, GetPlayerInfoByGUID, ChatTypeInfo.TEXT_EMOTE = nil, nil, nil
     ChatTypeInfo.PARTY.id = realPartyID
 
     -- Each chat window shows a battleground join once, in its own copy.
@@ -2365,17 +2398,24 @@ do
         ExpectChat(leaderLine, "IL Brick: the tunnel", "a hidden instance leader line names the sender in class color",
             "|Hplayer:Brick:8:INSTANCE_CHAT|h|cff3fc7ebBrick|r|h")
 
-        -- Not when the chat settings don't color this chat's names by class.
+        -- Also when the game's chat settings leave names uncolored, as they
+        -- do by default on Forever and the classic clients.
         ChatFrameUtil = { ShouldColorChatByClass = function() return false end }
         local realInstanceGet = CHAT_INSTANCE_CHAT_GET
         CHAT_INSTANCE_CHAT_GET = "|Hchannel:INSTANCE_CHAT|h[Instance]|h %s: "
         ChatTypeInfo.INSTANCE_CHAT = { r = 1, g = 0.5, b = 0, id = 63 }
         local plainNameLine = frame1:AddChat(HIDDEN, "CHAT_MSG_INSTANCE_CHAT", ChatArgs("ok", "Brick", 11))
         hiddenLines.OnHiddenLineAdded(frame1)
-        ExpectChat(plainNameLine, "I Brick: ok", "no class color when chat names aren't colored by class",
-            "|Hplayer:Brick:11:INSTANCE_CHAT|hBrick|h")
+        ExpectChat(plainNameLine, "I Brick: ok", "class color even when the chat settings don't color names",
+            "|Hplayer:Brick:11:INSTANCE_CHAT|h|cff3fc7ebBrick|r|h")
         ChatFrameUtil, UnitClassFromGUID, RAID_CLASS_COLORS.MAGE.colorStr = nil, nil, nil
         CHAT_INSTANCE_CHAT_GET, ChatTypeInfo.INSTANCE_CHAT = realInstanceGet, nil
+
+        -- A sender with no known class keeps the chat's color.
+        local unknownLine = frame1:AddChat(HIDDEN, "CHAT_MSG_GUILD", ChatArgs("brb", "Sufur", 13))
+        hiddenLines.OnHiddenLineAdded(frame1)
+        ExpectChat(unknownLine, "G Sufur: brb", "a sender with no known class stays uncolored",
+            "|Hplayer:Sufur:13:GUILD|hSufur|h")
 
         -- Found by the next pass when not as it's added.
         local warningLine = frame1:AddChat(HIDDEN, "CHAT_MSG_RAID_WARNING", ChatArgs("inc mid", "Brick", 9))

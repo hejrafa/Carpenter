@@ -131,20 +131,36 @@ local function ChannelTag(number)
     return "|Hchannel:channel:" .. number .. "|h" .. number .. ".|h "
 end
 
--- The class color the game gives a sender's name, when the chat settings
--- color this chat type's names by class. The sender's ID is hidden too, but
--- UnitClassFromGUID takes a hidden ID from addons and leaves the class's file
--- name readable (per its API documentation).
-local function HiddenSenderColor(chatType, guid)
-    if not (guid and type(UnitClassFromGUID) == "function") then return nil end
-    local util, info = ChatFrameUtil, ChatTypeInfo and ChatTypeInfo[chatType]
-    if util and util.ShouldColorChatByClass and info then
-        local ok, colored = pcall(util.ShouldColorChatByClass, info)
-        if ok and not IsSecret(colored) and not colored then return nil end
-    end
-    local ok, _, classFile = pcall(UnitClassFromGUID, guid)
-    if not ok or IsSecret(classFile) or type(classFile) ~= "string" then return nil end
-    return Utils.ClassColorCode(classFile)
+local function ClassFileFrom(lookup, guid)
+    if type(lookup) ~= "function" then return nil end
+    local ok, _, classFile = pcall(lookup, guid)
+    if ok and not IsSecret(classFile) and type(classFile) == "string" then return classFile end
+end
+
+-- A chat sender's class color, from their ID. Chat Cleaner colors every
+-- sender by class, as it does names in loot lines, whatever the game's chat
+-- settings say: their class colors are off by default on the classic clients
+-- and Forever. GetPlayerInfoByGUID is what the game's chat asks. In
+-- battlegrounds the ID is hidden, but UnitClassFromGUID takes a hidden ID
+-- from addons and leaves the class's file name readable (per its API
+-- documentation).
+local function SenderClassColor(guid)
+    if not IsSecret(guid) and (type(guid) ~= "string" or guid == "") then return nil end
+    local classFile = ClassFileFrom(GetPlayerInfoByGUID, guid) or ClassFileFrom(UnitClassFromGUID, guid)
+    return classFile and Utils.ClassColorCode(classFile)
+end
+
+-- Sender links the game left uncolored, in the sender's class color. The
+-- link names its chat line, and the line knows the sender's ID. A name the
+-- game colored already keeps its color.
+local function ColorSenderNames(text)
+    local chatInfo = C_ChatInfo
+    if not (chatInfo and chatInfo.GetChatLineSenderGUID) then return text end
+    return (text:gsub("(|Hplayer:[^:|]*:(%d+)[^|]*|h)([^|]+)|h", function(link, lineID, name)
+        local ok, guid = pcall(chatInfo.GetChatLineSenderGUID, tonumber(lineID))
+        local color = ok and SenderClassColor(guid)
+        if color then return link .. color .. name .. "|r|h" end
+    end))
 end
 
 -- The sender as the game shows them: the short name (the realm left out
@@ -154,7 +170,7 @@ local function HiddenSenderName(chatType, args)
     local name = args[2]
     local ok, short = pcall(Ambiguate, name, chatType == "GUILD" and "guild" or "none")
     if ok and short then name = short end
-    local color = HiddenSenderColor(chatType, args[12])
+    local color = SenderClassColor(args[12])
     if color then return color .. name .. "|r" end
     return name
 end
@@ -427,11 +443,12 @@ function PostProcess.Create(config)
         return unpack(args, 1, args.n or #args)
     end
 
-    -- Chat type ids of players' chat, where only the prefix, brackets and
-    -- AFK/DND flag are restyled: a player's words are never loot or roll
-    -- lines. Read on first use, once the chat frames have set the ids.
+    -- Chat type ids of players' chat, where only the prefix, brackets,
+    -- AFK/DND flag and the sender's class color are restyled: a player's
+    -- words and emotes are never loot or roll lines. Read on first use, once
+    -- the chat frames have set the ids.
     local PLAYER_CHAT_TYPES = {
-        "SAY", "YELL", "EMOTE", "WHISPER", "WHISPER_INFORM", "BN_WHISPER", "BN_WHISPER_INFORM",
+        "SAY", "YELL", "EMOTE", "TEXT_EMOTE", "WHISPER", "WHISPER_INFORM", "BN_WHISPER", "BN_WHISPER_INFORM",
         "GUILD", "OFFICER", "PARTY", "PARTY_LEADER", "RAID", "RAID_LEADER", "RAID_WARNING",
         "INSTANCE_CHAT", "INSTANCE_CHAT_LEADER",
     }
@@ -457,7 +474,7 @@ function PostProcess.Create(config)
         message = applyChannelStyling(tostring(message))
         message = Utils.RemoveLinkBrackets(message)
         if IsPlayerChatLine(args) then
-            return originalAddMessage(frame, message, Unpack(args))
+            return originalAddMessage(frame, ColorSenderNames(message), Unpack(args))
         end
 
         local plain = Utils.StripColorsAndLinks(message)
