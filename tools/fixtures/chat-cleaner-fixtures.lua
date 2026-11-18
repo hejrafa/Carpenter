@@ -695,8 +695,8 @@ local fixtures = {
         event = "CHAT_MSG_SYSTEM",
         groupMembers = 2,
         message = "Looting changed to free-for-all.",
-        expectPlain = "Loot: Free for all",
-        requireColors = { "|cffffffffLoot: |r", "|cffaaaaffFree for all|r" },
+        expectPlain = "Loot Method: Free for all",
+        requireColors = { "|cffffffffLoot Method: |r", "|cffaaaaffFree for all|r" },
     },
     {
         name = "quest accepted",
@@ -870,27 +870,43 @@ local fixtures = {
         name = "the loot method set on a new group",
         event = "CHAT_MSG_SYSTEM",
         message = "Looting set to Group Loot.",
-        expectPlain = "Loot: Group Loot",
+        expectPlain = "Loot Method: Group Loot",
     },
     {
         name = "another loot method",
         event = "CHAT_MSG_SYSTEM",
         message = "Looting set to Need Before Greed.",
-        expectPlain = "Loot: Need Before Greed",
+        expectPlain = "Loot Method: Need Before Greed",
     },
     {
         name = "the loot threshold in its quality's color",
         event = "CHAT_MSG_SYSTEM",
         message = "Loot threshold set to Uncommon.",
-        expectPlain = "Loot threshold: Uncommon",
+        expectPlain = "Loot Threshold: Uncommon",
         requireColor = "|cff1eff00Uncommon|r",
     },
     {
         name = "a higher loot threshold",
         event = "CHAT_MSG_SYSTEM",
         message = "Loot threshold set to Epic.",
-        expectPlain = "Loot threshold: Epic",
+        expectPlain = "Loot Threshold: Epic",
         requireColor = "|cffa335edEpic|r",
+    },
+    {
+        name = "the dungeon difficulty reads like the loot settings",
+        event = "CHAT_MSG_SYSTEM",
+        groupMembers = 2,
+        message = "Dungeon Difficulty set to Normal.",
+        expectPlain = "Dungeon Difficulty: Normal",
+        requireColors = { "|cffffffffDungeon Difficulty: |r", "|cffaaaaffNormal|r" },
+    },
+    {
+        name = "a heroic dungeon difficulty",
+        event = "CHAT_MSG_SYSTEM",
+        groupMembers = 2,
+        message = "Dungeon Difficulty set to Heroic.",
+        expectPlain = "Dungeon Difficulty: Heroic",
+        requireColors = { "|cffffffffDungeon Difficulty: |r", "|cffff8000Heroic|r" },
     },
     {
         name = "left the queue uses the minus sign",
@@ -1977,8 +1993,8 @@ do
         hiddenLines.Update()
         Expect(notifyOff, "", "the notify line on zoning in is emptied")
         Expect(formed, "Party converted to Raid", "the raid forming names its line")
-        Expect(formedLoot, "Loot: Group Loot", "the group's loot method names its line")
-        Expect(formedThreshold, "Loot threshold: Uncommon", "the group's loot threshold names its line")
+        Expect(formedLoot, "Loot Method: Group Loot", "the group's loot method names its line")
+        Expect(formedThreshold, "Loot Threshold: Uncommon", "the group's loot threshold names its line")
 
         -- A join under a second later takes its own line, not the burst's
         -- (seen in game: the name landed on a burst line).
@@ -2212,8 +2228,8 @@ do
         hiddenLines.Update()
         Expect(enterNotify, "", "the notify line on entering isn't taken for a dropped queue")
         Expect(converted, "Party converted to Raid", "the raid line on entering is named")
-        Expect(looting, "Loot: Group Loot", "the loot method line on entering is named")
-        Expect(threshold, "Loot threshold: Uncommon", "the loot threshold line on entering is named")
+        Expect(looting, "Loot Method: Group Loot", "the loot method line on entering is named")
+        Expect(threshold, "Loot Threshold: Uncommon", "the loot threshold line on entering is named")
         Expect(requeued, "+ Joined the queue: Darkspear Islands", "a queue added back on entering names its own line")
 
         -- Entering solo, as a probe logged it: no notify line, and a third of a
@@ -2234,8 +2250,8 @@ do
         At(219)
         hiddenLines.Update()
         Expect(soloRaid, "Party converted to Raid", "entering solo, the raid line isn't taken for the notify line")
-        Expect(soloLoot, "Loot: Group Loot", "entering solo, the loot method line is named")
-        Expect(soloThreshold, "Loot threshold: Uncommon", "entering solo, the loot threshold line is named")
+        Expect(soloLoot, "Loot Method: Group Loot", "entering solo, the loot method line is named")
+        Expect(soloThreshold, "Loot Threshold: Uncommon", "entering solo, the loot threshold line is named")
 
         -- With fewer lines than the group sends when GROUP_JOINED comes, none
         -- are named, and a line after it isn't taken for one.
@@ -2974,6 +2990,35 @@ do
 
     hooksecurefunc = realHook
     issecretvalue = nil
+end
+
+-- The chat filter's own lines pass the chat frame's post-processor as they
+-- are: it restyles lines the filter never saw. "Loot: Group Loot" once came
+-- out as an item looted, "Loot + Group Loot".
+do
+    groupMembers = 2
+    local lines = {
+        "Looting set to Group Loot.",
+        "Looting changed to free-for-all.",
+        "Loot threshold set to Uncommon.",
+        "Dungeon Difficulty set to Heroic.",
+        "You won an auction for Malachite",
+    }
+    for _, message in ipairs(lines) do
+        now = now + 60
+        local hidden, filtered = filter(nil, "CHAT_MSG_SYSTEM", message, "")
+        local captured
+        if not hidden and filtered then
+            postProcessor.ProcessMessage({}, function(_, text) captured = text end, filtered, {})
+        end
+        additionalChecks = additionalChecks + 1
+        if not filtered or filtered == message then
+            failures[#failures + 1] = "filter then post: the filter should style [" .. message .. "]"
+        elseif captured ~= filtered then
+            failures[#failures + 1] = "filter then post: [" .. plain(filtered) .. "] became [" .. tostring(plain(captured)) .. "]"
+        end
+    end
+    groupMembers = 0
 end
 
 -- /roll results: the roller's name takes their class color, found on a

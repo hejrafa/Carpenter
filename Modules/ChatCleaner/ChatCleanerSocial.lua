@@ -30,6 +30,14 @@ local LOOT_METHOD_NAMES = {
     ["personal loot"] = GameText("PERSONAL_LOOT", "Personal Loot"),
 }
 
+-- A group setting the game announces as it changes, by the label its menus
+-- give it: "Dungeon Difficulty: Heroic", "Loot Method: Group Loot", "Loot
+-- Threshold: Uncommon". The label is white and the setting in its color.
+-- None of them starts "Loot:", which reads as an item looted.
+local function GroupSetting(label, color, value)
+    return Palette.white .. label .. ": |r" .. Line(color, value)
+end
+
 -- The loot method as the game names it in its menus.
 local function LootMethodDisplay(method)
     method = Trim(method):gsub("%.?%s*$", "")
@@ -690,8 +698,7 @@ function Social.Create()
         if text:find(difficultyLabel, 1, true) then
             local difficulty = text:match("set to (%w+)") or text:match(Utils.EscapePattern(difficultyLabel) .. ":%s*(%w+)")
             if difficulty then
-                local color = difficulty:lower() == "heroic" and Palette.orange or Palette.white
-                return groupColor .. difficultyLabel .. ": |r" .. Line(color, difficulty)
+                return GroupSetting(difficultyLabel, difficulty:lower() == "heroic" and Palette.orange or groupColor, difficulty)
             end
         end
         if text:find("^You have been removed from the group%.?$") or text:find("^You have been removed from the raid%.?$") then
@@ -711,11 +718,11 @@ function Social.Create()
             or text:match("[Ll]oot method changed to%s+(.+)$")
             or text:match("[Ll]oot%s+changed to%s+(.+)$")
         if lootMethod then
-            return Palette.white .. T("CHAT_LOOT_LABEL") .. " |r" .. Line(groupColor, LootMethodDisplay(lootMethod))
+            return GroupSetting(GameText("LOOT_METHOD", "Loot Method"), groupColor, LootMethodDisplay(lootMethod))
         end
         local threshold = text:match(LOOT_THRESHOLD_PATTERN)
         if threshold and threshold ~= "" then
-            return Palette.white .. T("CHAT_LOOT_THRESHOLD_LABEL") .. " |r" .. Line(QualityColor(threshold) or groupColor, threshold)
+            return GroupSetting(GameText("LOOT_THRESHOLD", "Loot Threshold"), QualityColor(threshold) or groupColor, threshold)
         end
         local died = text:match("^(.-)%s+has died%.?$")
         if died and died ~= "" then return Line(Palette.red, T("CHAT_PLAYER_DIED", died)) end

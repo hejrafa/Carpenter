@@ -380,8 +380,11 @@ function PostProcess.Create(config)
         if not text or type(text) ~= "string" then return text end
 
         local plain = Utils.StripColorsAndLinks(text):gsub("%s+", " ")
+        -- A "+" line is the chat filter's own, already styled: "+ Auction won:
+        -- Malachite" isn't a roll won by "+ Auction".
+        if plain:find("^%s*%+ ") then return text end
         local lower = plain:lower()
-        local isLootRoll = lower:find("has selected") or lower:find("passed on") or lower:find(" won ") or lower:find(" won:") or lower:find(" wins ") or
+        local isLootRoll =lower:find("has selected") or lower:find("passed on") or lower:find(" won ") or lower:find(" won:") or lower:find(" wins ") or
             plain:find(" by .+%s*$") or lower:find("won by ") or lower:find("winner:") or
             lower:find("receives loot") or lower:find("receives item") or lower:find(" creates:") or lower:find(" rolls ") or lower:find(" roll ")
         if not isLootRoll then return text end
