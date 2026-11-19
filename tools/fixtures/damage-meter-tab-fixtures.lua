@@ -120,6 +120,27 @@ CreateFrame = function(frameType, frameName, parent, template)
         function frame:SetHighlightAtlas(atlas) self.highlightAtlas = atlas end
         menuButtons[#menuButtons + 1] = frame
     end
+    if template == "MinimalScrollBar" then
+        -- The game's scroll bar: a place from 0 to 1, told to its listeners
+        -- whenever it is set, by the thumb, the track, an arrow or code.
+        if frameType ~= "EventFrame" then error("the scroll bar template is an EventFrame") end
+        frame.Event = { OnScroll = "OnScroll" }
+        frame.percentage, frame.visibleExtent, frame.panExtent = 0, 0, 0
+        function frame:RegisterCallback(event, callback, owner)
+            self.onScroll = event == "OnScroll" and function(...) return callback(owner, ...) end or self.onScroll
+        end
+        function frame:SetScrollPercentage(percentage)
+            self.percentage = math.max(0, math.min(1, percentage))
+            if self.onScroll then self.onScroll(self.percentage) end
+        end
+        function frame:SetVisibleExtentPercentage(percentage) self.visibleExtent = percentage end
+        function frame:SetPanExtentPercentage(percentage) self.panExtent = percentage end
+        function frame:IsThumbMouseDown() return self.thumbDown == true end
+        -- An arrow moves one pan extent.
+        function frame:ScrollStepInDirection(direction) self:SetScrollPercentage(self.percentage + direction * self.panExtent) end
+    elseif template ~= nil and frameType ~= "DropdownButton" then
+        error("unexpected template " .. tostring(template))
+    end
     return frame
 end
 H.installHooks()
@@ -157,6 +178,8 @@ for index = 1, NUM_CHAT_WINDOWS do
     frame.buttonFrame = AddFrameMethods(H.Frame({ name = "ChatFrame" .. index .. "ButtonFrame", parent = frame, alpha = 1 }))
     frame.buttonFrame.minimizeButton = AddFrameMethods(H.Frame({ parent = frame.buttonFrame, shown = false, strata = "LOW", level = 8 }))
     frame.buttonFrame.minimizeButton:SetPoint("TOP", frame.buttonFrame, "TOP", 0, 4)
+    -- The window's own scroll bar, hidden while it has no chat.
+    frame.ScrollBar = AddFrameMethods(H.Frame({ parent = frame, shown = false }))
     _G["ChatFrame" .. index] = frame
     local tab = AddFrameMethods(H.Frame({ name = "ChatFrame" .. index .. "Tab", width = 90 }))
     tab.Text = NewFontString(tab)
@@ -1019,6 +1042,71 @@ meter.sources = { meter.sources[1], meter.sources[2] }
 Tab.Refresh()
 header, names = Read(display)
 assertEqual(names[1] and names[1].text, "P1", "a shorter list should scroll back into view")
+
+-- =========================
+-- A list longer than the tab gets the chat windows' scroll bar.
+-- =========================
+local bar
+for _, child in ipairs(display.children) do
+    if child.objectType == "EventFrame" then bar = child end
+end
+assertTrue(bar ~= nil, "the tab should have a scroll bar")
+assertEqual(bar.allPoints, ChatFrame3.ScrollBar, "the scroll bar should sit where the window's own does")
+assertEqual(bar.shown, false, "a list that fits should show no scroll bar")
+local shortSources = meter.sources
+meter.sources = {}
+for index = 1, 9 do
+    meter.sources[index] = { name = "P" .. index, classFilename = "PRIEST", total = 1000 - index, perSecond = 1,
+        isLocalPlayer = index == 2 }
+end
+Tab.Refresh()
+assertEqual(bar.shown, true, "a list longer than the tab should show the scroll bar")
+assertEqual(bar.visibleExtent, 3 / 9, "the thumb should be as long as the share of lines that fit")
+assertEqual(bar.panExtent, 1 / 6, "an arrow should move one line")
+assertEqual(bar.percentage, 0, "the thumb should start at the top")
+Wheel(display, -1)
+assertEqual(bar.percentage, 1 / 6, "the thumb should follow the wheel")
+bar:SetScrollPercentage(0.5)
+header, names = Read(display)
+assertEqual(names[2] and names[2].text, "P5", "dragging the thumb halfway should scroll the lines halfway")
+bar:SetScrollPercentage(0.55)
+assertEqual(bar.percentage, 0.5, "the thumb should snap to the line it shows")
+bar:ScrollStepInDirection(1)
+header, names = Read(display)
+assertEqual(names[2] and names[2].text, "P6", "the down arrow should move one line")
+bar:SetScrollPercentage(1)
+header, names = Read(display)
+assertEqual(names[3] and names[3].text, "P9", "the thumb at the foot should show the last line")
+bar.scripts.OnMouseWheel(bar, 1)
+header, names = Read(display)
+assertEqual(names[3] and names[3].text, "P8", "the wheel over the scroll bar should move one line")
+assertEqual(bar.percentage, 5 / 6, "the thumb should follow the wheel over it")
+
+-- It fades as the chat windows' own: in with the window, slowly out.
+assertEqual(bar.alpha, 0, "the scroll bar should start faded out")
+ChatFrame3.hasBeenFaded = true
+display.scripts.OnUpdate(display, 0.15)
+assertEqual(bar.alpha, 0.6, "the scroll bar should fade in with the window")
+ChatFrame3.hasBeenFaded = nil
+display.scripts.OnUpdate(display, 1)
+assertTrue(math.abs(bar.alpha - 0.3) < 1e-9, "the scroll bar should fade out slowly after the window")
+bar.mouseOver = true
+display.scripts.OnUpdate(display, 0.15)
+assertEqual(bar.alpha, 0.6, "the scroll bar should stay up under the mouse")
+bar.mouseOver = false
+display.scripts.OnUpdate(display, 2)
+assertEqual(bar.alpha, 0, "the scroll bar should fade out once the mouse leaves")
+
+-- A notice in place of the list has nothing to scroll.
+meter.enabled = false
+Tab.Refresh()
+assertEqual(bar.shown, false, "a notice should show no scroll bar")
+meter.enabled = true
+Tab.Refresh()
+assertEqual(bar.shown, true, "the scroll bar should come back with the list")
+meter.sources = shortSources
+Tab.Refresh()
+assertEqual(bar.shown, false, "a list that fits again should hide the scroll bar")
 ChatFrame3.height = 120
 CarpenterDB.damageMeterTabType = nil
 

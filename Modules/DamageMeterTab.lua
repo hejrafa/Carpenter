@@ -5,7 +5,9 @@
 -- the name in class color on the left and "total (per second)" on the right,
 -- in the chat window's own font. The order shows the ranking, so a name only
 -- carries its rank when it is pinned out of order. The mouse wheel scrolls
--- the lines (Shift jumps to the top or bottom).
+-- the lines (Shift jumps to the top or bottom). A list longer than the tab
+-- also gets the chat windows' own scroll bar, which fades with the window
+-- as theirs does.
 --
 -- Clicking a name shows that player's breakdown in the tab, as the game's
 -- own meter does in a window beside it: their spells, best first, each with
@@ -458,7 +460,7 @@ DamageMeterTab.alphaKeeper = alphaKeeper
 -- =========================
 -- The text
 -- =========================
-local display, header, headerRight, headerClick, menuButton, segmentButton
+local display, header, headerRight, headerClick, menuButton, segmentButton, scrollBar
 local rows = {}
 local OnMouseWheel, OnClickArea
 
@@ -823,6 +825,8 @@ local function ShowNotice(window, lineHeight, text)
     row.hasTarget = false
     SetClickable(row.click, state.breakdown ~= nil)
     HideRows(2)
+    -- Nothing to scroll.
+    state.total = 0
 end
 
 local function FillRows(window, lineHeight, capacity)
@@ -904,6 +908,106 @@ local function FillHeader(lineHeight, meterType)
     end
 end
 
+-- =========================
+-- The scroll bar
+-- =========================
+-- The chat windows' own, the game's minimal scroll bar, in the place of the
+-- tab window's, which the game keeps hidden as the window gets no chat. It
+-- shows while the lines run past the tab's foot and moves a line at a time.
+-- It fades as theirs does: in to 0.6 with the window when the mouse comes
+-- over it, slowly out after it leaves, and up while the mouse is on it.
+local SCROLL_BAR_ALPHA = 0.6
+local scrollBarAlpha = 0
+local syncingScrollBar = false
+
+local function MaxOffset()
+    return math.max(0, state.total - state.capacity)
+end
+
+-- The thumb at the first line's place, as long as the share that fits.
+local function ApplyScrollBar(maxOffset)
+    scrollBar:SetVisibleExtentPercentage(state.capacity / state.total)
+    scrollBar:SetPanExtentPercentage(1 / maxOffset)
+    scrollBar:SetScrollPercentage(math.min(state.offset, maxOffset) / maxOffset)
+end
+
+local function SyncScrollBar()
+    if not scrollBar then return end
+    local maxOffset = MaxOffset()
+    local scrollable = state.capacity > 0 and maxOffset > 0
+    scrollBar:SetShown(scrollable)
+    if not scrollable then return end
+    syncingScrollBar = true
+    pcall(ApplyScrollBar, maxOffset)
+    syncingScrollBar = false
+end
+
+-- The thumb, the track or an arrow moved: the lines follow to the nearest
+-- line, and the thumb snaps to it, as on the chat windows.
+local function OnScrollBarScroll(_, percentage)
+    if syncingScrollBar or type(percentage) ~= "number" then return end
+    local offset = math.floor(percentage * MaxOffset() + 0.5)
+    if offset ~= state.offset then
+        state.offset = offset
+        Try(DamageMeterTab.Refresh)
+    else
+        SyncScrollBar()
+    end
+end
+
+local function FadeScrollBar(elapsed)
+    if not scrollBar or not scrollBar:IsShown() then return end
+    local window = display:GetParent()
+    local up = (window and window.hasBeenFaded) or scrollBar:IsMouseOver() or scrollBar:IsThumbMouseDown()
+    local target = up and SCROLL_BAR_ALPHA or 0
+    if scrollBarAlpha == target then return end
+    local seconds
+    if up then
+        seconds = tonumber(_G.CHAT_FRAME_FADE_TIME) or 0.15
+    else
+        seconds = tonumber(_G.CHAT_FRAME_FADE_OUT_TIME) or 2
+    end
+    local step = seconds > 0 and SCROLL_BAR_ALPHA * elapsed / seconds or SCROLL_BAR_ALPHA
+    if scrollBarAlpha < target then
+        scrollBarAlpha = math.min(target, scrollBarAlpha + step)
+    else
+        scrollBarAlpha = math.max(target, scrollBarAlpha - step)
+    end
+    scrollBar:SetAlpha(scrollBarAlpha)
+end
+
+local function CreateScrollBar()
+    local ok, bar = pcall(CreateFrame, "EventFrame", nil, display, "MinimalScrollBar")
+    if not ok or type(bar) ~= "table" then return nil end
+    for _, method in ipairs({ "RegisterCallback", "SetScrollPercentage", "SetVisibleExtentPercentage",
+        "SetPanExtentPercentage", "IsThumbMouseDown" }) do
+        if type(bar[method]) ~= "function" then
+            bar:Hide()
+            return nil
+        end
+    end
+    bar:Hide()
+    bar:SetAlpha(scrollBarAlpha)
+    bar:RegisterCallback(bar.Event and bar.Event.OnScroll or "OnScroll", OnScrollBarScroll, bar)
+    -- The wheel moves the lines as anywhere else on the tab.
+    bar:SetScript("OnMouseWheel", function(_, delta) OnMouseWheel(display, delta) end)
+    return bar
+end
+
+-- Where the window's own bar is, which the game moves with the resize
+-- button and the arrow to the newest line.
+local function PlaceScrollBar(window)
+    if not scrollBar then return end
+    scrollBar:ClearAllPoints()
+    local own = window and window.ScrollBar
+    if type(own) == "table" then
+        scrollBar:SetAllPoints(own)
+    else
+        scrollBar:SetPoint("TOPLEFT", display, "TOPRIGHT", 0, 0)
+        scrollBar:SetPoint("BOTTOMLEFT", display, "BOTTOMRIGHT", 0, 0)
+    end
+end
+
 function DamageMeterTab.Refresh()
     if not display or not display:IsVisible() then return end
     local window = display:GetParent()
@@ -934,6 +1038,7 @@ function DamageMeterTab.Refresh()
 
     -- A failure keeps the lines already shown rather than blanking the tab.
     pcall(state.breakdown and FillBreakdown or FillRows, window, lineHeight, capacity)
+    SyncScrollBar()
 end
 
 -- The name in a breakdown's title: a player's first name, as on WoW Forever
@@ -988,6 +1093,7 @@ local function OnDisplayUpdate(self, elapsed)
         Try(PlaceMenuButton)
     end
     Try(MirrorChannelButton)
+    Try(FadeScrollBar, elapsed)
     self.elapsed = (self.elapsed or 0) + elapsed
     if self.elapsed < REFRESH_SECONDS then return end
     self.elapsed = 0
@@ -1319,6 +1425,7 @@ local function CreateDisplay()
     menuButton = CreateMenuButton()
     -- Only under the arrow.
     if menuButton then segmentButton = CreateSegmentButton() end
+    scrollBar = CreateScrollBar()
 
     display:SetScript("OnShow", function(self)
         self.elapsed = 0
@@ -1344,6 +1451,7 @@ local function Attach(window)
         display:ClearAllPoints()
         display:SetAllPoints(window)
         display:SetFrameLevel((window:GetFrameLevel() or 0) + 5)
+        PlaceScrollBar(window)
     end
     display:Show()
     MarkDirty()
