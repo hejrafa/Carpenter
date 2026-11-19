@@ -1640,6 +1640,69 @@ do
     end
 end
 
+-- Retail and Forever open the mailbox through the interaction manager and
+-- never send MAIL_SHOW, so the money taken from Forever's auction mail went
+-- unsummed. Only the mailbox's interaction counts. TBC Anniversary doesn't
+-- always send MAIL_CLOSED, so the mail window closing sums up too.
+do
+    local printed = {}
+    local originalPrint = print
+    print = function(message) printed[#printed + 1] = plain(tostring(message)) end
+    local realEnum, realMailFrame = Enum, MailFrame
+    local MAIL, MERCHANT = 17, 5
+    Enum = { PlayerInteractionType = { MailInfo = MAIL, Merchant = MERCHANT } }
+    MailFrame = nil
+
+    local session = ns.Private.ChatCleanerSessions.Create()
+    session:Enable()
+    local tracker = session.mailTracker
+    local onMail = tracker._scripts.OnEvent
+    additionalChecks = additionalChecks + 1
+    if not (tracker._events.PLAYER_INTERACTION_MANAGER_FRAME_SHOW and tracker._events.PLAYER_INTERACTION_MANAGER_FRAME_HIDE) then
+        failures[#failures + 1] = "mail sessions: the interaction manager's mailbox should be watched"
+    end
+    currentMoney = 10000
+    onMail(tracker, "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", MERCHANT)
+    currentMoney = 10500
+    onMail(tracker, "PLAYER_MONEY")
+    onMail(tracker, "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", MAIL)
+    currentMoney = 60500
+    onMail(tracker, "PLAYER_MONEY")
+    onMail(tracker, "PLAYER_INTERACTION_MANAGER_FRAME_HIDE", MERCHANT)
+    onMail(tracker, "PLAYER_INTERACTION_MANAGER_FRAME_HIDE", MAIL)
+    onMail(tracker, "MAIL_CLOSED")
+
+    -- Classic: MAIL_SHOW, then the mail window closes with no MAIL_CLOSED.
+    local onHide = {}
+    MailFrame = { HookScript = function(_, script, handler) onHide[#onHide + 1] = script == "OnHide" and handler end }
+    Enum = nil
+    local classic = ns.Private.ChatCleanerSessions.Create()
+    classic:Enable()
+    local classicTracker = classic.mailTracker
+    local onClassicMail = classicTracker._scripts.OnEvent
+    additionalChecks = additionalChecks + 1
+    if classicTracker._events.PLAYER_INTERACTION_MANAGER_FRAME_SHOW then
+        failures[#failures + 1] = "mail sessions: a client without the interaction manager should not watch it"
+    end
+    for visit, taken in ipairs({ 300, 100 }) do
+        onClassicMail(classicTracker, "MAIL_SHOW")
+        currentMoney = currentMoney + taken
+        onClassicMail(classicTracker, "PLAYER_MONEY")
+        for _, handler in ipairs(onHide) do handler(MailFrame) end
+        if visit == 1 then onClassicMail(classicTracker, "MAIL_CLOSED") end
+    end
+
+    print = originalPrint
+    Enum, MailFrame = realEnum, realMailFrame
+    additionalChecks = additionalChecks + 2
+    if table.concat(printed, " / ") ~= "+ 5 0 0 / + 3 0 / + 1 0" then
+        failures[#failures + 1] = "mail sessions: expected [+ 5 0 0 / + 3 0 / + 1 0] got [" .. table.concat(printed, " / ") .. "]"
+    end
+    if #onHide ~= 1 then
+        failures[#failures + 1] = "mail sessions: the mail window should be hooked once, got " .. #onHide
+    end
+end
+
 do
     -- Turning Chat Cleaner off restores everything it changed.
     local originalEditBox = _G.ChatFrame1EditBox

@@ -84,25 +84,46 @@ function Sessions.Create()
         end
     end)
 
+    -- The mailbox opens and closes differently per client. Retail and
+    -- Forever open it through the interaction manager and don't send
+    -- MAIL_SHOW (Postal watches the same events there); Classic sends
+    -- MAIL_SHOW, and TBC Anniversary doesn't always send MAIL_CLOSED, so the
+    -- mail window closing ends the visit too. The first close sums up.
+    local MAIL_INTERACTION = Enum and Enum.PlayerInteractionType and Enum.PlayerInteractionType.MailInfo
     local mailLastMoney = 0
     local mailTotalCollected = 0
     local mailTracker = CreateFrame("Frame")
     mailTracker.isOpen = false
 
-    mailTracker:SetScript("OnEvent", function(self, event)
+    local function CloseMailVisit()
+        if not mailTracker.isOpen then return end
+        mailTracker.isOpen = false
+        PrintSummary(mailTotalCollected)
+        mailTotalCollected = 0
+    end
+
+    local mailFrameHooked = false
+    local function OpenMailVisit()
+        if mailTracker.isOpen then return end
+        mailTracker.isOpen = true
+        mailLastMoney = GetMoney()
+        mailTotalCollected = 0
+        -- Some clients load the mail window with the first mailbox.
+        if not mailFrameHooked and _G.MailFrame then
+            _G.MailFrame:HookScript("OnHide", CloseMailVisit)
+            mailFrameHooked = true
+        end
+    end
+
+    mailTracker:SetScript("OnEvent", function(self, event, interaction)
         if event == "MAIL_SHOW" then
-            if not self.isOpen then
-                self.isOpen = true
-                mailLastMoney = GetMoney()
-                mailTotalCollected = 0
-            end
+            OpenMailVisit()
+        elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
+            if interaction == MAIL_INTERACTION then OpenMailVisit() end
         elseif event == "MAIL_CLOSED" then
-            -- MAIL_CLOSED can come twice; the first one sums up.
-            if self.isOpen then
-                self.isOpen = false
-                PrintSummary(mailTotalCollected)
-                mailTotalCollected = 0
-            end
+            CloseMailVisit()
+        elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
+            if interaction == MAIL_INTERACTION then CloseMailVisit() end
         elseif event == "PLAYER_MONEY" and self.isOpen then
             local currentMoney = GetMoney()
             local diff = currentMoney - mailLastMoney
@@ -124,6 +145,10 @@ function Sessions.Create()
         merchantFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
         mailTracker:RegisterEvent("MAIL_SHOW")
         mailTracker:RegisterEvent("MAIL_CLOSED")
+        if MAIL_INTERACTION then
+            mailTracker:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
+            mailTracker:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
+        end
         mailTracker:RegisterEvent("PLAYER_MONEY")
     end
 
