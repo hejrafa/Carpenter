@@ -54,6 +54,8 @@ local RELOAD_POPUP = "CARPENTER_DAMAGE_METER_TAB_RELOAD"
 local REFRESH_SECONDS = 0.5
 local LOGIN_SETTLE_SECONDS = { 1, 3, 6 }
 local VALUE_GAP = 8
+-- The numbers keep the same room from the scroll bar beside them.
+local SCROLL_BAR_GAP = VALUE_GAP
 local FALLBACK_FONT_SIZE = 14
 -- The glow behind a line that takes a click, while the mouse is on it: the
 -- game's own menus light an item the same way.
@@ -750,7 +752,7 @@ local function PlaceRow(row, slot, window, lineHeight)
     StyleFontString(row.value, window)
     local y = -slot * lineHeight
     row.value:ClearAllPoints()
-    row.value:SetPoint("TOPRIGHT", display, "TOPRIGHT", 0, y)
+    row.value:SetPoint("TOPRIGHT", display, "TOPRIGHT", -SCROLL_BAR_GAP, y)
     row.name:ClearAllPoints()
     row.name:SetPoint("TOPLEFT", display, "TOPLEFT", 0, y)
     row.name:SetPoint("RIGHT", row.value, "LEFT", -VALUE_GAP, 0)
@@ -1462,7 +1464,7 @@ local function CreateDisplay()
     headerRight = display:CreateFontString(nil, "OVERLAY")
     headerRight:SetJustifyH("RIGHT")
     headerRight:SetWordWrap(false)
-    headerRight:SetPoint("TOPRIGHT", display, "TOPRIGHT", 0, 0)
+    headerRight:SetPoint("TOPRIGHT", display, "TOPRIGHT", -SCROLL_BAR_GAP, 0)
 
     header = display:CreateFontString(nil, "OVERLAY")
     header:SetJustifyH("LEFT")

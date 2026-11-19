@@ -428,7 +428,7 @@ end
 
 -- The text on the display, by line: header, then "name | value". The
 -- header's right side lands in headerRightText.
-local headerRightText
+local headerRightText, headerRightRegion
 local function Read(display)
     local header, names, values = nil, {}, {}
     for _, region in ipairs(display.children or {}) do
@@ -439,6 +439,7 @@ local function Read(display)
                 header = region.text
             elseif line == 0 and point == "TOPRIGHT" then
                 headerRightText = region.text
+                headerRightRegion = region
             elseif point == "TOPLEFT" then
                 names[line] = region
             elseif point == "TOPRIGHT" then
@@ -1065,6 +1066,9 @@ end
 assertTrue(bar ~= nil, "the tab should have a scroll bar")
 assertTrue(toEnd ~= nil, "the tab should have the arrow to the end")
 assertEqual(bar.allPoints, ChatFrame3.ScrollBar, "the scroll bar should sit where the window's own does")
+header, names, values = Read(display)
+assertEqual(values[1] and values[1].points[1][4], -8, "the numbers should keep room from the scroll bar")
+assertEqual(headerRightRegion and headerRightRegion.points[1][4], -8, "the segment should keep room from the scroll bar")
 assertEqual(toEnd.allPoints, ChatFrame3.ScrollToBottomButton, "the arrow should sit where the window's own does")
 assertEqual(toEnd.normalAtlas, "minimal-scrollbar-arrow-returntobottom", "the arrow should be the chat windows' own")
 assertEqual(toEnd.highlightAtlas, "minimal-scrollbar-arrow-returntobottom-over", "the arrow should light as the chat windows' own")
