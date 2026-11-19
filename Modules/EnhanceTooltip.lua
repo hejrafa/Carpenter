@@ -469,7 +469,11 @@ local function ApplyMobLevelLine(tooltip, unit)
     end
     if not levelLine then return end
 
+    -- Where the game restricts a unit's identity (Forever battlegrounds), it
+    -- hides the creature type from addons. The game's own line names it, so
+    -- that line stays.
     local creatureType = UnitCreatureType(unit)
+    if IsSecret(creatureType) then return end
     local classification = UnitClassification(unit)
 
     local typePart = ""

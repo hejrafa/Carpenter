@@ -436,6 +436,22 @@ SetScores({
 HoverEnemy()
 assertEqual(GameTooltip.lines[1]:GetText(), SECRET, "an ambiguous first name leaves Blizzard's lines alone")
 
+-- An NPC there hides its creature type from addons too. The game's level
+-- line, which names it, stays as the game wrote it.
+do
+    local realIsPlayer, realControlled, realCreatureType = UnitIsPlayer, UnitPlayerControlled, UnitCreatureType
+    local realNames = names.target
+    names.target = { "Warmaul Guard" }
+    UnitIsPlayer = function() return false end
+    UnitPlayerControlled = function() return false end
+    UnitCreatureType = function() return SECRET end
+    target.classification = "elite"
+    text = Hover("Warmaul Guard", "Level 38 Orc", "Horde")
+    assertEqual(text[2], "Level 38 Orc", "an NPC with a hidden creature type keeps the game's level line")
+    UnitIsPlayer, UnitPlayerControlled, UnitCreatureType = realIsPlayer, realControlled, realCreatureType
+    names.target = realNames
+end
+
 -- =========================
 -- The unit frames' right-click hint
 -- =========================
