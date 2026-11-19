@@ -385,8 +385,9 @@ local function FindAndRenameWindow()
 end
 
 local function ShowReloadPopup()
-    if type(StaticPopup_Show) ~= "function" then return end
-    StaticPopupDialogs = StaticPopupDialogs or {}
+    -- Only its own entry is added: assigning the game's table itself, even
+    -- to the same value, would taint every popup the game shows after it.
+    if type(StaticPopup_Show) ~= "function" or type(StaticPopupDialogs) ~= "table" then return end
     if not StaticPopupDialogs[RELOAD_POPUP] then
         StaticPopupDialogs[RELOAD_POPUP] = {
             text = Text("DAMAGE_METER_TAB_RELOAD",

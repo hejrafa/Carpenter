@@ -133,14 +133,76 @@ if IsEnabled() then
     Install()
 end
 
-local function AddBlockedAction(event, action)
+-- The game blames a blocked action on the last addon whose writes its own
+-- code read on the way there. So each entry also keeps the way there (the
+-- call stack, which the event is sent from) and every variable of the game's
+-- that Carpenter's code wrote last: the reason is among those writes.
+local MAX_STACK_LENGTH = 3000
+local MAX_TAINTED_NAMES = 60
+
+-- The game's tables whose fields its unit frames, menus, tooltips, popups
+-- and chat read.
+local SCANNED_TABLES = {
+    "TargetFrame", "FocusFrame", "PlayerFrame", "PartyFrame", "GameTooltip", "UIParent", "WorldFrame",
+    "UnitPopupManager", "UnitPopupMenus", "UnitPopupSharedUtil", "Menu", "MenuUtil", "EventRegistry",
+    "EditModeManagerFrame", "StaticPopupDialogs", "SlashCmdList", "ChatFrame1", "GeneralDockManager",
+}
+
+-- Names and keys Carpenter owns: writing them can't taint the game's code.
+local function IsOwnName(name)
+    if type(name) ~= "string" then return false end
+    return name:find("^_?Carpenter") ~= nil or name:find("^_?CP_") ~= nil or name:find("^I?s?CP[A-Z]") ~= nil
+        or name:find("CARPENTER") ~= nil
+end
+
+local function IsCarpenterTaint(taint, addonName)
+    return taint == addonName or taint == "Carpenter"
+end
+
+local function FindTaintedState(addonName)
+    if type(issecurevariable) ~= "function" then return nil end
+    local found = {}
+    local function Add(name)
+        if #found < MAX_TAINTED_NAMES then found[#found + 1] = name end
+    end
+    for name in pairs(_G) do
+        if type(name) == "string" and not IsOwnName(name) then
+            local ok, secure, taint = pcall(issecurevariable, name)
+            if ok and not secure and IsCarpenterTaint(taint, addonName) then Add(name) end
+        end
+    end
+    for _, tableName in ipairs(SCANNED_TABLES) do
+        local tbl = rawget(_G, tableName)
+        if type(tbl) == "table" then
+            for key in pairs(tbl) do
+                if type(key) == "string" and not IsOwnName(key) then
+                    local ok, secure, taint = pcall(issecurevariable, tbl, key)
+                    if ok and not secure and IsCarpenterTaint(taint, addonName) then Add(tableName .. "." .. key) end
+                end
+            end
+        end
+    end
+    return found
+end
+
+local function CaptureStack()
+    if type(debugstack) ~= "function" then return nil end
+    local ok, stack = pcall(debugstack, 3)
+    if not ok or type(stack) ~= "string" then return nil end
+    return stack:sub(1, MAX_STACK_LENGTH)
+end
+
+local function AddBlockedAction(event, action, addonName)
     if not CarpenterDB then return end
     CarpenterDB.blockedActionLog = CarpenterDB.blockedActionLog or {}
     local log = CarpenterDB.blockedActionLog
+    local okTainted, tainted = pcall(FindTaintedState, addonName)
     log[#log + 1] = {
         time = date and date("%Y-%m-%d %H:%M:%S") or tostring(GetTime and GetTime() or ""),
         event = event,
         action = tostring(action or "unknown"),
+        stack = CaptureStack(),
+        tainted = okTainted and tainted or nil,
     }
     while #log > MAX_BLOCKED_ACTION_ENTRIES do
         table.remove(log, 1)
@@ -153,7 +215,7 @@ blockedActionFrame:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 blockedActionFrame:SetScript("OnEvent", function(_, event, addon, action)
     local addonName = Carpenter and Carpenter.AddonName or "Carpenter"
     if addon ~= addonName and addon ~= "Carpenter" then return end
-    AddBlockedAction(event, action)
+    AddBlockedAction(event, action, addonName)
 end)
 
 SLASH_CARPENTERBLOCKEDACTION1 = "/cpblocked"
