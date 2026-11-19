@@ -422,12 +422,13 @@ local function ApplyPlayerInfoLine(tooltip, unit)
 
     -- Locate the level line and check whether the game already shows the class on its
     -- own line (e.g. "Shadow Priest" under "Level 60 Orc"), so we don't repeat it.
+    -- A line the game hides from addons can't be read, so it's skipped.
     local levelLine, classOnlyLine
     local numLines = tooltip and tooltip.NumLines and tooltip:NumLines() or 4
     for i = 2, numLines do
         local line = _G["GameTooltipTextLeft" .. i]
-        local text = line and line:GetText() or ""
-        if text ~= "" then
+        local text = line and ReadableString(line:GetText())
+        if text then
             local hasLevel = text:lower():find(LEVEL_STR:lower(), 1, true) ~= nil
             local hasClass = className and className ~= "" and text:find(className, 1, true) ~= nil
             if hasLevel then
@@ -462,7 +463,8 @@ local function ApplyMobLevelLine(tooltip, unit)
     local levelLine
     for i = 2, 4 do
         local line = _G["GameTooltipTextLeft" .. i]
-        if line and (line:GetText() or ""):lower():find(LEVEL_STR:lower()) then
+        local text = line and ReadableString(line:GetText())
+        if text and text:lower():find(LEVEL_STR:lower()) then
             levelLine = line
             break
         end

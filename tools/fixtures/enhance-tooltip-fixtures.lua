@@ -448,6 +448,31 @@ do
     target.classification = "elite"
     text = Hover("Warmaul Guard", "Level 38 Orc", "Horde")
     assertEqual(text[2], "Level 38 Orc", "an NPC with a hidden creature type keeps the game's level line")
+
+    -- A line the game hides can't be read: it's skipped, and the level line
+    -- below it is still found, for a mob and for a player.
+    local realLevel = target.level
+    target.level = 38
+    UnitCreatureType = function() return "Humanoid" end
+    SetTooltipLines("Warmaul Guard", SECRET, "Level 38 Humanoid")
+    scripts.OnTooltipSetUnit(GameTooltip)
+    assertEqual(GameTooltip.lines[2]:GetText(), SECRET, "a mob's hidden line stays")
+    assertEqual(stripColors(RawLine(3)), "Level 38 Humanoid (Elite) ", "a hidden line doesn't hide a mob's level line")
+
+    local realGUID, realClass, realRace = UnitGUID, UnitClass, UnitRace
+    names.target = { "Thrall" }
+    UnitIsPlayer = function() return true end
+    UnitPlayerControlled = function() return true end
+    UnitGUID = function() return "Player-1-00000002" end
+    UnitClass = function() return "Priest", "PRIEST" end
+    UnitRace = function() return "Orc" end
+    target.level = 60
+    SetTooltipLines("Thrall", SECRET, "Level 60 Orc Priest")
+    scripts.OnTooltipSetUnit(GameTooltip)
+    assertEqual(GameTooltip.lines[2]:GetText(), SECRET, "a player's hidden line stays")
+    assertEqual(stripColors(RawLine(3)), "Level 60 Orc Priest", "a hidden line doesn't hide a player's level line")
+
+    UnitGUID, UnitClass, UnitRace, target.level = realGUID, realClass, realRace, realLevel
     UnitIsPlayer, UnitPlayerControlled, UnitCreatureType = realIsPlayer, realControlled, realCreatureType
     names.target = realNames
 end
