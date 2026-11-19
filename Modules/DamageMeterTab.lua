@@ -6,8 +6,8 @@
 -- in the chat window's own font. The order shows the ranking, so a name only
 -- carries its rank when it is pinned out of order. The mouse wheel scrolls
 -- the lines (Shift jumps to the top or bottom). A list longer than the tab
--- also gets the chat windows' own scroll bar, which fades with the window
--- as theirs does.
+-- also gets the chat windows' own scroll bar and arrow to the end, which
+-- look, move and fade as theirs do.
 --
 -- Clicking a name shows that player's breakdown in the tab, as the game's
 -- own meter does in a window beside it: their spells, best first, each with
@@ -911,22 +911,29 @@ end
 -- =========================
 -- The scroll bar
 -- =========================
--- The chat windows' own, the game's minimal scroll bar, in the place of the
--- tab window's, which the game keeps hidden as the window gets no chat. It
--- shows while the lines run past the tab's foot and moves a line at a time.
--- It fades as theirs does: in to 0.6 with the window when the mouse comes
--- over it, slowly out after it leaves, and up while the mouse is on it.
+-- The chat windows' own: the game's minimal scroll bar with the arrow to
+-- the end under it, in the place of the tab window's, which the game keeps
+-- hidden as the window gets no chat. They show while the lines run past the
+-- tab's foot. As on the chat windows, every place the list can scroll to
+-- counts like a message: the thumb is as long as one of them and snaps to
+-- each, so it moves a line at a time. Both fade as theirs do: in with the
+-- window when the mouse comes over it, the bar to 0.6 and the arrow to
+-- 0.65, slowly out after it leaves, and up while the mouse is on them. The
+-- arrow doesn't flash: the list isn't waiting at its end as chat is.
 local SCROLL_BAR_ALPHA = 0.6
-local scrollBarAlpha = 0
+local SCROLL_TO_END_ALPHA = 0.65
+local SCROLL_TO_END_FADE_IN_SECONDS = 0.1
+local SCROLL_TO_END_WIDTH, SCROLL_TO_END_HEIGHT = 17, 15
+local scrollToEnd
+local fade = { bar = 0, toEnd = 0 }
 local syncingScrollBar = false
 
 local function MaxOffset()
     return math.max(0, state.total - state.capacity)
 end
 
--- The thumb at the first line's place, as long as the share that fits.
 local function ApplyScrollBar(maxOffset)
-    scrollBar:SetVisibleExtentPercentage(state.capacity / state.total)
+    scrollBar:SetVisibleExtentPercentage(1 / (maxOffset + 1))
     scrollBar:SetPanExtentPercentage(1 / maxOffset)
     scrollBar:SetScrollPercentage(math.min(state.offset, maxOffset) / maxOffset)
 end
@@ -936,75 +943,117 @@ local function SyncScrollBar()
     local maxOffset = MaxOffset()
     local scrollable = state.capacity > 0 and maxOffset > 0
     scrollBar:SetShown(scrollable)
+    if scrollToEnd then scrollToEnd:SetShown(scrollable) end
     if not scrollable then return end
     syncingScrollBar = true
     pcall(ApplyScrollBar, maxOffset)
     syncingScrollBar = false
 end
 
--- The thumb, the track or an arrow moved: the lines follow to the nearest
--- line, and the thumb snaps to it, as on the chat windows.
+-- The thumb, the track or an arrow moved the bar to a line.
 local function OnScrollBarScroll(_, percentage)
     if syncingScrollBar or type(percentage) ~= "number" then return end
     local offset = math.floor(percentage * MaxOffset() + 0.5)
-    if offset ~= state.offset then
-        state.offset = offset
-        Try(DamageMeterTab.Refresh)
-    else
-        SyncScrollBar()
+    if offset == state.offset then return end
+    state.offset = offset
+    Try(DamageMeterTab.Refresh)
+end
+
+local function OnScrollToEndClick()
+    if PlaySound and SOUNDKIT and SOUNDKIT.IG_CHAT_BOTTOM then
+        pcall(PlaySound, SOUNDKIT.IG_CHAT_BOTTOM)
     end
+    state.offset = MaxOffset()
+    Try(DamageMeterTab.Refresh)
+end
+
+-- A step of a fade toward target, at the speed that takes it from nothing
+-- to its peak in the given seconds.
+local function FadeStep(alpha, target, peak, seconds, elapsed)
+    if alpha == target then return alpha end
+    local step = seconds > 0 and peak * elapsed / seconds or peak
+    if alpha < target then return math.min(target, alpha + step) end
+    return math.max(target, alpha - step)
 end
 
 local function FadeScrollBar(elapsed)
     if not scrollBar or not scrollBar:IsShown() then return end
     local window = display:GetParent()
     local up = (window and window.hasBeenFaded) or scrollBar:IsMouseOver() or scrollBar:IsThumbMouseDown()
-    local target = up and SCROLL_BAR_ALPHA or 0
-    if scrollBarAlpha == target then return end
-    local seconds
-    if up then
-        seconds = tonumber(_G.CHAT_FRAME_FADE_TIME) or 0.15
-    else
-        seconds = tonumber(_G.CHAT_FRAME_FADE_OUT_TIME) or 2
+        or (scrollToEnd and scrollToEnd:IsMouseOver())
+    local fadeOut = tonumber(_G.CHAT_FRAME_FADE_OUT_TIME) or 2
+    local barAlpha = FadeStep(fade.bar, up and SCROLL_BAR_ALPHA or 0, SCROLL_BAR_ALPHA,
+        up and (tonumber(_G.CHAT_FRAME_FADE_TIME) or 0.15) or fadeOut, elapsed)
+    if barAlpha ~= fade.bar then
+        fade.bar = barAlpha
+        scrollBar:SetAlpha(barAlpha)
     end
-    local step = seconds > 0 and SCROLL_BAR_ALPHA * elapsed / seconds or SCROLL_BAR_ALPHA
-    if scrollBarAlpha < target then
-        scrollBarAlpha = math.min(target, scrollBarAlpha + step)
-    else
-        scrollBarAlpha = math.max(target, scrollBarAlpha - step)
+    if not scrollToEnd then return end
+    local endAlpha = FadeStep(fade.toEnd, up and SCROLL_TO_END_ALPHA or 0, SCROLL_TO_END_ALPHA,
+        up and SCROLL_TO_END_FADE_IN_SECONDS or fadeOut, elapsed)
+    if endAlpha ~= fade.toEnd then
+        fade.toEnd = endAlpha
+        scrollToEnd:SetAlpha(endAlpha)
     end
-    scrollBar:SetAlpha(scrollBarAlpha)
 end
 
 local function CreateScrollBar()
     local ok, bar = pcall(CreateFrame, "EventFrame", nil, display, "MinimalScrollBar")
     if not ok or type(bar) ~= "table" then return nil end
     for _, method in ipairs({ "RegisterCallback", "SetScrollPercentage", "SetVisibleExtentPercentage",
-        "SetPanExtentPercentage", "IsThumbMouseDown" }) do
+        "SetPanExtentPercentage", "IsThumbMouseDown", "EnableSnapToInterval", "EnableInternalPriority" }) do
         if type(bar[method]) ~= "function" then
             bar:Hide()
             return nil
         end
     end
     bar:Hide()
-    bar:SetAlpha(scrollBarAlpha)
+    bar:SetAlpha(fade.bar)
+    -- As the chat windows set theirs up: the thumb stops only on a line,
+    -- and the list doesn't pull it about while it is held.
+    bar:EnableInternalPriority()
+    bar:EnableSnapToInterval()
     bar:RegisterCallback(bar.Event and bar.Event.OnScroll or "OnScroll", OnScrollBarScroll, bar)
     -- The wheel moves the lines as anywhere else on the tab.
     bar:SetScript("OnMouseWheel", function(_, delta) OnMouseWheel(display, delta) end)
     return bar
 end
 
--- Where the window's own bar is, which the game moves with the resize
--- button and the arrow to the newest line.
+-- The chat windows' arrow to the newest line, in the same art; here it goes
+-- to the list's last line.
+local function CreateScrollToEnd()
+    local button = CreateFrame("Button", nil, display)
+    button:Hide()
+    button:SetSize(SCROLL_TO_END_WIDTH, SCROLL_TO_END_HEIGHT)
+    button:SetNormalAtlas("minimal-scrollbar-arrow-returntobottom")
+    button:SetPushedAtlas("minimal-scrollbar-arrow-returntobottom-down")
+    button:SetHighlightAtlas("minimal-scrollbar-arrow-returntobottom-over", "ADD")
+    button:SetAlpha(fade.toEnd)
+    button:SetScript("OnClick", OnScrollToEndClick)
+    button:EnableMouseWheel(true)
+    button:SetScript("OnMouseWheel", function(_, delta) OnMouseWheel(display, delta) end)
+    return button
+end
+
+-- Where the window's own bar and arrow are, which the game moves with the
+-- resize button.
 local function PlaceScrollBar(window)
     if not scrollBar then return end
     scrollBar:ClearAllPoints()
-    local own = window and window.ScrollBar
-    if type(own) == "table" then
-        scrollBar:SetAllPoints(own)
+    local ownBar = window and window.ScrollBar
+    if type(ownBar) == "table" then
+        scrollBar:SetAllPoints(ownBar)
     else
         scrollBar:SetPoint("TOPLEFT", display, "TOPRIGHT", 0, 0)
-        scrollBar:SetPoint("BOTTOMLEFT", display, "BOTTOMRIGHT", 0, 0)
+        scrollBar:SetPoint("BOTTOMLEFT", display, "BOTTOMRIGHT", 0, SCROLL_TO_END_HEIGHT + 2)
+    end
+    if not scrollToEnd then return end
+    scrollToEnd:ClearAllPoints()
+    local ownArrow = window and window.ScrollToBottomButton
+    if type(ownArrow) == "table" then
+        scrollToEnd:SetAllPoints(ownArrow)
+    else
+        scrollToEnd:SetPoint("TOP", scrollBar, "BOTTOM", 0, -2)
     end
 end
 
@@ -1426,6 +1475,7 @@ local function CreateDisplay()
     -- Only under the arrow.
     if menuButton then segmentButton = CreateSegmentButton() end
     scrollBar = CreateScrollBar()
+    if scrollBar then scrollToEnd = CreateScrollToEnd() end
 
     display:SetScript("OnShow", function(self)
         self.elapsed = 0

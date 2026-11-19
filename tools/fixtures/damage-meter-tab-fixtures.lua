@@ -109,15 +109,17 @@ local menuButtons = {}
 CreateFrame = function(frameType, frameName, parent, template)
     local frame = AddFrameMethods(H.Frame({ name = frameName, parent = parent, objectType = frameType }))
     H.createdFrames[#H.createdFrames + 1] = frame
-    if frameType == "Button" or frameType == "DropdownButton" then frame.mouseEnabled = true end
+    if frameType == "Button" or frameType == "DropdownButton" then
+        frame.mouseEnabled = true
+        function frame:SetNormalAtlas(atlas) self.normalAtlas = atlas end
+        function frame:SetPushedAtlas(atlas) self.pushedAtlas = atlas end
+        function frame:SetHighlightAtlas(atlas) self.highlightAtlas = atlas end
+    end
     if frameType == "DropdownButton" then
         if template ~= nil then error("unexpected template " .. tostring(template)) end
         function frame:SetupMenu(generator) self.generator = generator end
         function frame:IsMenuOpen() return self.menuOpen == true end
         function frame:SetMenuAnchor(anchor) self.menuAnchor = anchor end
-        function frame:SetNormalAtlas(atlas) self.normalAtlas = atlas end
-        function frame:SetPushedAtlas(atlas) self.pushedAtlas = atlas end
-        function frame:SetHighlightAtlas(atlas) self.highlightAtlas = atlas end
         menuButtons[#menuButtons + 1] = frame
     end
     if template == "MinimalScrollBar" then
@@ -129,7 +131,14 @@ CreateFrame = function(frameType, frameName, parent, template)
         function frame:RegisterCallback(event, callback, owner)
             self.onScroll = event == "OnScroll" and function(...) return callback(owner, ...) end or self.onScroll
         end
+        function frame:EnableSnapToInterval() self.snapToInterval = true end
+        function frame:EnableInternalPriority() self.internalPriority = true end
+        -- Snapping stops it on as many places as thumbs fit in the track.
         function frame:SetScrollPercentage(percentage)
+            if self.snapToInterval and self.visibleExtent > 0 then
+                local range = math.floor(1 / self.visibleExtent + 0.000001) - 1
+                if range > 0 then percentage = math.floor(percentage * range + 0.5) / range end
+            end
             self.percentage = math.max(0, math.min(1, percentage))
             if self.onScroll then self.onScroll(self.percentage) end
         end
@@ -178,8 +187,10 @@ for index = 1, NUM_CHAT_WINDOWS do
     frame.buttonFrame = AddFrameMethods(H.Frame({ name = "ChatFrame" .. index .. "ButtonFrame", parent = frame, alpha = 1 }))
     frame.buttonFrame.minimizeButton = AddFrameMethods(H.Frame({ parent = frame.buttonFrame, shown = false, strata = "LOW", level = 8 }))
     frame.buttonFrame.minimizeButton:SetPoint("TOP", frame.buttonFrame, "TOP", 0, 4)
-    -- The window's own scroll bar, hidden while it has no chat.
+    -- The window's own scroll bar, hidden while it has no chat, and its
+    -- arrow to the newest line, shown but see-through.
     frame.ScrollBar = AddFrameMethods(H.Frame({ parent = frame, shown = false }))
+    frame.ScrollToBottomButton = AddFrameMethods(H.Frame({ parent = frame, alpha = 0 }))
     _G["ChatFrame" .. index] = frame
     local tab = AddFrameMethods(H.Frame({ name = "ChatFrame" .. index .. "Tab", width = 90 }))
     tab.Text = NewFontString(tab)
@@ -1046,13 +1057,21 @@ assertEqual(names[1] and names[1].text, "P1", "a shorter list should scroll back
 -- =========================
 -- A list longer than the tab gets the chat windows' scroll bar.
 -- =========================
-local bar
+local bar, toEnd
 for _, child in ipairs(display.children) do
     if child.objectType == "EventFrame" then bar = child end
+    if child.objectType == "Button" and child.normalAtlas then toEnd = child end
 end
 assertTrue(bar ~= nil, "the tab should have a scroll bar")
+assertTrue(toEnd ~= nil, "the tab should have the arrow to the end")
 assertEqual(bar.allPoints, ChatFrame3.ScrollBar, "the scroll bar should sit where the window's own does")
+assertEqual(toEnd.allPoints, ChatFrame3.ScrollToBottomButton, "the arrow should sit where the window's own does")
+assertEqual(toEnd.normalAtlas, "minimal-scrollbar-arrow-returntobottom", "the arrow should be the chat windows' own")
+assertEqual(toEnd.highlightAtlas, "minimal-scrollbar-arrow-returntobottom-over", "the arrow should light as the chat windows' own")
+assertEqual(bar.snapToInterval, true, "the thumb should stop only on a line")
+assertEqual(bar.internalPriority, true, "the list should not pull a held thumb about")
 assertEqual(bar.shown, false, "a list that fits should show no scroll bar")
+assertEqual(toEnd.shown, false, "a list that fits should show no arrow")
 local shortSources = meter.sources
 meter.sources = {}
 for index = 1, 9 do
@@ -1061,7 +1080,8 @@ for index = 1, 9 do
 end
 Tab.Refresh()
 assertEqual(bar.shown, true, "a list longer than the tab should show the scroll bar")
-assertEqual(bar.visibleExtent, 3 / 9, "the thumb should be as long as the share of lines that fit")
+assertEqual(toEnd.shown, true, "a list longer than the tab should show the arrow")
+assertEqual(bar.visibleExtent, 1 / 7, "the thumb should be as long as one of the seven places, as on chat")
 assertEqual(bar.panExtent, 1 / 6, "an arrow should move one line")
 assertEqual(bar.percentage, 0, "the thumb should start at the top")
 Wheel(display, -1)
@@ -1081,26 +1101,43 @@ bar.scripts.OnMouseWheel(bar, 1)
 header, names = Read(display)
 assertEqual(names[3] and names[3].text, "P8", "the wheel over the scroll bar should move one line")
 assertEqual(bar.percentage, 5 / 6, "the thumb should follow the wheel over it")
+Wheel(display, 1)
+Wheel(display, 1)
+toEnd.scripts.OnClick(toEnd, "LeftButton")
+header, names = Read(display)
+assertEqual(names[3] and names[3].text, "P9", "the arrow should go to the last line")
+assertEqual(bar.percentage, 1, "the thumb should follow the arrow to the end")
 
 -- It fades as the chat windows' own: in with the window, slowly out.
 assertEqual(bar.alpha, 0, "the scroll bar should start faded out")
 ChatFrame3.hasBeenFaded = true
-display.scripts.OnUpdate(display, 0.15)
+assertEqual(toEnd.alpha, 0, "the arrow should start faded out")
+display.scripts.OnUpdate(display, 0.1)
+assertEqual(toEnd.alpha, 0.65, "the arrow should fade in quickly with the window")
+assertTrue(math.abs(bar.alpha - 0.4) < 1e-9, "the scroll bar should fade in over the chat windows' time")
+display.scripts.OnUpdate(display, 0.05)
 assertEqual(bar.alpha, 0.6, "the scroll bar should fade in with the window")
 ChatFrame3.hasBeenFaded = nil
 display.scripts.OnUpdate(display, 1)
 assertTrue(math.abs(bar.alpha - 0.3) < 1e-9, "the scroll bar should fade out slowly after the window")
+assertTrue(math.abs(toEnd.alpha - 0.325) < 1e-9, "the arrow should fade out slowly after the window")
 bar.mouseOver = true
 display.scripts.OnUpdate(display, 0.15)
 assertEqual(bar.alpha, 0.6, "the scroll bar should stay up under the mouse")
 bar.mouseOver = false
+toEnd.mouseOver = true
+display.scripts.OnUpdate(display, 1)
+assertEqual(bar.alpha, 0.6, "the scroll bar should stay up with the mouse on the arrow")
+toEnd.mouseOver = false
 display.scripts.OnUpdate(display, 2)
 assertEqual(bar.alpha, 0, "the scroll bar should fade out once the mouse leaves")
+assertEqual(toEnd.alpha, 0, "the arrow should fade out once the mouse leaves")
 
 -- A notice in place of the list has nothing to scroll.
 meter.enabled = false
 Tab.Refresh()
 assertEqual(bar.shown, false, "a notice should show no scroll bar")
+assertEqual(toEnd.shown, false, "a notice should show no arrow")
 meter.enabled = true
 Tab.Refresh()
 assertEqual(bar.shown, true, "the scroll bar should come back with the list")
