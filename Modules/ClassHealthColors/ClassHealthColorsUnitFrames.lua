@@ -451,7 +451,8 @@ local function HandleUnitFrameEvent(self, event, unit)
         if C_Timer and C_Timer.After then
             C_Timer.After(0.1, RefreshUnitFrameColors)
         end
-    elseif event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or event == "UNIT_FLAGS" or event == "UNIT_FACTION" then
+    elseif event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or event == "UNIT_FLAGS" or event == "UNIT_FACTION"
+        or event == "UNIT_NAME_UPDATE" then
         if unit == "target" then
             UpdateHealthBarColor(GetUnitFrameHealthBar("target"), "target")
             UpdateHealthBarColor(GetUnitFrameHealthBar("targettarget"), "targettarget")
@@ -496,6 +497,9 @@ function unitFrameFeature:Enable()
     unitFrameDriver:RegisterUnitEvent("UNIT_FLAGS", "player", "target", "targettarget", "focus", "party1", "party2", "party3", "party4")
     unitFrameDriver:RegisterUnitEvent("UNIT_FACTION", "player", "target", "targettarget", "focus", "party1", "party2", "party3", "party4")
     unitFrameDriver:RegisterUnitEvent("UNIT_TARGET", "target", "focus")
+    -- A player who just joined is unknown to the game, class included, until
+    -- it sends their name, often long before they come into view.
+    unitFrameDriver:RegisterUnitEvent("UNIT_NAME_UPDATE", "party1", "party2", "party3", "party4")
     unitFrameDriver:RegisterEvent("GROUP_ROSTER_UPDATE")
     unitFrameDriver:RegisterEvent("PLAYER_ENTERING_WORLD")
     Carpenter:SafeRegisterEvent(unitFrameDriver, "ARENA_OPPONENT_UPDATE")

@@ -131,8 +131,10 @@ end
 
 function InCombatLockdown() return false end
 
+local createdFrames = {}
 function CreateFrame()
     local frame = { events = {} }
+    createdFrames[#createdFrames + 1] = frame
     function frame:Hide() end
     function frame:Show() end
     function frame:RegisterEvent(event) self.events[event] = true end
@@ -197,6 +199,20 @@ secretClass = true
 registeredFeature:Enable()
 assert(partyTexture.atlas == PARTY_ATLAS, "secret class tokens should leave Blizzard's art alone")
 AssertColor({ 1, 1, 1 }, "secret class tokens should not tint the party fill")
+
+-- A player who just joined has no class until the game sends their name,
+-- which comes long before they come into view or anything else changes.
+local driver
+for _, frame in ipairs(createdFrames) do
+    if frame.events.GROUP_ROSTER_UPDATE then driver = frame end
+end
+assert(driver and driver.events.UNIT_NAME_UPDATE, "party names should be watched for the class that comes with them")
+driver.OnEvent(driver, "GROUP_ROSTER_UPDATE")
+AssertColor({ 1, 1, 1 }, "a member whose class isn't known yet should keep Blizzard's color")
+secretClass = false
+driver.OnEvent(driver, "UNIT_NAME_UPDATE", "party1")
+assert(partyTexture.atlas == PARTY_STATUS_ATLAS, "the member's name arriving should switch to the status atlas")
+AssertColor({ 0.9, 0.1, 0.3 }, "the class color should come with the member's name")
 registeredFeature:Disable()
 
 assert(partyBar.statusBarWrites == 0, "party StatusBar colors must never be written")
