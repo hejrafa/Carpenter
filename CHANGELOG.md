@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.9.3
+
+- Damage Meter Tab now has the chat windows' scroll bar when the list is longer than the tab, with the same down arrow under it to jump to the last line. Both fade in and out with the window like the chat's, and the numbers keep a little room from the bar.
+- Class Colored Health now colors a party member's bar as soon as they join, instead of when they come close or you click them.
+- Chat Cleaner colors chat senders by class even where the game's chat settings leave names white, as they do by default on WoW Forever and Classic. In battlegrounds, where the game hides who sent a line, the sender is class-colored too.
+- Loot settings read like settings again, with the game's own labels: "Loot Method: Group Loot" and "Loot Threshold: Uncommon". They had come out as "Loot + Group Loot". "Auction won:" keeps its colon.
+- On Retail and WoW Forever, the money you take from the mailbox, such as auction sales, is summed up in chat again when you close it.
+- Enhanced Tooltip no longer throws an error on NPCs in battlegrounds, or on tooltips with lines the game hides from addons.
+
 ## 1.9.2
 
 - Chat Cleaner now shortens every battleground announcement: flags ("Tynande Timpa took the flag", "Flag dropped", "Koji returned the Horde flag"), bases ("Koji assaulted the stables", "Koji claimed the mine", "Alliance took the Mage Tower"), gates and the score ("Horde is near victory: 1600 resources", "Horde wins"). A side's line keeps the game's color for that side.
