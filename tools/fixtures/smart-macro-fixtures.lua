@@ -421,6 +421,49 @@ do
 end
 
 -- =========================
+-- Durations, the client's way: German and Spanish write "|4one:many;" plurals.
+-- =========================
+do
+    local strings = {
+        deDE = {
+            SECONDS_ABBR = "%d |4Sek.:Sek.;", INT_SPELL_DURATION_SEC = "%d Sek.",
+            MINUTES_ABBR = "%d |4Min.:Min.;", INT_SPELL_DURATION_MIN = "%d Min.",
+            HOURS_ABBR = "%d |4Std.:Std.;", INT_SPELL_DURATION_HOURS = "%d |4Stunde:Stunden;",
+        },
+        esES = {
+            SECONDS_ABBR = "%d |4s:s;", INT_SPELL_DURATION_SEC = "%d s",
+            MINUTES_ABBR = "%d |4min:min;", INT_SPELL_DURATION_MIN = "%d min",
+            HOURS_ABBR = "%d |4h:h;", INT_SPELL_DURATION_HOURS = "%d |4h:h;",
+        },
+    }
+    local samples = {
+        deDE = { "benutzen: stellt 455 bis 585 gesundheit wieder her.", "benutzen: stellt im verlauf von 15 sek. 1000 gesundheit wieder her.", "erhaltet 15 beweglichkeit für 15 min." },
+        esES = { "uso: restaura entre 455 y 585 p. de salud.", "uso: restaura 1000 p. de salud durante 15 s.", "obtienes 15 de agilidad durante 15 min." },
+    }
+    for locale, globals in pairs(strings) do
+        for name, value in pairs(globals) do _G[name] = value end
+        local localeNS = { Private = {} }
+        local chunk = assert(loadfile(repo .. "/Modules/SmartMacros/SmartMacroData.lua"))
+        chunk("Carpenter", localeNS)
+        local localeData = localeNS.Private.SmartMacroData
+        local texts = samples[locale]
+        local checks = {
+            { localeData.HasDuration(texts[1], localeData.SecondsDurationPatterns), false, "a plain potion isn't healing over time" },
+            { localeData.HasDuration(texts[2], localeData.SecondsDurationPatterns), true, "a potion over seconds is healing over time" },
+            { localeData.HasDuration(texts[3], localeData.LongDurationPatterns), true, "a buff in minutes has a duration" },
+            { localeData.HasDuration(texts[1], localeData.LongDurationPatterns), false, "a plain potion has no buff duration" },
+        }
+        for _, check in ipairs(checks) do
+            fixtureCount = fixtureCount + 1
+            if check[1] ~= check[2] then
+                failures[#failures + 1] = string.format("durations %s: %s", locale, check[3])
+            end
+        end
+        for name in pairs(globals) do _G[name] = nil end
+    end
+end
+
+-- =========================
 -- Well Fed picks the stats the character uses.
 -- =========================
 do

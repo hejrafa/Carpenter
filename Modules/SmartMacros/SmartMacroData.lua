@@ -224,32 +224,10 @@ end
 
 -- Duration patterns written the client's way ("15 Sek.", "30 min", "1 Std."),
 -- built from Blizzard's own duration strings and lowercased like tooltips.
+-- Each "|4one:many;" plural is written out as a pattern of its own: read as
+-- "anything", it matched every number followed by a space, so German, Spanish
+-- and Simplified Chinese potions all read as healing over time.
 do
-    local function DurationPattern(format)
-        if type(format) ~= "string" then return nil end
-        format = format:gsub("%%%d%$d", "%%d"):gsub("|4[^;]*;", "\001")
-        if not format:find("%d", 1, true) then return nil end
-        format = format:gsub("%%d", "\002")
-        format = format:gsub("([%(%)%.%+%-%*%?%[%]%^%$%%])", "%%%1")
-        format = format:gsub("\001", ".-"):gsub("\002", "%%d[%%d%%.,]*")
-        return format:lower()
-    end
-
-    local function Collect(...)
-        local patterns = {}
-        for index = 1, select("#", ...) do
-            local pattern = DurationPattern(_G[select(index, ...)])
-            if pattern then patterns[#patterns + 1] = pattern end
-        end
-        return patterns
-    end
-
-    Data.SecondsDurationPatterns = Collect("INT_SPELL_DURATION_SEC", "SECONDS_ABBR")
-    Data.LongDurationPatterns = Collect("INT_SPELL_DURATION_MIN", "INT_SPELL_DURATION_HOURS", "MINUTES_ABBR", "HOURS_ABBR")
-
-    -- The same strings with each "|4one:many;" plural written out as its own
-    -- pattern, to take durations out of a buff's text before its numbers are
-    -- read. Longest first, so "minuten" goes before "minute".
     local function ExpandPlurals(format)
         local variants = { format }
         local changed = true
@@ -272,24 +250,45 @@ do
         return variants
     end
 
-    local stripPatterns = {}
-    for _, name in ipairs({ "INT_SPELL_DURATION_SEC", "INT_SPELL_DURATION_MIN", "INT_SPELL_DURATION_HOURS",
-        "SECONDS_ABBR", "MINUTES_ABBR", "HOURS_ABBR", "D_SECONDS", "D_MINUTES", "D_HOURS" }) do
-        local format = _G[name]
-        if type(format) == "string" then
-            for _, variant in ipairs(ExpandPlurals(format:gsub("%%%d%$d", "%%d"))) do
-                -- A number with a unit; a bare number would take every value out.
-                if variant:find("%d", 1, true) and variant:gsub("%%d", ""):find("%S") then
-                    local pattern = variant:gsub("%%d", "\002")
-                        :gsub("([%(%)%.%+%-%*%?%[%]%^%$%%])", "%%%1")
-                        :gsub("\002", "%%d[%%d%%.,]*")
-                    stripPatterns[#stripPatterns + 1] = pattern:lower()
+    -- A unit ending in a Latin letter has to end its word: French "%d h"
+    -- isn't read in "10 hâte", nor Spanish "%d s" in "10 salud".
+    local WORD_END = "%f[^%a\128-\255]"
+
+    local function DurationPatterns(format, patterns)
+        if type(format) ~= "string" then return end
+        format = format:gsub("%%%d%$d", "%%d")
+        for _, variant in ipairs(ExpandPlurals(format)) do
+            variant = variant:lower()
+            -- A number with a unit; a bare number would match every value.
+            if variant:find("%d", 1, true) and variant:gsub("%%d", ""):find("%S") then
+                local pattern = variant:gsub("%%d", "\002")
+                    :gsub("([%(%)%.%+%-%*%?%[%]%^%$%%])", "%%%1")
+                    :gsub("\002", "%%d[%%d%%.,]*")
+                if variant:find("%a$") then pattern = pattern .. WORD_END end
+                local known = false
+                for _, existing in ipairs(patterns) do
+                    if existing == pattern then known = true break end
                 end
+                if not known then patterns[#patterns + 1] = pattern end
             end
         end
     end
-    table.sort(stripPatterns, function(a, b) return #a > #b end)
-    Data.DurationStripPatterns = stripPatterns
+
+    -- Longest first, so "minuten" is taken out before "minute".
+    local function Collect(...)
+        local patterns = {}
+        for index = 1, select("#", ...) do
+            DurationPatterns(_G[select(index, ...)], patterns)
+        end
+        table.sort(patterns, function(a, b) return #a > #b end)
+        return patterns
+    end
+
+    Data.SecondsDurationPatterns = Collect("INT_SPELL_DURATION_SEC", "SECONDS_ABBR")
+    Data.LongDurationPatterns = Collect("INT_SPELL_DURATION_MIN", "INT_SPELL_DURATION_HOURS", "MINUTES_ABBR", "HOURS_ABBR")
+    -- To take durations out of a buff's text before its numbers are read.
+    Data.DurationStripPatterns = Collect("INT_SPELL_DURATION_SEC", "INT_SPELL_DURATION_MIN", "INT_SPELL_DURATION_HOURS",
+        "SECONDS_ABBR", "MINUTES_ABBR", "HOURS_ABBR", "D_SECONDS", "D_MINUTES", "D_HOURS")
 end
 
 function Data.HasDuration(text, patterns)
