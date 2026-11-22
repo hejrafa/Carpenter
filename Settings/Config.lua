@@ -178,6 +178,7 @@ local ConfigSidebar = ns and ns.Private and ns.Private.ConfigSidebar or {}
 local ConfigOptions = ns and ns.Private and ns.Private.ConfigOptions or {}
 local EditModeLayout = ns and ns.Private and ns.Private.EditModeLayout or {}
 local RPMacros = ns and ns.Private and ns.Private.RPMacros or {}
+local PvPRoll = ns and ns.Private and ns.Private.PvPRoll or {}
 local sidebarApi = ConfigSidebar.Create and ConfigSidebar.Create({
     Frame = frame,
     L = L,
@@ -658,7 +659,8 @@ local function SetEditModeLayoutInstalled(installed)
 end
 
 -- Macro sections on the hidden page, top to bottom. {body} and {name} in the
--- description are filled in per macro.
+-- description are filled in per macro; a row shows the macro's label, else
+-- its name.
 local MACRO_SECTIONS = {
     {
         title = L.SECTION_PROFESSION_MACROS or "Profession Macros",
@@ -671,6 +673,12 @@ local MACRO_SECTIONS = {
         macros = RPMacros.Macros or {},
         checkPrefix = "CP_RPMacro_",
         description = L.RP_MACRO_DESCRIPTION or "One of the author's own {hl}roleplay{/hl} macros, ready to rebuild on any character:\n\n{body}\n\nCheck it to add the account-wide {hl}{name}{/hl} macro to General Macros. Uncheck it to remove the macro.",
+    },
+    {
+        title = L.SECTION_PVP or "PvP",
+        macros = PvPRoll.Macros or {},
+        checkPrefix = "CP_PvPMacro_",
+        description = L.PVP_ROLL_DESCRIPTION or "Stare down your {hl}enemy{/hl} and roll for who takes the fight:\n\n{body}\n\nThe roll shows in the middle of the screen like a loot roll, with the enemy's name above it. Everyone in your party who runs Carpenter sees it and has to roll too. The highest roll takes the fight.\n\nCheck it to add the account-wide {hl}{name}{/hl} macro to General Macros. Uncheck it to remove the macro.",
     },
 }
 
@@ -733,7 +741,7 @@ local function CreateHiddenPage()
             end
             widgets[#widgets + 1] = CreateHeader(section.title)
             for index, macro in ipairs(section.macros) do
-                AddToggle(macro.name, function() ShowRPMacroSidebar(macro, section.description) end, {
+                AddToggle(macro.label or macro.name, function() ShowRPMacroSidebar(macro, section.description) end, {
                     name = section.checkPrefix .. index,
                     isChecked = function() return RPMacros.IsInstalled and RPMacros.IsInstalled(macro) or false end,
                     onClick = function(checked) SetRPMacroInstalled(macro, checked, section.description) end,

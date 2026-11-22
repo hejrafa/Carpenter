@@ -179,7 +179,7 @@ end
 
 local config = read("Settings/Config.lua")
 assertContains(config, "if installed then install = RPMacros.Install end", "RP macro checkbox install/remove")
-assertContains(config, "AddToggle(macro.name", "RP macro checkbox rows")
+assertContains(config, "AddToggle(macro.label or macro.name", "RP macro checkbox rows")
 assert(config:find("SECTION_PROFESSION_MACROS", 1, true) < config:find("SECTION_RP_MACROS", 1, true), "Profession Macros should come before RP Macros")
 assert(not config:find("CP_RPMacroInstall", 1, true), "RP macros are installed by checkbox, not a button")
 

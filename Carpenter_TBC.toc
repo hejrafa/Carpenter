@@ -39,6 +39,7 @@ Core\ErrorTrace.lua
 
 # Settings & Data
 Modules\RPMacros.lua
+Modules\PvPRoll.lua
 Settings\ConfigSidebar.lua
 Settings\ConfigOptions.lua
 Settings\Config.lua
