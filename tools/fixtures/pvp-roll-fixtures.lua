@@ -57,6 +57,7 @@ local WIDGET_FIELDS = {
     Animation = true, RollNumber = true, Anim = true, Icon = true, Name = true, Timer = true,
     RollButton = true, Waiting = true, Pass = true, effects = true, animations = true, text = true,
     color = true, atlas = true, texture = true, alpha = true, playing = true, plays = true, kind = true,
+    scale = true, point = true,
 }
 local widgetMethods = {
     Show = function(self) self.shown = true end,
@@ -75,6 +76,8 @@ local widgetMethods = {
     GetScript = function(self, script) return self.scripts[script] end,
     RegisterEvent = function(self, event) self.events[event] = true end,
     SetAtlas = function(self, atlas) self.atlas = atlas end,
+    SetScale = function(self, scale) self.scale = scale end,
+    SetPoint = function(self, ...) self.point = { ... } end,
     SetTexture = function(self, texture) self.texture = texture end,
     CreateTexture = function(self) return Widget("Texture", self) end,
     CreateFontString = function(self) return Widget("FontString", self) end,
@@ -192,7 +195,7 @@ local macro = assert(PvPRoll.Macros and PvPRoll.Macros[1], "the PvP Roll macro i
 assertEqual(#PvPRoll.Macros, 1, "the PvP section has one feature")
 assertEqual(macro.name, "PvP Roll", "macro name")
 assertEqual(macro.label, "Roll", "the row is labelled Roll")
-assertEqual(macro.body, "/stare\n/cproll", "the macro stares, then rolls through Carpenter")
+assertEqual(macro.body, "/crack\n/cproll", "the macro cracks its knuckles, then rolls through Carpenter")
 assertEqual(macro.icon, 237285, "macro icon")
 assertTrue(#macro.name <= 16, "macro name is longer than a macro name allows")
 for _, rp in ipairs((ns.Private.RPMacros or {}).Macros or {}) do
@@ -255,7 +258,10 @@ assertEqual(sent[1].channel, "PARTY", "the start goes to the party")
 assertEqual(#rolled, 1, "/cproll should roll")
 assertTrue(rolled[1][1] == 1 and rolled[1][2] == 100, "/cproll rolls 1-100")
 local frame = assert(_G.CarpenterPvPRollFrame, "the roll frame should exist")
-assertTrue(frame:IsShown(), "the roll should show in the middle of the screen")
+assertTrue(frame:IsShown(), "the roll should show")
+assertEqual(frame.scale, 0.75, "the roll is drawn smaller than Blizzard's toasts")
+assertTrue(frame.point[1] == "TOP" and frame.point[2] == UIParent and frame.point[3] == "TOP", "the roll sits at the top of the screen")
+assertEqual(frame.point[5] * frame.scale, -24, "24 below the top edge, like StoryMode's banners")
 local session = PvPRoll.GetSession()
 assertEqual(#session.players, 2, "everyone in the party rolls")
 assertEqual(session.target, "Hogger", "the roll is at the enemy")

@@ -1,9 +1,9 @@
 --[[ Carpenter - PvP Roll ]]
--- The PvP Roll macro on the hidden settings page: /stare at your enemy, then
--- /cproll rolls 1-100 for who takes the fight. The roll shows in the middle
--- of the screen the way the game shows a group loot roll: a loot toast for
--- each party member, whose dice tumble and land on their number. The enemy's
--- name sits above them.
+-- The PvP Roll macro on the hidden settings page: /crack your knuckles, then
+-- /cproll rolls 1-100 for who takes on your enemy. The roll shows at the top
+-- of the screen, where StoryMode puts its quest banners, the way the game
+-- shows a group loot roll: a loot toast for each party member, whose dice
+-- tumble and land on their number. The enemy's name sits above them.
 --
 -- Party members who run Carpenter see the same toasts and have to roll too,
 -- with the dice on their toast or their own macro. Once everyone has rolled
@@ -50,7 +50,7 @@ PvPRoll.Macros = {
         name = "PvP Roll",
         label = L.PVP_ROLL_NAME or "Roll",
         icon = 237285, -- INV_Misc_Dice_02
-        body = "/stare\n/cproll",
+        body = "/crack\n/cproll",
     },
 }
 
@@ -245,6 +245,10 @@ local TOAST_WIDTH, TOAST_HEIGHT = 277, 67
 -- Blizzard spaces its loot toasts 100 apart; the dice's light needs room.
 local TOAST_SPACING = 84
 local HEADER_HEIGHT = 56
+-- Smaller than Blizzard's toasts, at the top of the screen 24 below its
+-- edge like StoryMode's quest banners.
+local FRAME_SCALE = 0.75
+local FRAME_TOP = -24
 -- Where the dice sit on the toast, from its top left: the need button's
 -- spot, and the animation 5 to its right like Blizzard's.
 local DICE_X, DICE_Y = 218, -33
@@ -549,7 +553,9 @@ local function EnsureContainer()
     if container then return container end
     container = CreateFrame("Frame", "CarpenterPvPRollFrame", UIParent)
     container:SetSize(TOAST_WIDTH, HEADER_HEIGHT)
-    container:SetPoint("CENTER", UIParent, "CENTER", 0, 150)
+    container:SetScale(FRAME_SCALE)
+    -- A scaled frame's offsets scale with it.
+    container:SetPoint("TOP", UIParent, "TOP", 0, FRAME_TOP / FRAME_SCALE)
     container:SetFrameStrata("DIALOG")
     container:Hide()
 
