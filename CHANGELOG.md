@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.4
+
+- The Well Fed macro now picks food by the stats your class and talents use, so a rogue eats for Agility rather than Fishing. It reads which stat each food gives and weighs it for your role: tank or healer when you've taken that group role, else your talents or spec, else your class. Fishing, herbalism and movement speed foods come last. Classic foods that only say "Also increases your Agility by 10" now count too.
+- Consumable Macros on German, Spanish and Simplified Chinese clients no longer take every potion for a heal over time, so the health macro uses normal potions again. On those clients and on French and Portuguese ones, a tooltip no longer seems to carry a buff duration just because it has a number in it.
+- The hidden version-number page gains a PvP section with Roll, a PvP Roll macro that cracks your knuckles and rolls for who takes on your enemy. The roll shows at the top of the screen like the game's loot roll: the enemy's name above a toast for each party member, whose dice land on their number. Party members who run Carpenter see it and have to roll too. The highest roll takes the fight, and a tie rolls again.
+
 ## 1.9.3
 
 - Damage Meter Tab now has the chat windows' scroll bar when the list is longer than the tab, with the same down arrow under it to jump to the last line. Both fade in and out with the window like the chat's, and the numbers keep a little room from the bar.
