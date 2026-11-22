@@ -457,6 +457,12 @@ assertContains(config, 'image = GetSettingsImage(nil, "pvproll.png")', "the Roll
 assertContains(config, "ShowRPMacroSidebar(macro, section.description, section.image)", "macro rows pass their section's preview")
 assertContains(config, "SetRPMacroInstalled(macro, checked, section.description, section.image)", "the preview stays after checking the row")
 assert(config:find("SECTION_RP_MACROS", 1, true) < config:find("SECTION_PVP", 1, true), "PvP comes after RP Macros")
+-- /cproll test is the author's own; the settings text doesn't mention it.
+for _, path in ipairs({ "Settings/Config.lua", "Localization/enUS.lua", "Localization/deDE.lua", "Localization/esES.lua",
+    "Localization/esMX.lua", "Localization/frFR.lua", "Localization/itIT.lua", "Localization/koKR.lua",
+    "Localization/ptBR.lua", "Localization/ruRU.lua", "Localization/zhCN.lua", "Localization/zhTW.lua" }) do
+    assertTrue(not read(path):find("/cproll test", 1, true), path .. " should not mention /cproll test")
+end
 
 -- =========================
 -- /cproll test: a sparring partner instead of the party
