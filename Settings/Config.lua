@@ -678,7 +678,7 @@ local MACRO_SECTIONS = {
         title = L.SECTION_PVP or "PvP",
         macros = PvPRoll.Macros or {},
         checkPrefix = "CP_PvPMacro_",
-        description = L.PVP_ROLL_DESCRIPTION or "Stare down your {hl}enemy{/hl} and roll for who takes the fight:\n\n{body}\n\nThe roll shows in the middle of the screen like a loot roll, with the enemy's name above it. Everyone in your party who runs Carpenter sees it and has to roll too. The highest roll takes the fight.\n\nCheck it to add the account-wide {hl}{name}{/hl} macro to General Macros. Uncheck it to remove the macro.",
+        description = L.PVP_ROLL_DESCRIPTION or "Stare down your {hl}enemy{/hl} and roll for who takes the fight:\n\n{body}\n\nThe roll shows in the middle of the screen like a loot roll, with the enemy's name above it. Everyone in your party who runs Carpenter sees it and has to roll too. The highest roll takes the fight. Type {hl}/cproll test{/hl} to try it with a sparring partner.\n\nCheck it to add the account-wide {hl}{name}{/hl} macro to General Macros. Uncheck it to remove the macro.",
     },
 }
 

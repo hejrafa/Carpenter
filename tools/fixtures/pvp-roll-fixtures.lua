@@ -442,6 +442,89 @@ assertContains(config, "macros = PvPRoll.Macros", "PvP section lists the Roll ma
 assert(config:find("SECTION_RP_MACROS", 1, true) < config:find("SECTION_PVP", 1, true), "PvP comes after RP Macros")
 
 -- =========================
+-- /cproll test: a sparring partner instead of the party
+-- =========================
+advance(8)
+local realRandom = math.random
+local nextRolls = {}
+math.random = function(low)
+    if low then return table.remove(nextRolls, 1) or low end
+    return 0.5
+end
+local sentCount, rolledCount = #sent, #rolled
+nextRolls = { 30 }
+slash("test")
+session = PvPRoll.GetSession()
+local partner = session.players[2]
+assertTrue(session.test, "/cproll test starts a test roll")
+assertEqual(#session.players, 2, "the test is you and a sparring partner")
+assertEqual(partner.name, L.PVP_ROLL_TEST_PARTNER, "the partner has a name")
+assertEqual(session.byKey.koji, nil, "the party isn't in the test")
+assertEqual(#sent, sentCount, "a test tells nobody")
+assertEqual(#rolled, rolledCount + 1, "your test roll is a real /roll")
+assertEqual(session.target, "Ash Bloodfang", "the test rolls at your enemy too")
+assertTrue(toastFor(L.PVP_ROLL_TEST_PARTNER), "the partner gets a toast")
+system("Rafa rolls 60 (1-100)")
+system("Koji Kurosawa rolls 99 (1-100)")
+fire("GROUP_ROSTER_UPDATE")
+assertTrue(not partner.passed, "the partner isn't in the party but still gets to roll")
+advance(2)
+assertEqual(partner.roll, nil, "the partner takes a moment")
+advance(0.3)
+assertEqual(partner.roll, 30, "the partner rolls")
+advance(3.4)
+assertEqual(session.winner, session.byKey.rafa, "you beat the partner")
+
+-- "tie" matches your first roll, so the re-roll shows.
+advance(8)
+nextRolls = { 80 }
+slash("test tie")
+session = PvPRoll.GetSession()
+partner = session.players[2]
+advance(2.3)
+assertEqual(partner.roll, nil, "a tying partner waits for your roll")
+system("Rafa rolls 45 (1-100)")
+advance(0.5)
+assertEqual(partner.roll, 45, "the partner matches your roll")
+advance(3.4)
+assertTrue(session.tie and not session.finished, "the test tie rolls again")
+slash("")
+system("Rafa rolls 10 (1-100)")
+advance(2.3)
+assertEqual(partner.roll, 80, "the partner rolls again after the tie")
+advance(3.4)
+assertEqual(session.winner, partner, "the partner wins the second roll")
+
+-- "pass" never rolls, so the time runs out.
+advance(8)
+slash("test pass")
+session = PvPRoll.GetSession()
+partner = session.players[2]
+system("Rafa rolls 12 (1-100)")
+advance(20.1)
+assertTrue(partner.passed, "a passing partner never rolls")
+assertEqual(session.winner, session.byKey.rafa, "you win when the partner passes")
+
+-- Testing again starts over; a party member's real roll replaces a test.
+advance(8)
+slash("test")
+local testSession = PvPRoll.GetSession()
+slash("test")
+assertTrue(PvPRoll.GetSession() ~= testSession, "testing again starts over")
+testSession = PvPRoll.GetSession()
+addon("SAsh", "Koji Kurosawa")
+session = PvPRoll.GetSession()
+assertTrue(session ~= testSession and not session.test, "a party member's roll replaces the test")
+assertTrue(session.byKey.koji, "the real roll has the party")
+advance(3.1)
+local rolledBefore = #rolled
+slash("test")
+assertEqual(PvPRoll.GetSession(), session, "/cproll test doesn't replace a real roll")
+assertEqual(#rolled, rolledBefore + 1, "it rolls into the real one instead")
+advance(25)
+math.random = realRandom
+
+-- =========================
 -- Classic: no need-roll atlases, so the loot die spins
 -- =========================
 local function loadFresh()

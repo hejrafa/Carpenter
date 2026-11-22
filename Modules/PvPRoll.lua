@@ -13,6 +13,8 @@
 -- Carpenter counts when they type /roll. Carpenter only tells the party that
 -- a roll started and at whom, since the game's roll line doesn't say.
 --
+-- /cproll test tries it alone, against a made-up sparring partner.
+--
 -- The dice are Blizzard's own need-roll animation (GroupLootFrame's
 -- NeedRollAnim), rebuilt here from the same atlases and timings. Clients
 -- without those atlases get a spinning die instead.
@@ -37,6 +39,10 @@ local FADE_SECONDS = 0.5
 local EARLY_ROLL_SECONDS = 5
 -- A roll that got no line back from the game may be tried again after this.
 local RETRY_ROLL_SECONDS = 3
+-- /cproll test: the sparring partner rolls this long after the roll starts.
+local TEST_ROLL_SECONDS, TEST_ROLL_SPREAD = 1.5, 1.5
+-- No name the game writes turns into this key.
+local TEST_KEY = "\001test"
 
 -- Icons are file IDs, so they don't depend on the client's icon-name lookup.
 PvPRoll.Macros = {
@@ -727,7 +733,7 @@ local function Finish(current, winner)
     end)
 end
 
-local ScheduleTimeout
+local ScheduleTimeout, ScheduleTestRolls
 
 local function Decide(current)
     current.deciding = nil
@@ -751,6 +757,7 @@ local function Decide(current)
     current.tie = true
     current.endsAt = Now() + ROLL_SECONDS
     ScheduleTimeout(current)
+    ScheduleTestRolls(current)
     View.Update(current)
 end
 
@@ -819,16 +826,21 @@ end
 
 -- Starts the roll for the next fight, or names its enemy when one is
 -- already running without a name. Returns the roll and whether it is new.
-function PvPRoll.Begin(target)
+-- players replaces the party (the test roll); a real roll replaces a test.
+function PvPRoll.Begin(target, players)
     local now = Now()
     if session and not session.finished then
-        if target and not session.target then
-            session.target = target
-            View.Update(session)
+        if session.test and not players then
+            session.finished = true
+        else
+            if target and not session.target then
+                session.target = target
+                View.Update(session)
+            end
+            return session, false
         end
-        return session, false
     end
-    local players = GroupMembers()
+    players = players or GroupMembers()
     if #players == 0 then return nil, false end
     local current = { target = target, players = players, byKey = {}, round = 1, endsAt = now + ROLL_SECONDS }
     for index, player in ipairs(players) do
@@ -847,6 +859,7 @@ function PvPRoll.Begin(target)
         end
     end
     ScheduleTimeout(current)
+    ScheduleTestRolls(current)
     CheckRolls(current)
     return current, true
 end
@@ -874,6 +887,58 @@ function PvPRoll.Roll()
     RollDice()
 end
 
+-- The sparring partner's roll, a moment after each round starts. "tie"
+-- matches your first roll; "pass" never rolls.
+ScheduleTestRolls = function(current)
+    for _, player in ipairs(current.players) do
+        if player.testMode and player.testMode ~= "pass" and IsWaiting(player) then
+            local round = current.round
+            local function RollForPartner()
+                if session ~= current or current.round ~= round or current.finished or not IsWaiting(player) then return end
+                if player.testMode == "tie" and round == 1 then
+                    local me = current.byKey[SelfKey() or ""]
+                    if not (me and me.roll) then
+                        After(0.5, RollForPartner)
+                        return
+                    end
+                    PvPRoll.RecordRoll(player.key, me.roll)
+                    return
+                end
+                PvPRoll.RecordRoll(player.key, math.random(ROLL_MIN, ROLL_MAX))
+            end
+            After(TEST_ROLL_SECONDS + math.random() * TEST_ROLL_SPREAD, RollForPartner)
+        end
+    end
+end
+
+-- /cproll test [tie|pass]: a roll against a made-up sparring partner rather
+-- than the party, to see it without anyone else. Your roll is a real /roll;
+-- nothing goes to the party.
+function PvPRoll.Test(mode)
+    if mode ~= "tie" and mode ~= "pass" then mode = "roll" end
+    local current = session
+    if current and not current.finished and not current.test then
+        PvPRoll.Roll()
+        return
+    end
+    if current then current.finished = true end
+    local me
+    for _, member in ipairs(GroupMembers()) do
+        if member.isSelf then me = member end
+    end
+    if not me then return end
+    local partner = {
+        key = TEST_KEY,
+        name = L.PVP_ROLL_TEST_PARTNER or "Sparring Partner",
+        classToken = "WARRIOR",
+        testMode = mode,
+    }
+    current = PvPRoll.Begin(PvPRoll.EnemyTargetName(), { me, partner })
+    if current then current.test = true end
+    rollSentAt = -math.huge
+    RollDice()
+end
+
 -- A party member who leaves stops holding up the roll.
 local function OnRosterUpdate()
     local current = session
@@ -881,7 +946,7 @@ local function OnRosterUpdate()
     local present = {}
     for _, member in ipairs(GroupMembers()) do present[member.key] = true end
     for _, player in ipairs(current.players) do
-        if IsWaiting(player) and not present[player.key] then player.passed = true end
+        if IsWaiting(player) and not player.testMode and not present[player.key] then player.passed = true end
     end
     CheckRolls(current)
 end
@@ -927,5 +992,12 @@ end
 
 if SlashCmdList then
     SLASH_CARPENTERROLL1 = "/cproll"
-    SlashCmdList["CARPENTERROLL"] = function() PvPRoll.Roll() end
+    SlashCmdList["CARPENTERROLL"] = function(input)
+        local command, mode = tostring(input or ""):lower():match("^%s*(%S*)%s*(%S*)")
+        if command == "test" then
+            PvPRoll.Test(mode)
+        else
+            PvPRoll.Roll()
+        end
+    end
 end
