@@ -680,7 +680,7 @@ local MACRO_SECTIONS = {
         macros = PvPRoll.Macros or {},
         checkPrefix = "CP_PvPMacro_",
         image = GetSettingsImage(nil, "pvproll.png"),
-        description = L.PVP_ROLL_DESCRIPTION or "Crack your knuckles and roll for who takes on your {hl}enemy{/hl}:\n\n{body}\n\nThe roll shows at the top of the screen like a loot roll, with the enemy's name above it. Everyone in your party who runs Carpenter sees it and has to roll too. The highest roll takes the fight.\n\nCheck it to add the account-wide {hl}{name}{/hl} macro to General Macros. Uncheck it to remove the macro.",
+        description = L.PVP_ROLL_DESCRIPTION or "Crack your knuckles and roll for your {hl}enemy{/hl}:\n\n{body}\n\nParty members with Carpenter see the roll at the top of the screen and roll too. Highest roll takes the fight.\n\nCheck it to add the {hl}{name}{/hl} macro to General Macros.",
     },
 }
 
