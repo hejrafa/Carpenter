@@ -530,12 +530,18 @@ local function CreateToast()
     return toast
 end
 
+-- Seconds left for the rolls still to come, or 0 once everyone has rolled.
+local function TimeLeft(session)
+    if session.finished or session.deciding then return 0 end
+    return math.max(0, session.endsAt - Now())
+end
+
 local function OnUpdate()
     local session = PvPRoll.GetSession()
-    if session and not session.finished then
-        local left = math.max(0, session.endsAt - Now())
+    if session and not session.finished and not session.deciding then
+        local left = TimeLeft(session)
         for _, toast in ipairs(toasts) do
-            if toast.Timer:IsShown() then toast.Timer:SetValue(left) end
+            if toast:IsShown() then toast.Timer:SetValue(left) end
         end
     end
     if fadeStartedAt then
@@ -612,7 +618,10 @@ function View.Update(session)
             toast.RollButton:SetShown(waiting and player.isSelf)
             toast.Waiting:SetShown(waiting and not player.isSelf)
             toast.Pass:SetShown(player.passed == true)
-            toast.Timer:SetShown(waiting)
+            -- Every toast counts down while anyone still has to roll, and
+            -- empties once all rolls are in, as the game's loot roll does.
+            toast.Timer:Show()
+            toast.Timer:SetValue(TimeLeft(session))
             toast.Anim:SetShown(player.roll ~= nil)
             if player.roll then
                 local color = WHITE

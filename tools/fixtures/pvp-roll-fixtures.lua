@@ -57,7 +57,7 @@ local WIDGET_FIELDS = {
     Animation = true, RollNumber = true, Anim = true, Icon = true, Name = true, Timer = true,
     RollButton = true, Waiting = true, Pass = true, effects = true, animations = true, text = true,
     color = true, atlas = true, texture = true, alpha = true, playing = true, plays = true, kind = true,
-    scale = true, point = true,
+    scale = true, point = true, value = true,
 }
 local widgetMethods = {
     Show = function(self) self.shown = true end,
@@ -77,6 +77,7 @@ local widgetMethods = {
     RegisterEvent = function(self, event) self.events[event] = true end,
     SetAtlas = function(self, atlas) self.atlas = atlas end,
     SetScale = function(self, scale) self.scale = scale end,
+    SetValue = function(self, value) self.value = value end,
     SetPoint = function(self, ...) self.point = { ... } end,
     SetTexture = function(self, texture) self.texture = texture end,
     CreateTexture = function(self) return Widget("Texture", self) end,
@@ -301,8 +302,15 @@ assertTrue(rafaToast.Anim.shown and rafaToast.Anim.Animation.playing, "your dice
 assertEqual(rafaToast.Anim.RollNumber.text, "40", "your dice land on your roll")
 assertEqual(sounds[#sounds], SOUNDKIT.UI_NEED_ROLL_NEUTRAL, "a roll that settles nothing sounds neutral")
 assertTrue(not rafaToast.RollButton.shown, "your dice button goes once you rolled")
+assertTrue(rafaToast.Timer.shown and rafaToast.Timer.value == 20, "your bar keeps counting while Bob still has to roll")
+advance(2)
+frame.scripts.OnUpdate(frame, 0)
+assertEqual(rafaToast.Timer.value, 18, "the bars count down")
+assertEqual(bobToast.Timer.value, 18, "Bob's bar counts down too")
 
 system("Bob rolls 72 (1-100)")
+assertTrue(rafaToast.Timer.shown and rafaToast.Timer.value == 0, "the bars empty once everyone has rolled")
+assertTrue(bobToast.Timer.shown and bobToast.Timer.value == 0, "Bob's bar empties too")
 assertEqual(sounds[#sounds], SOUNDKIT.UI_NEED_ROLL_NEGATIVE, "the roll that beats you sounds like a lost need roll")
 assertTrue(not session.finished, "the winner shows only once the last dice land")
 advance(3.3)
