@@ -86,6 +86,7 @@ Modules\DamageMeterTab.lua
 
 # Automations
 Modules\SmartMacros\SmartMacroData.lua
+Modules\SmartMacros\SmartMacroStatWeights.lua
 Modules\SmartMacros\SmartMacroTooltip.lua
 Modules\SmartMacros\SmartMacroClassifier.lua
 Modules\SmartMacros\SmartMacroScanner.lua

@@ -62,7 +62,9 @@ Data.TooltipKeywords = {
     health = { "health", "gesundheit" },
     healthstone = { "healthstone", "gesundheitsstein" },
     mana = { "mana" },
-    wellFed = { "well fed", "gut genährt", "gut genaehrt", "satt" },
+    -- Russian, Traditional Chinese and Spanish tooltips word it apart from
+    -- the spell's name.
+    wellFed = { "well fed", "gut genährt", "gut genaehrt", "satt", "насыщается", "充分進食", "bien alimentad" },
     foodAndDrink = { "remain seated while", "sitzen bleiben" },
     conjured = { "conjured item", "conjured", "mana bun", "mana strudel", "mana biscuit", "mana cake", "mana pie", "herbeigezauberter gegenstand", "herbeigezaubert" },
     statBuff = {
@@ -76,6 +78,43 @@ Data.TooltipKeywords = {
     -- Names of the spells food and drink cast when used.
     food = { "food" },
     drink = { "drink" },
+}
+
+-- The stats a Well Fed buff names, by the words its tooltip uses: English
+-- and German, the words the game has no string for in other languages (from
+-- WoW Forever's spell texts), and below, the client's own stat names.
+-- Overlapping words are told apart by trying the longest first.
+Data.StatKeywords = {
+    strength = { "strength", "stärke", "staerke" },
+    agility = { "agility", "beweglichkeit" },
+    stamina = { "stamina", "ausdauer" },
+    intellect = { "intellect", "intelligenz" },
+    spirit = { "spirit", "willenskraft" },
+    attackPower = { "attack power", "angriffskraft" },
+    spellDamage = { "spell damage", "zauberschaden" },
+    spellPower = { "spell power", "damage and healing", "zaubermacht", "schaden und heilung" },
+    healing = {
+        "healing power", "healing done", "bonus healing", "heilkraft", "heilung",
+        "puissance des soins", "soins prodigués", "poder de sanación", "poder de cura",
+        "сила исцеления", "силу исцеления", "치유력", "치유량", "治疗强度", "治療能量",
+    },
+    hitRating = { "hit rating", "trefferwertung" },
+    spellHitRating = { "spell hit rating", "zaubertrefferwertung" },
+    crit = { "critical strike", "kritische treffer", "kritischen treffer", "вероятность критического удара" },
+    spellCrit = { "critical strike with spells", "spell critical", "kritischen treffer mit zaubern" },
+    haste = { "haste", "tempo" },
+    mastery = { "mastery", "meisterschaft" },
+    versatility = { "versatility", "vielseitigkeit" },
+    mp5 = { "mana every", "mana per", "mana regen", "mana alle" },
+    hp5 = { "health every", "health per", "gesundheit alle" },
+    armor = { "armor", "rüstung", "ruestung" },
+    resistance = { "resistance to all", "widerstand gegen alle" },
+    fishing = { "fishing", "angelfertigkeit", "angeln", "рыбной ловли" },
+    herbalism = { "herbalism", "kräuterkunde" },
+    movementSpeed = {
+        "movement speed", "run speed", "bewegungsgeschwindigkeit", "vitesse de déplacement",
+        "velocidade de movimento", "скорость передвижения",
+    },
 }
 
 -- The lists above cover English and German. Add the client's own strings so
@@ -134,6 +173,53 @@ do
     Add(keywords.wellFed, SpellName(19705))  -- Well Fed
     Add(keywords.food, SpellName(433))       -- Food
     Add(keywords.drink, SpellName(430))      -- Drink
+
+    -- Stat names. Only words of five letters or more get a stem: a shorter
+    -- one ("ду" from "дух") would turn up inside unrelated words.
+    local function AddStat(stat, value)
+        local list = Data.StatKeywords[stat]
+        if type(list) ~= "table" or type(value) ~= "string" or value == "" then return end
+        value = value:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):match("^%s*(.-)%s*$")
+        if value == "" then return end
+        local variants = { value:lower(), LowerCyrillic(value:lower()) }
+        if value:find("[\128-\255]") then
+            local stem = DropLastCharacter(variants[2])
+            if #stem >= 8 then variants[#variants + 1] = stem end
+        end
+        for _, variant in ipairs(variants) do
+            local known = false
+            for _, existing in ipairs(list) do
+                if existing == variant then known = true break end
+            end
+            if not known then list[#list + 1] = variant end
+        end
+    end
+
+    local statGlobals = {
+        strength = { "SPELL_STAT1_NAME" },
+        agility = { "SPELL_STAT2_NAME" },
+        stamina = { "SPELL_STAT3_NAME" },
+        intellect = { "SPELL_STAT4_NAME" },
+        spirit = { "SPELL_STAT5_NAME" },
+        attackPower = { "ITEM_MOD_ATTACK_POWER_SHORT", "STAT_ATTACK_POWER" },
+        spellDamage = { "STAT_SPELLDAMAGE", "ITEM_MOD_SPELL_DAMAGE_DONE_SHORT" },
+        spellPower = { "ITEM_MOD_SPELL_POWER_SHORT", "STAT_SPELLPOWER" },
+        healing = { "ITEM_MOD_SPELL_HEALING_DONE_SHORT", "STAT_SPELLHEALING" },
+        crit = { "ITEM_MOD_CRIT_RATING_SHORT", "STAT_CRITICAL_STRIKE" },
+        haste = { "STAT_HASTE", "ITEM_MOD_HASTE_RATING_SHORT" },
+        mastery = { "STAT_MASTERY" },
+        versatility = { "STAT_VERSATILITY" },
+        armor = { "ARMOR" },
+        fishing = { "PROFESSIONS_FISHING" },
+        movementSpeed = { "STAT_MOVEMENT_SPEED" },
+    }
+    for stat, names in pairs(statGlobals) do
+        for _, name in ipairs(names) do
+            AddStat(stat, _G[name])
+        end
+    end
+    AddStat("fishing", SpellName(7620))   -- Fishing
+    AddStat("herbalism", SpellName(2366)) -- Herbalism
 end
 
 -- Duration patterns written the client's way ("15 Sek.", "30 min", "1 Std."),
@@ -160,6 +246,50 @@ do
 
     Data.SecondsDurationPatterns = Collect("INT_SPELL_DURATION_SEC", "SECONDS_ABBR")
     Data.LongDurationPatterns = Collect("INT_SPELL_DURATION_MIN", "INT_SPELL_DURATION_HOURS", "MINUTES_ABBR", "HOURS_ABBR")
+
+    -- The same strings with each "|4one:many;" plural written out as its own
+    -- pattern, to take durations out of a buff's text before its numbers are
+    -- read. Longest first, so "minuten" goes before "minute".
+    local function ExpandPlurals(format)
+        local variants = { format }
+        local changed = true
+        while changed do
+            changed = false
+            local expanded = {}
+            for _, variant in ipairs(variants) do
+                local before, choices, after = variant:match("^(.-)|4([^;]*);(.*)$")
+                if before then
+                    changed = true
+                    for choice in (choices .. ":"):gmatch("([^:]*):") do
+                        expanded[#expanded + 1] = before .. choice .. after
+                    end
+                else
+                    expanded[#expanded + 1] = variant
+                end
+            end
+            variants = expanded
+        end
+        return variants
+    end
+
+    local stripPatterns = {}
+    for _, name in ipairs({ "INT_SPELL_DURATION_SEC", "INT_SPELL_DURATION_MIN", "INT_SPELL_DURATION_HOURS",
+        "SECONDS_ABBR", "MINUTES_ABBR", "HOURS_ABBR", "D_SECONDS", "D_MINUTES", "D_HOURS" }) do
+        local format = _G[name]
+        if type(format) == "string" then
+            for _, variant in ipairs(ExpandPlurals(format:gsub("%%%d%$d", "%%d"))) do
+                -- A number with a unit; a bare number would take every value out.
+                if variant:find("%d", 1, true) and variant:gsub("%%d", ""):find("%S") then
+                    local pattern = variant:gsub("%%d", "\002")
+                        :gsub("([%(%)%.%+%-%*%?%[%]%^%$%%])", "%%%1")
+                        :gsub("\002", "%%d[%%d%%.,]*")
+                    stripPatterns[#stripPatterns + 1] = pattern:lower()
+                end
+            end
+        end
+    end
+    table.sort(stripPatterns, function(a, b) return #a > #b end)
+    Data.DurationStripPatterns = stripPatterns
 end
 
 function Data.HasDuration(text, patterns)

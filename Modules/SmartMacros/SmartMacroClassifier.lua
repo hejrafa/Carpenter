@@ -7,6 +7,7 @@ ns.Private.SmartMacroClassifier = Classifier
 
 local Data = ns.Private.SmartMacroData or {}
 local Tooltip = ns.Private.SmartMacroTooltip or {}
+local StatWeights = ns.Private.SmartMacroStatWeights or {}
 
 local FOOD_NAME_HINTS = Data.FoodNameHints or {}
 local WATER_NAME_HINTS = Data.WaterNameHints or {}
@@ -277,6 +278,160 @@ local function ExtractWellFedBuffValue(tooltipData, spellText)
     return best
 end
 
+-- =========================
+-- A buff's stats
+-- =========================
+-- The words for each stat, longest first so "spell critical" is read before
+-- "critical" and "сила атаки" before "сила". Built on first use, after the
+-- client's own stat names were added.
+local statMatchers
+
+local function GetStatMatchers()
+    if statMatchers then return statMatchers end
+    statMatchers = {}
+    for stat, words in pairs(Data.StatKeywords or {}) do
+        for _, word in ipairs(words) do
+            statMatchers[#statMatchers + 1] = { word = word, stat = stat }
+        end
+    end
+    table.sort(statMatchers, function(a, b)
+        if #a.word ~= #b.word then return #a.word > #b.word end
+        return a.word < b.word
+    end)
+    return statMatchers
+end
+
+-- Latin and Cyrillic words start a word ("hit" isn't read in "white");
+-- Chinese and Korean have no spaces to go by.
+local function StartsWord(text, position, word)
+    if position <= 1 then return true end
+    local first = word:byte(1)
+    if first and first < 128 then
+        return not text:sub(position - 1, position - 1):find("%a")
+    end
+    if first == 0xD0 or first == 0xD1 then
+        local lead, previous = text:byte(position - 2), text:byte(position - 1)
+        return not ((lead == 0xD0 or lead == 0xD1) and previous and previous >= 0x80 and previous <= 0xBF)
+    end
+    return true
+end
+
+local function StripDurations(text)
+    text = StripWellFedTiming(text)
+    for _, pattern in ipairs(Data.DurationStripPatterns or {}) do
+        text = text:gsub(pattern, " ")
+    end
+    return text
+end
+
+-- Percents belong to these: "1% critical strike chance", "15% movement speed".
+local PERCENT_STATS = { crit = true, spellCrit = true, movementSpeed = true }
+-- How far a value may sit from its stat: "20 agility and spirit" gives both.
+local MAX_VALUE_GAP = 40
+
+local function FindStatWords(text)
+    local found = {}
+    local work = text
+    for _, matcher in ipairs(GetStatMatchers()) do
+        local searchStart = 1
+        while true do
+            local first, last = work:find(matcher.word, searchStart, true)
+            if not first then break end
+            if StartsWord(work, first, matcher.word) then
+                found[#found + 1] = { first = first, last = last, stat = matcher.stat }
+                -- Taken: a shorter word can't be read inside it again.
+                work = work:sub(1, first - 1) .. string.rep(" ", last - first + 1) .. work:sub(last + 1)
+            end
+            searchStart = last + 1
+        end
+    end
+    return found
+end
+
+local function FindValues(text)
+    local values = {}
+    for first, raw, after, percent in text:gmatch("()%+?(%d[%d%,%.]*)()%s*(%%?)") do
+        local value = NormalizeTooltipNumber((raw:gsub("[%.,]$", "")))
+        if value > 0 then
+            values[#values + 1] = { first = first, last = after - 1, value = value, percent = percent == "%" }
+        end
+    end
+    return values
+end
+
+-- The value of one stat word: the nearest number before or after it ("gain
+-- 20 Agility", "increases your Agility by 20").
+local function NearestValue(word, values)
+    local percentStat = PERCENT_STATS[word.stat]
+    local best, bestGap
+    for _, value in ipairs(values) do
+        if percentStat or not value.percent then
+            local gap
+            if value.last < word.first then
+                gap = word.first - value.last - 1
+            elseif value.first > word.last then
+                gap = value.first - word.last - 1
+            end
+            if gap and gap <= MAX_VALUE_GAP and (not bestGap or gap < bestGap) then
+                best, bestGap = value, gap
+            end
+        end
+    end
+    return best
+end
+
+-- crit and spellCrit are ratings or, with a percent, chances.
+local function StatKey(stat, value)
+    if stat == "crit" then return value.percent and "critPercent" or "critRating" end
+    if stat == "spellCrit" then return value.percent and "spellCritPercent" or "spellCritRating" end
+    return stat
+end
+
+-- The stats a Well Fed buff gives, as { stat = value }: read from the first
+-- mention of Well Fed, else from the whole tooltip, as Classic's "Also
+-- increases your Agility by 10" foods never say Well Fed.
+local function ParseBuffStats(tooltipData, spellText)
+    local text = ((tooltipData and tooltipData.text) or "") .. " " .. (spellText or "")
+    text = text:lower()
+    local start
+    for _, keyword in ipairs(TOOLTIP_KEYWORDS.wellFed or {}) do
+        local position = text:find(keyword, 1, true)
+        if position and (not start or position < start) then start = position end
+    end
+    if start then text = text:sub(start) end
+    text = StripDurations(text)
+
+    local values = FindValues(text)
+    local stats = {}
+    for _, word in ipairs(FindStatWords(text)) do
+        local value = NearestValue(word, values)
+        if value then
+            local key = StatKey(word.stat, value)
+            if not stats[key] or value.value > stats[key] then
+                stats[key] = value.value
+            end
+        end
+    end
+    return stats
+end
+
+local function GetWeights(weights)
+    if weights then return weights end
+    return StatWeights.GetWeights and StatWeights.GetWeights() or {}
+end
+
+-- What the stats are worth to the character, and whether any was read.
+local function WeighStats(stats, weights)
+    local worth, any = 0, false
+    for stat, value in pairs(stats) do
+        any = true
+        worth = worth + value * (weights[stat] or 0)
+    end
+    return worth, any
+end
+
+Classifier.ParseBuffStats = ParseBuffStats
+
 local function IsPotionItem(item)
     local name = item.name and item.name:lower() or ""
     local subType = item.itemSubType:lower()
@@ -404,7 +559,13 @@ local function IsBandage(item, tooltip)
     return IsBandageItem(item, tooltip)
 end
 
-local function ScoreItem(item, tooltipData, spellText, category)
+-- Well Fed ranks: stats the character uses, then buffs it couldn't read,
+-- then buffs that only help outside a fight (fishing, herbalism, speed). The
+-- health a food restores and its level settle ties.
+local WELL_FED_USEFUL, WELL_FED_UNREAD, WELL_FED_NONCOMBAT = 2, 1, 0
+local MAX_UNREAD_VALUE = 999
+
+local function ScoreItem(item, tooltipData, spellText, category, weights)
     local tooltip = tooltipData.text
     local score = item.itemLevel or 0
     local name = item.name and item.name:lower() or ""
@@ -419,9 +580,17 @@ local function ScoreItem(item, tooltipData, spellText, category)
         end
         return score
     elseif category == "WellFed" then
-        local buffValue = ExtractWellFedBuffValue(tooltipData, spellText)
+        local worth, anyStat = WeighStats(ParseBuffStats(tooltipData, spellText), GetWeights(weights))
+        local rank, value
+        if worth > 0 then
+            rank, value = WELL_FED_USEFUL, worth
+        elseif anyStat then
+            rank, value = WELL_FED_NONCOMBAT, 0
+        else
+            rank, value = WELL_FED_UNREAD, math.min(ExtractWellFedBuffValue(tooltipData, spellText), MAX_UNREAD_VALUE)
+        end
         local restoreValue = ExtractRestoreValue(GetRestoreText(tooltipData), TOOLTIP_KEYWORDS.health, UnitHealthMax("player") or 0)
-        return (buffValue * 1000000) + restoreValue + ((item.itemLevel or 0) * 100) + (item.reqLevel or 0)
+        return rank * 1e15 + value * 1e9 + restoreValue + ((item.itemLevel or 0) * 100) + (item.reqLevel or 0)
     elseif category == "Water" then
         score = ExtractRestoreValue(GetRestoreText(tooltipData), TOOLTIP_KEYWORDS.mana, UnitPowerMax("player", Enum and Enum.PowerType and Enum.PowerType.Mana or 0) or 0)
         if IsConjuredFoodOrWater(item, tooltipData, category) then
@@ -489,7 +658,10 @@ local function MatchesCategory(item, tooltipData, spellText, category)
     if category == "Food" then
         return IsFood(item, tooltipData, spellText)
     elseif category == "WellFed" then
-        return IsFood(item, tooltipData, spellText) and IsWellFedFood(tooltipData, spellText)
+        if not IsFood(item, tooltipData, spellText) then return false end
+        if IsWellFedFood(tooltipData, spellText) then return true end
+        -- Classic's "Also increases your Agility by 10 for 10 min" foods.
+        return HasStatBuffText(tooltipData, spellText) and next(ParseBuffStats(tooltipData, spellText)) ~= nil
     elseif category == "Water" then
         return IsWater(item, tooltipData, spellText)
     elseif category == "Pot" then

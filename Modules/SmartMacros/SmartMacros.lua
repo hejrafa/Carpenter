@@ -175,8 +175,16 @@ addonFrame:SetScript("OnEvent", function(self, event, unit)
         MarkDirty(2.0, true)
     elseif event == "SPELL_UPDATE_COOLDOWN" then
         MarkDirty(0.5, true)
+    else
+        -- Talents or the group role changed: Well Fed may want other stats.
+        MarkDirty(1.0, true)
     end
 end)
+
+local ROLE_EVENTS = {
+    "PLAYER_TALENT_UPDATE", "CHARACTER_POINTS_CHANGED", "ACTIVE_TALENT_GROUP_CHANGED",
+    "PLAYER_SPECIALIZATION_CHANGED", "TRAIT_CONFIG_UPDATED", "PLAYER_ROLES_ASSIGNED",
+}
 
 ns.UpdateSmartMacros = function()
     MarkDirty(0.25, true)
@@ -190,6 +198,9 @@ function feature:Enable()
     addonFrame:RegisterEvent("BAG_UPDATE_COOLDOWN")
     addonFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     addonFrame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
+    for _, event in ipairs(ROLE_EVENTS) do
+        Carpenter:SafeRegisterEvent(addonFrame, event)
+    end
     MarkDirty(1.5, true)
 end
 

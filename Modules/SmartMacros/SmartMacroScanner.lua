@@ -8,6 +8,7 @@ ns.Private.SmartMacroScanner = Scanner
 local Data = ns.Private.SmartMacroData or {}
 local Tooltip = ns.Private.SmartMacroTooltip or {}
 local Classifier = ns.Private.SmartMacroClassifier or {}
+local StatWeights = ns.Private.SmartMacroStatWeights or {}
 
 local GetNumSlots = (C_Container and C_Container.GetContainerNumSlots) or _G.GetContainerNumSlots
 local GetItemID = (C_Container and C_Container.GetContainerItemID) or _G.GetContainerItemID
@@ -124,6 +125,14 @@ local function GetBestItems(debugOutput)
     local bestScores = {}
     local playerLevel = UnitLevel("player") or 0
     local needsItemInfoRetry = false
+    -- What each Well Fed stat is worth to this character, read once a scan.
+    local weights, role, roleSource = {}, nil, nil
+    if StatWeights.GetWeights then
+        weights, role, roleSource = StatWeights.GetWeights()
+    end
+    if debugOutput then
+        print(string.format("|cff00aaffCarpenter Well Fed role:|r %s (from %s)", tostring(role), tostring(roleSource)))
+    end
 
     for bag = 0, 4 do
         local numSlots = GetNumSlots and GetNumSlots(bag) or 0
@@ -141,7 +150,7 @@ local function GetBestItems(debugOutput)
 
                     for category in pairs(GetScanCategories()) do
                         if Classifier.MatchesCategory and Classifier.MatchesCategory(item, tooltipData, spellText, category) then
-                            local score = Classifier.ScoreItem(item, tooltipData, spellText, category)
+                            local score = Classifier.ScoreItem(item, tooltipData, spellText, category, weights)
                             if debugOutput and (category == "Food" or category == "WellFed" or category == "Water") then
                                 print(string.format(
                                     "|cff00aaffCarpenter %s candidate:|r %s id=%s score=%s conjured=%s use=%s",

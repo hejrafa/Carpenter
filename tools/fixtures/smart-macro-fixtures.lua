@@ -124,6 +124,7 @@ local function loadAddonFile(path)
 end
 
 loadAddonFile("Modules/SmartMacros/SmartMacroData.lua")
+loadAddonFile("Modules/SmartMacros/SmartMacroStatWeights.lua")
 loadAddonFile("Modules/SmartMacros/SmartMacroClassifier.lua")
 loadAddonFile("Modules/SmartMacros/SmartMacroScanner.lua")
 loadAddonFile("Modules/SmartMacros/SmartMacros.lua")
@@ -417,6 +418,169 @@ do
     playerGUID = "Player-1-00000001"
     bagSlots[0] = savedBag
     fixtureCount = fixtureCount + 6
+end
+
+-- =========================
+-- Well Fed picks the stats the character uses.
+-- =========================
+do
+    local statWeights = ns.Private.SmartMacroStatWeights
+    local function BuffTooltip(buff)
+        return {
+            text = "use: restores 874 health over 27 sec. must remain seated while eating. if you spend at least 10 seconds eating you will become well fed and " .. buff .. " for 15 min.",
+            useText = "use: restores 874 health over 27 sec.",
+            isFoodAndDrink = true,
+        }
+    end
+    local function Expect(label, actual, expected)
+        fixtureCount = fixtureCount + 1
+        if actual ~= expected then
+            failures[#failures + 1] = string.format("well fed stats: %s: expected %s, got %s", label, tostring(expected), tostring(actual))
+        end
+    end
+    local function Parse(buff)
+        return classifier.ParseBuffStats(BuffTooltip(buff), "")
+    end
+
+    local stats = Parse("gain 15 agility")
+    Expect("one stat", stats.agility, 15)
+    Expect("fishing", Parse("gain 18 fishing skill").fishing, 18)
+    stats = Parse("gain 2 stamina and spirit")
+    Expect("one value for two stats, first", stats.stamina, 2)
+    Expect("one value for two stats, second", stats.spirit, 2)
+    stats = Parse("gain 20 attack power, 23 spell damage, 44 healing power, and 10 stamina")
+    Expect("a list, attack power", stats.attackPower, 20)
+    Expect("a list, spell damage", stats.spellDamage, 23)
+    Expect("a list, healing power", stats.healing, 44)
+    Expect("a list, stamina", stats.stamina, 10)
+    stats = Parse("increase healing done by 44 and spirit by 20")
+    Expect("values after their stats, healing", stats.healing, 44)
+    Expect("values after their stats, spirit", stats.spirit, 20)
+    stats = Parse("gain 1% critical strike chance")
+    Expect("a percent of critical strike", stats.critPercent, 1)
+    Expect("mana every 5 seconds", Parse("gain 8 mana every 5 seconds").mp5, 8)
+    stats = classifier.ParseBuffStats({
+        text = "use: restores 552 health over 21 sec. must remain seated while eating. if you eat for 10 seconds will also increase your agility by 10 for 10 min.",
+        useText = "use: restores 552 health over 21 sec.",
+        isFoodAndDrink = true,
+    }, "")
+    Expect("Classic's also-increases wording takes its own number", stats.agility, 10)
+    stats = Parse("gain 15 agility for 10 min. additionally, experience gained from kills is increased by 5%")
+    Expect("the experience rider is no stat", stats.critPercent, nil)
+    Expect("a white fish has no hit rating", Parse("gain 15 stamina. a white fish").hitRating, nil)
+    stats = classifier.ParseBuffStats({
+        text = "benutzen: stellt 874 gesundheit wieder her. ihr werdet satt und erhaltet 15 beweglichkeit und 10 ausdauer für 15 min.",
+        useText = "benutzen: stellt 874 gesundheit wieder her.",
+        isFoodAndDrink = true,
+    }, "")
+    Expect("German, agility", stats.agility, 15)
+    Expect("German, stamina", stats.stamina, 10)
+
+    -- Classic's "also increases" food counts as Well Fed food.
+    local alsoIncreasesFood = {
+        text = "use: restores 552 health over 21 sec. must remain seated while eating. if you eat for 10 seconds will also increase your agility by 10 for 10 min.",
+        useText = "use: restores 552 health over 21 sec.",
+        isFoodAndDrink = true,
+    }
+    fixtureCount = fixtureCount + 1
+    if not classifier.MatchesCategory(foodItem, alsoIncreasesFood, "", "WellFed") then
+        failures[#failures + 1] = "well fed category: Classic's \"also increase your Agility\" food should count"
+    end
+
+    -- Which food each character reaches for.
+    local foods = {
+        agility = BuffTooltip("gain 15 agility"),
+        attackPower = BuffTooltip("gain 30 attack power"),
+        fishing = BuffTooltip("gain 18 fishing skill"),
+        staminaSpirit = BuffTooltip("gain 12 stamina and spirit"),
+        stamina = BuffTooltip("gain 15 stamina"),
+        strength = BuffTooltip("gain 15 strength"),
+        intellect = BuffTooltip("gain 15 intellect"),
+        spellDamage = BuffTooltip("gain 21 spell damage"),
+        healing = BuffTooltip("gain 33 healing power"),
+    }
+    local function Best(names)
+        local weights = statWeights.GetWeights()
+        local best, bestScore
+        for _, name in ipairs(names) do
+            local score = classifier.ScoreItem(foodItem, foods[name], "", "WellFed", weights)
+            if not bestScore or score > bestScore then best, bestScore = name, score end
+        end
+        return best
+    end
+    local all = { "fishing", "staminaSpirit", "stamina", "strength", "intellect", "spellDamage", "healing", "agility", "attackPower" }
+
+    local classToken, assignedRole, tabPoints = "ROGUE", "NONE", {}
+    UnitClass = function() return classToken, classToken end
+    UnitGroupRolesAssigned = function() return assignedRole end
+    GetTalentTabInfo = function(tab) return "Tree " .. tab, "icon", tabPoints[tab] or 0 end
+    Carpenter.Client = { isClassic = true, isVanilla = true }
+
+    Expect("a rogue", Best(all), "agility")
+    Expect("a rogue without agility food", Best({ "fishing", "staminaSpirit", "attackPower" }), "attackPower")
+    Expect("a rogue's fishing food comes last", Best({ "fishing", "intellect", "staminaSpirit" }), "staminaSpirit")
+    classToken = "MAGE"
+    Expect("a mage", Best(all), "spellDamage")
+    classToken = "WARRIOR"
+    Expect("a warrior without talents", Best(all), "strength")
+    tabPoints = { 5, 0, 21 }
+    Expect("a protection warrior", Best(all), "stamina")
+    classToken, tabPoints = "PRIEST", { 0, 0, 31 }
+    Expect("a shadow priest", Best(all), "spellDamage")
+    tabPoints = { 0, 31, 0 }
+    Expect("a holy priest", Best(all), "healing")
+    classToken, tabPoints, assignedRole = "ROGUE", {}, "TANK"
+    Expect("anyone in a group's tank role", Best(all), "stamina")
+    assignedRole = "NONE"
+
+    -- WoW Forever: the points in each group of the class's talent tree.
+    Carpenter.Client = { isMainline = true, isForever = true }
+    classToken = "PALADIN"
+    local groupSpent = { [11] = 0, [12] = 0, [13] = 0 }
+    C_ClassTalents = { GetActiveConfigID = function() return 7 end }
+    C_Traits = {
+        GetConfigInfo = function() return { treeIDs = { 100 } } end,
+        GetGroupDisplayInfoByTreeID = function()
+            return {
+                { groupID = 11, orderIndex = 0 }, { groupID = 12, orderIndex = 1 }, { groupID = 13, orderIndex = 2 },
+            }
+        end,
+        GetGroupCurrencyInfo = function(_, groupIDs)
+            local infos = {}
+            for _, groupID in ipairs(groupIDs) do
+                infos[#infos + 1] = { traitNodeGroupID = groupID, currencyInfos = { { spent = groupSpent[groupID] } } }
+            end
+            return infos
+        end,
+    }
+    groupSpent[11] = 20
+    Expect("a holy paladin on WoW Forever", Best(all), "healing")
+    groupSpent[11], groupSpent[12] = 0, 20
+    Expect("a protection paladin on WoW Forever", Best(all), "stamina")
+    groupSpent[12], groupSpent[13] = 0, 20
+    Expect("a retribution paladin on WoW Forever", Best(all), "strength")
+
+    -- Retail: the spec's role and main stat.
+    Carpenter.Client = { isMainline = true, isRetail = true }
+    classToken = "DRUID"
+    GetSpecialization = function() return 1 end
+    GetSpecializationInfo = function() return 102, "Balance", "", 0, "DAMAGER", 4 end
+    Expect("a balance druid on Retail", Best(all), "spellDamage")
+    GetSpecializationInfo = function() return 103, "Feral", "", 0, "DAMAGER", 2 end
+    Expect("a feral druid on Retail", Best(all), "agility")
+
+    UnitClass, UnitGroupRolesAssigned, GetTalentTabInfo = nil, nil, nil
+    C_ClassTalents, C_Traits, GetSpecialization, GetSpecializationInfo = nil, nil, nil, nil
+    Carpenter.Client = { isMainline = false, isForever = false }
+
+    -- A talent or role change rescans the bags.
+    local roleEventsRegistered = false
+    for _, frame in ipairs(createdFrames) do
+        if frame.events.PLAYER_TALENT_UPDATE and frame.events.TRAIT_CONFIG_UPDATED and frame.events.PLAYER_ROLES_ASSIGNED then
+            roleEventsRegistered = true
+        end
+    end
+    Expect("talent and role changes rescan", roleEventsRegistered, true)
 end
 
 if #failures > 0 then
