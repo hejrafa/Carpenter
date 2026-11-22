@@ -453,6 +453,9 @@ end
 local config = read("Settings/Config.lua")
 assertContains(config, "title = L.SECTION_PVP", "PvP section on the hidden page")
 assertContains(config, "macros = PvPRoll.Macros", "PvP section lists the Roll macro")
+assertContains(config, 'image = GetSettingsImage(nil, "pvproll.png")', "the Roll sidebar shows its Forever preview")
+assertContains(config, "ShowRPMacroSidebar(macro, section.description, section.image)", "macro rows pass their section's preview")
+assertContains(config, "SetRPMacroInstalled(macro, checked, section.description, section.image)", "the preview stays after checking the row")
 assert(config:find("SECTION_RP_MACROS", 1, true) < config:find("SECTION_PVP", 1, true), "PvP comes after RP Macros")
 
 -- =========================

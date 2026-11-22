@@ -41,6 +41,7 @@ local FOREVER_SETTINGS_IMAGES = {
     ["minimapclutter.png"] = true,
     ["nameplatecombo.png"] = true,
     ["nameplatedebuff.png"] = true,
+    ["pvproll.png"] = true,
     ["repair.png"] = true,
     ["selljunk.png"] = true,
     ["sortquesttrack.png"] = true,
@@ -660,7 +661,7 @@ end
 
 -- Macro sections on the hidden page, top to bottom. {body} and {name} in the
 -- description are filled in per macro; a row shows the macro's label, else
--- its name.
+-- its name. A section's image is its sidebar preview.
 local MACRO_SECTIONS = {
     {
         title = L.SECTION_PROFESSION_MACROS or "Profession Macros",
@@ -678,11 +679,12 @@ local MACRO_SECTIONS = {
         title = L.SECTION_PVP or "PvP",
         macros = PvPRoll.Macros or {},
         checkPrefix = "CP_PvPMacro_",
+        image = GetSettingsImage(nil, "pvproll.png"),
         description = L.PVP_ROLL_DESCRIPTION or "Crack your knuckles and roll for who takes on your {hl}enemy{/hl}:\n\n{body}\n\nThe roll shows at the top of the screen like a loot roll, with the enemy's name above it. Everyone in your party who runs Carpenter sees it and has to roll too. The highest roll takes the fight. Type {hl}/cproll test{/hl} to try it with a sparring partner.\n\nCheck it to add the account-wide {hl}{name}{/hl} macro to General Macros. Uncheck it to remove the macro.",
     },
 }
 
-local function ShowRPMacroSidebar(macro, description)
+local function ShowRPMacroSidebar(macro, description, image)
     local lines = {}
     for line in RPMacros.GetBody(macro):gmatch("[^\n]+") do
         lines[#lines + 1] = LighterCream .. line .. LightGrey
@@ -691,7 +693,7 @@ local function ShowRPMacroSidebar(macro, description)
     local name = "|T" .. macro.icon .. ":0:0:0:-8|t " .. macro.name
     description = description:gsub("{body}", function() return table.concat(lines, "\n") end)
     description = description:gsub("{name}", function() return name end)
-    ShowHiddenItemSidebar(macro, description)
+    ShowHiddenItemSidebar(macro, description, image)
 end
 
 local RP_MACRO_MESSAGES = {
@@ -702,14 +704,14 @@ local RP_MACRO_MESSAGES = {
     full = L.RP_MACRO_FULL or "Your General Macros are full. Make some room and try again.",
 }
 
-local function SetRPMacroInstalled(macro, installed, description)
+local function SetRPMacroInstalled(macro, installed, description, image)
     local install = RPMacros.Remove
     if installed then install = RPMacros.Install end
     local ok, result = false, "failed"
     if install then
         ok, result = install(macro)
     end
-    ShowRPMacroSidebar(macro, description)
+    ShowRPMacroSidebar(macro, description, image)
     SetHiddenPageStatus(RP_MACRO_MESSAGES[result] or L.RP_MACRO_FAILED or "Carpenter couldn't build the macro.", ok)
 end
 
@@ -741,10 +743,10 @@ local function CreateHiddenPage()
             end
             widgets[#widgets + 1] = CreateHeader(section.title)
             for index, macro in ipairs(section.macros) do
-                AddToggle(macro.label or macro.name, function() ShowRPMacroSidebar(macro, section.description) end, {
+                AddToggle(macro.label or macro.name, function() ShowRPMacroSidebar(macro, section.description, section.image) end, {
                     name = section.checkPrefix .. index,
                     isChecked = function() return RPMacros.IsInstalled and RPMacros.IsInstalled(macro) or false end,
-                    onClick = function(checked) SetRPMacroInstalled(macro, checked, section.description) end,
+                    onClick = function(checked) SetRPMacroInstalled(macro, checked, section.description, section.image) end,
                 })
             end
         end
