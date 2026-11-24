@@ -53,7 +53,6 @@ local STEALTH_OPENER_IDS = {
 local BUFF_PROCS = {
     { buff = 17941, spells = { 686 } }, -- Shadow Trance from Nightfall: Shadow Bolt
     { buff = 34754, spells = { 2061, 32546, 2060 }, heal = true }, -- Priest's Clearcasting (TBC): Flash Heal, Binding Heal, Greater Heal
-    { buff = 12536, spells = { 5143 } }, -- Mage's Clearcasting: Arcane Missiles, as Retail pairs them
 }
 
 local MAX_ACTION_SLOT = 180

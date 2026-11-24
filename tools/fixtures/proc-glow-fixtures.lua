@@ -506,10 +506,14 @@ expectGlow(9, false, "Shadow Bolt should stop glowing when Shadow Trance is used
 fire("SPELL_ACTIVATION_OVERLAY_SHOW", 99999, 132125, "LEFT", 1, 255, 255, 255)
 expectGlow(9, false, "an overlay for another buff should light nothing")
 
+-- The mage's Clearcasting works on any spell, so it lights no button.
 fire("SPELL_ACTIVATION_OVERLAY_SHOW", 12536, 132125, "TOP", 1, 255, 255, 255)
-expectGlow(10, true, "Arcane Missiles should glow with Clearcasting")
+expectGlow(10, false, "Arcane Missiles should not glow with the mage's Clearcasting")
+
+fire("SPELL_ACTIVATION_OVERLAY_SHOW", 17941, 132125, "LEFT", 1, 255, 255, 255)
+expectGlow(9, true, "Shadow Bolt should glow with Shadow Trance again")
 fire("SPELL_ACTIVATION_OVERLAY_HIDE")
-expectGlow(10, false, "a hide without a spell should clear every buff")
+expectGlow(9, false, "a hide without a spell should clear every buff")
 
 -- Heals light up without an enemy target.
 fire("SPELL_ACTIVATION_OVERLAY_SHOW", 34754, 132125, "TOP", 1, 255, 255, 255)
@@ -531,13 +535,15 @@ fire("PLAYER_REGEN_ENABLED")
 expectGlow(9, false, "Shadow Bolt should stop once leaving combat shows Shadow Trance is gone")
 expectGlow(11, true, "Flash Heal should keep glowing while its Clearcasting is up")
 auras[34754] = nil
+auras[17941] = { spellId = 17941 }
 auras[12536] = { spellId = 12536 }
 fire("UNIT_AURA", "player")
 expectGlow(11, false, "Flash Heal should stop when its Clearcasting is read as gone")
-expectGlow(10, true, "a Clearcasting read out of combat should light Arcane Missiles")
-auras[12536] = nil
+expectGlow(9, true, "a Shadow Trance read out of combat should light Shadow Bolt")
+expectGlow(10, false, "a mage's Clearcasting read out of combat should light nothing")
+auras[17941], auras[12536] = nil, nil
 fire("UNIT_AURA", "player")
-expectGlow(10, false, "Arcane Missiles should stop when Clearcasting is read as gone")
+expectGlow(9, false, "Shadow Bolt should stop when Shadow Trance is read as gone")
 change(state(9, false, false), state(10, false, false), state(11, false, false), state(12, false, false))
 
 -- =========================
