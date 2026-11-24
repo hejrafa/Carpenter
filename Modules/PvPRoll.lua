@@ -627,7 +627,7 @@ function View.Update(session)
         elseif winner.isSelf then
             status = L.PVP_ROLL_YOU_WIN or "You take the fight!"
         else
-            status = (L.PVP_ROLL_WINNER or "%s takes the fight!"):format(winner.name)
+            status = (L.PVP_ROLL_WINNER or "%s takes the fight!"):format(PlayerName(winner))
         end
     elseif session.tie then
         status = L.PVP_ROLL_TIE or "It's a tie. Roll again!"
