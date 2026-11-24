@@ -8,6 +8,8 @@
 -- Each of them is unusable until its proc, so the glow follows the game's
 -- own answer for the slot: usable, not just short on energy, rage or mana,
 -- and not on a cooldown of its own. The global cooldown doesn't count.
+-- Buff procs such as Nightfall and Clearcasting light up their spells the
+-- same way while the buff is up.
 --
 -- The game's own alert (ActionButtonSpellAlertManager) taints the action
 -- buttons when addon code calls it. The glow here is Carpenter's own frame,
@@ -41,6 +43,17 @@ local REACTIVE_SPELL_IDS = {
 local STEALTH_OPENER_IDS = {
     8676, -- Ambush
     703, -- Garrote
+}
+
+-- Buffs that make spells free or instant, and the spells they light up.
+-- WoW Forever hides the player's buffs in combat, but the game announces
+-- these with SPELL_ACTIVATION_OVERLAY_SHOW and _HIDE, which
+-- SpellActivationOverlay also follows there. Where buffs can be read, they
+-- are read as well. Heals light up without an enemy target.
+local BUFF_PROCS = {
+    { buff = 17941, spells = { 686 } }, -- Shadow Trance from Nightfall: Shadow Bolt
+    { buff = 34754, spells = { 2061, 32546, 2060 }, heal = true }, -- Priest's Clearcasting (TBC): Flash Heal, Binding Heal, Greater Heal
+    { buff = 12536, spells = { 5143 } }, -- Mage's Clearcasting: Arcane Missiles, as Retail pairs them
 }
 
 local MAX_ACTION_SLOT = 180
@@ -82,10 +95,20 @@ local REFRESH_EVENTS = {
 
 local active = false
 
--- [slot] = { spellID, opener, onCooldown } for slots holding a tracked spell.
+-- [slot] = { spellID, reactive, opener, buffs, heal, ready, onCooldown } for
+-- slots holding a tracked spell.
 local slots = {}
 local reactiveNames = {}
 local openerNames = {}
+-- [spell ID or name] = { buff = true, ... } and the heal flag, from BUFF_PROCS.
+local buffsBySpellID = {}
+local buffsByName = {}
+local healSpellIDs = {}
+local healNames = {}
+-- [buff ID] = true while the buff is up.
+local activeBuffs = {}
+local trackedBuffs = {}
+for _, proc in ipairs(BUFF_PROCS) do trackedBuffs[proc.buff] = true end
 -- Spells the game is glowing itself, from its overlay events.
 local blizzardGlowSpells = {}
 local glowFrames = setmetatable({}, { __mode = "k" })
@@ -129,9 +152,26 @@ local function NameSet(spellIDs)
     return names
 end
 
+local function AddBuff(map, key, buffID)
+    map[key] = map[key] or {}
+    map[key][buffID] = true
+end
+
 local function ReadSpellNames()
     reactiveNames = NameSet(REACTIVE_SPELL_IDS)
     openerNames = NameSet(STEALTH_OPENER_IDS)
+    buffsBySpellID, buffsByName, healSpellIDs, healNames = {}, {}, {}, {}
+    for _, proc in ipairs(BUFF_PROCS) do
+        for _, spellID in ipairs(proc.spells) do
+            AddBuff(buffsBySpellID, spellID, proc.buff)
+            if proc.heal then healSpellIDs[spellID] = true end
+            local name = SpellName(spellID)
+            if name then
+                AddBuff(buffsByName, name, proc.buff)
+                if proc.heal then healNames[name] = true end
+            end
+        end
+    end
 end
 
 -- The spell a slot casts: a spell, or a macro that shows one.
@@ -154,14 +194,44 @@ local function ReadSlot(slot)
     local name = SpellName(spellID)
     local opener = openerIDs[spellID] or (name ~= nil and openerNames[name] == true)
     local reactive = reactiveIDs[spellID] or (name ~= nil and reactiveNames[name] == true)
-    if not reactive and not opener then
+    local buffs = buffsBySpellID[spellID] or (name ~= nil and buffsByName[name]) or nil
+    if not reactive and not opener and not buffs then
         slots[slot] = nil
         return
     end
     local state = slots[slot]
     if not state or state.spellID ~= spellID then
-        slots[slot] = { spellID = spellID, opener = opener == true }
+        slots[slot] = {
+            spellID = spellID,
+            reactive = reactive == true,
+            opener = opener == true,
+            buffs = buffs,
+            heal = healSpellIDs[spellID] or (name ~= nil and healNames[name] == true),
+        }
     end
+end
+
+local GetPlayerAuraBySpellID = C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID
+
+-- Where the game lets addons see the player's buffs: always on Classic, and
+-- out of combat on WoW Forever. In combat there the overlay events decide.
+local function ReadBuffs()
+    if type(GetPlayerAuraBySpellID) ~= "function" then return end
+    if Secret.ClientHidesValues() and InCombat() then return end
+    for buffID in pairs(trackedBuffs) do
+        local ok, aura = pcall(GetPlayerAuraBySpellID, buffID)
+        if ok and not Secret.IsSecret(aura) then
+            activeBuffs[buffID] = aura ~= nil or nil
+        end
+    end
+end
+
+local function HasActiveBuff(buffs)
+    if not buffs then return false end
+    for buffID in pairs(buffs) do
+        if activeBuffs[buffID] then return true end
+    end
+    return false
 end
 
 local function ReadAllSlots()
@@ -391,7 +461,8 @@ end
 local function ReadSlotStates(stealthed)
     local waiting = false
     for slot, state in pairs(slots) do
-        state.ready = IsUsable(slot) and not (state.opener and stealthed)
+        local lit = state.reactive or (state.opener and not stealthed) or HasActiveBuff(state.buffs)
+        state.ready = lit and IsUsable(slot)
         if state.ready then
             local onCooldown = ReadCooldown(slot)
             if onCooldown ~= nil then state.onCooldown = onCooldown end
@@ -403,10 +474,11 @@ local function ReadSlotStates(stealthed)
     if waiting then CheckCooldownsSoon() end
 end
 
-local function ShouldGlow(button)
+local function ShouldGlow(button, targetAlive)
     local slot = Secret.ReadableNumber(button.action)
     local state = slot and slots[slot]
     if not state or not state.ready or state.onCooldown then return false end
+    if not targetAlive and not state.heal then return false end
     return not BlizzardGlows(button, state.spellID)
 end
 
@@ -416,7 +488,7 @@ RefreshButtons = function()
     local targetAlive = HasLivingTarget()
     ForEachActionButton(function(button)
         if glowFrames[button] then
-            SetGlow(button, targetAlive and ShouldGlow(button))
+            SetGlow(button, ShouldGlow(button, targetAlive))
         end
     end)
 end
@@ -456,6 +528,21 @@ local function SetGameGlow(spellID, shown)
     RefreshButtons()
 end
 
+-- The game's own overlay for a proc buff, the way WoW Forever announces them.
+-- A hide without a spell clears them all.
+local function SetOverlayBuff(spellID, shown)
+    if spellID == nil and not shown then
+        activeBuffs = {}
+        ReadBuffs()
+        RefreshButtons()
+        return
+    end
+    spellID = Secret.ReadableNumber(spellID)
+    if not spellID or not trackedBuffs[spellID] then return end
+    activeBuffs[spellID] = shown or nil
+    RefreshButtons()
+end
+
 local function OnSlotChanged(slot)
     slot = Secret.ReadableNumber(slot)
     if slot and slot > 0 then
@@ -490,6 +577,13 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         SetGameGlow(..., true)
     elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE" then
         SetGameGlow(..., false)
+    elseif event == "SPELL_ACTIVATION_OVERLAY_SHOW" then
+        SetOverlayBuff(..., true)
+    elseif event == "SPELL_ACTIVATION_OVERLAY_HIDE" then
+        SetOverlayBuff(..., false)
+    elseif event == "UNIT_AURA" or event == "PLAYER_REGEN_ENABLED" then
+        ReadBuffs()
+        RefreshButtons()
     elseif event == "UNIT_HEALTH" then
         OnTargetHealth()
     elseif event == "SPELLS_CHANGED" or event == "PLAYER_ENTERING_WORLD" then
@@ -509,11 +603,15 @@ local function RegisterEvents()
     register("ACTIONBAR_SLOT_CHANGED")
     register("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
     register("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
+    register("SPELL_ACTIVATION_OVERLAY_SHOW")
+    register("SPELL_ACTIVATION_OVERLAY_HIDE")
+    register("PLAYER_REGEN_ENABLED")
     register("SPELLS_CHANGED")
     register("PLAYER_ENTERING_WORLD")
     for _, event in ipairs(REFRESH_EVENTS) do register(event) end
     for _, event in ipairs(REMAP_EVENTS) do register(event) end
     Carpenter:SafeRegisterUnitEvent(eventFrame, "UNIT_HEALTH", "target")
+    Carpenter:SafeRegisterUnitEvent(eventFrame, "UNIT_AURA", "player")
 end
 
 -- =========================
@@ -526,6 +624,7 @@ function feature:Enable()
     RegisterEvents()
     ReadSpellNames()
     ReadAllSlots()
+    ReadBuffs()
     lastTargetAlive = HasLivingTarget()
     BuildGlowFrames()
     RefreshButtons()
@@ -536,6 +635,7 @@ function feature:Disable()
     eventFrame:UnregisterAllEvents()
     Carpenter:CancelAfterCombat("procGlowFrames")
     slots = {}
+    activeBuffs = {}
     HideAllGlows()
 end
 

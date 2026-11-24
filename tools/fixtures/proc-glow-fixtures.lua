@@ -138,8 +138,23 @@ local names = {
     [5308] = "Execute",
     [20658] = "Execute", -- rank 2
     [1784] = "Stealth",
+    [686] = "Shadow Bolt",
+    [1106] = "Shadow Bolt", -- rank 5
+    [5143] = "Arcane Missiles",
+    [2061] = "Flash Heal",
+    [133] = "Fireball",
 }
 C_Spell = { GetSpellName = function(spellID) return names[spellID] end }
+
+-- [buff ID] = aura data, or an error while the game hides auras.
+local auras = {}
+local aurasHidden = false
+C_UnitAuras = {
+    GetPlayerAuraBySpellID = function(spellID)
+        if aurasHidden then error("Auras cannot be accessed when secret while tainted") end
+        return auras[spellID]
+    end,
+}
 
 -- [slot] = { type, id, subType }
 local actions = {
@@ -151,6 +166,10 @@ local actions = {
     [6] = { "spell", 7384 },
     [7] = { "spell", 14183 },
     [8] = { "spell", 20658 },
+    [9] = { "spell", 1106 },
+    [10] = { "spell", 5143 },
+    [11] = { "spell", 2061 },
+    [12] = { "spell", 133 },
     [13] = { "item", 5512 },
     [14] = { "spell", 1784 },
 }
@@ -459,8 +478,73 @@ change(state(1, true, false))
 expectGlow(1, true, "a readable usability should glow again")
 
 -- =========================
+-- Buff procs
+-- =========================
+change(state(1, false, false))
+change(state(9, true, false), state(10, true, false), state(11, true, false), state(12, true, false))
+expectGlow(9, false, "Shadow Bolt should not glow without Nightfall")
+expectGlow(10, false, "Arcane Missiles should not glow without Clearcasting")
+
+-- In combat on WoW Forever the game announces Nightfall with its overlay.
+inCombat = true
+aurasHidden = true
+fire("SPELL_ACTIVATION_OVERLAY_SHOW", 17941, 132125, "LEFT", 1, 255, 255, 255)
+expectGlow(9, true, "Shadow Bolt of any rank should glow while Shadow Trance is up")
+expectGlow(12, false, "Fireball should not glow for Nightfall")
+fire("UNIT_AURA", "player")
+expectGlow(9, true, "a hidden aura in combat should leave the overlay's answer alone")
+aurasHidden = false
+fire("UNIT_AURA", "player")
+expectGlow(9, true, "in combat the buffs shouldn't be read where the game hides them")
+aurasHidden = true
+change(state(9, false, true))
+expectGlow(9, false, "Shadow Bolt without the mana for it should not glow")
+change(state(9, true, false))
+expectGlow(9, true, "Shadow Bolt should glow again with the mana back")
+fire("SPELL_ACTIVATION_OVERLAY_HIDE", 17941)
+expectGlow(9, false, "Shadow Bolt should stop glowing when Shadow Trance is used")
+fire("SPELL_ACTIVATION_OVERLAY_SHOW", 99999, 132125, "LEFT", 1, 255, 255, 255)
+expectGlow(9, false, "an overlay for another buff should light nothing")
+
+fire("SPELL_ACTIVATION_OVERLAY_SHOW", 12536, 132125, "TOP", 1, 255, 255, 255)
+expectGlow(10, true, "Arcane Missiles should glow with Clearcasting")
+fire("SPELL_ACTIVATION_OVERLAY_HIDE")
+expectGlow(10, false, "a hide without a spell should clear every buff")
+
+-- Heals light up without an enemy target.
+fire("SPELL_ACTIVATION_OVERLAY_SHOW", 34754, 132125, "TOP", 1, 255, 255, 255)
+target.exists = false
+fire("PLAYER_TARGET_CHANGED")
+expectGlow(11, true, "Flash Heal should glow with Clearcasting without a target")
+fire("SPELL_ACTIVATION_OVERLAY_SHOW", 17941, 132125, "LEFT", 1, 255, 255, 255)
+expectGlow(9, false, "Shadow Bolt should wait for a target")
+target.exists = true
+fire("PLAYER_TARGET_CHANGED")
+expectGlow(9, true, "Shadow Bolt should glow once there's a target")
+
+-- Out of combat the buffs can be read, which catches a buff gone while the
+-- overlay events were missed.
+inCombat = false
+aurasHidden = false
+auras[34754] = { spellId = 34754 }
+fire("PLAYER_REGEN_ENABLED")
+expectGlow(9, false, "Shadow Bolt should stop once leaving combat shows Shadow Trance is gone")
+expectGlow(11, true, "Flash Heal should keep glowing while its Clearcasting is up")
+auras[34754] = nil
+auras[12536] = { spellId = 12536 }
+fire("UNIT_AURA", "player")
+expectGlow(11, false, "Flash Heal should stop when its Clearcasting is read as gone")
+expectGlow(10, true, "a Clearcasting read out of combat should light Arcane Missiles")
+auras[12536] = nil
+fire("UNIT_AURA", "player")
+expectGlow(10, false, "Arcane Missiles should stop when Clearcasting is read as gone")
+change(state(9, false, false), state(10, false, false), state(11, false, false), state(12, false, false))
+
+-- =========================
 -- Turning it off
 -- =========================
+change(state(1, true, false))
+expectGlow(1, true, "Riposte should glow before turning off")
 CarpenterDB.procGlowEnabled = false
 feature:Disable()
 expectGlow(1, false, "turning off should hide every glow")
