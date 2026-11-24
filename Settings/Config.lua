@@ -667,7 +667,7 @@ local MACRO_SECTIONS = {
         title = L.SECTION_PROFESSION_MACROS or "Profession Macros",
         macros = RPMacros.ProfessionMacros or {},
         checkPrefix = "CP_ProfessionMacro_",
-        description = L.PROFESSION_MACRO_DESCRIPTION or "One of the author's own {hl}profession{/hl} macros. It keeps up with your bags, so it always reaches for the best fishing pole you're carrying:\n\n{body}\n\nCheck it to add the account-wide {hl}{name}{/hl} macro to General Macros. Uncheck it to remove the macro.",
+        description = L.PROFESSION_MACRO_DESCRIPTION or "One of the author's own {hl}profession{/hl} macros. It keeps up with your bags, so it always reaches for the best fishing pole you're carrying:\n\n{body}\n\nPress it again while your line is out to hook the bobber, no clicking needed.\n\nCheck it to add the account-wide {hl}{name}{/hl} macro to General Macros. Uncheck it to remove the macro.",
     },
     {
         title = L.SECTION_RP_MACROS or "RP Macros",

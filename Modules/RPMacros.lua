@@ -77,6 +77,7 @@ local function GetFishingName()
     end
     return name or "Fishing"
 end
+RPMacros.GetFishingName = GetFishingName
 
 local function IsFishingPole(itemID)
     if not itemID or not GetItemInfoInstant then return false end
