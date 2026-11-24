@@ -115,7 +115,7 @@ local featureManifest = {
     damageMeterTabEnabled = { { clients = MODERN, files = { "Modules/DamageMeterTab.lua" } } },
 
     -- Automations
-    autoCarrotEnabled = { { clients = CLASSIC, files = { "Modules/AutoCarrot.lua" } } },
+    autoCarrotEnabled = { { clients = "vanilla tbc forever", files = { "Modules/AutoCarrot.lua" } } },
     smartMacrosEnabled = { { clients = ALL, files = { "Modules/SmartMacros/SmartMacros.lua" } } },
     poisonMacrosEnabled = { { clients = CLASSIC, files = { "Modules/PoisonMacros.lua" } } },
     quickLockpickEnabled = { { clients = "forever", files = { "Modules/QuickLockpick.lua" } } },

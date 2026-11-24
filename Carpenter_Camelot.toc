@@ -97,6 +97,7 @@ Modules\HideChatButtons.lua
 Modules\DamageMeterTab.lua
 
 # Automations
+Modules\AutoCarrot.lua
 Modules\SmartMacros\SmartMacroData.lua
 Modules\SmartMacros\SmartMacroStatWeights.lua
 Modules\SmartMacros\SmartMacroTooltip.lua

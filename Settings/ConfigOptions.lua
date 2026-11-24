@@ -29,6 +29,9 @@ function Options.Create(context)
 
     local function MountSpeedDescription()
         local client = Carpenter and Carpenter.Client
+        if client and client.isForever then
+            return Description("DESC_MOUNT_SPEED_TRINKET_FOREVER")
+        end
         return Description(client and client.isVanilla and "DESC_MOUNT_SPEED_TRINKET_CLASSIC" or "DESC_MOUNT_SPEED_TRINKET")
     end
 

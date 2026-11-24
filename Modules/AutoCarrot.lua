@@ -1,13 +1,39 @@
 --[[ Carpenter - Mount Speed Trinket ]]
 -- Automatically equips a mount speed trinket when mounting.
 -- Classic Era supports Carrot on a Stick; TBC also supports Riding Crop and prefers it when available.
+-- WoW Forever prefers The Desert Rose (+7%) in desert zones, otherwise Carrot on a Stick (+3%).
 
 local RIDING_CROP_ID = 25653
 local CARROT_ID = 11122
-local VANILLA_MOUNT_SPEED_TRINKET_IDS = { [CARROT_ID] = true }
-local TBC_MOUNT_SPEED_TRINKET_IDS = { [RIDING_CROP_ID] = true, [CARROT_ID] = true }
-local VANILLA_MOUNT_SPEED_PRIORITY = { CARROT_ID }
-local TBC_MOUNT_SPEED_PRIORITY = { RIDING_CROP_ID, CARROT_ID }
+local DESERT_ROSE_ID = 274648
+local TRINKET_SLOTS = { 13, 14 }
+
+-- The Desert Rose's spell (1294646) only works in area group 9097: Tanaris,
+-- Thousand Needles, Silithus, Blasted Lands, Badlands, the Barrens, Desolace,
+-- Ahn'Qiraj, Durotar, Orgrimmar, Uldaman and Zul'Farrak (Forever DB2
+-- SpellCastingRequirements and AreaGroupMember, build 1.60.1.71037).
+local DESERT_AREA_IDS = {
+    440, 400, 1377, 4, 16115, 3, 17, 405, 16017,
+    3428, 3478, 3429, 16076, 14, 1637, 1337, 1176,
+}
+
+-- Best first. soulboundOnly skips a tradeable copy; desertOnly items only
+-- count in a desert zone.
+local VANILLA_PRIORITY = { { id = CARROT_ID } }
+local TBC_PRIORITY = { { id = RIDING_CROP_ID, soulboundOnly = true }, { id = CARROT_ID } }
+local FOREVER_PRIORITY = { { id = DESERT_ROSE_ID, desertOnly = true }, { id = CARROT_ID } }
+
+local function BuildIDSet(priority)
+    local set = {}
+    for _, entry in ipairs(priority) do set[entry.id] = true end
+    return set
+end
+
+local MOUNT_SPEED_TRINKET_IDS = {
+    [VANILLA_PRIORITY] = BuildIDSet(VANILLA_PRIORITY),
+    [TBC_PRIORITY] = BuildIDSet(TBC_PRIORITY),
+    [FOREVER_PRIORITY] = BuildIDSet(FOREVER_PRIORITY),
+}
 
 local previousTrinketID = nil
 local lastSwapTime = 0
@@ -22,20 +48,36 @@ local function GetTargetSlot()
     return (CarpenterDB and CarpenterDB.autoCarrotSlot) or 13
 end
 
-local function IsVanillaClient()
-    return Carpenter and Carpenter.Client and Carpenter.Client.isVanilla
-end
-
-local function GetMountSpeedTrinketIDs()
-    return IsVanillaClient() and VANILLA_MOUNT_SPEED_TRINKET_IDS or TBC_MOUNT_SPEED_TRINKET_IDS
-end
-
 local function GetMountSpeedPriority()
-    return IsVanillaClient() and VANILLA_MOUNT_SPEED_PRIORITY or TBC_MOUNT_SPEED_PRIORITY
+    local client = Carpenter and Carpenter.Client
+    if client and client.isForever then return FOREVER_PRIORITY end
+    if client and client.isVanilla then return VANILLA_PRIORITY end
+    return TBC_PRIORITY
 end
 
 local function IsMountSpeedTrinket(itemID)
-    return itemID and GetMountSpeedTrinketIDs()[itemID]
+    return itemID and MOUNT_SPEED_TRINKET_IDS[GetMountSpeedPriority()][itemID]
+end
+
+-- Zone names come from the game, so they match the player's language.
+local desertZoneNames
+local function IsInDesert()
+    if not desertZoneNames then
+        local getAreaInfo = C_Map and C_Map.GetAreaInfo
+        if not getAreaInfo then return false end
+        local names, found = {}, false
+        for _, areaID in ipairs(DESERT_AREA_IDS) do
+            local name = getAreaInfo(areaID)
+            if name and name ~= "" then
+                names[name] = true
+                found = true
+            end
+        end
+        if not found then return false end
+        desertZoneNames = names
+    end
+    local zone = GetRealZoneText and GetRealZoneText()
+    return zone ~= nil and desertZoneNames[zone] == true
 end
 
 -- True if the player can equip this item (level requirement).
@@ -88,28 +130,38 @@ local function IsContainerItemSoulbound(bag, slot)
     return false
 end
 
--- Returns bag, slot for the best mount speed trinket in bags. Classic Era only considers Carrot; TBC prefers Riding Crop over Carrot. Only returns trinkets the player can use. Riding Crop is only considered when soulbound; tradeable Crops are skipped and we fall back to Carrot.
-local function GetBestMountSpeedTrinketInBags()
+local function GetWornMountSpeedSlot()
+    for _, slot in ipairs(TRINKET_SLOTS) do
+        if IsMountSpeedTrinket(GetInventoryItemID("player", slot)) then
+            return slot
+        end
+    end
+    return nil
+end
+
+-- The best mount speed trinket the player can use here. Returns its item ID,
+-- then the bag and slot when it sits in the bags, or nil, nil, slot when it is
+-- already equipped. Riding Crop only counts when soulbound; a tradeable Crop
+-- falls through to Carrot.
+local function FindBestMountSpeedTrinket()
     local getNumSlots = C_Container and C_Container.GetContainerNumSlots or GetContainerNumSlots
     local getItemID = C_Container and C_Container.GetContainerItemID or GetContainerItemID
 
-    for _, preferredID in ipairs(GetMountSpeedPriority()) do
-        if not CanUseTrinket(preferredID) then
-            -- e.g. Riding Crop req 69 and we're not there yet - skip to next
-        else
+    for _, entry in ipairs(GetMountSpeedPriority()) do
+        local preferredID = entry.id
+        if CanUseTrinket(preferredID) and (not entry.desertOnly or IsInDesert()) then
+            for _, slot in ipairs(TRINKET_SLOTS) do
+                if GetInventoryItemID("player", slot) == preferredID then
+                    return preferredID, nil, nil, slot
+                end
+            end
             for bag = 0, 4 do
                 local numSlots = getNumSlots(bag)
                 if numSlots then
                     for slot = 1, numSlots do
-                        if getItemID(bag, slot) == preferredID then
-                            if preferredID == RIDING_CROP_ID then
-                                if IsContainerItemSoulbound(bag, slot) then
-                                    return bag, slot, preferredID
-                                end
-                                -- skip this Crop (not soulbound), try other bags or fall back to Carrot
-                            else
-                                return bag, slot, preferredID
-                            end
+                        if getItemID(bag, slot) == preferredID
+                            and (not entry.soulboundOnly or IsContainerItemSoulbound(bag, slot)) then
+                            return preferredID, bag, slot
                         end
                     end
                 end
@@ -174,29 +226,37 @@ local function SwapTrinket()
     end
 
     local now = GetTime()
-    if now - lastSwapTime < 0.5 then return end
+    if now - lastSwapTime < 0.5 then
+        -- Mounting and a zone change can come right after a swap: look again.
+        swapScheduled = true
+        C_Timer.After(0.5 - (now - lastSwapTime) + 0.05, SwapTrinket)
+        return
+    end
 
     local isMounted = IsMounted()
     local isFlying = (IsFlyableArea() and IsFlying()) or UnitOnTaxi("player")
     local currentTrinketAtTarget = GetInventoryItemID("player", targetSlot)
 
-    -- Logic for equipping best mount speed trinket (Classic Era: Carrot; TBC: Crop, then Carrot)
+    -- Equip the best mount speed trinket for here. One that is already worn
+    -- gets replaced in its own slot, so a better one for this zone takes over
+    -- while the trinket from before mounting stays remembered.
     if isMounted and not isFlying then
-        if not IsMountSpeedTrinket(GetInventoryItemID("player", 13)) and not IsMountSpeedTrinket(GetInventoryItemID("player", 14)) then
-            local bag, slot = GetBestMountSpeedTrinketInBags()
-            if bag and slot then
+        local _, bag, slot = FindBestMountSpeedTrinket()
+        if bag and slot then
+            local wornSlot = GetWornMountSpeedSlot()
+            if not wornSlot then
                 previousTrinketID = currentTrinketAtTarget
-
-                if C_Container and C_Container.PickupContainerItem then
-                    C_Container.PickupContainerItem(bag, slot)
-                else
-                    PickupContainerItem(bag, slot)
-                end
-
-                EquipCursorItem(targetSlot)
-                lastSwapTime = now
-                pendingSwapBack = false
             end
+
+            if C_Container and C_Container.PickupContainerItem then
+                C_Container.PickupContainerItem(bag, slot)
+            else
+                PickupContainerItem(bag, slot)
+            end
+
+            EquipCursorItem(wornSlot or targetSlot)
+            lastSwapTime = now
+            pendingSwapBack = false
         end
     -- Logic for swapping back (dismounted, flying, or pending from combat)
     elseif not isMounted or isFlying or pendingSwapBack then
@@ -245,6 +305,8 @@ function feature:Enable()
     frame:RegisterEvent("PLAYER_REGEN_ENABLED")
     frame:RegisterEvent("UPDATE_BONUS_ACTIONBAR")
     frame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+    -- Riding into or out of a desert changes which trinket is best.
+    frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     frame:RegisterUnitEvent("UNIT_MODEL_CHANGED", "player")
     -- Turned on while playing: check right away. At startup the events cover it.
     if IsLoggedIn and IsLoggedIn() then
