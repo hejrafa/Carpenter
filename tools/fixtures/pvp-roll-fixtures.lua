@@ -57,7 +57,7 @@ local WIDGET_FIELDS = {
     Animation = true, RollNumber = true, Anim = true, Icon = true, Name = true, Timer = true,
     RollButton = true, Waiting = true, Pass = true, effects = true, animations = true, text = true,
     color = true, atlas = true, texture = true, alpha = true, playing = true, plays = true, kind = true,
-    scale = true, point = true, value = true,
+    scale = true, point = true, value = true, template = true, shadow = true, width = true, height = true,
 }
 local widgetMethods = {
     Show = function(self) self.shown = true end,
@@ -81,7 +81,13 @@ local widgetMethods = {
     SetPoint = function(self, ...) self.point = { ... } end,
     SetTexture = function(self, texture) self.texture = texture end,
     CreateTexture = function(self) return Widget("Texture", self) end,
-    CreateFontString = function(self) return Widget("FontString", self) end,
+    CreateFontString = function(self, _, _, template)
+        local fontString = Widget("FontString", self)
+        fontString.template = template
+        return fontString
+    end,
+    SetShadowOffset = function(self, x, y) self.shadow = { x, y } end,
+    SetSize = function(self, width, height) self.width, self.height = width, height end,
     CreateAnimationGroup = function(self)
         local group = Widget("AnimationGroup", self)
         group.Play = function(g) g.playing = true; g.plays = (g.plays or 0) + 1 end
@@ -133,6 +139,7 @@ PlaySound = function(id) sounds[#sounds + 1] = id end
 RAID_CLASS_COLORS = { ROGUE = { colorStr = "fffff468" }, MAGE = { colorStr = "ff3fc7eb" } }
 CLASS_ICON_TCOORDS = { ROGUE = { 0.5, 0.75, 0, 0.25 }, MAGE = { 0.25, 0.5, 0, 0.25 } }
 RANDOM_ROLL_RESULT = "%s rolls %d (%d-%d)"
+QuestFont_Huge = {}
 ROLL, PASS = "Roll", "Pass"
 
 -- The party: you (Rafa, a rogue) and Bob (a mage).
@@ -260,9 +267,11 @@ assertEqual(#rolled, 1, "/cproll should roll")
 assertTrue(rolled[1][1] == 1 and rolled[1][2] == 100, "/cproll rolls 1-100")
 local frame = assert(_G.CarpenterPvPRollFrame, "the roll frame should exist")
 assertTrue(frame:IsShown(), "the roll should show")
-assertEqual(frame.scale, 0.75, "the roll is drawn smaller than Blizzard's toasts")
+-- StoryMode's quest complete banner: a 400 by 60 box 24 below the top.
 assertTrue(frame.point[1] == "TOP" and frame.point[2] == UIParent and frame.point[3] == "TOP", "the roll sits at the top of the screen")
-assertEqual(frame.point[5] * frame.scale, -24, "24 below the top edge, like StoryMode's banners")
+assertEqual(frame.point[5], -24, "24 below the top edge, like StoryMode's banners")
+assertEqual(frame.scale, nil, "the banner text keeps StoryMode's size")
+assertTrue(frame.width == 400 and frame.height == 60, "the banner box is StoryMode's")
 local session = PvPRoll.GetSession()
 assertEqual(#session.players, 2, "everyone in the party rolls")
 assertEqual(session.target, "Hogger", "the roll is at the enemy")
@@ -276,8 +285,16 @@ local function findText(text)
         if widget.objectType == "FontString" and widget.text == text and widget.shown then return widget end
     end
 end
-assertTrue(findText("Hogger"), "the enemy's name should be the title")
-assertTrue(findText(L.PVP_ROLL_PROMPT), "the prompt should show while rolling")
+local title = assert(findText("Hogger"), "the enemy's name should be the title")
+assertEqual(title.template, "QuestFont_Huge", "the title is StoryMode's QuestFont_Huge")
+assertTrue(title.color[1] == 1 and title.color[2] == 1 and title.color[3] == 1, "the title is white, as in StoryMode")
+assertTrue(title.shadow[1] == 1 and title.shadow[2] == -1, "the title has StoryMode's shadow")
+assertTrue(title.point[1] == "TOP" and title.point[2] == frame and title.point[3] == "CENTER" and title.point[5] == -2, "the title hangs under the banner's middle")
+local banner = assert(findText("HIGHEST ROLL TAKES THE FIGHT"), "the prompt shows in capitals while rolling")
+assertEqual(banner.template, "GameFontNormalSmall", "the line over the title is StoryMode's small font")
+assertTrue(banner.color[1] == 0.95 and banner.color[2] == 0.85 and banner.color[3] == 0.55, "the line over the title is StoryMode's gold")
+assertTrue(banner.shadow[1] == 1 and banner.shadow[2] == -1, "the line over the title has StoryMode's shadow")
+assertTrue(banner.point[1] == "BOTTOM" and banner.point[2] == frame and banner.point[3] == "CENTER" and banner.point[5] == 2, "the line sits over the banner's middle")
 
 -- Toast widgets per player, found by the name on them; the newest one, as
 -- the fallback checks load the module again.
@@ -291,6 +308,8 @@ local function toastFor(playerName)
     end
 end
 local rafaToast, bobToast = assert(toastFor("Rafa"), "your toast"), assert(toastFor("Bob"), "Bob's toast")
+assertEqual(rafaToast.parent.scale, 0.75, "the toasts are drawn smaller than Blizzard's")
+assertTrue(rafaToast.parent.parent == frame and rafaToast.parent.point[3] == "BOTTOM", "the toasts hang under the banner")
 assertContains(bobToast.Name.text, "|cff3fc7eb", "Bob's name is in his class color")
 assertEqual(bobToast.Icon.texture, "Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES", "Bob's toast shows his class")
 assertTrue(bobToast.Waiting.shown and not bobToast.RollButton.shown, "Bob's dice wait for him")
@@ -318,7 +337,7 @@ assertTrue(not session.finished, "the dice are still tumbling")
 advance(0.2)
 assertTrue(session.finished, "the roll should finish when the dice land")
 assertEqual(session.winner, session.byKey.bob, "Bob rolled higher")
-assertTrue(findText((L.PVP_ROLL_WINNER):format("|cff3fc7ebBob|r")), "the winner should be named")
+assertTrue(findText("BOB TAKES THE FIGHT!"), "the winner is named in capitals, without class color")
 assertEqual(bobToast.Anim.RollNumber.color[2], 1, "the winning number is green")
 assertEqual(rafaToast.Anim.RollNumber.color[1], 1, "the losing number is red")
 assertEqual(rafaToast.Anim.RollNumber.color[2], 0.1, "the losing number is red")
@@ -345,7 +364,7 @@ assertEqual(#rolled, 2, "clicking your dice rolls")
 system("Rafa rolls 90 (1-100)")
 advance(3.4)
 assertTrue(session.tie and not session.finished, "a tie should roll again")
-assertTrue(findText(L.PVP_ROLL_TIE), "the tie is announced")
+assertTrue(findText("IT'S A TIE. ROLL AGAIN!"), "the tie is announced")
 assertEqual(session.byKey.rafa.roll, nil, "the tied rolls start over")
 assertTrue(rafaToast.RollButton.shown and not rafaToast.Anim.shown, "your dice are back for the second roll")
 slash("")
@@ -355,7 +374,7 @@ system("Rafa rolls 50 (1-100)")
 assertEqual(sounds[#sounds], SOUNDKIT.UI_NEED_ROLL_POSITIVE, "the roll that wins it for you sounds like a won need roll")
 advance(3.4)
 assertEqual(session.winner, session.byKey.rafa, "you won the second roll")
-assertTrue(findText(L.PVP_ROLL_YOU_WIN), "you take the fight")
+assertTrue(findText("YOU TAKE THE FIGHT!"), "you take the fight")
 advance(8)
 
 -- =========================
@@ -439,6 +458,15 @@ assertEqual(session.byKey.koji.roll, 61, "a Forever roll line finds its party me
 system("Rafa rolls 60 (1-100)")
 advance(3.4)
 assertEqual(session.winner, session.byKey.koji, "Koji takes the fight")
+
+-- =========================
+-- Capitals in every language
+-- =========================
+assertEqual(PvPRoll.Upper("Gleichstand. Noch mal würfeln!"), "GLEICHSTAND. NOCH MAL WÜRFELN!", "German umlauts become capitals")
+assertEqual(PvPRoll.Upper("Égalité. Relancez !"), "ÉGALITÉ. RELANCEZ !", "French accents become capitals")
+assertEqual(PvPRoll.Upper("Ничья. Бросайте ещё раз!"), "НИЧЬЯ. БРОСАЙТЕ ЕЩЁ РАЗ!", "Cyrillic becomes capitals")
+assertEqual(PvPRoll.Upper("平局，再掷一次！"), "平局，再掷一次！", "Chinese stays as it is")
+assertEqual(PvPRoll.Upper("2 ÷ 2"), "2 ÷ 2", "÷ is no letter")
 
 -- =========================
 -- Wiring

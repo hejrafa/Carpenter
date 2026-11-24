@@ -1,9 +1,10 @@
 --[[ Carpenter - PvP Roll ]]
 -- The PvP Roll macro on the hidden settings page: /crack your knuckles, then
 -- /cproll rolls 1-100 for who takes on your enemy. The roll shows at the top
--- of the screen, where StoryMode puts its quest banners, the way the game
--- shows a group loot roll: a loot toast for each party member, whose dice
--- tumble and land on their number. The enemy's name sits above them.
+-- of the screen the way the game shows a group loot roll: a loot toast for
+-- each party member, whose dice tumble and land on their number. Above them,
+-- the enemy's name and how the roll stands look like StoryMode's quest
+-- complete banner.
 --
 -- Party members who run Carpenter see the same toasts and have to roll too,
 -- with the dice on their toast or their own macro. Once everyone has rolled
@@ -244,11 +245,12 @@ local UNKNOWN_ICON = 134400 -- INV_Misc_QuestionMark
 local TOAST_WIDTH, TOAST_HEIGHT = 277, 67
 -- Blizzard spaces its loot toasts 100 apart; the dice's light needs room.
 local TOAST_SPACING = 84
-local HEADER_HEIGHT = 56
--- Smaller than Blizzard's toasts, at the top of the screen 24 below its
--- edge like StoryMode's quest banners.
-local FRAME_SCALE = 0.75
-local FRAME_TOP = -24
+-- The title and the line over it are StoryMode's quest banner: a 400 by 60
+-- box 24 below the top of the screen. The toasts hang under it, smaller than
+-- Blizzard's.
+local BANNER_WIDTH, BANNER_HEIGHT, BANNER_TOP = 400, 60, -24
+local TOAST_SCALE = 0.75
+local TOAST_GAP = -6
 -- Where the dice sit on the toast, from its top left: the need button's
 -- spot, and the animation 5 to its right like Blizzard's.
 local DICE_X, DICE_Y = 218, -33
@@ -259,10 +261,10 @@ local NUMBER_X, NUMBER_Y = 13, -13
 local WHITE = { 1, 1, 1 }
 local GREEN = { 0.1, 1, 0.1 }
 local RED = { 1, 0.1, 0.1 }
-local GOLD = { 1, 0.82, 0 }
-local ENEMY = { 1, 0.25, 0.2 }
+-- StoryMode's banner line color.
+local BANNER_GOLD = { 0.95, 0.85, 0.55 }
 
-local container, titleText, statusText
+local container, toastArea, titleText, statusText
 local toasts = {}
 local fadeStartedAt
 local diceAnimAvailable
@@ -451,7 +453,7 @@ local function SetDiceTextures(button)
 end
 
 local function CreateToast()
-    local toast = CreateFrame("Frame", nil, container)
+    local toast = CreateFrame("Frame", nil, toastArea)
     toast:SetSize(TOAST_WIDTH, TOAST_HEIGHT)
 
     local background = toast:CreateTexture(nil, "BACKGROUND")
@@ -555,30 +557,53 @@ local function OnUpdate()
     end
 end
 
+local function SetColor(fontString, color)
+    fontString:SetTextColor(color[1], color[2], color[3])
+end
+
 local function EnsureContainer()
     if container then return container end
     container = CreateFrame("Frame", "CarpenterPvPRollFrame", UIParent)
-    container:SetSize(TOAST_WIDTH, HEADER_HEIGHT)
-    container:SetScale(FRAME_SCALE)
-    -- A scaled frame's offsets scale with it.
-    container:SetPoint("TOP", UIParent, "TOP", 0, FRAME_TOP / FRAME_SCALE)
+    container:SetSize(BANNER_WIDTH, BANNER_HEIGHT)
+    container:SetPoint("TOP", UIParent, "TOP", 0, BANNER_TOP)
     container:SetFrameStrata("DIALOG")
     container:Hide()
 
-    titleText = container:CreateFontString(nil, "ARTWORK", "GameFontNormalHuge")
-    titleText:SetPoint("TOP", container, "TOP", 0, 0)
-    titleText:SetWidth(TOAST_WIDTH + 80)
-    titleText:SetWordWrap(false)
-    statusText = container:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    statusText:SetPoint("TOP", titleText, "BOTTOM", 0, -6)
-    statusText:SetWidth(TOAST_WIDTH + 80)
+    -- StoryMode's quest complete banner, line for line: a small uppercase
+    -- line in its gold over the title in QuestFont_Huge, both shadowed.
+    statusText = container:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    statusText:SetPoint("BOTTOM", container, "CENTER", 0, 2)
+    statusText:SetJustifyH("CENTER")
+    SetColor(statusText, BANNER_GOLD)
+    statusText:SetShadowOffset(1, -1)
+    titleText = container:CreateFontString(nil, "OVERLAY", _G.QuestFont_Huge and "QuestFont_Huge" or "GameFontNormalHuge")
+    titleText:SetPoint("TOP", container, "CENTER", 0, -2)
+    titleText:SetJustifyH("CENTER")
+    SetColor(titleText, WHITE)
+    titleText:SetShadowOffset(1, -1)
+
+    toastArea = CreateFrame("Frame", nil, container)
+    toastArea:SetScale(TOAST_SCALE)
+    toastArea:SetSize(TOAST_WIDTH, TOAST_SPACING)
+    -- A scaled frame's offsets scale with it.
+    toastArea:SetPoint("TOP", container, "BOTTOM", 0, TOAST_GAP / TOAST_SCALE)
 
     container:SetScript("OnUpdate", OnUpdate)
     return container
 end
 
-local function SetColor(fontString, color)
-    fontString:SetTextColor(color[1], color[2], color[3])
+-- Uppercase like StoryMode's banner line. string.upper only knows ASCII,
+-- so accented Latin ("würfeln", "égalité") and Cyrillic letters are raised
+-- here too.
+function PvPRoll.Upper(text)
+    text = text:upper()
+    text = text:gsub("\195([\160-\190])", function(byte)
+        if byte == "\183" then return nil end -- ÷
+        return "\195" .. string.char(byte:byte() - 32)
+    end)
+    text = text:gsub("\208([\176-\191])", function(byte) return "\208" .. string.char(byte:byte() - 32) end)
+    text = text:gsub("\209([\128-\143])", function(byte) return "\208" .. string.char(byte:byte() + 32) end)
+    return (text:gsub("\209\145", "\208\129")) -- ё
 end
 
 local function PlayerName(player)
@@ -592,7 +617,6 @@ end
 function View.Update(session)
     if not container or not session then return end
     titleText:SetText(session.target or L.PVP_ROLL_NO_TARGET or "Next Fight")
-    SetColor(titleText, session.target and ENEMY or GOLD)
 
     local status
     if session.finished then
@@ -602,14 +626,14 @@ function View.Update(session)
         elseif winner.isSelf then
             status = L.PVP_ROLL_YOU_WIN or "You take the fight!"
         else
-            status = (L.PVP_ROLL_WINNER or "%s takes the fight!"):format(PlayerName(winner))
+            status = (L.PVP_ROLL_WINNER or "%s takes the fight!"):format(winner.name)
         end
     elseif session.tie then
         status = L.PVP_ROLL_TIE or "It's a tie. Roll again!"
     else
         status = L.PVP_ROLL_PROMPT or "Highest roll takes the fight"
     end
-    statusText:SetText(status)
+    statusText:SetText(PvPRoll.Upper(status))
 
     for index, toast in ipairs(toasts) do
         local player = session.players[index]
@@ -642,7 +666,7 @@ function View.Show(session)
         local toast = toasts[index] or CreateToast()
         toasts[index] = toast
         toast:ClearAllPoints()
-        toast:SetPoint("TOP", container, "TOP", 0, -HEADER_HEIGHT - (index - 1) * TOAST_SPACING)
+        toast:SetPoint("TOP", toastArea, "TOP", 0, -(index - 1) * TOAST_SPACING)
         SetClassIcon(toast.Icon, player.classToken)
         toast.Name:SetText(PlayerName(player))
         View.ResetDice(toast)
@@ -651,7 +675,7 @@ function View.Show(session)
     for index = #session.players + 1, #toasts do
         toasts[index]:Hide()
     end
-    container:SetHeight(HEADER_HEIGHT + #session.players * TOAST_SPACING)
+    toastArea:SetHeight(#session.players * TOAST_SPACING)
     fadeStartedAt = nil
     container:SetAlpha(1)
     container:Show()
