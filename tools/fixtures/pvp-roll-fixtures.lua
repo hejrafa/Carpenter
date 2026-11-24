@@ -342,7 +342,7 @@ assertTrue(session.finished, "the roll should finish when the dice land")
 assertEqual(session.winner, session.byKey.bob, "Bob rolled higher")
 assertTrue(findText("|cff3fc7ebBob|r takes the fight!"), "the winner is named in their class color")
 assertEqual(#printed, 1, "the result is printed in chat once")
-assertEqual(printed[1].text, "Hogger: |cff3fc7ebBob|r takes the fight!", "chat names the enemy and the winner")
+assertEqual(printed[1].text, "|cff3fc7ebBob|r takes the fight vs. Hogger", "chat names the winner first, then the enemy")
 assertTrue(printed[1].r == 1 and printed[1].g == 1 and printed[1].b == 1, "the chat line is white")
 assertEqual(bobToast.Anim.RollNumber.color[2], 1, "the winning number is green")
 assertEqual(rafaToast.Anim.RollNumber.color[1], 1, "the losing number is red")
@@ -382,7 +382,7 @@ assertEqual(sounds[#sounds], SOUNDKIT.UI_NEED_ROLL_POSITIVE, "the roll that wins
 advance(3.4)
 assertEqual(session.winner, session.byKey.rafa, "you won the second roll")
 assertTrue(findText(L.PVP_ROLL_YOU_WIN), "you take the fight")
-assertEqual(printed[#printed].text, "Hogger: You take the fight!", "chat says you take the fight")
+assertEqual(printed[#printed].text, "You take the fight vs. Hogger", "chat says you take the fight against the enemy")
 advance(8)
 
 -- =========================

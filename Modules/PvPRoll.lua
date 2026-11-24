@@ -627,14 +627,20 @@ local function StatusText(session)
     return L.PVP_ROLL_PROMPT or "Highest roll takes the fight"
 end
 
--- The result in your chat window, white like the banner's line, with the
--- winner in class color: "Saltwater Crocolisk: Bob takes the fight!".
+-- The result in your chat window, white like the banner's line, winner
+-- first and in class color: "Bob takes the fight vs. Empowered Brute".
 -- Nothing goes to the party.
 function View.PrintResult(session)
     local chat = DEFAULT_CHAT_FRAME
     if not chat or not chat.AddMessage then return end
-    local text = StatusText(session)
-    if session.target then text = session.target .. ": " .. text end
+    local winner, text = session.winner, nil
+    if winner and session.target and winner.isSelf then
+        text = (L.PVP_ROLL_YOU_WIN_VS or "You take the fight vs. %s"):format(session.target)
+    elseif winner and session.target then
+        text = (L.PVP_ROLL_WINNER_VS or "%s takes the fight vs. %s"):format(PlayerName(winner), session.target)
+    else
+        text = StatusText(session)
+    end
     chat:AddMessage(text, 1, 1, 1)
 end
 
