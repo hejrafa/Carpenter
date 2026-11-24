@@ -3,7 +3,7 @@
 -- /cproll rolls 1-100 for who takes on your enemy. The roll shows at the top
 -- of the screen the way the game shows a group loot roll: a loot toast for
 -- each party member, whose dice tumble and land on their number. Above them,
--- the enemy's name and how the roll stands look like StoryMode's quest
+-- the enemy's name over how the roll stands look like StoryMode's quest
 -- complete banner.
 --
 -- Party members who run Carpenter see the same toasts and have to roll too,
@@ -245,7 +245,7 @@ local UNKNOWN_ICON = 134400 -- INV_Misc_QuestionMark
 local TOAST_WIDTH, TOAST_HEIGHT = 277, 67
 -- Blizzard spaces its loot toasts 100 apart; the dice's light needs room.
 local TOAST_SPACING = 84
--- The title and the line over it are StoryMode's quest banner: a 400 by 60
+-- The enemy and how the roll stands are StoryMode's quest banner: a 400 by 60
 -- box 24 below the top of the screen. The toasts hang under it, smaller than
 -- Blizzard's.
 local BANNER_WIDTH, BANNER_HEIGHT, BANNER_TOP = 400, 60, -24
@@ -569,18 +569,19 @@ local function EnsureContainer()
     container:SetFrameStrata("DIALOG")
     container:Hide()
 
-    -- StoryMode's quest complete banner, line for line: a small uppercase
-    -- line in its gold over the title in QuestFont_Huge, both shadowed.
-    statusText = container:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    statusText:SetPoint("BOTTOM", container, "CENTER", 0, 2)
-    statusText:SetJustifyH("CENTER")
-    SetColor(statusText, BANNER_GOLD)
-    statusText:SetShadowOffset(1, -1)
-    titleText = container:CreateFontString(nil, "OVERLAY", _G.QuestFont_Huge and "QuestFont_Huge" or "GameFontNormalHuge")
-    titleText:SetPoint("TOP", container, "CENTER", 0, -2)
+    -- StoryMode's quest complete banner, line for line: the enemy (or "Next
+    -- Fight") small and uppercase in its gold, over how the roll stands in
+    -- QuestFont_Huge, both shadowed.
+    titleText = container:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    titleText:SetPoint("BOTTOM", container, "CENTER", 0, 2)
     titleText:SetJustifyH("CENTER")
-    SetColor(titleText, WHITE)
+    SetColor(titleText, BANNER_GOLD)
     titleText:SetShadowOffset(1, -1)
+    statusText = container:CreateFontString(nil, "OVERLAY", _G.QuestFont_Huge and "QuestFont_Huge" or "GameFontNormalHuge")
+    statusText:SetPoint("TOP", container, "CENTER", 0, -2)
+    statusText:SetJustifyH("CENTER")
+    SetColor(statusText, WHITE)
+    statusText:SetShadowOffset(1, -1)
 
     toastArea = CreateFrame("Frame", nil, container)
     toastArea:SetScale(TOAST_SCALE)
@@ -592,7 +593,7 @@ local function EnsureContainer()
     return container
 end
 
--- Uppercase like StoryMode's banner line. string.upper only knows ASCII,
+-- Uppercase like the small line of StoryMode's banner. string.upper only knows ASCII,
 -- so accented Latin ("würfeln", "égalité") and Cyrillic letters are raised
 -- here too.
 function PvPRoll.Upper(text)
@@ -616,7 +617,7 @@ end
 
 function View.Update(session)
     if not container or not session then return end
-    titleText:SetText(session.target or L.PVP_ROLL_NO_TARGET or "Next Fight")
+    titleText:SetText(PvPRoll.Upper(session.target or L.PVP_ROLL_NO_TARGET or "Next Fight"))
 
     local status
     if session.finished then
@@ -633,7 +634,7 @@ function View.Update(session)
     else
         status = L.PVP_ROLL_PROMPT or "Highest roll takes the fight"
     end
-    statusText:SetText(PvPRoll.Upper(status))
+    statusText:SetText(status)
 
     for index, toast in ipairs(toasts) do
         local player = session.players[index]
