@@ -142,7 +142,6 @@ RANDOM_ROLL_RESULT = "%s rolls %d (%d-%d)"
 -- Lines printed to your own chat window.
 local printed = {}
 DEFAULT_CHAT_FRAME = { AddMessage = function(_, text, r, g, b) printed[#printed + 1] = { text = text, r = r, g = g, b = b } end }
-ChatTypeInfo = { SYSTEM = { r = 1, g = 1, b = 0 } }
 QuestFont_Huge = {}
 ROLL, PASS = "Roll", "Pass"
 
@@ -344,7 +343,7 @@ assertEqual(session.winner, session.byKey.bob, "Bob rolled higher")
 assertTrue(findText("|cff3fc7ebBob|r takes the fight!"), "the winner is named in their class color")
 assertEqual(#printed, 1, "the result is printed in chat once")
 assertEqual(printed[1].text, "Hogger: |cff3fc7ebBob|r takes the fight!", "chat names the enemy and the winner")
-assertTrue(printed[1].r == 1 and printed[1].g == 1 and printed[1].b == 0, "the chat line has the color of the game's roll lines")
+assertTrue(printed[1].r == 1 and printed[1].g == 1 and printed[1].b == 1, "the chat line is white")
 assertEqual(bobToast.Anim.RollNumber.color[2], 1, "the winning number is green")
 assertEqual(rafaToast.Anim.RollNumber.color[1], 1, "the losing number is red")
 assertEqual(rafaToast.Anim.RollNumber.color[2], 0.1, "the losing number is red")
