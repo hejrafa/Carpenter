@@ -14,6 +14,7 @@ local defaults = {
     hideKeybindsEnabled = false,
     actionBarFaderEnabled = false,
     actionBarRangeEnabled = false,
+    procGlowEnabled = false,
     hideStanceBarEnabled = false,
     -- Interface
     smallerExpBarEnabled = false,

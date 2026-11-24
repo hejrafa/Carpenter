@@ -49,6 +49,7 @@ Core\SpellData.lua
 Modules\HideUIElements.lua
 Modules\ActionBarFader.lua
 Modules\ActionBarRange.lua
+Modules\ProcGlow.lua
 
 # Interface
 Modules\StatusTrackingBars.lua

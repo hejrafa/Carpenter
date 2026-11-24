@@ -89,6 +89,12 @@ function Options.Create(context)
                     image = GetSettingsImage("range.png"),
                 },
                 {
+                    key = "procGlowEnabled",
+                    label = L.OPTION_PROC_GLOW or "Proc Glow",
+                    description = Description("DESC_PROC_GLOW"),
+                    image = GetSettingsImage("actionbar.png"),
+                },
+                {
                     key = "hideStanceBarEnabled",
                     label = L.OPTION_HIDE_STANCE_BAR or "Hide Stance Bar",
                     description = Description("DESC_HIDE_STANCE_BAR"),

@@ -59,6 +59,7 @@ local featureManifest = {
     hideStanceBarEnabled = { { clients = ALL, files = { "Modules/HideUIElements.lua" } } },
     actionBarFaderEnabled = { { clients = "tbc", files = { "Modules/ActionBarFader.lua" } } },
     actionBarRangeEnabled = { { clients = CLASSIC, files = { "Modules/ActionBarRange.lua" } } },
+    procGlowEnabled = { { clients = ALL, files = { "Modules/ProcGlow.lua" } } },
 
     -- Interface
     smallerExpBarEnabled = { { clients = CLASSIC, files = { "Modules/SmallerExpBar.lua" } } },
