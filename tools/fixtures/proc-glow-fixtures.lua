@@ -133,12 +133,12 @@ local names = {
     [8676] = "Ambush",
     [703] = "Garrote",
     [2098] = "Eviscerate",
-    [6760] = "Eviscerate", -- rank 2
     [7384] = "Overpower",
+    [14183] = "Premeditation",
+    [5308] = "Execute",
+    [20658] = "Execute", -- rank 2
     [1784] = "Stealth",
-    [185438] = "Shadowstrike",
 }
-for spellID = 90001, 90006 do names[spellID] = "Spell " .. spellID end
 C_Spell = { GetSpellName = function(spellID) return names[spellID] end }
 
 -- [slot] = { type, id, subType }
@@ -149,12 +149,11 @@ local actions = {
     [4] = { "macro", 703, "spell" },
     [5] = { "spell", 2098 },
     [6] = { "spell", 7384 },
+    [7] = { "spell", 14183 },
+    [8] = { "spell", 20658 },
     [13] = { "item", 5512 },
     [14] = { "spell", 1784 },
-    [16] = { "spell", 6760 },
-    [17] = { "spell", 185438 },
 }
-for slot = 7, 12 do actions[slot] = { "spell", 90000 + slot - 6 } end
 
 GetActionInfo = function(slot)
     local action = actions[slot]
@@ -167,36 +166,29 @@ local usability = {
     [13] = { true, false },
     [14] = { true, false },
 }
+-- [slot] = SpellCooldownInfo. Off cooldown unless set otherwise.
+local cooldowns = {}
 C_ActionBar = {
     IsUsableAction = function(slot)
         local state = usability[slot]
         if state then return state[1], state[2] end
         return false, false
     end,
+    GetActionCooldown = function(slot)
+        return cooldowns[slot] or { startTime = 0, duration = 0, isEnabled = true, isActive = false }
+    end,
 }
 
 local overlayed = {}
 C_SpellActivationOverlay = { IsSpellOverlayed = function(spellID) return overlayed[spellID] == true end }
 
-local player = { stealthed = false, mounted = false, form = 0 }
+local player = { stealthed = false }
 local target = { exists = true, dead = false }
 IsStealthed = function() return player.stealthed end
-IsMounted = function() return player.mounted end
-IsFlying = function() return false end
-IsSwimming = function() return false end
-IsIndoors = function() return false end
-HasFullControl = function() return true end
-UnitInVehicle = function() return false end
-GetShapeshiftForm = function() return player.form end
-GetNumShapeshiftForms = function() return 1 end
-GetShapeshiftFormInfo = function(index)
-    if index == 1 then return 132320, player.form == 1, true, 1784 end
-end
 UnitExists = function(unit)
     if unit == "target" then return target.exists end
     return unit == "player"
 end
-UnitIsDead = function() return false end
 UnitIsDeadOrGhost = function(unit)
     if unit == "target" then return target.dead end
     return false
@@ -212,7 +204,7 @@ ActionButton_HideOverlayGlow = function() fail("ActionButton_HideOverlayGlow was
 
 -- Action buttons, each showing the slot of the same number.
 local buttons = {}
-for slot = 1, 17 do
+for slot = 1, 14 do
     buttons[slot] = H.Frame({ name = "ActionButton" .. slot, width = 45, height = 45, action = slot })
 end
 ActionBarButtonEventsFrame = { frames = {} }
@@ -262,9 +254,10 @@ local function expectGlow(slot, expected, message)
     assertEqual(isGlowing(slot), expected, message)
 end
 
--- Lets every explanation window close before the next case.
-local function pause()
-    advance(2)
+local function startCooldown(slot, duration, fields)
+    cooldowns[slot] = { startTime = now, duration = duration, isEnabled = true, isActive = true, isOnGCD = false }
+    for key, value in pairs(fields or {}) do cooldowns[slot][key] = value end
+    fire("SPELL_UPDATE_COOLDOWN")
 end
 
 -- =========================
@@ -293,159 +286,77 @@ for _, animation in ipairs(glow.LoopAnim.animations) do
 end
 assertTrue(flipBook and flipBook.SetFlipBookFrames == 30 and flipBook.SetFlipBookRows == 6
     and flipBook.SetFlipBookColumns == 5, "the loop should flip through the game's 6 by 5 sheet")
-expectGlow(1, false, "nothing should glow right after turning on")
+expectGlow(1, false, "nothing should glow while nothing is usable")
 
 -- =========================
--- Riposte after a parry
+-- Reactive abilities
 -- =========================
 change(state(1, true, false))
-expectGlow(1, false, "a freed spell should wait for its events to settle")
-advance(0.2)
-expectGlow(1, true, "Riposte should glow after a parry frees it")
+expectGlow(1, true, "Riposte should glow once a parry makes it usable")
 assertTrue(glow.StartAnim.playing, "the glow should open with the burst")
 assertTrue(not glow.LoopAnim.playing, "the loop should wait for the burst")
 glow.StartAnim:Finish()
 assertTrue(glow.LoopAnim.playing, "the loop should follow the burst")
 
 change(state(1, false, false))
-expectGlow(1, false, "Riposte should stop glowing once it is blocked again")
+expectGlow(1, false, "Riposte should stop glowing once it's unusable again")
 assertTrue(not glow.LoopAnim.playing and glow.shown == false, "a stopped glow should hide and stop animating")
-pause()
 
--- =========================
--- Power coming back
--- =========================
-change(state(2, true, false))
-advance(0.2)
+-- Short on energy is not usable; the glow waits for the energy.
+change(state(1, false, true))
+expectGlow(1, false, "Riposte short on energy should not glow")
+change(state(1, true, false))
+expectGlow(1, true, "Riposte should glow once the energy is there")
+change(state(1, false, false))
+
+change(state(6, true, false))
+expectGlow(6, true, "Overpower should glow after a dodge")
+change(state(6, false, false))
+
+change(state(8, true, false))
+expectGlow(8, true, "a higher rank of Execute should glow by its name")
+change(state(8, false, false))
+
+-- Everything else stays dark, however it becomes usable.
+change(state(2, true, false), state(5, true, false), state(7, true, false), state(14, true, false))
 expectGlow(2, false, "energy coming back should not light up Sinister Strike")
-change(state(2, false, true))
-pause()
-
--- A parry while low on energy frees Riposte, but it glows once it's usable.
-change(state(1, false, true))
-advance(0.2)
-expectGlow(1, false, "a proc spell waiting on energy should not glow yet")
-change(state(1, true, false))
-expectGlow(1, true, "the proc spell should glow once the energy is there")
-change(state(1, false, true))
-expectGlow(1, false, "the glow should stop while the energy is short again")
-change(state(1, true, false))
-expectGlow(1, true, "the glow should come back while the proc lasts")
-change(state(1, false, false))
-pause()
-
--- =========================
--- Changes that aren't procs
--- =========================
-player.form = 1
-fire("UPDATE_SHAPESHIFT_FORM")
-change(state(6, true, false))
-advance(0.2)
-expectGlow(6, false, "a stance change should not light up what it frees")
-player.form = 0
-fire("UPDATE_SHAPESHIFT_FORM")
-change(state(6, false, false))
-pause()
-
--- The game also fires form events when the form stays the same.
-fire("UPDATE_SHAPESHIFT_FORM")
-change(state(6, true, false))
-advance(0.2)
-expectGlow(6, true, "a form event without a form change should not hide a proc")
-change(state(6, false, false))
-pause()
-
--- Buying a missing reagent frees its spells; arrows shot in combat don't
--- explain anything.
-fire("BAG_UPDATE", 0)
-change(state(1, true, false))
-advance(0.2)
-expectGlow(1, false, "a bag change out of combat should explain what it frees")
-change(state(1, false, false))
-pause()
-inCombat = true
-fire("BAG_UPDATE", 0)
-change(state(1, true, false))
-advance(0.2)
-expectGlow(1, true, "a bag change in combat should not hide a proc")
-inCombat = false
-change(state(1, false, false))
-pause()
-
--- A macro's slot changing starts that slot over and leaves the rest alone.
-fire("ACTIONBAR_SLOT_CHANGED", 4)
-change(state(1, true, false))
-advance(0.2)
-expectGlow(1, true, "another slot changing should not hide a proc")
-change(state(1, false, false))
-pause()
-usability[6] = { true, false }
-fire("ACTIONBAR_SLOT_CHANGED", 6)
-advance(0.2)
-expectGlow(6, false, "a slot read again after it changed should not glow for being usable")
-change(state(6, false, false))
-pause()
-actions[13] = { "spell", 14251 }
-fire("ACTIONBAR_SLOT_CHANGED", 13)
-advance(0.2)
-expectGlow(13, false, "a spell dragged onto a bar should not glow for being usable")
-actions[13] = { "item", 5512 }
-fire("ACTIONBAR_SLOT_CHANGED", 13)
-pause()
-
--- The explanation may arrive just after the slot frees up.
-change(state(1, true, false))
-advance(0.05)
-fire("PLAYER_TARGET_CHANGED")
-advance(0.2)
-expectGlow(1, false, "a target change right after should explain the change")
-change(state(1, false, false))
-pause()
-
--- Mounting has no event of its own here; the player's state shows it.
-player.mounted = true
-change(state(1, true, false))
-advance(0.2)
-expectGlow(1, false, "mounting should explain what it frees")
-player.mounted = false
-change(state(1, false, false))
-pause()
-
-fire("PLAYER_REGEN_ENABLED")
-change(state(1, true, false))
-advance(0.2)
-expectGlow(1, false, "leaving combat should explain what it frees")
-change(state(1, false, false))
-pause()
-
--- Finishing moves free up on combo points, every rank of them.
-change(state(5, true, false), state(16, true, false))
-advance(0.2)
 expectGlow(5, false, "Eviscerate should never glow")
-expectGlow(16, false, "a higher rank of Eviscerate should never glow either")
-change(state(5, false, false), state(16, false, false))
-pause()
+expectGlow(7, false, "Premeditation should never glow")
+expectGlow(14, false, "Stealth should never glow")
+change(state(2, false, true), state(5, false, false), state(7, false, false))
 
--- Many spells freeing at once is a state change, not a proc.
-local freed, blocked = {}, {}
-for slot = 7, 12 do
-    freed[#freed + 1] = state(slot, true, false)
-end
-change(unpack(freed))
-advance(0.2)
-for slot = 7, 12 do
-    expectGlow(slot, false, "spell " .. slot .. " should not glow when six spells free up at once")
-    blocked[#blocked + 1] = state(slot, false, false)
-end
-change(unpack(blocked))
-pause()
+-- =========================
+-- Cooldowns
+-- =========================
+change(state(1, true, false))
+expectGlow(1, true, "Riposte should glow before it's used")
+startCooldown(1, 6)
+expectGlow(1, false, "Riposte on its own cooldown should not glow")
+cooldowns[1] = nil
+advance(0.3)
+expectGlow(1, true, "the glow should come back once the cooldown is over, even without an event")
+
+startCooldown(1, 1)
+expectGlow(1, true, "the global cooldown should not hide the glow")
+cooldowns[1] = nil
+
+-- In combat the times are hidden, but isActive and isOnGCD aren't.
+startCooldown(1, SECRET, { startTime = SECRET })
+expectGlow(1, false, "a hidden cooldown that isn't the global one should hide the glow")
+cooldowns[1].isOnGCD = nil
+advance(0.3)
+expectGlow(1, false, "a cooldown with nothing readable should keep the last answer")
+startCooldown(1, SECRET, { startTime = SECRET, isOnGCD = true })
+expectGlow(1, true, "a hidden global cooldown should not hide the glow")
+cooldowns[1] = nil
+change(state(1, false, false))
+advance(1)
 
 -- =========================
 -- The game's own glow
 -- =========================
 change(state(6, true, false))
-advance(0.2)
-expectGlow(6, true, "Overpower should glow after a dodge")
+expectGlow(6, true, "Overpower should glow")
 fire("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW", 7384)
 expectGlow(6, false, "a spell the game glows itself should keep only the game's glow")
 fire("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE", 7384)
@@ -453,78 +364,52 @@ expectGlow(6, true, "the glow should come back when the game's stops")
 
 overlayed[7384] = true
 fire("PLAYER_TARGET_CHANGED")
-advance(0)
 expectGlow(6, false, "a spell the game reports as overlayed should not glow")
 overlayed[7384] = nil
 buttons[6].SpellActivationAlert = H.Frame({ shown = true })
 fire("PLAYER_TARGET_CHANGED")
-advance(0)
 expectGlow(6, false, "a button showing the game's alert should not glow")
 buttons[6].SpellActivationAlert.shown = false
 fire("PLAYER_TARGET_CHANGED")
-advance(0)
 expectGlow(6, true, "a button whose game alert is gone should glow")
 change(state(6, false, false))
-pause()
 
 -- =========================
--- Stealth
+-- Stealth openers
 -- =========================
--- Ghostly Strike out of stealth frees Ambush and Garrote.
-change(state(3, true, false), state(4, true, false))
-advance(0.2)
-expectGlow(3, true, "Ambush should glow out of stealth after Ghostly Strike")
-expectGlow(4, true, "Garrote from a macro should glow out of stealth after Ghostly Strike")
+player.stealthed = true
+fire("UPDATE_STEALTH")
+change(state(3, true, false), state(4, true, false), state(7, true, false))
+expectGlow(3, false, "Ambush should not glow in stealth")
+expectGlow(4, false, "Garrote should not glow in stealth")
+
+-- Ghostly Strike from stealth keeps them usable after stealth ends.
+player.stealthed = false
+fire("UPDATE_STEALTH")
+expectGlow(3, true, "Ambush still usable out of stealth should glow")
+expectGlow(4, true, "Garrote from a macro still usable out of stealth should glow")
+expectGlow(7, false, "Premeditation still usable out of stealth should not glow")
 
 player.stealthed = true
 fire("UPDATE_STEALTH")
-expectGlow(3, false, "nothing should glow while stealthed")
+expectGlow(3, false, "the openers should go quiet when stealth starts again")
 player.stealthed = false
 fire("UPDATE_STEALTH")
-expectGlow(3, true, "the proc should glow again after stealth")
-change(state(3, false, false), state(4, false, false))
-advance(0.5)
+expectGlow(3, true, "the openers should glow again after stealth")
+change(state(3, false, false), state(4, false, false), state(7, false, false))
 expectGlow(3, false, "Ambush should stop glowing when Ghostly Strike wears off")
-pause()
 
--- Stealth itself frees the openers, which stay quiet.
+-- Riposte isn't an opener, so stealth doesn't hide it.
 player.stealthed = true
 fire("UPDATE_STEALTH")
-change(state(3, true, false), state(4, true, false), state(17, true, false))
-advance(0.2)
-expectGlow(3, false, "Ambush should not glow in normal stealth")
-player.stealthed = false
-fire("UPDATE_STEALTH")
-change(state(3, false, false), state(4, false, false), state(17, false, false))
-advance(0.5)
-expectGlow(3, false, "Ambush should stay quiet when stealth ends")
-expectGlow(17, false, "Shadowstrike should stay quiet when stealth ends")
-pause()
-
--- Opening with Ghostly Strike from stealth: the openers never stop being
--- usable, so no change arrives for them.
-player.stealthed = true
-fire("UPDATE_STEALTH")
-change(state(3, true, false), state(4, true, false), state(17, true, false))
-advance(0.2)
-player.stealthed = false
-fire("UPDATE_STEALTH")
-advance(0.1)
-expectGlow(3, false, "the openers should wait a moment after stealth ends")
-advance(0.3)
-expectGlow(3, true, "Ambush still usable after stealth should glow")
-expectGlow(4, true, "Garrote still usable after stealth should glow")
-expectGlow(17, true, "a spell learned as a stealth opener should glow the same way")
-change(state(3, false, false), state(4, false, false), state(17, false, false))
-expectGlow(17, false, "the learned opener should stop when it's blocked")
-pause()
-
--- =========================
--- Target, page swaps and hidden buttons
--- =========================
 change(state(1, true, false))
-advance(0.2)
-expectGlow(1, true, "Riposte should glow again")
+expectGlow(1, true, "Riposte should still glow in stealth")
+player.stealthed = false
+fire("UPDATE_STEALTH")
+
+-- =========================
+-- Target, slots, page swaps and hidden buttons
+-- =========================
 target.dead = true
 fire("UNIT_HEALTH", "target")
 expectGlow(1, false, "a dead target should hide the glow")
@@ -533,12 +418,20 @@ fire("UNIT_HEALTH", "target")
 expectGlow(1, true, "a living target should bring it back")
 target.exists = false
 fire("PLAYER_TARGET_CHANGED")
-advance(0)
 expectGlow(1, false, "no target should hide the glow")
 target.exists = true
 fire("PLAYER_TARGET_CHANGED")
-advance(0)
 expectGlow(1, true, "a new target should show the glow again")
+
+-- Riposte dragged onto the item's slot glows there too.
+actions[13] = { "spell", 14251 }
+fire("ACTIONBAR_SLOT_CHANGED", 13)
+advance(0)
+expectGlow(13, true, "a slot that now holds Riposte should glow")
+actions[13] = { "item", 5512 }
+fire("ACTIONBAR_SLOT_CHANGED", 13)
+advance(0)
+expectGlow(13, false, "a slot holding an item again should stop glowing")
 
 local plays = glow.StartAnim.plays
 buttons[1].action = 13
@@ -558,9 +451,12 @@ SetShown(buttons[1], true)
 assertTrue(glow.LoopAnim.playing, "a button shown again should loop at once")
 assertTrue(not glow.StartAnim.playing, "a button shown again should skip the burst")
 
--- Values the game hides are left alone.
+-- An answer the game hides counts as unusable, without an error.
+usability[1] = { SECRET, SECRET }
 change({ slot = 1, usable = SECRET, noMana = SECRET })
-expectGlow(1, true, "a hidden usability should change nothing")
+expectGlow(1, false, "a hidden usability should not glow")
+change(state(1, true, false))
+expectGlow(1, true, "a readable usability should glow again")
 
 -- =========================
 -- Turning it off
@@ -572,7 +468,6 @@ assertEqual(next(events.events), nil, "turning off should drop every event")
 
 CarpenterDB.procGlowEnabled = true
 feature:Enable()
-advance(0.5)
-expectGlow(1, false, "turning on again should start from the slots as they are")
+expectGlow(1, true, "turning on again should glow what is usable now")
 
 print("proc-glow fixtures passed")

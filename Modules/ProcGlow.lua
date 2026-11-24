@@ -1,15 +1,13 @@
 --[[ Carpenter - Proc Glow ]]
--- Plays the game's proc glow on an action button while a proc makes its
--- spell usable: Riposte after a parry, Overpower after a dodge, Execute on a
--- low target, or Ambush and Garrote out of stealth after Ghostly Strike.
+-- Plays the game's proc glow on an action button while a reactive ability is
+-- usable: Riposte after a parry, Overpower after a dodge, Execute on a low
+-- target, or Ambush and Garrote out of stealth after Ghostly Strike.
 --
--- The game reports each slot's usability in ACTION_USABLE_CHANGED: usable,
--- or not, and whether only power (mana, rage, energy) is missing. A spell
--- that isn't usable for any other reason is blocked. A blocked spell that
--- frees up has had a proc, unless something else explains it: a stance or
--- form, entering stealth, a new target, leaving combat, gear, bags, a pet, a
--- mount or crowd control. A spell that only waits on power is never blocked,
--- so power coming back never lights it up.
+-- The abilities are the ones ClassicSpellActivations and
+-- SpellActivationOverlay glow for being usable on Classic and WoW Forever.
+-- Each of them is unusable until its proc, so the glow follows the game's
+-- own answer for the slot: usable, not just short on energy, rage or mana,
+-- and not on a cooldown of its own. The global cooldown doesn't count.
 --
 -- The game's own alert (ActionButtonSpellAlertManager) taints the action
 -- buttons when addon code calls it. The glow here is Carpenter's own frame,
@@ -19,18 +17,37 @@ local FEATURE_KEY = "procGlowEnabled"
 
 local Secret = Carpenter and Carpenter.Secret
 
--- How long the events behind one change take to arrive. The slot's change and
--- the stance, stealth or target change that caused it come in either order.
-local SETTLE_DELAY = 0.15
--- A state change this soon before a spell frees up explains it.
-local EXPLAIN_WINDOW = 0.4
--- More spells than this freeing up at once is a state change the events
--- didn't name (crowd control ending, landing from a taxi), not a proc.
-local MAX_PROCS_AT_ONCE = 4
--- A stealth opener still usable this long after stealth ends has a proc
--- behind it.
-local STEALTH_EXIT_DELAY = 0.3
+-- Matched by name too, so every rank counts.
+local REACTIVE_SPELL_IDS = {
+    -- Warrior
+    7384, -- Overpower: the target dodged
+    6572, -- Revenge: you blocked, dodged or parried
+    5308, -- Execute: the target is below 20% health
+    34428, -- Victory Rush: you killed an enemy (TBC)
+    402927, -- Victory Rush (WoW Forever)
+    29801, -- Rampage: you scored a critical hit (TBC)
+    -- Rogue
+    14251, -- Riposte: you parried
+    -- Hunter
+    19306, -- Counterattack: you parried
+    1495, -- Mongoose Bite: the target dodged
+    34026, -- Kill Command: your pet scored a critical hit (TBC)
+    -- Paladin
+    24275, -- Hammer of Wrath: the target is below 20% health
+}
+
+-- Usable in stealth anyway, so they only glow out of it, as Ghostly Strike
+-- allows on WoW Forever.
+local STEALTH_OPENER_IDS = {
+    8676, -- Ambush
+    703, -- Garrote
+}
+
 local MAX_ACTION_SLOT = 180
+-- The global cooldown runs at most this long, so a longer one is the spell's
+-- own. A glow waiting out a cooldown checks again this often.
+local GLOBAL_COOLDOWN_MAX = 1.5
+local COOLDOWN_CHECK_DELAY = 0.25
 
 -- ActionButtonSpellAlertTemplate's art and timing.
 local START_ATLAS = "UI-HUD-ActionBar-Proc-Start-Flipbook"
@@ -43,117 +60,37 @@ local FLIPBOOK_ROWS = 6
 local FLIPBOOK_COLUMNS = 5
 local FLIPBOOK_FRAMES = 30
 
--- Stealth openers, matched by name so every rank counts. Entering stealth
--- frees them, so that never glows. Out of stealth only a proc frees them.
--- Spells seen freeing up as stealth starts are added while playing.
-local STEALTH_OPENER_IDS = {
-    8676, -- Ambush
-    703, -- Garrote
-    1833, -- Cheap Shot
-    6770, -- Sap
-    921, -- Pick Pocket
-    14183, -- Premeditation
-    9005, -- Pounce
-    6785, -- Ravage
-}
-
--- Spells that wait on something other than a proc, in a way the events can't
--- tell apart: finishing moves on combo points (Classic doesn't count those as
--- power), Judgement on the paladin's own Seal, and the spells Forbearance
--- locks until it wears off.
-local NEVER_GLOW_IDS = {
-    2098, -- Eviscerate
-    5171, -- Slice and Dice
-    1943, -- Rupture
-    408, -- Kidney Shot
-    8647, -- Expose Armor
-    32645, -- Envenom
-    26679, -- Deadly Throw
-    22568, -- Ferocious Bite
-    1079, -- Rip
-    22570, -- Maim
-    52610, -- Savage Roar
-    20271, -- Judgement
-    642, -- Divine Shield
-    498, -- Divine Protection
-    1022, -- Blessing of Protection
-    633, -- Lay on Hands
-    31884, -- Avenging Wrath
-}
-
-local function IDSet(spellIDs)
-    local set = {}
-    for _, spellID in ipairs(spellIDs) do set[spellID] = true end
-    return set
-end
-
-local stealthOpenerIDs = IDSet(STEALTH_OPENER_IDS)
-local neverGlowIDs = IDSet(NEVER_GLOW_IDS)
-
--- A change in any of these explains what frees up around it. Events that
--- also fire when nothing changed (forms, the pet bar) are left out; the
--- player's state shows those changes instead.
-local EXPLAINING_EVENTS = {
-    "PLAYER_TARGET_CHANGED",
-    "PLAYER_REGEN_ENABLED",
-    "PLAYER_EQUIPMENT_CHANGED",
-    "PLAYER_MOUNT_DISPLAY_CHANGED",
-    "ZONE_CHANGED_INDOORS",
-    "ZONE_CHANGED_NEW_AREA",
-    "PLAYER_DEAD",
-    "PLAYER_ALIVE",
-    "PLAYER_UNGHOST",
-    "LOSS_OF_CONTROL_ADDED",
-    "LOSS_OF_CONTROL_UPDATE",
-    "PLAYER_CONTROL_LOST",
-    "PLAYER_CONTROL_GAINED",
-    "CHARACTER_POINTS_CHANGED",
-    "PLAYER_TALENT_UPDATE",
-    "ACTIVE_TALENT_GROUP_CHANGED",
-    "PLAYER_SPECIALIZATION_CHANGED",
-    "TRAIT_CONFIG_UPDATED",
-}
-
-local EXPLAINING_PLAYER_EVENTS = {
-    "UNIT_ENTERED_VEHICLE",
-    "UNIT_EXITED_VEHICLE",
-}
-
--- These move spells between buttons. A real form change behind them shows
--- in the player's state.
+-- These move spells between buttons.
 local REMAP_EVENTS = {
     "ACTIONBAR_PAGE_CHANGED",
     "UPDATE_BONUS_ACTIONBAR",
     "UPDATE_SHAPESHIFT_FORM",
-    "UPDATE_SHAPESHIFT_FORMS",
     "UPDATE_VEHICLE_ACTIONBAR",
     "UPDATE_OVERRIDE_ACTIONBAR",
     "UPDATE_POSSESS_BAR",
 }
 
-local active = false
-local stealthed = false
-local stealthEnteredAt
-local lastExplainedAt
-local lastEnvironment
-local settleScheduled = false
-local targetAlive = true
+-- These change whether a tracked spell glows.
+local REFRESH_EVENTS = {
+    "ACTION_USABLE_CHANGED",
+    "SPELL_UPDATE_USABLE",
+    "SPELL_UPDATE_COOLDOWN",
+    "ACTIONBAR_UPDATE_COOLDOWN",
+    "UPDATE_STEALTH",
+    "PLAYER_TARGET_CHANGED",
+}
 
--- [slot] = { spellID, name, usable, noMana, blocked, armed, freedAt }
+local active = false
+
+-- [slot] = { spellID, opener, onCooldown } for slots holding a tracked spell.
 local slots = {}
-local stealthOpenerNames = {}
-local neverGlowNames = {}
-local learnedStealthSpells = {}
-local formSpells = {}
+local reactiveNames = {}
+local openerNames = {}
 -- Spells the game is glowing itself, from its overlay events.
 local blizzardGlowSpells = {}
 local glowFrames = setmetatable({}, { __mode = "k" })
 
 local eventFrame = CreateFrame("Frame")
-
-local function Now()
-    return GetTime and GetTime() or 0
-end
 
 local function ReadBool(func, ...)
     return Secret.ReadableBool(func, ...)
@@ -163,9 +100,14 @@ local function InCombat()
     return InCombatLockdown and InCombatLockdown() == true
 end
 
-local function Explain()
-    lastExplainedAt = Now()
+local function IDSet(spellIDs)
+    local set = {}
+    for _, spellID in ipairs(spellIDs) do set[spellID] = true end
+    return set
 end
+
+local reactiveIDs = IDSet(REACTIVE_SPELL_IDS)
+local openerIDs = IDSet(STEALTH_OPENER_IDS)
 
 -- =========================
 -- Spells and slots
@@ -187,28 +129,9 @@ local function NameSet(spellIDs)
     return names
 end
 
-local function ReadSpellLists()
-    stealthOpenerNames = NameSet(STEALTH_OPENER_IDS)
-    neverGlowNames = NameSet(NEVER_GLOW_IDS)
-end
-
-local function ReadForms()
-    formSpells = {}
-    if type(GetNumShapeshiftForms) ~= "function" or type(GetShapeshiftFormInfo) ~= "function" then return end
-    local ok, count = pcall(GetNumShapeshiftForms)
-    count = ok and Secret.ReadableNumber(count) or 0
-    for index = 1, count do
-        local okInfo, _, _, _, spellID = pcall(GetShapeshiftFormInfo, index)
-        spellID = okInfo and Secret.ReadableNumber(spellID)
-        if spellID then formSpells[spellID] = true end
-    end
-end
-
-local function IsMountSpell(spellID)
-    local getMount = C_MountJournal and C_MountJournal.GetMountFromSpell
-    if type(getMount) ~= "function" then return false end
-    local ok, mountID = pcall(getMount, spellID)
-    return ok and not Secret.IsSecret(mountID) and mountID ~= nil
+local function ReadSpellNames()
+    reactiveNames = NameSet(REACTIVE_SPELL_IDS)
+    openerNames = NameSet(STEALTH_OPENER_IDS)
 end
 
 -- The spell a slot casts: a spell, or a macro that shows one.
@@ -222,114 +145,73 @@ local function ActionSpellID(slot)
     return nil
 end
 
-local IsUsableAction = (C_ActionBar and C_ActionBar.IsUsableAction) or _G.IsUsableAction
-
-local function ReadUsable(slot)
-    if type(IsUsableAction) ~= "function" then return nil end
-    local ok, usable, noMana = pcall(IsUsableAction, slot)
-    if not ok or Secret.IsSecret(usable) or Secret.IsSecret(noMana) then return nil end
-    return usable == true, noMana == true
-end
-
-local function NewSlotState(spellID)
-    return {
-        spellID = spellID,
-        name = SpellName(spellID),
-        mount = IsMountSpell(spellID),
-    }
-end
-
--- Forms, mounts, finishers and Judgement free up for reasons that aren't
--- procs, such as walking outdoors or into water.
-local function MayGlow(state)
-    if formSpells[state.spellID] or state.mount or neverGlowIDs[state.spellID] then return false end
-    return not (state.name and neverGlowNames[state.name])
-end
-
-local function IsStealthOpener(state)
-    if learnedStealthSpells[state.spellID] or stealthOpenerIDs[state.spellID] then return true end
-    return state.name ~= nil and stealthOpenerNames[state.name] == true
-end
-
--- What the game says about a slot now. A spell that frees up waits for
--- Settle to decide whether a proc did it, unless quiet says the change is
--- already explained.
-local function ApplyUsability(slot, usable, noMana, now, quiet)
-    local state = slots[slot]
-    if not state then return end
-    local wasBlocked = state.blocked
-    state.usable = usable
-    state.noMana = noMana
-    state.blocked = not usable and not noMana
-    if state.blocked then
-        state.armed = false
-        state.freedAt = nil
-    elseif wasBlocked and not quiet then
-        state.freedAt = now
-    end
-end
-
-local function ReadSlot(slot, now, quiet)
+local function ReadSlot(slot)
     local spellID = ActionSpellID(slot)
     if not spellID then
         slots[slot] = nil
         return
     end
-    local usable, noMana = ReadUsable(slot)
-    if usable == nil then return end
-
-    local state = slots[slot]
-    if not state or state.spellID ~= spellID then
-        -- A spell new to the slot starts from what it is now.
-        state = NewSlotState(spellID)
-        state.usable = usable
-        state.noMana = noMana
-        state.blocked = not usable and not noMana
-        slots[slot] = state
+    local name = SpellName(spellID)
+    local opener = openerIDs[spellID] or (name ~= nil and openerNames[name] == true)
+    local reactive = reactiveIDs[spellID] or (name ~= nil and reactiveNames[name] == true)
+    if not reactive and not opener then
+        slots[slot] = nil
         return
     end
-    ApplyUsability(slot, usable, noMana, now, quiet)
+    local state = slots[slot]
+    if not state or state.spellID ~= spellID then
+        slots[slot] = { spellID = spellID, opener = opener == true }
+    end
 end
 
-local function ReadAllSlots(quiet)
-    local now = Now()
+local function ReadAllSlots()
     for slot = 1, MAX_ACTION_SLOT do
-        ReadSlot(slot, now, quiet)
+        ReadSlot(slot)
     end
 end
 
--- =========================
--- What explains a change
--- =========================
-local function ReadNumber(func, ...)
-    if type(func) ~= "function" then return 0 end
-    local ok, value = pcall(func, ...)
-    return ok and Secret.ReadableNumber(value) or 0
+local IsUsableAction = (C_ActionBar and C_ActionBar.IsUsableAction) or _G.IsUsableAction
+
+-- Usable right now. Short on power, blocked or hidden all count as no.
+local function IsUsable(slot)
+    if type(IsUsableAction) ~= "function" then return false end
+    local ok, usable = pcall(IsUsableAction, slot)
+    if not ok or Secret.IsSecret(usable) then return false end
+    return usable == true
 end
 
--- The player's situation in one string. Most of it has no event of its own,
--- so a change shows up as a different string.
-local function ReadEnvironment()
-    return table.concat({
-        ReadNumber(GetShapeshiftForm),
-        tostring(ReadBool(IsMounted)),
-        tostring(ReadBool(IsFlying)),
-        tostring(ReadBool(IsSwimming)),
-        tostring(ReadBool(IsIndoors)),
-        tostring(ReadBool(UnitInVehicle, "player")),
-        tostring(ReadBool(UnitExists, "pet")),
-        tostring(ReadBool(UnitIsDead, "pet")),
-        tostring(ReadBool(UnitIsDeadOrGhost, "player")),
-        tostring(ReadBool(HasFullControl)),
-    }, ":")
+local GetActionCooldown = (C_ActionBar and C_ActionBar.GetActionCooldown) or _G.GetActionCooldown
+
+local function IsOwnCooldown(startTime, duration)
+    startTime = Secret.ReadableNumber(startTime)
+    duration = Secret.ReadableNumber(duration)
+    if not startTime or not duration then return nil end
+    return startTime > 0 and duration > GLOBAL_COOLDOWN_MAX
 end
 
-local function NoteEnvironment()
-    local environment = ReadEnvironment()
-    if lastEnvironment and environment ~= lastEnvironment then
-        Explain()
+-- Whether a slot's spell is on its own cooldown rather than just the global
+-- one: true, false, or nil when the game hides it. In combat Retail and
+-- WoW Forever hide the times, but never isActive or isOnGCD.
+local function ReadCooldown(slot)
+    if type(GetActionCooldown) ~= "function" then return false end
+    local ok, info, duration = pcall(GetActionCooldown, slot)
+    if not ok or Secret.IsSecret(info) then return nil end
+    if type(info) ~= "table" then
+        return IsOwnCooldown(info, duration)
     end
-    lastEnvironment = environment
+
+    local isActive = info.isActive
+    if Secret.IsSecret(isActive) then return nil end
+    if isActive == nil then
+        return IsOwnCooldown(info.startTime, info.duration)
+    end
+    if isActive ~= true then return false end
+
+    duration = Secret.ReadableNumber(info.duration)
+    if duration then return duration > GLOBAL_COOLDOWN_MAX end
+    local onGlobalCooldown = info.isOnGCD
+    if Secret.IsSecret(onGlobalCooldown) or type(onGlobalCooldown) ~= "boolean" then return nil end
+    return not onGlobalCooldown
 end
 
 -- =========================
@@ -483,27 +365,58 @@ local function BlizzardGlows(button, spellID)
     return false
 end
 
--- Every proc spell is an attack, so a dead or missing target hides the glow
--- until there is someone to use it on.
+-- Every one of these is an attack, so a dead or missing target hides the
+-- glow until there is someone to use it on.
 local function HasLivingTarget()
     if ReadBool(UnitExists, "target") == false then return false end
     return ReadBool(UnitIsDeadOrGhost, "target") ~= true
 end
 
+local RefreshButtons
+
+-- The game says when a cooldown starts, not always when it ends, so a glow
+-- waiting on one looks again until it's over.
+local cooldownCheckScheduled = false
+local function CheckCooldownsSoon()
+    if cooldownCheckScheduled then return end
+    cooldownCheckScheduled = true
+    Carpenter:After(COOLDOWN_CHECK_DELAY, function()
+        cooldownCheckScheduled = false
+        RefreshButtons()
+    end)
+end
+
+-- Reads each tracked slot. A hidden cooldown keeps the last answer, which a
+-- cooldown starting showed.
+local function ReadSlotStates(stealthed)
+    local waiting = false
+    for slot, state in pairs(slots) do
+        state.ready = IsUsable(slot) and not (state.opener and stealthed)
+        if state.ready then
+            local onCooldown = ReadCooldown(slot)
+            if onCooldown ~= nil then state.onCooldown = onCooldown end
+            if state.onCooldown then waiting = true end
+        else
+            state.onCooldown = nil
+        end
+    end
+    if waiting then CheckCooldownsSoon() end
+end
+
 local function ShouldGlow(button)
     local slot = Secret.ReadableNumber(button.action)
     local state = slot and slots[slot]
-    if not state or not state.armed or not state.usable then return false end
+    if not state or not state.ready or state.onCooldown then return false end
     return not BlizzardGlows(button, state.spellID)
 end
 
-local function RefreshButtons()
+RefreshButtons = function()
     if not active then return end
-    targetAlive = HasLivingTarget()
-    local quiet = stealthed or not targetAlive
+    ReadSlotStates(ReadBool(IsStealthed) == true)
+    local targetAlive = HasLivingTarget()
     ForEachActionButton(function(button)
         if glowFrames[button] then
-            SetGlow(button, not quiet and ShouldGlow(button))
+            SetGlow(button, targetAlive and ShouldGlow(button))
         end
     end)
 end
@@ -534,128 +447,8 @@ local function BuildGlowFrames()
 end
 
 -- =========================
--- Deciding on procs
--- =========================
-local Settle
-
-local function ScheduleSettle()
-    if settleScheduled then return end
-    settleScheduled = true
-    Carpenter:After(SETTLE_DELAY, function()
-        settleScheduled = false
-        Settle()
-    end)
-end
-
-Settle = function()
-    if not active then return end
-    NoteEnvironment()
-
-    local now = Now()
-    local procs, procSpells, procCount = {}, {}, 0
-    local waiting = false
-
-    for _, state in pairs(slots) do
-        local freedAt = state.freedAt
-        if freedAt then
-            if now - freedAt < SETTLE_DELAY - 0.01 then
-                waiting = true
-            else
-                state.freedAt = nil
-                local explained = lastExplainedAt ~= nil and lastExplainedAt >= freedAt - EXPLAIN_WINDOW
-                if explained then
-                    if stealthed and stealthEnteredAt and stealthEnteredAt >= freedAt - EXPLAIN_WINDOW then
-                        learnedStealthSpells[state.spellID] = true
-                    end
-                elseif not state.blocked and MayGlow(state) then
-                    procs[#procs + 1] = state
-                    if not procSpells[state.spellID] then
-                        procSpells[state.spellID] = true
-                        procCount = procCount + 1
-                    end
-                end
-            end
-        end
-    end
-
-    if procCount <= MAX_PROCS_AT_ONCE then
-        for _, state in ipairs(procs) do
-            state.armed = true
-        end
-    end
-
-    if waiting then ScheduleSettle() end
-    RefreshButtons()
-end
-
--- Leaving stealth blocks the openers again. One that stays usable has a proc
--- keeping it open, even if it never left the usable state to show it.
-local function CheckStealthOpeners()
-    if not active or stealthed then return end
-    for slot, state in pairs(slots) do
-        if not state.armed and IsStealthOpener(state) and MayGlow(state) then
-            local usable, noMana = ReadUsable(slot)
-            if usable ~= nil then
-                state.usable = usable
-                state.noMana = noMana
-                state.blocked = not usable and not noMana
-                if not state.blocked then
-                    state.armed = true
-                    state.freedAt = nil
-                end
-            end
-        end
-    end
-    RefreshButtons()
-end
-
-local function ReadStealth()
-    local now = ReadBool(IsStealthed) == true
-    if now == stealthed then return end
-    stealthed = now
-    if now then
-        stealthEnteredAt = Now()
-        Explain()
-    else
-        Carpenter:After(STEALTH_EXIT_DELAY, CheckStealthOpeners)
-    end
-    RefreshButtons()
-end
-
--- =========================
 -- Events
 -- =========================
-local function OnUsableChanged(changes)
-    if type(changes) ~= "table" then return end
-    NoteEnvironment()
-    local now = Now()
-    for _, change in ipairs(changes) do
-        local slot = type(change) == "table" and Secret.ReadableNumber(change.slot)
-        if slot then
-            local usable, noMana = change.usable, change.noMana
-            if not slots[slot] then
-                ReadSlot(slot, now)
-            elseif not Secret.IsSecret(usable) and not Secret.IsSecret(noMana) then
-                ApplyUsability(slot, usable == true, noMana == true, now)
-            end
-        end
-    end
-    ScheduleSettle()
-    RefreshButtons()
-end
-
--- A slot that changed starts over from what it holds now. The other slots
--- carry on: macros fire this as their shown spell changes.
-local function OnSlotChanged(slot)
-    slot = Secret.ReadableNumber(slot)
-    if slot and slot > 0 then
-        ReadSlot(slot, Now(), true)
-    else
-        ReadAllSlots(true)
-    end
-    RefreshSoon()
-end
-
 local function SetGameGlow(spellID, shown)
     spellID = Secret.ReadableNumber(spellID)
     if not spellID then return end
@@ -663,71 +456,63 @@ local function SetGameGlow(spellID, shown)
     RefreshButtons()
 end
 
-local explainingEvents = {}
-for _, event in ipairs(EXPLAINING_EVENTS) do explainingEvents[event] = true end
-for _, event in ipairs(EXPLAINING_PLAYER_EVENTS) do explainingEvents[event] = true end
+local function OnSlotChanged(slot)
+    slot = Secret.ReadableNumber(slot)
+    if slot and slot > 0 then
+        ReadSlot(slot)
+    else
+        ReadAllSlots()
+    end
+    RefreshSoon()
+end
+
+-- Only a target dying or coming back changes what glows.
+local lastTargetAlive
+local function OnTargetHealth()
+    local alive = HasLivingTarget()
+    if alive ~= lastTargetAlive then
+        lastTargetAlive = alive
+        RefreshButtons()
+    end
+end
+
+local refreshEvents = {}
+for _, event in ipairs(REFRESH_EVENTS) do refreshEvents[event] = true end
 local remapEvents = {}
 for _, event in ipairs(REMAP_EVENTS) do remapEvents[event] = true end
 
 eventFrame:SetScript("OnEvent", function(_, event, ...)
     if not active then return end
 
-    if event == "ACTION_USABLE_CHANGED" then
-        OnUsableChanged(...)
-    elseif event == "ACTIONBAR_SLOT_CHANGED" then
+    if event == "ACTIONBAR_SLOT_CHANGED" then
         OnSlotChanged(...)
     elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" then
         SetGameGlow(..., true)
     elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE" then
         SetGameGlow(..., false)
-    elseif event == "UPDATE_STEALTH" then
-        ReadStealth()
     elseif event == "UNIT_HEALTH" then
-        -- Only a target dying or coming back changes what glows.
-        if HasLivingTarget() ~= targetAlive then RefreshButtons() end
-    elseif event == "SPELLS_CHANGED" then
-        if next(neverGlowNames) == nil then ReadSpellLists() end
+        OnTargetHealth()
+    elseif event == "SPELLS_CHANGED" or event == "PLAYER_ENTERING_WORLD" then
+        if next(reactiveNames) == nil then ReadSpellNames() end
         ReadAllSlots()
-        ScheduleSettle()
-        RefreshSoon()
-    elseif event == "PLAYER_ENTERING_WORLD" then
-        Explain()
-        ReadStealth()
-        ReadForms()
-        ReadAllSlots(true)
-        lastEnvironment = ReadEnvironment()
-        BuildGlowFrames()
+        if event == "PLAYER_ENTERING_WORLD" then BuildGlowFrames() end
         RefreshSoon()
     elseif remapEvents[event] then
-        if event == "UPDATE_SHAPESHIFT_FORMS" then ReadForms() end
-        NoteEnvironment()
-        ReadStealth()
         RefreshSoon()
-    elseif event == "BAG_UPDATE" then
-        -- Buying a missing reagent frees its spells. In combat the bags
-        -- change with every arrow shot, so only outside of it.
-        if not InCombat() then Explain() end
-    elseif explainingEvents[event] then
-        Explain()
-        RefreshSoon()
+    elseif refreshEvents[event] then
+        RefreshButtons()
     end
 end)
 
 local function RegisterEvents()
     local register = function(event) Carpenter:SafeRegisterEvent(eventFrame, event) end
-    register("ACTION_USABLE_CHANGED")
     register("ACTIONBAR_SLOT_CHANGED")
     register("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
     register("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
-    register("UPDATE_STEALTH")
     register("SPELLS_CHANGED")
     register("PLAYER_ENTERING_WORLD")
-    register("BAG_UPDATE")
+    for _, event in ipairs(REFRESH_EVENTS) do register(event) end
     for _, event in ipairs(REMAP_EVENTS) do register(event) end
-    for _, event in ipairs(EXPLAINING_EVENTS) do register(event) end
-    for _, event in ipairs(EXPLAINING_PLAYER_EVENTS) do
-        Carpenter:SafeRegisterUnitEvent(eventFrame, event, "player")
-    end
     Carpenter:SafeRegisterUnitEvent(eventFrame, "UNIT_HEALTH", "target")
 end
 
@@ -738,12 +523,10 @@ local feature = {}
 
 function feature:Enable()
     active = true
-    stealthed = ReadBool(IsStealthed) == true
-    lastEnvironment = ReadEnvironment()
     RegisterEvents()
-    ReadSpellLists()
-    ReadForms()
+    ReadSpellNames()
     ReadAllSlots()
+    lastTargetAlive = HasLivingTarget()
     BuildGlowFrames()
     RefreshButtons()
 end
@@ -752,7 +535,6 @@ function feature:Disable()
     active = false
     eventFrame:UnregisterAllEvents()
     Carpenter:CancelAfterCombat("procGlowFrames")
-    -- Turning it on again starts from what the slots are then.
     slots = {}
     HideAllGlows()
 end

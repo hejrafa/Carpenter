@@ -59,7 +59,10 @@ local featureManifest = {
     hideStanceBarEnabled = { { clients = ALL, files = { "Modules/HideUIElements.lua" } } },
     actionBarFaderEnabled = { { clients = "tbc", files = { "Modules/ActionBarFader.lua" } } },
     actionBarRangeEnabled = { { clients = CLASSIC, files = { "Modules/ActionBarRange.lua" } } },
-    procGlowEnabled = { { clients = ALL, files = { "Modules/ProcGlow.lua" } } },
+    procGlowEnabled = {
+        { clients = "vanilla tbc forever", files = { "Modules/ProcGlow.lua" } },
+        notOn = { retail = "Retail glows its reactive abilities itself, and the Classic ones are everyday abilities there" },
+    },
 
     -- Interface
     smallerExpBarEnabled = { { clients = CLASSIC, files = { "Modules/SmallerExpBar.lua" } } },
