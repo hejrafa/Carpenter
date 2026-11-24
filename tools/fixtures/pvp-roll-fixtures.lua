@@ -139,6 +139,10 @@ PlaySound = function(id) sounds[#sounds + 1] = id end
 RAID_CLASS_COLORS = { ROGUE = { colorStr = "fffff468" }, MAGE = { colorStr = "ff3fc7eb" } }
 CLASS_ICON_TCOORDS = { ROGUE = { 0.5, 0.75, 0, 0.25 }, MAGE = { 0.25, 0.5, 0, 0.25 } }
 RANDOM_ROLL_RESULT = "%s rolls %d (%d-%d)"
+-- Lines printed to your own chat window.
+local printed = {}
+DEFAULT_CHAT_FRAME = { AddMessage = function(_, text, r, g, b) printed[#printed + 1] = { text = text, r = r, g = g, b = b } end }
+ChatTypeInfo = { SYSTEM = { r = 1, g = 1, b = 0 } }
 QuestFont_Huge = {}
 ROLL, PASS = "Roll", "Pass"
 
@@ -338,6 +342,9 @@ advance(0.2)
 assertTrue(session.finished, "the roll should finish when the dice land")
 assertEqual(session.winner, session.byKey.bob, "Bob rolled higher")
 assertTrue(findText("|cff3fc7ebBob|r takes the fight!"), "the winner is named in their class color")
+assertEqual(#printed, 1, "the result is printed in chat once")
+assertEqual(printed[1].text, "Hogger: |cff3fc7ebBob|r takes the fight!", "chat names the enemy and the winner")
+assertTrue(printed[1].r == 1 and printed[1].g == 1 and printed[1].b == 0, "the chat line has the color of the game's roll lines")
 assertEqual(bobToast.Anim.RollNumber.color[2], 1, "the winning number is green")
 assertEqual(rafaToast.Anim.RollNumber.color[1], 1, "the losing number is red")
 assertEqual(rafaToast.Anim.RollNumber.color[2], 0.1, "the losing number is red")
@@ -365,6 +372,7 @@ system("Rafa rolls 90 (1-100)")
 advance(3.4)
 assertTrue(session.tie and not session.finished, "a tie should roll again")
 assertTrue(findText(L.PVP_ROLL_TIE), "the tie is announced")
+assertEqual(#printed, 1, "a tie isn't printed in chat")
 assertEqual(session.byKey.rafa.roll, nil, "the tied rolls start over")
 assertTrue(rafaToast.RollButton.shown and not rafaToast.Anim.shown, "your dice are back for the second roll")
 slash("")
@@ -375,6 +383,7 @@ assertEqual(sounds[#sounds], SOUNDKIT.UI_NEED_ROLL_POSITIVE, "the roll that wins
 advance(3.4)
 assertEqual(session.winner, session.byKey.rafa, "you won the second roll")
 assertTrue(findText(L.PVP_ROLL_YOU_WIN), "you take the fight")
+assertEqual(printed[#printed].text, "Hogger: You take the fight!", "chat says you take the fight")
 advance(8)
 
 -- =========================
@@ -396,6 +405,7 @@ assertTrue(session.finished, "the roll ends when time runs out")
 assertTrue(session.byKey.bob.passed, "Bob passed")
 assertTrue(toastFor("Bob").Pass.shown, "Bob's toast says Pass")
 assertEqual(session.winner, session.byKey.rafa, "the only roll wins")
+assertEqual(printed[#printed].text, "You take the fight!", "without an enemy chat only names the winner")
 advance(8)
 
 -- =========================

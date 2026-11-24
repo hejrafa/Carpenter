@@ -615,26 +615,37 @@ local function PlayerName(player)
     return player.name
 end
 
+-- How the roll stands: the prompt, a tie, or who takes the fight.
+local function StatusText(session)
+    if session.finished then
+        local winner = session.winner
+        if not winner then return L.PVP_ROLL_NOBODY or "Nobody rolled." end
+        if winner.isSelf then return L.PVP_ROLL_YOU_WIN or "You take the fight!" end
+        return (L.PVP_ROLL_WINNER or "%s takes the fight!"):format(PlayerName(winner))
+    end
+    if session.tie then return L.PVP_ROLL_TIE or "It's a tie. Roll again!" end
+    return L.PVP_ROLL_PROMPT or "Highest roll takes the fight"
+end
+
+-- The result in your chat window, in the color of the game's /roll lines:
+-- "Saltwater Crocolisk: Bob takes the fight!". Nothing goes to the party.
+function View.PrintResult(session)
+    local chat = DEFAULT_CHAT_FRAME
+    if not chat or not chat.AddMessage then return end
+    local text = StatusText(session)
+    if session.target then text = session.target .. ": " .. text end
+    local color = ChatTypeInfo and ChatTypeInfo.SYSTEM
+    if color and color.r then
+        chat:AddMessage(text, color.r, color.g, color.b)
+    else
+        chat:AddMessage(text, 1, 1, 0)
+    end
+end
+
 function View.Update(session)
     if not container or not session then return end
     titleText:SetText(PvPRoll.Upper(session.target or L.PVP_ROLL_NO_TARGET or "Next Fight"))
-
-    local status
-    if session.finished then
-        local winner = session.winner
-        if not winner then
-            status = L.PVP_ROLL_NOBODY or "Nobody rolled."
-        elseif winner.isSelf then
-            status = L.PVP_ROLL_YOU_WIN or "You take the fight!"
-        else
-            status = (L.PVP_ROLL_WINNER or "%s takes the fight!"):format(PlayerName(winner))
-        end
-    elseif session.tie then
-        status = L.PVP_ROLL_TIE or "It's a tie. Roll again!"
-    else
-        status = L.PVP_ROLL_PROMPT or "Highest roll takes the fight"
-    end
-    statusText:SetText(status)
+    statusText:SetText(StatusText(session))
 
     for index, toast in ipairs(toasts) do
         local player = session.players[index]
@@ -768,6 +779,7 @@ local function Finish(current, winner)
     current.finished = true
     current.winner = winner
     View.Update(current)
+    View.PrintResult(current)
     After(RESULT_SECONDS, function()
         if session == current then View.FadeOut() end
     end)
