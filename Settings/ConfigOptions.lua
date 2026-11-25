@@ -36,7 +36,7 @@ function Options.Create(context)
     end
 
     -- Classic filters bot spam, gambling and duplicates, with a checkbox for
-    -- each; Retail and Forever only hide WTS and WTB posts in General.
+    -- each; Retail and Forever only hide WTS and WTB posts in General and yells.
     local function IsMainline()
         local client = Carpenter and Carpenter.Client
         return client and client.isMainline

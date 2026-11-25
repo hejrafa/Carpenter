@@ -1,7 +1,8 @@
 #!/usr/bin/env lua
 -- Verifies the Retail and WoW Forever chat filter: WTS and WTB posts in the
--- General channel are hidden; Trade, other channels, your own posts and
--- lines the game hides from addons are shown as they came.
+-- General channel and in yells are hidden; Trade, other channels, say,
+-- party, NPC yells, your own posts and lines the game hides from addons are
+-- shown as they came.
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then repo = repo:sub(1, -2) end
@@ -50,21 +51,32 @@ if not feature then fail("chatFilterEnabled was not registered") end
 
 feature:Enable()
 feature:Enable()
-expect(adds, 1, "enabling twice adds the filter once")
-local filter = filters.CHAT_MSG_CHANNEL
-if not filter then fail("no filter on CHAT_MSG_CHANNEL") end
+expect(adds, 2, "enabling twice adds each filter once")
+local FILTERED = { CHAT_MSG_CHANNEL = true, CHAT_MSG_YELL = true }
+for event in pairs(FILTERED) do
+    if not filters[event] then fail("no filter on " .. event) end
+end
 for event in pairs(filters) do
-    if event ~= "CHAT_MSG_CHANNEL" then fail("only channel chat is filtered, not " .. event) end
+    if not FILTERED[event] then fail("only channel chat and yells are filtered, not " .. event) end
+end
+
+local function Run(event, text, channelName, channelID, guid)
+    local results = { n = 0 }
+    local function Pack(...) results = { n = select("#", ...), ... } end
+    Pack(filters[event]({}, event, text, "Seller-Realm", "Common", channelName,
+        "", "", channelID, channelName ~= "" and 1 or 0, "", 7, 100, guid or OTHER_GUID))
+    if results.n ~= 1 then fail("the filter hands values back to the chat frame for: " .. tostring(text)) end
+    return results[1]
 end
 
 -- Runs a CHAT_MSG_CHANNEL line through the filter: true when it's hidden.
 local function Hidden(text, channelID, guid)
-    local results = { n = 0 }
-    local function Pack(...) results = { n = select("#", ...), ... } end
-    Pack(filter({}, "CHAT_MSG_CHANNEL", text, "Seller-Realm", "Common", "1. General - Stormwind City",
-        "", "", channelID, 1, "General - Stormwind City", 7, 100, guid or OTHER_GUID))
-    if results.n ~= 1 then fail("the filter hands values back to the chat frame for: " .. tostring(text)) end
-    return results[1]
+    return Run("CHAT_MSG_CHANNEL", text, "1. General - Stormwind City", channelID, guid)
+end
+
+-- Runs a player yell through the filter: yells carry no channel.
+local function HiddenYell(text, guid)
+    return Run("CHAT_MSG_YELL", text, "", 0, guid)
 end
 
 -- General: WTS and WTB as words go.
@@ -91,9 +103,16 @@ expect(Hidden(SECRET, GENERAL), false, "a hidden line is shown as it came")
 expect(Hidden("WTS portals", SECRET), false, "a hidden channel ID is shown as it came")
 expect(Hidden("WTS portals", GENERAL, SECRET), true, "a hidden sender doesn't stop the filter")
 
+-- Yells: WTS and WTB go, everything else stays.
+expect(HiddenYell("WTS PORTALS / FOOD / WATER TIP WHAT U LIKE :)"), true, "a WTS yell is hidden")
+expect(HiddenYell("wtb Righteous Orbs"), true, "a WTB yell is hidden")
+expect(HiddenYell("LFM MC - 2 SR + 1 Tank"), false, "an ordinary yell stays")
+expect(HiddenYell("WTS portals", PLAYER_GUID), false, "your own WTS yell stays")
+expect(HiddenYell(SECRET), false, "a hidden yell is shown as it came")
+
 feature:Disable()
 feature:Disable()
-expect(removes, 1, "disabling twice removes the filter once")
-expect(filters.CHAT_MSG_CHANNEL, nil, "the filter is gone when turned off")
+expect(removes, 2, "disabling twice removes each filter once")
+expect(next(filters), nil, "the filters are gone when turned off")
 
 print("chat-filter-general fixtures passed")
