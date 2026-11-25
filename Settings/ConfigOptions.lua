@@ -35,6 +35,17 @@ function Options.Create(context)
         return Description(client and client.isVanilla and "DESC_MOUNT_SPEED_TRINKET_CLASSIC" or "DESC_MOUNT_SPEED_TRINKET")
     end
 
+    -- Classic filters bot spam, gambling and duplicates, with a checkbox for
+    -- each; Retail and Forever only hide WTS and WTB posts in General.
+    local function IsMainline()
+        local client = Carpenter and Carpenter.Client
+        return client and client.isMainline
+    end
+
+    local function ChatFilterDescription()
+        return Description(IsMainline() and "DESC_CHAT_FILTER_GENERAL" or "DESC_CHAT_FILTER")
+    end
+
     local function CleanUnitFramesDescription()
         local client = Carpenter and Carpenter.Client
         return Description(client and client.isForever and "DESC_CLEAN_UP_UNIT_FRAMES_FOREVER" or "DESC_CLEAN_UP_UNIT_FRAMES")
@@ -260,9 +271,9 @@ function Options.Create(context)
                 {
                     key = "chatFilterEnabled",
                     label = L.OPTION_CHAT_FILTER or "Filter",
-                    description = Description("DESC_CHAT_FILTER"),
-                    sideLogic = ShowFilterOptions,
-                    image = GetSettingsImage("chatfilter.png"),
+                    description = ChatFilterDescription(),
+                    sideLogic = not IsMainline() and ShowFilterOptions or nil,
+                    image = not IsMainline() and GetSettingsImage("chatfilter.png") or nil,
                 },
                 {
                     key = "chatCleanerEnabled",

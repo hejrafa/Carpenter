@@ -109,7 +109,10 @@ local featureManifest = {
     nameplateComboEnabled = { { clients = "vanilla tbc forever", files = { "Modules/NameplateComboPoints.lua" } } },
 
     -- Chat
-    chatFilterEnabled = { { clients = CLASSIC, files = { "Modules/ChatFilter.lua" } } },
+    chatFilterEnabled = {
+        { clients = CLASSIC, files = { "Modules/ChatFilter.lua" } },
+        { clients = MODERN, files = { "Modules/ChatFilterGeneral.lua" } },
+    },
     chatCleanerEnabled = { { clients = ALL, files = { "Modules/ChatCleaner/ChatCleaner.lua" } } },
     hideChatButtonsEnabled = { { clients = ALL, files = { "Modules/HideChatButtons.lua" } } },
     damageMeterTabEnabled = { { clients = MODERN, files = { "Modules/DamageMeterTab.lua" } } },

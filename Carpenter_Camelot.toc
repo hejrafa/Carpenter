@@ -94,6 +94,7 @@ Modules\ChatCleaner\ChatCleanerPostProcess.lua
 Modules\ChatCleaner\ChatCleanerLifecycle.lua
 Modules\ChatCleaner\ChatCleanerHiddenLines.lua
 Modules\ChatCleaner\ChatCleaner.lua
+Modules\ChatFilterGeneral.lua
 Modules\HideChatButtons.lua
 Modules\DamageMeterTab.lua
 
