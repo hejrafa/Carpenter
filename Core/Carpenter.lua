@@ -70,6 +70,7 @@ local defaults = {
     autoRepairGuildFundsEnabled = false,
     -- Text
     enchantWarningEnabled = false,
+    enchantWarningScrollingTextEnabled = false,
     hideErrorMessagesEnabled = false,
     -- Immersion
     actionCamEnabled = false,

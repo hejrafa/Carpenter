@@ -5,7 +5,8 @@
 -- client stops reporting with time and charges left (around a loading screen,
 -- or a swapped weapon) didn't wear off and must stay quiet. On Forever it also
 -- corrects a weapon buff timer Blizzard's buff frame left stuck at 0 after a
--- load, from the time the game reports.
+-- load, from the time the game reports. With Show as Scrolling Text on, the
+-- warnings rise over the character instead, like the game's combat text.
 
 local repo = arg and arg[1] or "."
 if repo:sub(-1) == "/" then
@@ -29,18 +30,49 @@ local function Run(clientName, setupClient)
     ITEM_ENCHANT_TIME_LEFT_SEC = "%s (%d sec)"
     GetTime = function() return now end
     UIErrorsFrame = { AddMessage = function(_, text) messages[#messages + 1] = text end }
-    UIParent, WorldFrame = {}, {}
+    UIParent, WorldFrame = { GetHeight = function() return 768 end }, {}
     MerchantFrame, GameTooltip = nil, nil
     IsBagOpen = function() return false end
+    CombatTextFont, AURA_END = {}, "<%s> fades"
+    -- Scrolling text lines, in the order they were made.
+    local textLines, scrollFrame = {}, nil
+    local function NewFontString()
+        local line = { shown = false, alpha = 1 }
+        function line:SetFontObject(font) self.font = font end
+        function line:SetTextHeight(height) self.height = height end
+        function line:SetText(text) self.text = text end
+        function line:SetTextColor(r, g, b) self.color = { r, g, b } end
+        function line:SetAlpha(alpha) self.alpha = alpha end
+        function line:ClearAllPoints() self.top = nil end
+        function line:SetPoint(point, relative, relativePoint, x, y)
+            if point ~= "TOP" or relative ~= UIParent or relativePoint ~= "CENTER" or x ~= 0 then
+                failures[#failures + 1] = "scrolling text should hang from the middle of the screen"
+            end
+            self.top = y
+        end
+        function line:Show() self.shown = true end
+        function line:Hide() self.shown = false end
+        textLines[#textLines + 1] = line
+        return line
+    end
     CreateFrame = function(_, name)
-        local frameObject = {}
+        local frameObject = { scripts = {}, shown = true }
         function frameObject:SetOwner() end
         function frameObject:ClearLines() end
         function frameObject:SetInventoryItem() end
         function frameObject:NumLines() return 1 end
-        function frameObject:Hide() end
+        function frameObject:Show() self.shown = true end
+        function frameObject:Hide()
+            if self.shown and self.scripts.OnHide then self.scripts.OnHide(self) end
+            self.shown = false
+        end
         function frameObject:RegisterEvent() end
+        function frameObject:CreateFontString()
+            scrollFrame = self
+            return NewFontString()
+        end
         function frameObject:SetScript(script, handler)
+            self.scripts[script] = handler
             if script == "OnEvent" then eventHandlers[#eventHandlers + 1] = handler end
         end
         if name then _G[name] = frameObject end
@@ -224,6 +256,55 @@ local function Run(clientName, setupClient)
         check(button.Duration.text == "0 s", "forever: other buffs should be left alone, got " .. Shown())
         button.auraType = "TempEnchant"
     end
+
+    -- Show as Scrolling Text: the warnings rise over the character instead
+    -- of the red line at the top of the screen.
+    CarpenterDB.enchantWarningScrollingTextEnabled = true
+    local errorLines = #messages
+    Apply(125000)
+    Tick(6)
+    check(#messages == errorLines, clientName .. ": scrolling text should replace the red line, got " .. Got())
+    local warning = textLines[1]
+    check(warning and warning.shown and warning.text == "Instant Poison VI wears off in 2 min!",
+        clientName .. ": expected the two-minute warning as scrolling text, got " .. tostring(warning and warning.text))
+    check(warning and warning.font == CombatTextFont and warning.height == 25 and warning.top == 0,
+        clientName .. ": scrolling text should start in the middle of the screen in the combat text font")
+    check(warning and warning.color[1] == 1.0 and warning.color[2] == 0.5,
+        clientName .. ": the two-minute warning should keep its orange")
+    check(scrollFrame and scrollFrame.shown, clientName .. ": scrolling text should be moving")
+
+    -- It wears off before the warning has moved: the new line starts under it.
+    Apply(3500)
+    Tick(3)
+    enchant.reported = false
+    Tick()
+    local wornOff = textLines[2]
+    check(#messages == errorLines, clientName .. ": the worn-off line should scroll too, got " .. Got())
+    check(wornOff and wornOff.text == "<Instant Poison VI> fades",
+        clientName .. ": expected the game's fade text, got " .. tostring(wornOff and wornOff.text))
+    check(wornOff and wornOff.top == -26, clientName .. ": a second line should start under the first, at "
+        .. tostring(wornOff and wornOff.top))
+
+    -- It rises a share of the screen in 1.9 seconds, fading from 1.3.
+    local Update = scrollFrame.scripts.OnUpdate
+    Update(scrollFrame, 0.95)
+    check(math.abs(warning.top - 112.5) < 0.01 and warning.alpha == 1,
+        clientName .. ": halfway up the line should be at 112.5 and opaque, got " .. tostring(warning.top))
+    Update(scrollFrame, 0.65)
+    check(warning.alpha < 1 and warning.alpha > 0, clientName .. ": the line should be fading near the end")
+    Update(scrollFrame, 0.5)
+    check(not warning.shown and not wornOff.shown and not scrollFrame.shown,
+        clientName .. ": finished lines should go away and stop the updates")
+
+    -- Lines are reused, and hiding the interface drops them mid-flight.
+    Apply(125000)
+    Tick(6)
+    local reused = textLines[1].shown and textLines[1] or textLines[2]
+    check(#textLines == 2 and reused.shown and reused.top == 0 and reused.alpha == 1,
+        clientName .. ": a spare line should be reused, from the start")
+    scrollFrame:Hide()
+    check(not reused.shown, clientName .. ": hiding the interface should drop the line")
+    CarpenterDB.enchantWarningScrollingTextEnabled = nil
 
     feature:Disable()
     check(ticker.cancelled, clientName .. ": disabling should stop the check")

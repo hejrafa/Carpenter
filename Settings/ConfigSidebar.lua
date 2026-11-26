@@ -145,6 +145,9 @@ function Sidebar.Create(context)
         if _G["CP_ChatCleaner_EditBoxTexture"] then
             _G["CP_ChatCleaner_EditBoxTexture"]:Hide()
         end
+        if _G["CP_PoisonWarning_ScrollingText"] then
+            _G["CP_PoisonWarning_ScrollingText"]:Hide()
+        end
         if _G["CP_AutoRepair_GuildFunds"] then
             _G["CP_AutoRepair_GuildFunds"]:Hide()
         end
@@ -367,6 +370,28 @@ function Sidebar.Create(context)
         end
     end
 
+    local function ShowPoisonWarningOptions()
+        ShowSideContent()
+
+        if not _G["CP_PoisonWarning_ScrollingText"] then
+            local cb = CreateFrame("CheckButton", "CP_PoisonWarning_ScrollingText", sideContent, "InterfaceOptionsCheckButtonTemplate")
+            cb:SetPoint("TOPLEFT", 0, 0)
+            SetCheckboxLabel(cb, L.OPTION_POISON_WARNING_SCROLLING_TEXT or "Show as Scrolling Text")
+            cb:SetScript("OnClick", function(self)
+                if CarpenterDB then
+                    CarpenterDB.enchantWarningScrollingTextEnabled = self:GetChecked()
+                    UpdateReloadButton()
+                end
+            end)
+        end
+
+        local checkbox = _G["CP_PoisonWarning_ScrollingText"]
+        if checkbox then
+            checkbox:Show()
+            checkbox:SetChecked(CarpenterDB and CarpenterDB.enchantWarningScrollingTextEnabled)
+        end
+    end
+
     local function ShowFilterOptions()
         ShowSideContent()
         if not _G["CP_Filter_TradeBots"] then
@@ -410,6 +435,7 @@ function Sidebar.Create(context)
         SideLogic = {
             FilterOptions = ShowFilterOptions,
             ChatCleanerOptions = ShowChatCleanerOptions,
+            PoisonWarningOptions = ShowPoisonWarningOptions,
             CarrotSlots = ShowCarrotSlots,
             MacroPreviews = ShowMacroPreviews,
             PoisonMacroPreviews = ShowPoisonMacroPreviews,
@@ -425,6 +451,7 @@ function Sidebar.Create(context)
         ShowWorldMapOptions = ShowWorldMapOptions,
         ShowFilterOptions = ShowFilterOptions,
         ShowChatCleanerOptions = ShowChatCleanerOptions,
+        ShowPoisonWarningOptions = ShowPoisonWarningOptions,
         SideGap = SIDE_GAP,
     }
 end

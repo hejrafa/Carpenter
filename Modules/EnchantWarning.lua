@@ -168,6 +168,102 @@ local function RanOut(hand, now)
     return type(charges) == "number" and charges > 0 and charges <= LOW_CHARGES
 end
 
+-- =========================
+-- Scrolling text over the character
+-- =========================
+-- With Show as Scrolling Text on, the warnings rise from the middle of the
+-- screen, over your character, and fade the way the game's own combat text
+-- does (Blizzard_CombatText: 25 high in CombatTextFont, up 225 of every 768
+-- of screen height in 1.9 seconds, fading from 1.3). Carpenter draws its own
+-- lines: Forever's combat text has no function for addons, and writing into
+-- its frame would leave Carpenter's taint where the game reads your secret
+-- damage numbers.
+local SCROLL_TIME = 1.9
+local FADE_START = 1.3
+local TEXT_HEIGHT = 25
+local SCROLL_SHARE = 225 / 768
+-- A new line starts this far under the lowest one still near the start, as
+-- the game spaces its lines.
+local LINE_STEP = 26
+
+local scrollFrame
+local activeLines = {}
+local spareLines = {}
+
+local function ReleaseLine(line)
+    line:Hide()
+    spareLines[#spareLines + 1] = line
+end
+
+local function ClearScrollingText()
+    for i = #activeLines, 1, -1 do
+        ReleaseLine(activeLines[i])
+        activeLines[i] = nil
+    end
+end
+
+local function UpdateScrollingText(frame, elapsed)
+    local distance = (UIParent:GetHeight() or 768) * SCROLL_SHARE
+    for i = #activeLines, 1, -1 do
+        local line = activeLines[i]
+        line.scrollTime = line.scrollTime + elapsed
+        if line.scrollTime >= SCROLL_TIME then
+            table.remove(activeLines, i)
+            ReleaseLine(line)
+        else
+            line.y = line.startY + distance * line.scrollTime / SCROLL_TIME
+            line:SetPoint("TOP", UIParent, "CENTER", 0, line.y)
+            if line.scrollTime >= FADE_START then
+                line:SetAlpha(math.max(0, 1 - (line.scrollTime - FADE_START) / (SCROLL_TIME - FADE_START)))
+            end
+        end
+    end
+    if #activeLines == 0 then frame:Hide() end
+end
+
+local function ShowScrollingText(text, r, g, b)
+    if not scrollFrame then
+        scrollFrame = CreateFrame("Frame", nil, UIParent)
+        scrollFrame:Hide()
+        scrollFrame:SetScript("OnUpdate", UpdateScrollingText)
+        -- Hiding the interface drops lines mid-flight instead of freezing them.
+        scrollFrame:SetScript("OnHide", ClearScrollingText)
+    end
+
+    local line = table.remove(spareLines)
+    if not line then
+        line = scrollFrame:CreateFontString(nil, "OVERLAY")
+        line:SetFontObject(_G.CombatTextFont or GameFontNormalHuge or GameFontNormalLarge)
+        line:SetTextHeight(TEXT_HEIGHT)
+    end
+
+    local startY = 0
+    for _, other in ipairs(activeLines) do
+        if startY >= other.y - LINE_STEP then startY = other.y - LINE_STEP end
+    end
+
+    line:SetText(text)
+    line:SetTextColor(r, g, b)
+    line:SetAlpha(1)
+    line.scrollTime, line.startY, line.y = 0, startY, startY
+    line:ClearAllPoints()
+    line:SetPoint("TOP", UIParent, "CENTER", 0, startY)
+    line:Show()
+    activeLines[#activeLines + 1] = line
+    scrollFrame:Show()
+end
+
+-- The red line at the top of the screen, or the scrolling text over the
+-- character when that option is on. The worn-off line then reads like a buff
+-- fading in the game's combat text: "<Instant Poison VI> fades".
+local function Announce(name, errorFormat, r, g, b, scrollFormat)
+    if CarpenterDB and CarpenterDB.enchantWarningScrollingTextEnabled then
+        ShowScrollingText(string.format(scrollFormat or errorFormat, name), r, g, b)
+    else
+        UIErrorsFrame:AddMessage(string.format(errorFormat, name), r, g, b, 1.0, 5)
+    end
+end
+
 local function CheckHand(hand, enchant, now)
     if enchant.has then
         local secondsLeft = (tonumber(enchant.msLeft) or 0) / 1000
@@ -180,7 +276,7 @@ local function CheckHand(hand, enchant, now)
         hand.charges = enchant.charges
 
         if secondsLeft <= 120 and secondsLeft > 110 and not hand.warned then
-            UIErrorsFrame:AddMessage(string.format(L.ENCHANT_FALLING_OFF_SOON or "%s wears off in 2 min!", DisplayName(hand)), 1.0, 0.5, 0.0, 1.0, 5)
+            Announce(DisplayName(hand), L.ENCHANT_FALLING_OFF_SOON or "%s wears off in 2 min!", 1.0, 0.5, 0.0)
             hand.warned = true
         end
         if secondsLeft > 120 then
@@ -190,7 +286,8 @@ local function CheckHand(hand, enchant, now)
     end
 
     if hand.seen and RanOut(hand, now) then
-        UIErrorsFrame:AddMessage(string.format(L.ENCHANT_NO_LONGER_ON_WEAPON or "%s has worn off your weapon!", DisplayName(hand)), 1.0, 0.1, 0.0, 1.0, 5)
+        Announce(DisplayName(hand), L.ENCHANT_NO_LONGER_ON_WEAPON or "%s has worn off your weapon!", 1.0, 0.1, 0.0,
+            _G.AURA_END or "<%s> fades")
     end
     Forget(hand)
 end

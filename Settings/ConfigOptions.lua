@@ -14,6 +14,7 @@ function Options.Create(context)
     local SideLogic = context.SideLogic or {}
     local ShowFilterOptions = SideLogic.FilterOptions or context.ShowFilterOptions
     local ShowChatCleanerOptions = SideLogic.ChatCleanerOptions or context.ShowChatCleanerOptions
+    local ShowPoisonWarningOptions = SideLogic.PoisonWarningOptions or context.ShowPoisonWarningOptions
     local ShowCarrotSlots = SideLogic.CarrotSlots or context.ShowCarrotSlots
     local ShowMacroPreviews = SideLogic.MacroPreviews or context.ShowMacroPreviews
     local ShowPoisonMacroPreviews = SideLogic.PoisonMacroPreviews or context.ShowPoisonMacroPreviews
@@ -359,6 +360,7 @@ function Options.Create(context)
                     key = "enchantWarningEnabled",
                     label = L.OPTION_POISON_WARNING or "Poison Warning",
                     description = Description("DESC_POISON_WARNING"),
+                    sideLogic = ShowPoisonWarningOptions,
                     image = GetSettingsImage("warning.png"),
                 },
                 {
