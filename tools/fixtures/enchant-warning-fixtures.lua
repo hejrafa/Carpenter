@@ -82,10 +82,15 @@ local function Run(clientName, setupClient)
         GetText = function() return enchant.reported and "Instant Poison VI (2 min)" or nil end,
         GetTextColor = function() return 0, 1, 0 end,
     }
-    C_Timer = { NewTicker = function(_, callback)
-        ticker = { callback = callback, Cancel = function(self) self.cancelled = true end }
-        return ticker
-    end }
+    local timers = {}
+    C_Timer = {
+        NewTicker = function(_, callback)
+            ticker = { callback = callback, Cancel = function(self) self.cancelled = true end }
+            return ticker
+        end,
+        After = function(delay, callback) timers[#timers + 1] = { delay = delay, callback = callback } end,
+    }
+    SlashCmdList = {}
     hooksecurefunc = function(target, method, hook)
         local original = target[method]
         target[method] = function(...)
@@ -304,7 +309,46 @@ local function Run(clientName, setupClient)
         clientName .. ": a spare line should be reused, from the start")
     scrollFrame:Hide()
     check(not reused.shown, clientName .. ": hiding the interface should drop the line")
+
+    -- /cppoison test: the two-minute warning, then the worn-off line, as
+    -- scrolling text while that's on, for the main hand's poison.
+    local Slash = SlashCmdList.CARPENTERPOISONWARNING
+    check(Slash and SLASH_CARPENTERPOISONWARNING1 == "/cppoison", clientName .. ": /cppoison should exist")
+    local function RunTimers()
+        local due = timers
+        timers = {}
+        for _, timer in ipairs(due) do timer.callback() end
+    end
+    local function ShownTexts()
+        local texts = {}
+        for _, line in ipairs(textLines) do
+            if line.shown then texts[#texts + 1] = line.text end
+        end
+        return table.concat(texts, " | ")
+    end
+    Slash("test")
+    check(ShownTexts() == "Instant Poison VI wears off in 2 min!" and #timers == 1 and timers[1].delay > 0,
+        clientName .. ": /cppoison test should show the warning first, got " .. ShownTexts())
+    RunTimers()
+    check(ShownTexts() == "Instant Poison VI wears off in 2 min! | <Instant Poison VI> fades",
+        clientName .. ": /cppoison test should then show the worn-off line, got " .. ShownTexts())
+    check(#messages == errorLines, clientName .. ": the test shouldn't use the red line while scrolling is on")
+    scrollFrame:Hide()
+
+    -- With scrolling off, the same two lines in red at the top; a bare
+    -- /cppoison does nothing, and with the poison just gone the last one
+    -- seen is named.
     CarpenterDB.enchantWarningScrollingTextEnabled = nil
+    enchant.reported = false
+    Slash("")
+    check(#messages == errorLines and #timers == 0, clientName .. ": a bare /cppoison should do nothing")
+    Slash(" TEST ")
+    RunTimers()
+    check(#messages == errorLines + 2 and messages[errorLines + 1] == "Instant Poison VI wears off in 2 min!"
+        and messages[errorLines + 2] == "Instant Poison VI has worn off your weapon!",
+        clientName .. ": /cppoison test with scrolling off should use the red line, got " .. Got())
+    check(ShownTexts() == "", clientName .. ": no scrolling text with scrolling off")
+    enchant.reported = true
 
     feature:Disable()
     check(ticker.cancelled, clientName .. ": disabling should stop the check")

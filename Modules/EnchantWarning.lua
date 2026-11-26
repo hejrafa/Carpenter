@@ -264,6 +264,15 @@ local function Announce(name, errorFormat, r, g, b, scrollFormat)
     end
 end
 
+local function AnnounceSoon(name)
+    Announce(name, L.ENCHANT_FALLING_OFF_SOON or "%s wears off in 2 min!", 1.0, 0.5, 0.0)
+end
+
+local function AnnounceWornOff(name)
+    Announce(name, L.ENCHANT_NO_LONGER_ON_WEAPON or "%s has worn off your weapon!", 1.0, 0.1, 0.0,
+        _G.AURA_END or "<%s> fades")
+end
+
 local function CheckHand(hand, enchant, now)
     if enchant.has then
         local secondsLeft = (tonumber(enchant.msLeft) or 0) / 1000
@@ -276,7 +285,7 @@ local function CheckHand(hand, enchant, now)
         hand.charges = enchant.charges
 
         if secondsLeft <= 120 and secondsLeft > 110 and not hand.warned then
-            Announce(DisplayName(hand), L.ENCHANT_FALLING_OFF_SOON or "%s wears off in 2 min!", 1.0, 0.5, 0.0)
+            AnnounceSoon(DisplayName(hand))
             hand.warned = true
         end
         if secondsLeft > 120 then
@@ -286,8 +295,7 @@ local function CheckHand(hand, enchant, now)
     end
 
     if hand.seen and RanOut(hand, now) then
-        Announce(DisplayName(hand), L.ENCHANT_NO_LONGER_ON_WEAPON or "%s has worn off your weapon!", 1.0, 0.1, 0.0,
-            _G.AURA_END or "<%s> fades")
+        AnnounceWornOff(DisplayName(hand))
     end
     Forget(hand)
 end
@@ -498,4 +506,28 @@ end
 
 if Carpenter and Carpenter.RegisterFeature then
     Carpenter:RegisterFeature("enchantWarningEnabled", feature)
+end
+
+-- /cppoison test: the two-minute warning, then the worn-off line a moment
+-- later, the way they show with the current settings, for the poison on the
+-- main hand. Works with Poison Warning off too.
+local TEST_GAP = 1.5
+
+local function Test()
+    local hand = hands[1]
+    local name = GetEnchantName(hand.slot) or DisplayName(hand)
+    AnnounceSoon(name)
+    if C_Timer and C_Timer.After then
+        C_Timer.After(TEST_GAP, function() AnnounceWornOff(name) end)
+    else
+        AnnounceWornOff(name)
+    end
+end
+
+if SlashCmdList then
+    SLASH_CARPENTERPOISONWARNING1 = "/cppoison"
+    SlashCmdList["CARPENTERPOISONWARNING"] = function(input)
+        local command = tostring(input or ""):lower():match("^%s*(%S*)")
+        if command == "test" then Test() end
+    end
 end
