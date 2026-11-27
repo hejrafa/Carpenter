@@ -17,11 +17,11 @@ local FEATURE_KEY = "unitFrameDebuffsEnabled"
 local CROWD_CONTROL_FILTER = "HARMFUL|CROWD_CONTROL"
 -- The game has no filter for stuns and roots, and its crowd control filter also
 -- takes debuffs like Bonus XP and Resurrection Sickness, so these narrow it down.
--- Those two are permanent or last a minute or more, while the longest stun or root
--- players have is Entangling Roots at 27 seconds. The game only matches spell IDs
--- on enemies, so on friendly units a short fear or polymorph still gets through.
+-- Those two are permanent or last a minute or more, while the longest effect shown
+-- here is Sap at 45 seconds (rank 3). The game only matches spell IDs on enemies,
+-- so on friendly units a short fear or polymorph still gets through.
 local CANDIDATE_FILTERS = {
-    maxDuration = 30,
+    maxDuration = 45,
     excludeSpellIDs = CarpenterSpellData.GetOtherCrowdControlSpells(),
 }
 local PARTY_MEMBER_COUNT = 4

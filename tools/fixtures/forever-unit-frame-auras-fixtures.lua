@@ -153,11 +153,12 @@ assert(not PassesDuration(0), "permanent debuffs like Bonus XP should stay off t
 assert(not PassesDuration(60), "the shortest Resurrection Sickness should stay off the portrait")
 assert(not PassesDuration(600), "the longest Resurrection Sickness should stay off the portrait")
 assert(PassesDuration(27), "the longest root, Entangling Roots, should show")
+assert(PassesDuration(45), "the longest Sap, rank 3, should show")
 assert(PassesDuration(6), "a Kidney Shot should show")
 
 local hiddenOnEnemies = {
     { 118, "Polymorph" }, { 12826, "Polymorph rank 4" }, { 5782, "Fear" }, { 6215, "Fear rank 3" },
-    { 2070, "Sap" }, { 11297, "Sap rank 3" }, { 2094, "Blind" }, { 8122, "Psychic Scream" },
+    { 2094, "Blind" }, { 8122, "Psychic Scream" },
     { 15487, "Silence" }, { 3355, "Freezing Trap" }, { 5246, "Intimidating Shout" },
 }
 for _, spell in ipairs(hiddenOnEnemies) do
@@ -168,6 +169,7 @@ local shown = {
     { 5211, "Bash" }, { 20549, "War Stomp" }, { 122, "Frost Nova" }, { 339, "Entangling Roots" },
     { 1776, "Gouge" }, { 1777, "Gouge rank 2" }, { 8629, "Gouge rank 3" }, { 11285, "Gouge rank 4" },
     { 11286, "Gouge rank 5" }, { 38764, "Gouge rank 6" },
+    { 6770, "Sap rank 1" }, { 2070, "Sap rank 2" }, { 11297, "Sap rank 3" },
 }
 for _, spell in ipairs(shown) do
     assert(not filters.excludeSpellIDs[spell[1]], spell[2] .. " should show")
