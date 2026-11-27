@@ -1,6 +1,6 @@
 #!/usr/bin/env lua
 -- Verifies the Forever crowd control portrait icon: one aura slot per unit
--- frame, centered on the portrait, limited to stuns and roots, refreshed when
+-- frame, centered on the portrait, showing any crowd control, refreshed when
 -- the unit behind a token changes, and released when the feature is turned off.
 
 local repo = arg and arg[1] or "."
@@ -142,44 +142,24 @@ assert(slot.filter == "HARMFUL|CROWD_CONTROL", "the slot should only take crowd 
 assert(slot.options.sortMethod == AuraContainerSortMethod.ExpirationOnly
     and slot.options.sortDirection == AuraContainerSortDirection.Reverse, "the longest crowd control should win")
 
--- Only stuns and roots. The game applies these filters after its crowd control
--- one; a duration of 0 means permanent, which a maximum duration never lets by.
+-- Every crowd control the game flags shows, like the Classic portrait icon. The
+-- game applies these filters after its crowd control one; a duration of 0 means
+-- permanent, which a maximum duration never lets by.
 local filters = slot.options.candidateFilters
 assert(filters, "the slot should narrow down the game's crowd control filter")
+assert(filters.excludeSpellIDs == nil and filters.includeSpellIDs == nil,
+    "no crowd control should be left out by spell: polymorphs, fears, and Blind show too")
 local function PassesDuration(duration)
     return duration ~= 0 and duration <= filters.maxDuration
 end
 assert(not PassesDuration(0), "permanent debuffs like Bonus XP should stay off the portrait")
 assert(not PassesDuration(60), "the shortest Resurrection Sickness should stay off the portrait")
 assert(not PassesDuration(600), "the longest Resurrection Sickness should stay off the portrait")
+assert(PassesDuration(50), "the longest Polymorph and Shackle Undead, 50 seconds, should show")
+assert(PassesDuration(45), "the longest Sap should show")
 assert(PassesDuration(27), "the longest root, Entangling Roots, should show")
-assert(PassesDuration(45), "the longest Sap, rank 3, should show")
+assert(PassesDuration(10), "a Blind should show")
 assert(PassesDuration(6), "a Kidney Shot should show")
-
-local hiddenOnEnemies = {
-    { 118, "Polymorph" }, { 12826, "Polymorph rank 4" }, { 5782, "Fear" }, { 6215, "Fear rank 3" },
-    { 2094, "Blind" }, { 8122, "Psychic Scream" },
-    { 15487, "Silence" }, { 3355, "Freezing Trap" }, { 5246, "Intimidating Shout" },
-}
-for _, spell in ipairs(hiddenOnEnemies) do
-    assert(filters.excludeSpellIDs[spell[1]], spell[2] .. " should stay off an enemy's portrait")
-end
-local shown = {
-    { 853, "Hammer of Justice" }, { 408, "Kidney Shot" }, { 8643, "Kidney Shot rank 2" }, { 1833, "Cheap Shot" },
-    { 5211, "Bash" }, { 20549, "War Stomp" }, { 122, "Frost Nova" }, { 339, "Entangling Roots" },
-    { 1776, "Gouge" }, { 1777, "Gouge rank 2" }, { 8629, "Gouge rank 3" }, { 11285, "Gouge rank 4" },
-    { 11286, "Gouge rank 5" }, { 38764, "Gouge rank 6" },
-    { 6770, "Sap rank 1" }, { 2070, "Sap rank 2" }, { 11297, "Sap rank 3" },
-}
-for _, spell in ipairs(shown) do
-    assert(not filters.excludeSpellIDs[spell[1]], spell[2] .. " should show")
-end
-
--- A wrong ID in the list would quietly leave that spell showing.
-for spellId in pairs(CarpenterSpellData.OtherCrowdControl) do
-    assert(CarpenterSpellData.GetSpellInfo(spellId) == "cc", "spell " .. spellId .. " should be crowd control in the spell list")
-    assert(filters.excludeSpellIDs[spellId], "spell " .. spellId .. " should be excluded")
-end
 
 local button = slot.button
 assert(button.width == 56 and button.height == 56, "the icon should be inset inside the portrait ring")

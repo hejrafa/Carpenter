@@ -61,42 +61,6 @@ addon.PriorityDebuffs = {
     23605, -- Nightfall, Spell Vulnerability
 }
 
--- Crowd control that isn't a stun or a root: fears, sleeps, polymorphs, silences,
--- and the like. Keyed by the spell ID its ranks point to in addon.Spells. Gouge and
--- Sap are left out on purpose: they're incapacitates, but they play like a stun.
-addon.OtherCrowdControl = {
-    [1090] = true, -- Magic Dust
-    [5134] = true, -- Flash Bomb
-    [605] = true, -- Mind Control
-    [8122] = true, -- Psychic Scream
-    [15487] = true, -- Silence
-    [9484] = true, -- Shackle Undead
-    [24259] = true, -- Spell Lock Silence
-    [6358] = true, -- Seduction
-    [5782] = true, -- Fear
-    [5484] = true, -- Howl of Terror
-    [710] = true, -- Banish
-    [6789] = true, -- Death Coil
-    [43523] = true, -- Unstable Affliction Silence
-    [20066] = true, -- Repentance
-    [10326] = true, -- Turn Evil
-    [1513] = true, -- Scare Beast
-    [3355] = true, -- Freezing Trap
-    [19386] = true, -- Wyvern Sting
-    [19503] = true, -- Scatter Shot
-    [34490] = true, -- Silencing Shot
-    [2637] = true, -- Hibernate
-    [33786] = true, -- Cyclone
-    [18469] = true, -- Improved Counterspell
-    [118] = true, -- Polymorph
-    [31661] = true, -- Dragon's Breath
-    [18425] = true, -- Improved Kick
-    [2094] = true, -- Blind
-    [1330] = true, -- Garrote Silence
-    [18498] = true, -- Improved Shield Bash
-    [5246] = true, -- Intimidating Shout
-}
-
 addon.Spells = {
 
     -- Racials
@@ -517,7 +481,7 @@ addon.Spells = {
     [31224] = { type = IMMUNITY_SPELL }, -- Cloak of Shadows
     [45182] = { type = BUFF_DEFENSIVE }, -- Cheating Death
     [14177] = { type = BUFF_OFFENSIVE }, -- Cold Blood
-    [14251] = { type = BUFF_OTHER }, -- Riposte (Rogue)
+    [14251] = { type = CROWD_CONTROL }, -- Riposte (Rogue), disarms
 
     -- Warrior
 
@@ -539,7 +503,7 @@ addon.Spells = {
     [5530] = { type = CROWD_CONTROL }, -- Mace Spec Stun (Warrior & Rogue)
     [5246] = { type = CROWD_CONTROL }, -- Intimidating Shout
         [20511] = { parent = 5246 },
-    [676] = { type = BUFF_OTHER }, -- Disarm
+    [676] = { type = CROWD_CONTROL }, -- Disarm
     [23920] = { type = IMMUNITY_SPELL }, -- Spell Reflection
     [12976] = { type = BUFF_DEFENSIVE }, -- Last Stand
     [12294] = { type = BUFF_OTHER }, -- Mortal Strike
@@ -588,17 +552,6 @@ end
 function addon.IsImportantDebuff(spellId)
     local t = addon.GetSpellInfo(spellId)
     return t == CROWD_CONTROL or t == ROOT
-end
-
--- Every rank of the spells in OtherCrowdControl, as { [spellID] = true }.
-function addon.GetOtherCrowdControlSpells()
-    local spells = {}
-    for spellId in pairs(addon.Spells) do
-        if addon.OtherCrowdControl[addon.GetRootSpellId(spellId)] then
-            spells[spellId] = true
-        end
-    end
-    return spells
 end
 
 function addon.IsBleedDebuff(spellId)

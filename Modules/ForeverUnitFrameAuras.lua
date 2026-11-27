@@ -2,7 +2,7 @@
 -- WoW Forever hides auras from addons in combat, so Classic's big crowd
 -- control portrait icon is rebuilt on the game's AuraContainer: each unit
 -- frame gets one aura slot that the game fills securely with the longest
--- stun or root on that unit. Carpenter only sets the filters, position, and
+-- crowd control on that unit. Carpenter only sets the filters, position, and
 -- style. The round icon sits over the portrait, inside the portrait ring, and
 -- the game hides it again when the effect ends.
 
@@ -15,14 +15,13 @@ local Nameplates = ns.Private.Nameplates or {}
 local FEATURE_KEY = "unitFrameDebuffsEnabled"
 
 local CROWD_CONTROL_FILTER = "HARMFUL|CROWD_CONTROL"
--- The game has no filter for stuns and roots, and its crowd control filter also
--- takes debuffs like Bonus XP and Resurrection Sickness, so these narrow it down.
--- Those two are permanent or last a minute or more, while the longest effect shown
--- here is Sap at 45 seconds (rank 3). The game only matches spell IDs on enemies,
--- so on friendly units a short fear or polymorph still gets through.
+-- The game's crowd control filter also takes debuffs like Bonus XP and
+-- Resurrection Sickness. Those are permanent or last a minute or more, while the
+-- longest crowd control is 50 seconds (Polymorph rank 4, Shackle Undead rank 3),
+-- so a maximum duration keeps them off the portrait. Mind Control's minute is
+-- left out with them.
 local CANDIDATE_FILTERS = {
-    maxDuration = 45,
-    excludeSpellIDs = CarpenterSpellData.GetOtherCrowdControlSpells(),
+    maxDuration = 50,
 }
 local PARTY_MEMBER_COUNT = 4
 local FALLBACK_PORTRAIT_SIZE = 60
