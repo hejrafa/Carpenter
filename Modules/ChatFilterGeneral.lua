@@ -1,5 +1,5 @@
 --[[ Carpenter - Chat Filter for WoW Forever and Retail ]]
--- Hides WTS and WTB posts in the General channel and in player yells.
+-- Hides WTS, WTB and LFW posts in the General channel and in player yells.
 -- Trade, party and say are left alone, and so are your own posts. NPC yells
 -- come as their own event and aren't touched.
 --
@@ -19,8 +19,8 @@ end
 local GENERAL_CHANNEL_ID = 1
 local EVENTS = { "CHAT_MSG_CHANNEL", "CHAT_MSG_YELL" }
 
--- Whole words only: "WTS", "[WTB]" and "wts:" count, "WTSing" doesn't.
-local TRADE_WORD_PATTERNS = { "%f[%w]wts%f[%W]", "%f[%w]wtb%f[%W]" }
+-- Whole words only: "WTS", "[WTB]" and "lfw:" count, "WTSing" doesn't.
+local TRADE_WORD_PATTERNS = { "%f[%w]wts%f[%W]", "%f[%w]wtb%f[%W]", "%f[%w]lfw%f[%W]" }
 
 local function IsTradePost(text)
     local lower = text:lower()

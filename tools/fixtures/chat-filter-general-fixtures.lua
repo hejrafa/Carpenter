@@ -1,5 +1,5 @@
 #!/usr/bin/env lua
--- Verifies the Retail and WoW Forever chat filter: WTS and WTB posts in the
+-- Verifies the Retail and WoW Forever chat filter: WTS, WTB and LFW posts in the
 -- General channel and in yells are hidden; Trade, other channels, say,
 -- party, NPC yells, your own posts and lines the game hides from addons are
 -- shown as they came.
@@ -86,10 +86,13 @@ expect(Hidden("[WTS] portals to Darnassus", GENERAL), true, "bracketed WTS is hi
 expect(Hidden("LFG Deadmines or WTB a run", GENERAL), true, "WTB mid-line is hidden")
 expect(Hidden("Wts: mageweave bags", GENERAL), true, "WTS with a colon is hidden")
 expect(Hidden("WTS/WTB enchants", GENERAL), true, "WTS/WTB is hidden")
+expect(Hidden("LFW Enchanter, all recipes, tips only", GENERAL), true, "LFW in General is hidden")
+expect(Hidden("[lfw] Alchemist", GENERAL), true, "bracketed lowercase LFW is hidden")
 
 -- General: ordinary chat and words that only contain the letters stay.
 expect(Hidden("anyone know where the newts are?", GENERAL), false, "a word ending in wts stays")
 expect(Hidden("WTSing all day", GENERAL), false, "a longer word stays")
+expect(Hidden("LFWorld boss group", GENERAL), false, "a word starting with lfw stays")
 expect(Hidden("Where is the Deadmines entrance?", GENERAL), false, "ordinary General chat stays")
 
 -- Other channels are left alone.
@@ -103,11 +106,14 @@ expect(Hidden(SECRET, GENERAL), false, "a hidden line is shown as it came")
 expect(Hidden("WTS portals", SECRET), false, "a hidden channel ID is shown as it came")
 expect(Hidden("WTS portals", GENERAL, SECRET), true, "a hidden sender doesn't stop the filter")
 
--- Yells: WTS and WTB go, everything else stays.
+-- Yells: WTS, WTB and LFW go, everything else stays.
 expect(HiddenYell("WTS PORTALS / FOOD / WATER TIP WHAT U LIKE :)"), true, "a WTS yell is hidden")
 expect(HiddenYell("wtb Righteous Orbs"), true, "a WTB yell is hidden")
+expect(HiddenYell("LFW BLACKSMITH ALL ARMOR MATS YOU BRING"), true, "an LFW yell is hidden")
+expect(HiddenYell("Lfw: Tailor, PST"), true, "LFW with a colon is hidden")
 expect(HiddenYell("LFM MC - 2 SR + 1 Tank"), false, "an ordinary yell stays")
 expect(HiddenYell("WTS portals", PLAYER_GUID), false, "your own WTS yell stays")
+expect(HiddenYell("LFW Enchanter", PLAYER_GUID), false, "your own LFW yell stays")
 expect(HiddenYell(SECRET), false, "a hidden yell is shown as it came")
 
 feature:Disable()
