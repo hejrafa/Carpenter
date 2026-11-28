@@ -44,7 +44,12 @@ local function GetLastItemIDs()
 end
 
 local function GetFallbackItem(key)
-    local itemID = GetLastItemIDs()[key] or (Data.FallbackItemIDs and Data.FallbackItemIDs[key])
+    local itemID = GetLastItemIDs()[key]
+    -- An Arathi Basin ration from the last battleground doesn't work out here.
+    if itemID and Data.IsUsableHere and not Data.IsUsableHere(itemID) then
+        itemID = nil
+    end
+    itemID = itemID or (Data.FallbackItemIDs and Data.FallbackItemIDs[key])
     if not itemID then return nil end
     -- Item IDs work in macros even for items that aren't in the bags or cached.
     return { itemID = itemID, name = "item:" .. itemID }
@@ -175,6 +180,9 @@ addonFrame:SetScript("OnEvent", function(self, event, unit)
         MarkDirty(2.0, true)
     elseif event == "SPELL_UPDATE_COOLDOWN" then
         MarkDirty(0.5, true)
+    elseif event == "ZONE_CHANGED_NEW_AREA" then
+        -- Zone-only items (battleground rations) start or stop counting.
+        MarkDirty(1.0, true)
     else
         -- Talents or the group role changed: Well Fed may want other stats.
         MarkDirty(1.0, true)
@@ -198,6 +206,7 @@ function feature:Enable()
     addonFrame:RegisterEvent("BAG_UPDATE_COOLDOWN")
     addonFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     addonFrame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
+    addonFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     for _, event in ipairs(ROLE_EVENTS) do
         Carpenter:SafeRegisterEvent(addonFrame, event)
     end

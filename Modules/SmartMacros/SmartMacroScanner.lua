@@ -120,6 +120,14 @@ local function GetBagFingerprint()
     return table.concat(parts, ";")
 end
 
+-- A zone-only item that works here goes first: it's worthless anywhere else.
+-- Bigger than the plain-food and conjured bonuses, well below Well Fed ranks.
+local ZONE_ONLY_BONUS = 4000000000
+
+local function IsZoneOnly(itemID)
+    return itemID ~= nil and Data.ZoneOnlyItems ~= nil and Data.ZoneOnlyItems[itemID] ~= nil
+end
+
 local function GetBestItems(debugOutput)
     local bestItems = {}
     local bestScores = {}
@@ -138,7 +146,9 @@ local function GetBestItems(debugOutput)
         local numSlots = GetNumSlots and GetNumSlots(bag) or 0
         for slot = 1, numSlots do
             local item = GetSlotItem(bag, slot)
-            if item and item.reqLevel <= playerLevel then
+            -- Battleground rations and the like only count where they work.
+            if item and item.reqLevel <= playerLevel
+                and (not Data.IsUsableHere or Data.IsUsableHere(item.itemID)) then
                 if not item.name then
                     needsItemInfoRetry = true
                 end
@@ -151,6 +161,9 @@ local function GetBestItems(debugOutput)
                     for category in pairs(GetScanCategories()) do
                         if Classifier.MatchesCategory and Classifier.MatchesCategory(item, tooltipData, spellText, category) then
                             local score = Classifier.ScoreItem(item, tooltipData, spellText, category, weights)
+                            if IsZoneOnly(item.itemID) then
+                                score = score + ZONE_ONLY_BONUS
+                            end
                             if debugOutput and (category == "Food" or category == "WellFed" or category == "Water") then
                                 print(string.format(
                                     "|cff00aaffCarpenter %s candidate:|r %s id=%s score=%s conjured=%s use=%s",

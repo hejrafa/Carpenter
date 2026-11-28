@@ -365,6 +365,60 @@ Data.KnownBandageIDs = {
     [8545] = true, [14529] = true, [14530] = true, [21990] = true, [21991] = true, [34721] = true, [34722] = true,
 }
 
+-- Consumables whose spell only works in certain areas, by AreaTable ID (Forever
+-- DB2 SpellCastingRequirements and AreaGroupMember, build 1.60.1.71037). The
+-- tooltip says "Usable only inside Arathi Basin". The battleground rations and
+-- bandages have the same IDs on Classic.
+local ARATHI_BASIN = { 3358 }
+local WARSONG_GULCH = { 3277 }
+local ALTERAC_VALLEY = { 2597 }
+local DARKSPEAR_ISLANDS = { 16606 }
+-- The Hinterlands, Ashenvale, Duskwood and Feralas.
+local DRAGON_PORTAL_ZONES = { 47, 331, 10, 357 }
+
+Data.ZoneOnlyItems = {
+    [20062] = ARATHI_BASIN, [20063] = ARATHI_BASIN, [20064] = ARATHI_BASIN, -- Arathi Basin rations
+    [20065] = ARATHI_BASIN, [20066] = ARATHI_BASIN, [20067] = ARATHI_BASIN, -- Arathi Basin bandages
+    [20222] = ARATHI_BASIN, [20223] = ARATHI_BASIN, [20224] = ARATHI_BASIN, -- Defiler's rations
+    [20232] = ARATHI_BASIN, [20234] = ARATHI_BASIN, [20235] = ARATHI_BASIN, -- Defiler's bandages
+    [20225] = ARATHI_BASIN, [20226] = ARATHI_BASIN, [20227] = ARATHI_BASIN, -- Highlander's rations
+    [20237] = ARATHI_BASIN, [20243] = ARATHI_BASIN, [20244] = ARATHI_BASIN, -- Highlander's bandages
+    [19060] = WARSONG_GULCH, [19061] = WARSONG_GULCH, [19062] = WARSONG_GULCH, -- Warsong Gulch rations
+    [19066] = WARSONG_GULCH, [19067] = WARSONG_GULCH, [19068] = WARSONG_GULCH, -- Warsong Gulch bandages
+    [19307] = ALTERAC_VALLEY, -- Alterac Heavy Runecloth Bandage
+    [272053] = DARKSPEAR_ISLANDS, [272054] = DARKSPEAR_ISLANDS, [272055] = DARKSPEAR_ISLANDS, -- rations
+    [272056] = DARKSPEAR_ISLANDS, [272057] = DARKSPEAR_ISLANDS, [272058] = DARKSPEAR_ISLANDS, -- bandages
+    [223912] = DRAGON_PORTAL_ZONES, -- Purification Potion
+    [223913] = DRAGON_PORTAL_ZONES, -- Major Healing Potion
+    [223914] = DRAGON_PORTAL_ZONES, -- Greater Healing Potion
+}
+
+-- Area names come from the game, so they match the player's language and the
+-- zone text. Static data: read once per area.
+local areaNames = {}
+local function GetAreaName(areaID)
+    local name = areaNames[areaID]
+    if name == nil then
+        local getAreaInfo = C_Map and C_Map.GetAreaInfo
+        name = getAreaInfo and getAreaInfo(areaID) or false
+        if name == "" then name = false end
+        areaNames[areaID] = name
+    end
+    return name or nil
+end
+
+-- False for an item that only works somewhere else.
+function Data.IsUsableHere(itemID)
+    local areas = itemID and Data.ZoneOnlyItems[itemID]
+    if not areas then return true end
+    local zone = GetRealZoneText and GetRealZoneText()
+    if not zone or zone == "" then return false end
+    for _, areaID in ipairs(areas) do
+        if GetAreaName(areaID) == zone then return true end
+    end
+    return false
+end
+
 Data.ConsumableClassID = 0
 Data.PotionSubclassID = 1
 Data.FoodDrinkSubclassID = 5

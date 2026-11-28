@@ -418,6 +418,66 @@ do
     playerGUID = "Player-1-00000001"
     bagSlots[0] = savedBag
     fixtureCount = fixtureCount + 6
+
+    -- Battleground rations only count inside their battleground.
+    local zone = "Arathi Highlands"
+    GetRealZoneText = function() return zone end
+    local AREA_NAMES = { [3358] = "Arathi Basin", [3277] = "Warsong Gulch" }
+    C_Map = { GetAreaInfo = function(areaID) return AREA_NAMES[areaID] end }
+    itemInfoByID[20062] = { name = "Arathi Basin Enriched Ration", itemLevel = 55, reqLevel = 45, itemType = "Consumable", itemSubType = "Other", classID = 0, subClassID = 8 }
+    itemInfoByID[20066] = { name = "Arathi Basin Runecloth Bandage", itemLevel = 50, reqLevel = 0, itemType = "Consumable", itemSubType = "Bandage", classID = 0, subClassID = 7 }
+    tooltipByItemID[20062] = {
+        text = "use: restores 2065 health and 4240 mana over 30 sec. must remain seated while eating. usable only inside arathi basin.",
+        useText = "use: restores 2065 health and 4240 mana over 30 sec. must remain seated while eating. usable only inside arathi basin.",
+        isFoodAndDrink = true,
+    }
+    tooltipByItemID[20066] = { text = "use: heals 2000 damage over 8 sec. usable only inside arathi basin.", useText = "" }
+    bagSlots[0][6] = { itemID = 20062, count = 20, link = "|Hitem:20062::::::::|h[Arathi Basin Enriched Ration]|h" }
+    bagSlots[0][7] = { itemID = 20066, count = 20, link = "|Hitem:20066::::::::|h[Arathi Basin Runecloth Bandage]|h" }
+
+    local addonFrame = createdFrames[1]
+    if not (addonFrame and addonFrame.events.ZONE_CHANGED_NEW_AREA) then
+        failures[#failures + 1] = "zone-only items: a zone change should rescan the bags"
+    end
+
+    macros = {}
+    RunUpdate()
+    if macros.CarpenterFood ~= "Roasted Quail" then
+        failures[#failures + 1] = "zone-only items: outside Arathi Basin the food macro should skip its ration, got " .. tostring(macros.CarpenterFood)
+    end
+    if macros.CarpenterBand ~= "item:1251" then
+        failures[#failures + 1] = "zone-only items: outside Arathi Basin the bandage macro should skip its bandage, got " .. tostring(macros.CarpenterBand)
+    end
+
+    zone = "Arathi Basin"
+    RunUpdate()
+    if macros.CarpenterFood ~= "Arathi Basin Enriched Ration" then
+        failures[#failures + 1] = "zone-only items: inside Arathi Basin the food macro should use its ration, got " .. tostring(macros.CarpenterFood)
+    end
+    if macros.CarpenterBand ~= "Arathi Basin Runecloth Bandage" then
+        failures[#failures + 1] = "zone-only items: inside Arathi Basin the bandage macro should use its bandage, got " .. tostring(macros.CarpenterBand)
+    end
+
+    -- Back outside with nothing else to eat: the remembered ration doesn't work
+    -- here, so the macro shows the default food instead.
+    zone = "Warsong Gulch"
+    bagSlots[0] = { [1] = bagSlots[0][6], [2] = bagSlots[0][7] }
+    RunUpdate()
+    if macros.CarpenterFood ~= "item:117" or macros.CarpenterBand ~= "item:1251" then
+        failures[#failures + 1] = "zone-only items: a remembered ration shouldn't come back outside its zone, got " .. tostring(macros.CarpenterFood) .. " / " .. tostring(macros.CarpenterBand)
+    end
+
+    if not macroData.IsUsableHere(8952) then
+        failures[#failures + 1] = "zone-only items: ordinary food works everywhere"
+    end
+    zone = ""
+    if macroData.IsUsableHere(20062) then
+        failures[#failures + 1] = "zone-only items: an unknown zone shouldn't count as Arathi Basin"
+    end
+    bagSlots[0] = savedBag
+    itemInfoByID[20062], itemInfoByID[20066] = nil, nil
+    GetRealZoneText, C_Map = nil, nil
+    fixtureCount = fixtureCount + 8
 end
 
 -- =========================
